@@ -105,6 +105,8 @@ pub mod count_on_luck;
 pub mod country_roads;
 #[path = "dft/crash_and_burn.rs"]
 pub mod crash_and_burn;
+#[path = "dft/cryptcaller_chariot.rs"]
+pub mod cryptcaller_chariot;
 #[path = "dft/cursecloth_wrappings.rs"]
 pub mod cursecloth_wrappings;
 #[path = "dft/daretti_rocketeer_engineer.rs"]
@@ -235,6 +237,10 @@ pub mod lotusguard_disciple;
 pub mod loxodon_surveyor;
 #[path = "dft/lumbering_worldwagon.rs"]
 pub mod lumbering_worldwagon;
+#[path = "dft/magmakin_artillerist.rs"]
+pub mod magmakin_artillerist;
+#[path = "dft/marauding_mako.rs"]
+pub mod marauding_mako;
 #[path = "dft/marketback_walker.rs"]
 pub mod marketback_walker;
 #[path = "dft/marshals_pathcruiser.rs"]
@@ -339,12 +345,16 @@ pub mod rover_blades;
 pub mod run_over;
 #[path = "dft/sab_sunen_luxa_embodied.rs"]
 pub mod sab_sunen_luxa_embodied;
+#[path = "dft/sabotage_strategist.rs"]
+pub mod sabotage_strategist;
 #[path = "drc/saheeli_radiant_creator.rs"]
 pub mod saheeli_radiant_creator;
 #[path = "dft/salvation_engine.rs"]
 pub mod salvation_engine;
 #[path = "dft/scrap_compactor.rs"]
 pub mod scrap_compactor;
+#[path = "dft/scrounging_skyray.rs"]
+pub mod scrounging_skyray;
 #[path = "dft/shefet_archfiend.rs"]
 pub mod shefet_archfiend;
 #[path = "dft/silken_strength.rs"]
@@ -361,6 +371,8 @@ pub mod skyseer_s_chariot;
 pub mod skyserpent_seeker;
 #[path = "dft/skystreak_engineer.rs"]
 pub mod skystreak_engineer;
+#[path = "dft/slick_imitator.rs"]
+pub mod slick_imitator;
 #[path = "pf25/sokka_bold_boomeranger.rs"]
 pub mod sokka_bold_boomeranger;
 #[path = "dft/spectacular_pileup.rs"]
@@ -407,6 +419,8 @@ pub mod thunderhead_gunner;
 pub mod thundering_broodwagon;
 #[path = "dft/ticket_tortoise.rs"]
 pub mod ticket_tortoise;
+#[path = "pf25/tifa_lockhart.rs"]
+pub mod tifa_lockhart;
 #[path = "dft/trade_the_helm.rs"]
 pub mod trade_the_helm;
 #[path = "dft/transit_mage.rs"]

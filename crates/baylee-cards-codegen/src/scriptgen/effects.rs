@@ -964,6 +964,12 @@ impl Tx<'_> {
                 .oracle
                 .to_ascii_lowercase()
                 .contains("target creatures");
+        if (p.peek("NumAtt").map(str::trim) == Some("Double")
+            || p.peek("NumDef").map(str::trim) == Some("Double"))
+            && !single_target_double_ok
+        {
+            return self.wave17c_pump_double_effect(p, target, second);
+        }
         let power = match p.take("NumAtt").as_deref().map(str::trim) {
             Some("Double") if single_target_double_ok => "Amount::TargetPower".to_string(),
             Some(raw) => self.pump_side_ext(raw)?,
@@ -1308,7 +1314,8 @@ impl Tx<'_> {
         })
     }
 
-    fn pump_kw_and_prevent(
+    #[allow(clippy::too_many_lines)]
+    pub(super) fn pump_kw_and_prevent(
         &mut self,
         kw: &str,
         opponents_only_lure: bool,
@@ -1389,6 +1396,23 @@ impl Tx<'_> {
                     let expr = self.landwalk_filter(other)?;
                     let filter = self.body.filter_static("LANDWALK", &expr);
                     prevent.push(format!("Modifier::LandwalkMatching(&{filter})"));
+                }
+                other if other.starts_with("Firebending:") => {
+                    let mut fields = other["Firebending:".len()..].split(':');
+                    let amt_raw = fields.next()?.trim();
+                    let _prose = fields.next();
+                    if fields.next().is_some() {
+                        return None;
+                    }
+                    let n = amt_raw.parse::<u32>().ok().filter(|&v| v >= 1)?;
+                    prevent.push("Modifier::AddKeyword(KeywordSet::FIREBENDING)".to_string());
+                    let def_name = self.body.ability_static(
+                        "GRANTED_TRIGGER_",
+                        &format!(
+                            "triggered!(Trigger::Attacks(&Filter::This), &[Effect::Firebend(Amount::Fixed({n}))])"
+                        ),
+                    );
+                    prevent.push(format!("Modifier::GrantTriggeredDefinition(&{def_name})"));
                 }
                 other => normal.push(other),
             }
@@ -1556,6 +1580,14 @@ impl Tx<'_> {
                 "Effect::continuous(&{filter}, Modifier::ProtectionFrom(&{from}), {duration})"
             )]);
         }
+        if (p.peek("NumAtt").map(str::trim) == Some("Double")
+            || p.peek("NumDef").map(str::trim) == Some("Double"))
+            && !targets_here
+            && (target.is_none() || prior_target_used)
+            && p.peek("Defined").is_none()
+        {
+            return self.wave17c_pump_all_double_effect(p);
+        }
         let defined = p.take("Defined");
         let controlled_by = if target == Some("TargetSpec::Player(PlayerRel::Chosen)")
             && ((targets_a_player && matches!(defined.as_deref(), None | Some("Targeted")))
@@ -1704,11 +1736,16 @@ impl Tx<'_> {
         *p = saved_p_cza;
         *self.unclaimed.borrow_mut() = saved_unclaimed_cza;
         self.body.statics.truncate(saved_statics_cza);
-        self.wave28d_change_zone_all(p, target, targets_a_player, prior_target_used)
+        if let Some(effs) =
+            self.wave28d_change_zone_all(p, target, targets_a_player, prior_target_used)
+        {
+            return Some(effs);
+        }
+        self.wave29a_change_zone_all_extra(p, target, targets_a_player, prior_target_used)
     }
 
     #[allow(clippy::too_many_lines)]
-    fn shuffle_into_library_with_prior_inner(
+    pub(super) fn shuffle_into_library_with_prior_inner(
         &mut self,
         p: &mut Params,
         target: Option<&str>,
@@ -1728,6 +1765,12 @@ impl Tx<'_> {
         }
         if p.peek("Destination") != Some("Library") {
             if p.peek("Origin") == Some("Graveyard") && p.peek("Destination") == Some("Exile") {
+                if p.peek("ChangeType") == Some("Card.TriggeredCards")
+                    && self.trigger_mode.as_deref() == Some("DiscardedAll")
+                    && (target.is_none() || prior_target_used)
+                {
+                    return self.wave17c_exile_triggered_discarded_cards(p);
+                }
                 p.take("Origin");
                 p.take("Destination");
                 p.take("IsCurse");
@@ -2255,6 +2298,12 @@ impl Tx<'_> {
             if let Some(effects) = self.wave28b_effect_api(p, target) {
                 return Some(effects);
             }
+            p.clone_from(&snap);
+            (*self.unclaimed.borrow_mut()).clone_from(&saved_unclaimed);
+            self.body.statics.truncate(saved_statics_len);
+            if let Some(effects) = self.wave29a_effect_api(p, target) {
+                return Some(effects);
+            }
             *p = snap;
             *self.unclaimed.borrow_mut() = saved_unclaimed;
             self.body.statics.truncate(saved_statics_len);
@@ -2629,7 +2678,7 @@ impl Tx<'_> {
         };
         let src_ref =
             match valid_source.as_deref() {
-                None => "&Filter::Any".to_string(),
+                None | Some("Card,Emblem" | "Emblem,Card") => "&Filter::Any".to_string(),
                 Some(
                     "Card.Self" | "Creature.Self" | "Card.EffectSource" | "Creature.EffectSource",
                 ) if !self.on_a_spell => "&Filter::This".to_string(),
@@ -2686,10 +2735,37 @@ impl Tx<'_> {
                 "Effect::continuous(&Filter::Any, {}, {duration})",
                 build_mod("DamageRecipients::Players(PlayerRel::EachOpponent)")
             )]),
-            (Some("Player.IsRemembered"), EffectSubject::Player(who)) => Some(vec![format!(
-                "Effect::continuous(&Filter::Any, {}, {duration})",
-                build_mod(&format!("DamageRecipients::Players({who})"))
-            )]),
+            (Some("Player.IsRemembered"), subject)
+                if self
+                    .effect_static_player(Some("Player.IsRemembered"), subject)
+                    .is_some() =>
+            {
+                let who = self.effect_static_player(Some("Player.IsRemembered"), subject)?;
+                Some(vec![format!(
+                    "Effect::continuous(&Filter::Any, {}, {duration})",
+                    build_mod(&format!("DamageRecipients::Players({who})"))
+                )])
+            }
+            (
+                Some(
+                    "Player.IsRemembered,Permanent.ControlledBy Player.IsRemembered"
+                    | "Permanent.ControlledBy Player.IsRemembered,Player.IsRemembered"
+                    | "Player.IsRemembered,Permanent.RememberedPlayerCtrl"
+                    | "Permanent.RememberedPlayerCtrl,Player.IsRemembered",
+                ),
+                subject,
+            ) if self
+                .effect_static_player(Some("Player.IsRemembered"), subject)
+                .is_some() =>
+            {
+                let who = self.effect_static_player(Some("Player.IsRemembered"), subject)?;
+                Some(vec![format!(
+                    "Effect::continuous(&Filter::Any, {}, {duration})",
+                    build_mod(&format!(
+                        "DamageRecipients::PlayersOrTheirPermanents({who})"
+                    ))
+                )])
+            }
             (
                 Some("Player.Opponent,Permanent.OppCtrl" | "Permanent.OppCtrl,Player.Opponent"),
                 EffectSubject::Unbound,
@@ -2966,6 +3042,9 @@ impl Tx<'_> {
     ) -> Option<Vec<String>> {
         if !matches!(st.take("EffectZone").as_deref(), None | Some("Command")) {
             return None;
+        }
+        if let Some(fx) = Self::wave29a_static_effect_line(mode, st, subject, duration) {
+            return Some(fx);
         }
         match mode {
             "CantBlockBy" => self.effect_cant_block_by(st, subject, duration),
@@ -3330,7 +3409,6 @@ impl Tx<'_> {
             || raw_valid.contains("EffectSource")
             || raw_valid.contains("RememberedPlayer")
             || raw_valid.contains("sharesCreatureTypeWith")
-            || raw_valid.contains("faceDown")
         {
             return None;
         }
@@ -3434,6 +3512,12 @@ impl Tx<'_> {
             ("UntilUntaps", "You") if !self.on_a_spell && subject == EffectSubject::Targets => {
                 "Duration::WhileSourceTapped { control: false, power_limited: false }"
             }
+            ("LeavesPlay" | "UntilHostLeavesPlay", "You")
+                if !self.on_a_spell
+                    && matches!(subject, EffectSubject::Targets | EffectSubject::Event) =>
+            {
+                "Duration::WhileSourceOnBattlefield"
+            }
             _ => return None,
         };
         self.emit_effect_modifiers(
@@ -3444,12 +3528,16 @@ impl Tx<'_> {
         )
     }
 
+    #[allow(clippy::too_many_lines)]
     pub(super) fn effect_remember_subject(
         &self,
         p: &mut Params,
         target: Option<&str>,
     ) -> Option<EffectSubject> {
-        let obj_target = target.is_some_and(|t| t.starts_with("TargetSpec::Object("));
+        let obj_target = target.is_some_and(|t| {
+            t.starts_with("TargetSpec::Object(")
+                || t.starts_with("TargetSpec::ObjectOfEachOpponent(")
+        });
         let player_target = matches!(
             target,
             Some(
@@ -4355,8 +4443,21 @@ impl Tx<'_> {
         p.take("IsCurse");
         let who =
             self.wave11_player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
+        if let Some(effs) = self.wave29c_dig_exile_optional_cost_split(who, &dig_num, sub) {
+            return Some(effs);
+        }
         let (fixed_count, amount_expr) = self.exile_top_count_amount(&dig_num)?;
         self.exile_top_play_follow_up(who, fixed_count, &amount_expr, sub)
+    }
+
+    pub(super) fn exile_top_play_follow_up_pub(
+        &mut self,
+        who: &str,
+        fixed_count: Option<u8>,
+        amount_expr: &str,
+        sub: &mut Option<String>,
+    ) -> Option<Vec<String>> {
+        self.exile_top_play_follow_up(who, fixed_count, amount_expr, sub)
     }
 
     /// `Dig | Defined$ You | DigNum$ N | DestinationZone$ Exile | ExileFaceDown$ True |
@@ -5346,7 +5447,7 @@ impl Tx<'_> {
     }
 
     #[allow(clippy::too_many_lines)]
-    fn parse_exile_play_static(
+    pub(super) fn parse_exile_play_static(
         &mut self,
         static_name: &str,
         marker: ExileAffectedMarker,
@@ -5954,6 +6055,12 @@ impl Tx<'_> {
             return self.search_library_and_or_graveyard(p, &destination, targets_here, false);
         }
         if origin == "Library" {
+            if destination == "Exile"
+                && p.peek("RememberChanged") == Some("True")
+                && self.wave29a_is_linked_library_exile_remember_pair()
+            {
+                p.take("RememberChanged");
+            }
             return self.search_library(p, &destination, target, targets_here);
         }
         if matches!(origin.as_str(), "Library,Graveyard" | "Graveyard,Library") {
@@ -6154,6 +6261,7 @@ impl Tx<'_> {
             && destination == "Hand"
             && p.peek("Hidden") == Some("True")
             && p.peek("AtRandom") == Some("True")
+            && matches!(p.peek("ChangeNum"), None | Some("1"))
             && p.has("ChangeType")
         {
             return self.random_graveyard_to_hand(p);
@@ -6181,6 +6289,7 @@ impl Tx<'_> {
                         let lower = self.oracle.to_ascii_lowercase();
                         lower.contains("you may ")
                             || lower.contains("up to ")
+                            || (destination == "Hand" && lower.contains("unless you return "))
                             || (destination == "Exile"
                                 && !lower.contains("may exile")
                                 && lower.contains("exile a ")
@@ -6188,6 +6297,25 @@ impl Tx<'_> {
                     })))
         {
             return self.choose_from_your_graveyard(p, &destination, target);
+        }
+        if !itself
+            && !self.on_a_spell
+            && target == "TargetSpec::AnyPlayer"
+            && origin == "Exile"
+            && matches!(destination.as_str(), "Hand" | "Graveyard")
+            && p.peek("Hidden") == Some("True")
+            && p.peek("ChangeType")
+                .is_some_and(|ct| ct.contains("IsRemembered") && !ct.contains("!IsRemembered"))
+            && !p.has("AtRandom")
+            && !p.has("RememberChanged")
+            && self.wave29a_is_linked_library_exile_remember_pair()
+        {
+            for (k, v) in &mut p.entries {
+                if k == "ChangeType" {
+                    *v = v.replace("IsRemembered", "ExiledWithSource");
+                }
+            }
+            return self.choose_from_linked_exile(p, &destination);
         }
         if !itself
             && !self.on_a_spell
@@ -6502,6 +6630,9 @@ impl Tx<'_> {
                 }
                 match p.take("Imprint").as_deref() {
                     Some("True") => vec!["Effect::ExileTargetsWithSource".to_string()],
+                    None if self.has_linked_exile_reader() => {
+                        vec![format!("Effect::exile_linked({target})")]
+                    }
                     None => vec![format!("Effect::exile({target})")],
                     Some(other) => {
                         return self.deny(format!("`ChangeZone` with `Imprint$ {other}`"));
@@ -7202,11 +7333,11 @@ impl Tx<'_> {
         any
     }
 
-    fn card_has_unlinked_exile_producer(&self) -> bool {
+    pub(super) fn card_has_unlinked_exile_producer(&self) -> bool {
         if self.body.delve || self.oracle.to_ascii_lowercase().contains("delve") {
             return true;
         }
-        let has_cost_exile_oracle = self.oracle.lines().any(|line| {
+        let has_cost_exile_oracle = self.oracle.split("\\n").flat_map(str::lines).any(|line| {
             line.split_once(':').is_some_and(|(cost, _)| {
                 let lower = cost.to_ascii_lowercase();
                 lower.contains("exile ")
@@ -7328,10 +7459,12 @@ impl Tx<'_> {
             }
         };
         let owner_control_bf = destination == "Battlefield" && !gain_control;
+        let is_perm_linked = Self::is_permanent_card_filter(&stripped)
+            || (stripped == "Card" && self.wave29a_linked_exile_card_is_permanent());
         if destination == "Battlefield"
             && (owner_control_bf || counters.is_some() || !modifiers.is_empty())
         {
-            if max_expr != "Amount::Fixed(1)" || !Self::is_permanent_card_filter(&stripped) {
+            if max_expr != "Amount::Fixed(1)" || !is_perm_linked {
                 return None;
             }
             let move_fx = Self::format_move_and_modify(
@@ -7650,7 +7783,9 @@ impl Tx<'_> {
             (None, None)
                 if prompt_opt || {
                     let lower = self.oracle.to_ascii_lowercase();
-                    lower.contains("you may ") || lower.contains("up to ")
+                    lower.contains("you may ")
+                        || lower.contains("up to ")
+                        || (destination == "Hand" && lower.contains("unless you return "))
                 } =>
             {
                 Some(true)
@@ -8399,12 +8534,14 @@ impl Tx<'_> {
             .unwrap_or(self.script_name);
         let linked = destination == "Exile"
             && is_own_library
-            && self.trigger_mode.as_deref() == Some("ChangesZone")
-            && self.trigger_is_self
-            && self.oracle.to_ascii_lowercase().contains(&format!(
-                "from among cards exiled with {} without ",
-                source_name.to_ascii_lowercase()
-            ));
+            && (self
+                .svars
+                .values()
+                .any(|s| s.contains("Defined$ ExiledWith") || s.contains("ExiledWithSource"))
+                || self
+                    .oracle
+                    .to_ascii_lowercase()
+                    .contains(&format!("exiled with {}", source_name.to_ascii_lowercase())));
         let base_find_raw = match (destination, tapped) {
             ("Battlefield", false) => "Find::BATTLEFIELD",
             ("Battlefield", true) => "Find::BATTLEFIELD_TAPPED",
@@ -9425,6 +9562,7 @@ impl Tx<'_> {
             {
                 Some(vec!["Effect::ExileSource".to_string()])
             }
+            ("Graveyard", "Exile") => self.wave29a_event_graveyard_to_exile(p, defined),
             ("Graveyard", "Hand") => Some(vec![
                 "Effect::GraveyardToHand { target: TargetSpec::EventObject }".to_string(),
             ]),
@@ -9570,6 +9708,12 @@ impl Tx<'_> {
         if let Some(expr) = self.wave28b_amount_ext(trimmed, &resolved) {
             return Some(expr);
         }
+        if let Some(expr) = self.wave29b_amount_ext(trimmed, &resolved) {
+            return Some(expr);
+        }
+        if let Some(expr) = self.wave29c_amount_ext(trimmed, &resolved) {
+            return Some(expr);
+        }
         *self.unclaimed.borrow_mut() = after_unclaimed;
         None
     }
@@ -9597,7 +9741,11 @@ impl Tx<'_> {
             .map_or(body, String::as_str)
             .trim()
             .to_string();
-        if let Some(expr) = self.wave6_count_expr_depth(&resolved, 0) {
+        if let Some(expr) = self
+            .wave6_count_expr_depth(&resolved, 0)
+            .or_else(|| self.wave28b_amount_ext(body, &resolved))
+            .or_else(|| self.wave29b_amount_ext(body, &resolved))
+        {
             return Some(if neg {
                 format!("Amount::Negated(&{expr})")
             } else {
@@ -9807,6 +9955,7 @@ impl Tx<'_> {
                     self.trigger_mode.as_deref(),
                     Some(
                         "ChangesZoneAll"
+                            | "DiscardedAll"
                             | "Attacked"
                             | "AttackersDeclared"
                             | "AttackersDeclaredOneTarget"
@@ -9865,6 +10014,7 @@ impl Tx<'_> {
         self.wave6_count_expr_depth(&inner, depth + 1)
             .or_else(|| self.amount_or_count(trimmed))
             .or_else(|| self.wave28b_amount_ext(trimmed, &inner))
+            .or_else(|| self.wave29b_amount_ext(trimmed, &inner))
     }
 
     #[allow(clippy::too_many_lines)]
@@ -10347,7 +10497,9 @@ impl Tx<'_> {
         let obj_target = target.filter(|t| {
             t.starts_with("TargetSpec::Object(")
                 || t.starts_with("TargetSpec::ObjectOfEachOpponent(")
+                || t.starts_with("TargetSpec::ObjectOfEventPlayer(")
                 || t.starts_with("TargetSpec::CardInGraveyard(")
+                || t.starts_with("TargetSpec::ObjectOrCardInAnyGraveyard(")
         });
         let defined_copy = p.take("Defined");
         if let Some(raw) = defined_copy.as_deref()
@@ -10384,7 +10536,20 @@ impl Tx<'_> {
             {
                 "TargetSpec::EventObject".to_string()
             }
-            _ => return None,
+            _ => {
+                return self.wave29c_copy_permanent_defined(
+                    defined_copy.as_deref(),
+                    target,
+                    targets_here,
+                    controller,
+                    &mods_list,
+                    tapped,
+                    attacking,
+                    haste_until_eot,
+                    cleanup,
+                    &wrap,
+                );
+            }
         };
         if targets_a_player && controller != "PlayerRel::Chosen" {
             return None;
@@ -11488,7 +11653,7 @@ impl Tx<'_> {
             stripped_alts.push(stripped);
         }
         Self::normalize_valid_alts(&stripped_alts.join(","))
-            == Self::normalize_valid_alts(sac_valid)
+            == Self::normalize_valid_alts(&Self::wave29c_strip_optional_you_ctrl_alts(sac_valid))
     }
 
     fn collect_sac_any_count_alts(&self, raw: &str, depth: u8, out: &mut Vec<String>) -> bool {
@@ -12460,7 +12625,10 @@ impl Tx<'_> {
             return (count == 1
                 && !optional
                 && on_sac
-                && check_valid.is_none()
+                && matches!(
+                    check_valid.as_deref(),
+                    None | Some("Card" | "Permanent" | "Card.Self" | "Self")
+                )
                 && who == "PlayerRel::You"
                 && !self.on_a_spell)
                 .then(|| {
@@ -13044,7 +13212,7 @@ impl Tx<'_> {
         out
     }
 
-    fn wrap_amount_suffix(base: String, suffix: &str) -> Option<String> {
+    pub(super) fn wrap_amount_suffix(base: String, suffix: &str) -> Option<String> {
         if suffix.is_empty() {
             return Some(base);
         }
@@ -13186,6 +13354,14 @@ impl Tx<'_> {
             format!("Amount::LibrarySize({who})")
         } else if head == "PlayerCountRemembered$LifeTotal" {
             format!("Amount::LifeTotal({who})")
+        } else if head == "PlayerCountRemembered$LifeLostThisTurn" {
+            format!("Amount::LifeLostThisTurn({who})")
+        } else if head == "PlayerCountRemembered$LifeGainedThisTurn" {
+            format!("Amount::LifeGainedThisTurn({who})")
+        } else if head == "PlayerCountRemembered$CardsDrawn" {
+            format!("Amount::CardsDrawnThisTurn({who})")
+        } else if head == "PlayerCountRemembered$CardsDiscardedThisTurn" {
+            format!("Amount::CardsDiscardedThisTurn({who})")
         } else {
             return None;
         };
@@ -13311,12 +13487,18 @@ impl Tx<'_> {
             return self
                 .deny("`RepeatEach` `Filter::Reference` beside an outer target".to_string());
         }
-        let effects = if domain == "RepeatDomain::EachPlayer"
+        let effects = if let Some(collapsed) = self
+            .wave29b_collapse_repeat_each(&domain, &body_effects, !chain.effects.is_empty())
+            .transpose()
+        {
+            collapsed.ok()?
+        } else if domain == "RepeatDomain::EachPlayer"
             && body_effects
                 == Self::shuffle_and_redraw_effects(
                     "PlayerRel::EventPlayer",
                     "PlayerRel::EventPlayer",
-                ) {
+                )
+        {
             if !chain.effects.is_empty() {
                 return self.deny("a shared hand shuffle and redraw after earlier effects".into());
             }
@@ -13344,7 +13526,7 @@ impl Tx<'_> {
         self.chain_sub_ability(sub.map(str::to_string), chain)
     }
 
-    fn shuffle_and_redraw_effects(who: &str, count_for: &str) -> Vec<String> {
+    pub(super) fn shuffle_and_redraw_effects(who: &str, count_for: &str) -> Vec<String> {
         vec![
             format!("Effect::ShuffleIntoLibrary {{ who: {who}, hand: true, graveyard: false }}"),
             format!(
@@ -13410,7 +13592,10 @@ impl Tx<'_> {
         }])
     }
 
-    fn take_wave8_line_condition(&mut self, p: &mut Params) -> Result<Option<String>, ()> {
+    pub(super) fn take_wave8_line_condition(
+        &mut self,
+        p: &mut Params,
+    ) -> Result<Option<String>, ()> {
         if let Some(raw) = p.peek("Condition")
             && let Some(cond) =
                 Self::named_condition(raw).or_else(|| Self::wave7_named_condition(raw))
@@ -13795,6 +13980,9 @@ impl Tx<'_> {
                 )],
                 next_sub.map(str::to_string),
             ));
+        }
+        if let Some(step) = self.wave29b_repeat_each_step(api, sp, next_sub) {
+            return Some(step);
         }
         // Wheel inside `RepeatEach`: shuffle hand into library, then draw that many cards.
         if api == "ChangeZoneAll"
@@ -14962,6 +15150,10 @@ impl Tx<'_> {
         })
     }
 
+    pub(super) fn compile_chosen_object_chain(&mut self, sub_name: &str) -> Option<Vec<String>> {
+        self.compile_wave8_scoped_chain(sub_name, Wave8Scope::ChosenObject, None, true)
+    }
+
     fn strip_chosen_card_cleanup_tail(&self, after: Option<String>) -> Option<String> {
         let name = after?;
         if self.is_wave8_cleanup_svar(&name, true) {
@@ -15816,6 +16008,9 @@ impl Tx<'_> {
         targets_a_player: bool,
         chain: &mut super::Chain,
     ) -> Option<()> {
+        if p.peek("Random") == Some("True") {
+            return self.wave29d_reveal_random_chain(p, sub, target, targets_a_player, chain);
+        }
         let outer_cond = self.take_wave8_line_condition(&mut p).ok()?;
         let who =
             self.wave11_player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
@@ -16542,6 +16737,26 @@ impl Tx<'_> {
         targets_a_player: bool,
     ) -> Option<Vec<String>> {
         p.take("IsCurse");
+        if p.peek("Step") == Some("Draw")
+            && p.peek("Duration") == Some("EndOfTurn")
+            && !p.has("Phase")
+            && !p.has("NumPhases")
+        {
+            p.take("Step");
+            p.take("Duration");
+            let player =
+                self.wave11_player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
+            if matches!(
+                player,
+                "PlayerRel::You" | "PlayerRel::EachOpponent" | "PlayerRel::EachPlayer"
+            ) {
+                return Some(vec![format!(
+                    "Effect::continuous(&Filter::Any, Modifier::SkipDrawStep {{ who: {player} }}, \
+                     Duration::UntilEndOfTurn)"
+                )]);
+            }
+            return None;
+        }
         if p.has("Step") || p.has("Duration") || p.has("NumPhases") {
             return None;
         }
@@ -16907,6 +17122,8 @@ impl Tx<'_> {
             ))
         } else if lower.contains("life to pay") {
             Some(("NumberChoiceKind::Choice", "Some(VariablePayKind::Life)"))
+        } else if !lower.contains("pay") {
+            Some(("NumberChoiceKind::Choice", "None"))
         } else {
             None
         }
@@ -17694,7 +17911,12 @@ impl Tx<'_> {
                 continue;
             }
             // Non-remembered follow-up step: leave it for the normal chain walker
-            // if we already consumed the remembered value.
+            // if we already consumed the remembered value, unless the remaining
+            // subchain still reads or cleans up `Remembered` (e.g. *Balin, Loremaster*),
+            // in which case yield to `CaptureAffected`.
+            if self.wave29b_sub_chain_reads_remembered(&name) {
+                return None;
+            }
             *sub = Some(name);
             break;
         }
@@ -20101,7 +20323,7 @@ impl Tx<'_> {
     // and Effect::SetPTByCountFilter.
     // -------------------------------------------------------------------------
 
-    fn strip_exiled_with_source_filter(valid: &str) -> Option<String> {
+    pub(super) fn strip_exiled_with_source_filter(valid: &str) -> Option<String> {
         let mut out = Vec::new();
         for alt in valid.split(',').map(str::trim) {
             if alt.is_empty() {
@@ -20890,8 +21112,9 @@ impl Tx<'_> {
                 return Some((label, effs));
             }
             sp = saved_sp.clone();
-            if let Some(mut effs) =
-                self.try_vote_counted_step(&api, &mut sp, option_idx, chain.target.as_deref())
+            if let Some(mut effs) = self
+                .try_vote_counted_step(&api, &mut sp, option_idx, chain.target.as_deref())
+                .or_else(|| self.wave29c_vote_counted_step(&api, &mut sp, option_idx))
             {
                 if let Some(tail) = next_sub {
                     let mut tail_chain = Chain {
@@ -20938,7 +21161,12 @@ impl Tx<'_> {
         } else {
             self.trigger_mode.clone()
         };
+        let saved_vote_idx = self.vote_option_idx;
+        if per_option_count {
+            self.vote_option_idx = Some(option_idx);
+        }
         let ok = self.chain(&spec, &mut opt_chain);
+        self.vote_option_idx = saved_vote_idx;
         self.trigger_mode = saved_mode;
         ok?;
         if opt_chain.effects.is_empty()
@@ -21017,13 +21245,17 @@ impl Tx<'_> {
                 .or_else(|| alt.strip_suffix(&format!(".{suffix}")))
                 .map(str::to_string)
         };
+        let strip_opt = |alt: &str| -> String {
+            let alt = alt.trim();
+            alt.strip_suffix(&format!("+{suffix}"))
+                .or_else(|| alt.strip_suffix(&format!(".{suffix}")))
+                .unwrap_or(alt)
+                .to_string()
+        };
         let Some(stripped): Option<Vec<String>> = forget.split(',').map(strip_one).collect() else {
             return false;
         };
-        let expected: Vec<String> = valid_card
-            .split(',')
-            .map(|s| s.trim().to_string())
-            .collect();
+        let expected: Vec<String> = valid_card.split(',').map(strip_opt).collect();
         stripped == expected
     }
 
@@ -21070,7 +21302,10 @@ impl Tx<'_> {
             (Some("Opponent" | "Player.Opponent"), None) => "PlayerRel::EachOpponent",
             (None | Some("Player"), None) => "PlayerRel::EachPlayer",
             (Some("Player.IsRemembered"), Some("Targeted"))
-                if target == Some("TargetSpec::Player(PlayerRel::Chosen)") =>
+                if matches!(
+                    target,
+                    Some("TargetSpec::Player(PlayerRel::Chosen)" | "TargetSpec::AnyPlayer")
+                ) =>
             {
                 "PlayerRel::Chosen"
             }
@@ -21086,7 +21321,6 @@ impl Tx<'_> {
             || raw_valid.contains("EffectSource")
             || raw_valid.contains("RememberedPlayer")
             || raw_valid.contains("sharesCreatureTypeWith")
-            || raw_valid.contains("faceDown")
         {
             return None;
         }
@@ -21172,10 +21406,16 @@ impl Tx<'_> {
         if !next_only && is_plain_fixed_generic && remember_objs.is_none() {
             return None;
         }
-        let filter_ref = if raw_valid == "Card" {
+        let cleaned_valid = match who {
+            "PlayerRel::You" => {
+                Self::strip_hand_owner_ctrl(&raw_valid, "YouOwn", "YouCtrl").unwrap_or(raw_valid)
+            }
+            _ => raw_valid,
+        };
+        let filter_ref = if cleaned_valid == "Card" {
             "&Filter::Any".to_string()
         } else {
-            let expr = self.filter_expr_in_zone(&raw_valid, true)?;
+            let expr = self.filter_expr_in_zone(&cleaned_valid, true)?;
             format!("&{}", self.body.filter_static("REDUCE", &expr))
         };
         Some(vec![format!(
@@ -21741,6 +21981,18 @@ impl Tx<'_> {
                 let amt = resolve_amt(self, &raw, &mut used_excess)?;
                 vec![format!("Effect::Surveil {{ amount: {amt} }}")]
             }
+            "Empower" => {
+                if !matches!(sp.take("Defined").as_deref(), None | Some("You"))
+                    || sp.take("Type").as_deref() != Some("Jace")
+                {
+                    return None;
+                }
+                let raw = sp.take("Num")?;
+                let amt = resolve_amt(self, &raw, &mut used_excess)?;
+                vec![format!(
+                    "Effect::Empower {{ token: &generated_tokens::JACE_PLANESWALKER_BLUE, amount: {amt} }}"
+                )]
+            }
             "Dig" => {
                 let raw_dig = sp.take("DigNum")?;
                 if raw_dig.trim() != excess_var
@@ -21808,7 +22060,7 @@ enum Wave8Scope {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum ExileAffectedMarker {
+pub(super) enum ExileAffectedMarker {
     LinkedSource,
     Remembered,
     ChosenCard,
@@ -21838,7 +22090,7 @@ struct ChooseCardFollowup {
     trailing_sub: Option<String>,
 }
 
-struct ExilePermissionSpec {
+pub(super) struct ExilePermissionSpec {
     window: &'static str,
     cast_only: bool,
     spell_types: Option<String>,
@@ -21847,7 +22099,7 @@ struct ExilePermissionSpec {
 }
 
 impl ExilePermissionSpec {
-    fn to_expr(&self) -> String {
+    pub(super) fn to_expr(&self) -> String {
         let mut expr = if self.cast_only || self.spell_types.is_some() {
             format!("ExilePermission::cast({})", self.window)
         } else {

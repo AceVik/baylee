@@ -970,7 +970,12 @@ impl Tx<'_> {
             if def == "TriggerCount$Amount"
                 && matches!(
                     self.trigger_mode.as_deref(),
-                    Some("ChangesZoneAll" | "AttackersDeclared" | "AttackersDeclaredOneTarget")
+                    Some(
+                        "ChangesZoneAll"
+                            | "DiscardedAll"
+                            | "AttackersDeclared"
+                            | "AttackersDeclaredOneTarget",
+                    )
                 )
             {
                 return Some("Amount::EventAmount".to_string());
@@ -1301,6 +1306,15 @@ impl Tx<'_> {
             return Some(expr);
         }
         if let Some(expr) = self.wave28c_count_expr(def, depth, static_only) {
+            return Some(expr);
+        }
+        if let Some(expr) = self.wave17a_count_expr(def, depth, static_only) {
+            return Some(expr);
+        }
+        if let Some(expr) = self.wave17b_count_expr(def, depth, static_only) {
+            return Some(expr);
+        }
+        if let Some(expr) = self.wave29b_count_expr(def, depth, static_only) {
             return Some(expr);
         }
         if let Some(valid) = def
@@ -2008,7 +2022,12 @@ impl Tx<'_> {
             || (def == "TriggerCount$Amount"
                 && matches!(
                     self.trigger_mode.as_deref(),
-                    Some("ChangesZoneAll" | "AttackersDeclared" | "AttackersDeclaredOneTarget")
+                    Some(
+                        "ChangesZoneAll"
+                            | "DiscardedAll"
+                            | "AttackersDeclared"
+                            | "AttackersDeclaredOneTarget",
+                    )
                 ))
         {
             return Some("Amount::EventAmount".to_string());
@@ -3084,6 +3103,9 @@ fn dynamic_filter_scalar_atom(def: &str) -> Option<String> {
 
 fn normalize_spend_valid(raw: &str) -> String {
     let s = raw.trim();
+    if s.starts_with("wasCast") || s.starts_with("!wasCast") {
+        return format!("Card.{s}");
+    }
     let s = if s == "Kicked" { "Card.kicked" } else { s };
     if let Some(plus) = s.find('+')
         && !s[..plus].contains('.')

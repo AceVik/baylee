@@ -1440,6 +1440,97 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             }
             u32::try_from(values.len()).unwrap_or(u32::MAX)
         }
+        Amount::DistinctPowersAmong(filter) => {
+            let mut powers = std::collections::BTreeSet::<i32>::new();
+            for id in state.battlefield_seen() {
+                if let Some(o) = state.object(id)
+                    && matches_in_resolution(filter, state, o, you, res, None)
+                    && let Some(power) = o.characteristics().power
+                {
+                    powers.insert(i32::from(power));
+                }
+            }
+            u32::try_from(powers.len()).unwrap_or(u32::MAX)
+        }
+        Amount::CommanderCasts(who) => {
+            players_of(*who, state, you, res)
+                .into_iter()
+                .fold(0_u32, |acc, p| {
+                    acc.saturating_add(
+                        state
+                            .commander_casts
+                            .get(usize::from(p.get()))
+                            .copied()
+                            .unwrap_or(0),
+                    )
+                })
+        }
+        Amount::HighestControlledCount { among, filter } => players_of(*among, state, you, res)
+            .into_iter()
+            .filter(|p| !state.players[usize::from(p.get())].has_lost())
+            .map(|controller| {
+                u32::try_from(
+                    state
+                        .battlefield_seen()
+                        .filter(|&id| {
+                            state.object(id).is_some_and(|o| {
+                                o.controller == controller
+                                    && matches_in_resolution(filter, state, o, you, res, None)
+                            })
+                        })
+                        .count(),
+                )
+                .unwrap_or(u32::MAX)
+            })
+            .max()
+            .unwrap_or(0),
+        Amount::HighestCardsDrawnThisTurn(who) => {
+            let seats = eval::turn_history_seats(*who, state, you, Some(res.source))
+                .unwrap_or_else(|| players_of(*who, state, you, res).into());
+            seats
+                .into_iter()
+                .map(|p| {
+                    state
+                        .per_turn
+                        .draws
+                        .get(usize::from(p.get()))
+                        .copied()
+                        .unwrap_or(0)
+                })
+                .max()
+                .unwrap_or(0)
+        }
+        Amount::TotalManaValueInZone { zone, filter } => {
+            let require_card = !matches!(zone, baylee_cards_dsl::ZoneSel::Battlefield);
+            let candidates = wave12a::snapshot_zone_candidates(state, res, *zone);
+            let mut sum = 0_u32;
+            for id in candidates {
+                if let Some(o) = state.object(id)
+                    && (!require_card || o.is_card())
+                    && matches_in_resolution(filter, state, o, you, res, None)
+                {
+                    sum = sum.saturating_add(o.characteristics().mana_value());
+                }
+            }
+            sum
+        }
+        Amount::DistinctExactManaCostsInZone { zone, filter } => {
+            let require_card = !matches!(zone, baylee_cards_dsl::ZoneSel::Battlefield);
+            let candidates = wave12a::snapshot_zone_candidates(state, res, *zone);
+            let mut seen: Vec<baylee_core::mana::ManaCost> = Vec::new();
+            for id in candidates {
+                if let Some(o) = state.object(id)
+                    && (!require_card || o.is_card())
+                    && matches_in_resolution(filter, state, o, you, res, None)
+                {
+                    let cost = o.characteristics().mana_cost;
+                    if crate::casting::has_a_printed_cost(&cost) && !seen.contains(&cost) {
+                        seen.push(cost);
+                    }
+                }
+            }
+            u32::try_from(seen.len()).unwrap_or(u32::MAX)
+        }
         other => eval::amount_with_context(other, state, you, res.rule_context(), res.x),
     }
 }
@@ -1811,6 +1902,7 @@ fn filter_reads_resolution_player_at(filter: &baylee_cards_dsl::Filter, depth: u
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn amount_reads_resolution_player_at(amount: &baylee_cards_dsl::Amount, depth: u8) -> bool {
     use baylee_cards_dsl::{Amount as A, PlayerRel as P};
     if depth >= 8 {
@@ -1849,6 +1941,8 @@ fn amount_reads_resolution_player_at(amount: &baylee_cards_dsl::Amount, depth: u
         | A::Players(r)
         | A::SpellsWarpedThisTurn(r)
         | A::ManaExpendedOnSpellsThisTurn(r)
+        | A::CommanderCasts(r)
+        | A::HighestCardsDrawnThisTurn(r)
         | A::DistinctCardTypesCastThisTurn(r) => rel_needs_res(*r),
         A::ControlledCount { who, filter }
         | A::EnteredThisTurn {
@@ -1873,8 +1967,13 @@ fn amount_reads_resolution_player_at(amount: &baylee_cards_dsl::Amount, depth: u
         | A::CreaturesAttackedThisTurn {
             controller: who,
             filter,
-        } => rel_needs_res(*who) || filter_reads_resolution_player_at(filter, depth + 1),
-        A::DistinctManaValuesInZone { zone, filter } => {
+        }
+        | A::HighestControlledCount { among: who, filter } => {
+            rel_needs_res(*who) || filter_reads_resolution_player_at(filter, depth + 1)
+        }
+        A::DistinctManaValuesInZone { zone, filter }
+        | A::TotalManaValueInZone { zone, filter }
+        | A::DistinctExactManaCostsInZone { zone, filter } => {
             matches!(
                 zone,
                 baylee_cards_dsl::ZoneSel::GraveyardOf(r)
@@ -1886,6 +1985,7 @@ fn amount_reads_resolution_player_at(amount: &baylee_cards_dsl::Amount, depth: u
         }
         A::ThisWayBy { who, .. } => rel_needs_res(*who),
         A::DistinctColorsAmong(f)
+        | A::DistinctPowersAmong(f)
         | A::BasicLandTypesAmong(f)
         | A::CountOf { filter: f, .. }
         | A::DamageThisTurn { by: f, .. }

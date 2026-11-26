@@ -203,8 +203,6 @@ fn has_unmodelled_turn_atom(valid: &str) -> bool {
                             | "CastSaSource"
                             | "!CastSaSource"
                             | "hasXCost"
-                            | "wasCastFromExile"
-                            | "wasCastFromGraveyard"
                             | "RememberedPlayerCtrl"
                             | "ChosenType"
                             | "ChosenColor"

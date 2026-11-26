@@ -162,8 +162,6 @@ fn has_unmodelled_turn_atom(valid: &str, allow_token_created: bool) -> bool {
                                 | "CastSaSource"
                                 | "!CastSaSource"
                                 | "hasXCost"
-                                | "wasCastFromExile"
-                                | "wasCastFromGraveyard"
                                 | "RememberedPlayerCtrl"
                                 | "ChosenType"
                                 | "ChosenColor"

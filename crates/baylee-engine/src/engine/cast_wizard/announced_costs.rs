@@ -137,6 +137,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
         let mut paying = wizard.clone();
         paying.bargained = true;
+        self.refresh_target_cost_adjustments(&mut paying);
         if !self.announced_cost_payable(&paying) {
             return None;
         }

@@ -498,6 +498,31 @@ impl HeuristicAgent {
             Filter::WithSingleTarget => {
                 Some(zone == ZoneRef::Stack && object.targets.len() == 1)
             }
+            Filter::HasAnyCounter => Some(object.counters.iter().any(|entry| entry.count > 0)),
+            Filter::Enchanted => {
+                use baylee_core::generated::subtypes::enchantment::AURA;
+                Some(
+                    zone == ZoneRef::Battlefield
+                        && !object.status.contains(ObjectStatus::PHASED_OUT)
+                        && view.battlefield.iter().any(|att| {
+                            !att.status.contains(ObjectStatus::PHASED_OUT)
+                                && att.attached_to == Some(object.id)
+                                && att.subtypes.contains(AURA)
+                        }),
+                )
+            }
+            Filter::Equipped => {
+                use baylee_core::generated::subtypes::artifact::EQUIPMENT;
+                Some(
+                    zone == ZoneRef::Battlefield
+                        && !object.status.contains(ObjectStatus::PHASED_OUT)
+                        && view.battlefield.iter().any(|att| {
+                            !att.status.contains(ObjectStatus::PHASED_OUT)
+                                && att.attached_to == Some(object.id)
+                                && att.subtypes.contains(EQUIPMENT)
+                        }),
+                )
+            }
             // The ones the view cannot answer. Named in this module's own
             // documentation with the reason each one is a refusal and not an
             // omission; a caller gets `None` and falls back.
@@ -510,6 +535,9 @@ impl HeuristicAgent {
             | Filter::UnCard
             | Filter::Kicked
             | Filter::CastFromHand
+            | Filter::WasCast
+            | Filter::WasCastByYou
+            | Filter::CastFromZone(_)
             | Filter::HasManaAbility
             | Filter::HasNonManaActivatedAbility
             | Filter::AttachedToBySource
@@ -525,6 +553,7 @@ impl HeuristicAgent {
             | Filter::ToughnessLessThanSourcePower
             | Filter::EnteredThisTurn
             | Filter::PutIntoGraveyardThisTurn
+            | Filter::SurveilledByYouThisTurn
             | Filter::AttackedThisTurn
             | Filter::ControlledSinceTurnBegan
             | Filter::SharesSubtypeWithCommander
@@ -539,8 +568,6 @@ impl HeuristicAgent {
         | Filter::TargetsYouControl(_)
         | Filter::HasRampage
         | Filter::HasCumulativeUpkeep
-        | Filter::HasAnyCounter
-        | Filter::Enchanted
         | Filter::BlockingSource
         | Filter::SpellTargetingAffected
         | Filter::BlockedBySource
@@ -569,7 +596,6 @@ impl HeuristicAgent {
         // family.
         | Filter::SharesAColorWith(_)
         | Filter::SharesCreatureTypeWith(_)
-        | Filter::Equipped
         | Filter::CmcEqualsCountersOnSource(_)
         | Filter::NotControlledByReferenceController
         | Filter::LowestManaValueOnBattlefield(_)

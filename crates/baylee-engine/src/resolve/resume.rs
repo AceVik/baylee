@@ -887,6 +887,13 @@ pub(super) fn resume_inner(
                 return next_choice(state, res, since, pending);
             }
         }
+        AwaitingOp::ChooseDistinctPowers(spec) => {
+            if let Some(pending) =
+                super::wave15b::resume_choose_distinct_powers(state, res, *spec, chosen)
+            {
+                return next_choice(state, res, since, pending);
+            }
+        }
         AwaitingOp::AttachChosen { host } => {
             super::wave15b::resume_attach_chosen(state, host, chosen);
         }
@@ -1209,6 +1216,46 @@ pub(super) fn resume_inner(
                     ZonePosition::Top,
                     Cause::Effect,
                 );
+            }
+        }
+        AwaitingOp::LearnWish => {
+            if let Some(&card) = chosen.first() {
+                if state
+                    .object(card)
+                    .is_some_and(|o| o.zone == crate::zone::Zone::OutsideGame)
+                {
+                    state.journal.record(GameEvent::Revealed {
+                        player: res.controller,
+                        cards: vec![card],
+                    });
+                    let _ = state.move_object(
+                        card,
+                        ZoneLocation::Hand(res.controller),
+                        ZonePosition::Top,
+                        Cause::Effect,
+                    );
+                }
+            } else {
+                // CR 701.46b: declining to reveal a Lesson offers discarding a
+                // card to draw a card.
+                let hand: Vec<ObjectId> =
+                    state.zones.list(ZoneLocation::Hand(res.controller)).clone();
+                if !hand.is_empty() {
+                    res.awaiting = Some(AwaitingOp::DiscardThenDraw);
+                    return next_choice(
+                        state,
+                        res,
+                        since,
+                        Pending::ChooseCards {
+                            player: res.controller,
+                            options: hand,
+                            min: 0,
+                            max: 1,
+                            prompt: ChoicePrompt::Discard,
+                            total: None,
+                        },
+                    );
+                }
             }
         }
         AwaitingOp::OnePerType { revealed, next } => {

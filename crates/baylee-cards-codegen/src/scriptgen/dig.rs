@@ -288,14 +288,10 @@ impl Tx<'_> {
                 {
                     return self.deny("a `Dig` with `ExileFaceDown$ True`".to_string());
                 }
-                let Some(n) = self
-                    .plain_num(&count_raw)
-                    .and_then(|n| usize::try_from(n).ok())
-                    .filter(|&n| (1..=4).contains(&n))
-                else {
+                let Some(effs) = self.wave29c_exile_face_down_linked(&count_raw) else {
                     return self.deny("a `Dig` with `ExileFaceDown$ True`".to_string());
                 };
-                return Some(vec!["Effect::ExileTopFaceDownLinked".to_string(); n]);
+                return Some(effs);
             }
             if valid.is_some()
                 || reveal
@@ -1306,6 +1302,9 @@ impl Tx<'_> {
         target: Option<&str>,
         targets_a_player: bool,
     ) -> Option<Vec<String>> {
+        if let Some(effs) = self.wave29c_dig_until_special(p, target, targets_a_player) {
+            return Some(effs);
+        }
         let parsed = self.parse_dig_until_core(p, target, targets_a_player, false)?;
         if !p.entries.iter().all(|(k, _)| k.starts_with("Condition")) {
             return None;
@@ -1432,6 +1431,27 @@ impl Tx<'_> {
             }
             *sub = trailing;
             return Some(Self::finish_reveal_until_effects(&parsed, &[]));
+        }
+        if parsed.count_is_one
+            && let Some((new_found, then_effs, new_rest, trailing)) = self
+                .wave29c_dig_until_bf_or_hand_followup(
+                    &sub_name,
+                    &parsed.found,
+                    &parsed.rest,
+                    parsed.exile_while_revealing,
+                    parsed.no_move_revealed,
+                    parsed.remember_found,
+                    parsed.imprint_revealed,
+                )
+        {
+            if let Some(f) = new_found {
+                parsed.found = f;
+            }
+            if let Some(r) = new_rest {
+                parsed.rest = r;
+            }
+            *sub = trailing;
+            return Some(Self::finish_reveal_until_effects(&parsed, &then_effs));
         }
 
         // Case 3: Single-hit `DigUntil` -> `DB$ Play` (optionally followed by
@@ -1767,7 +1787,9 @@ impl Tx<'_> {
             None => ("Amount::Fixed(1)".to_string(), true),
             Some(ref raw) if raw.trim() == "1" => ("Amount::Fixed(1)".to_string(), true),
             Some(raw) => {
-                let amt = self.amount_or_count_ext(&raw)?;
+                let amt = self
+                    .wave29c_self_cast_x_paid(&raw)
+                    .or_else(|| self.amount_or_count_ext(&raw))?;
                 if amt == "Amount::Fixed(0)" {
                     return None;
                 }
@@ -1778,7 +1800,9 @@ impl Tx<'_> {
         let max_revealed = match p.take("MaxRevealed") {
             None => None,
             Some(raw) => {
-                let amt = self.amount_or_count_ext(&raw)?;
+                let amt = self
+                    .wave29c_self_cast_x_paid(&raw)
+                    .or_else(|| self.amount_or_count_ext(&raw))?;
                 if amt == "Amount::Fixed(0)" {
                     return None;
                 }
@@ -1860,7 +1884,15 @@ impl Tx<'_> {
                 Some("Library") => {
                     if shuffle && matches!(rest_pos.as_deref(), None | Some("-1" | "0")) {
                         "RevealUntilRest::ShuffleIntoLibrary".to_string()
-                    } else if !shuffle && rest_pos.as_deref() == Some("-1") && random_order {
+                    } else if !shuffle
+                        && (rest_pos.as_deref() == Some("-1")
+                            || (rest_pos.is_none()
+                                && self
+                                    .oracle
+                                    .to_ascii_lowercase()
+                                    .contains("bottom of your library in a random order")))
+                        && random_order
+                    {
                         "RevealUntilRest::BottomRandom".to_string()
                     } else if !shuffle && rest_pos.as_deref() == Some("-1") && !random_order {
                         "RevealUntilRest::BottomChosenOrder".to_string()

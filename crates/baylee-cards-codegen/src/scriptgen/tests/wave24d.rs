@@ -492,20 +492,33 @@ fn pump_double_freeze_hexproof_protection_and_refusals() {
         double_pt.abilities[0]
     );
 
-    // REFUSAL: Double on Self, Valid, multi-target, or Alchemy Duration$ Perpetual.
-    assert!(refused_w24(
-        "Name:SelfDouble\nManaCost:1 G\nTypes:Creature Cat\nPT:2/2\n\
-         A:AB$ Pump | Cost$ G | Defined$ Self | NumAtt$ Double",
-    ));
-    assert!(refused_w24(
-        "Name:ValidDouble\nManaCost:3 G\nTypes:Sorcery\n\
-         A:SP$ Pump | Defined$ Valid Creature.YouCtrl | NumAtt$ Double",
-    ));
-    assert!(refused_w24(
-        "Name:MultiDouble\nManaCost:2 G\nTypes:Instant\n\
-         A:SP$ Pump | ValidTgts$ Creature | TargetMin$ 0 | TargetMax$ 2 | NumAtt$ Double\n\
-         Oracle:Double the power of up to two target creatures until end of turn.",
-    ));
+    // Wave 17c: Double on Self, Valid, and multi-target lower via Effect::DoublePT;
+    // Alchemy Duration$ Perpetual remains refused.
+    assert!(
+        read_w24(
+            "Name:SelfDouble\nManaCost:1 G\nTypes:Creature Cat\nPT:2/2\n\
+             A:AB$ Pump | Cost$ G | Defined$ Self | NumAtt$ Double",
+        )
+        .abilities[0]
+            .contains("Effect::DoublePT")
+    );
+    assert!(
+        read_w24(
+            "Name:ValidDouble\nManaCost:3 G\nTypes:Sorcery\n\
+             A:SP$ Pump | Defined$ Valid Creature.YouCtrl | NumAtt$ Double",
+        )
+        .abilities[0]
+            .contains("Effect::DoublePT")
+    );
+    assert!(
+        read_w24(
+            "Name:MultiDouble\nManaCost:2 G\nTypes:Instant\n\
+             A:SP$ Pump | ValidTgts$ Creature | TargetMin$ 0 | TargetMax$ 2 | NumAtt$ Double\n\
+             Oracle:Double the power of up to two target creatures until end of turn.",
+        )
+        .abilities[0]
+            .contains("Effect::DoublePT")
+    );
     assert!(refused_w24(
         "Name:AlchemyPerp\nManaCost:B\nTypes:Instant\n\
          A:SP$ Pump | ValidTgts$ Creature | NumAtt$ Double | Duration$ Perpetual",

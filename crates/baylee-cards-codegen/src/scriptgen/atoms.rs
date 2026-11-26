@@ -177,6 +177,14 @@ fn apply_wave14_suffix(base: &str, suffix: Option<&str>) -> Option<String> {
                 return Some(format!("Amount::divided(&{base}, {n}, false)"));
             }
             if let Some(n) = rest
+                .strip_prefix("NMinus.")
+                .and_then(|s| s.trim().parse::<u32>().ok())
+            {
+                return Some(format!(
+                    "Amount::ConstantMinus {{ constant: {n}, subtract: &{base} }}"
+                ));
+            }
+            if let Some(n) = rest
                 .strip_prefix("DivideEvenlyUp.")
                 .and_then(|s| s.trim().parse::<u32>().ok())
                 .filter(|&n| n >= 2)

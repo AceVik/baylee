@@ -74,7 +74,13 @@ fn collect_emblem_triggers(
                 obj.controller,
             );
             if hit > 0 {
-                let times = trigger_count(state, trigger, emblem, obj.controller) * hit;
+                let times = super::matching::trigger_count_for_entry(
+                    state,
+                    trigger,
+                    emblem,
+                    obj.controller,
+                    Some(entry),
+                ) * hit;
                 let event_object = event_object_for(trigger, &entry.event, emblem, state);
                 let event_damage = event_amount_for(
                     trigger,

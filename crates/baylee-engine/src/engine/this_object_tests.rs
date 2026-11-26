@@ -381,6 +381,8 @@ const THIS_OBJECT_READ: &[&str] = &[
     // `resolve::zones::moving_objects` -> `subjects::moving_source`.
     "MoveAndModify { subject: Target(ThisObject),",
     "PutEachCounterKindFromSource { target: ThisObject }",
+    "PutAllCountersFrom { donor: Event, target: ThisObject }",
+    "PutAllCountersFrom { donor: Source, target: ThisObject }",
     "GainControlEx { target: ThisObject,",
     "MoveAttachment { attachment: ThisObject,",
     "AddTempModifier { target: ThisObject,",
@@ -517,9 +519,14 @@ const EVENT_OBJECT_READ: &[&str] = &[
     "ExileIfDiesThisTurn { target: EventObject }",
     "MoveAttachment { attachment: EventObject,",
     "PutEachCounterKindFromSource { target: EventObject }",
+    "PutAllCountersFrom { donor: Source, target: EventObject }",
+    "PutAllCountersFrom { donor: Event, target: EventObject }",
     "host: Spec(EventObject)",
     "to: EventObject,",
     "DealDamage { amount: Fixed(7), target: EventObject }",
+    "DoublePT { subject: EventObject,",
+    "ExileLinked { target: EventObject,",
+    "EventPower }, target: EventObject",
 ];
 
 /// The same census for `EventObject`, which is the **second** implicit spec

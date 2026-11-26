@@ -1,7 +1,7 @@
 //! Flanking's synthetic block trigger.
 
 use super::events::ObjectMove;
-use super::{PROWESS_SELF, PendingTrigger, source_at_event_with_moves, times_triggered};
+use super::{PROWESS_SELF, PendingTrigger, source_at_event_with_moves};
 use crate::{
     event::{GameEvent, JournalEntry},
     object::GameObject,
@@ -53,10 +53,11 @@ pub(super) fn collect(
                 })
             {
                 let source = source_at_event_with_moves(state, obj, moves, entry.seq, false);
-                for _ in 0..instances.saturating_mul(times_triggered(
+                for _ in 0..instances.saturating_mul(super::matching::times_triggered_for_entry(
                     state,
                     baylee_cards_dsl::TriggerEventKind::Any,
-                    permanent,
+                    source,
+                    Some(entry),
                 )) {
                     triggers.push(PendingTrigger {
                         text: TextChangeMap::IDENTITY,

@@ -585,4 +585,20 @@ pub(super) static ROWS: &[(&TokenDef, &[&str])] = &[
         &token::MOLOID_1_1_GREEN_A84604C62,
         &["Whenever this token attacks, you may mill a card."],
     ),
+    // Questing Beast Role / Questing Role.
+    (
+        &token::QUESTING_ENCHANT_CREATURE_AF17BF9C3,
+        &[
+            "Enchant creature",
+            "Enchanted creature has vigilance, deathtouch, and haste.",
+            "Enchanted creature has \"Whenever this creature deals combat damage to an opponent, it deals that much damage to target planeswalker that player controls.\"",
+            "Enchanted creature has \"This creature can't be blocked by creatures with power 2 or less.\"",
+            "Enchanted creature has \"Combat damage that would be dealt by creatures you control can't be prevented.\"",
+        ],
+    ),
+    // Winged Words / Blue Bird (can block only creatures with flying).
+    (
+        &token::BIRD_1_1_BLUE_FLYING_A92C7E842,
+        &["This token can block only creatures with flying."],
+    ),
 ];

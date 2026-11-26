@@ -748,6 +748,7 @@ impl GameState {
         self.hash_turn_activity_logs(h, position);
     }
 
+    #[allow(clippy::too_many_lines)]
     fn hash_turn_activity_logs(&self, h: &mut Hasher, position: &impl Fn(ObjectId) -> u32) {
         if self.per_turn.zone_changes.tracked && !self.per_turn.zone_changes.items.is_empty() {
             let records = &self.per_turn.zone_changes.items;
@@ -816,6 +817,43 @@ impl GameState {
             for record in records {
                 h.u8(record.controller.get());
                 h.u32(position(record.source.object));
+                hash_object_situation(h, &record.snapshot, self, position);
+            }
+        }
+        if self.per_turn.surveilled_cards.tracked
+            && !self.per_turn.surveilled_cards.items.is_empty()
+        {
+            let records = &self.per_turn.surveilled_cards.items;
+            h.u16(486);
+            h.usize(records.len());
+            for &(reference, player) in records {
+                h.u32(position(reference.object));
+                h.u8(moves_since(
+                    self.object_or_departed(reference.object),
+                    reference.version,
+                ));
+                h.u8(player.get());
+            }
+        }
+        if self.per_turn.cards_foretold.tracked && !self.per_turn.cards_foretold.items.is_empty() {
+            let mut items: Vec<_> = self.per_turn.cards_foretold.items.clone();
+            items.sort_unstable();
+            h.u16(487);
+            items.hash(h);
+        }
+        if self.per_turn.discard_history.tracked && !self.per_turn.discard_history.items.is_empty()
+        {
+            let records = &self.per_turn.discard_history.items;
+            h.u16(488);
+            h.usize(records.len());
+            for record in records {
+                h.u8(record.player.get());
+                h.boolean(record.known);
+                h.u32(position(record.object.object));
+                h.u8(moves_since(
+                    self.object_or_departed(record.object.object),
+                    record.object.version,
+                ));
                 hash_object_situation(h, &record.snapshot, self, position);
             }
         }
@@ -1230,6 +1268,10 @@ fn hash_spell_source_decisions(h: &mut Hasher, source: &crate::object::GameObjec
             src.hash(h);
             h.i32(*power);
             h.u32(*mv);
+        } else if let crate::object::Rider::CastOriginZone(zone) = rider {
+            h.u8(255);
+            h.u16(468);
+            h.u8(*zone as u8);
         }
     }
     source.replicated.hash(h);
@@ -1880,6 +1922,11 @@ fn hash_expansion_acquired_rider(h: &mut Hasher, rider: &crate::object::Rider) {
             h.u16(461);
             player.hash(h);
         }
+        crate::object::Rider::CastOriginZone(zone) => {
+            h.u8(255);
+            h.u16(468);
+            h.u8(*zone as u8);
+        }
         crate::object::Rider::SuspendHaste(player) => {
             h.u8(103);
             player.hash(h);
@@ -2037,6 +2084,19 @@ fn hash_cast_keyword_rider(h: &mut Hasher, rider: &crate::object::Rider) {
         crate::object::Rider::EncoreAbility => {
             h.u8(255);
             h.u16(463);
+        }
+        crate::object::Rider::CastOriginZone(zone) => {
+            h.u8(255);
+            h.u16(468);
+            h.u8(*zone as u8);
+        }
+        crate::object::Rider::MayhemPaid => {
+            h.u8(255);
+            h.u16(475);
+        }
+        crate::object::Rider::UnearthAbility => {
+            h.u8(255);
+            h.u16(490);
         }
         _ => {}
     }
@@ -2966,6 +3026,19 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u8(255);
                 h.u16(463);
             }
+            Rider::CastOriginZone(zone) => {
+                h.u8(255);
+                h.u16(468);
+                h.u8(*zone as u8);
+            }
+            Rider::MayhemPaid => {
+                h.u8(255);
+                h.u16(475);
+            }
+            Rider::UnearthAbility => {
+                h.u8(255);
+                h.u16(490);
+            }
         }
     }
     // What the spell or ability on the stack was cast or put there with:
@@ -3330,6 +3403,23 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
             h.u8(255);
             h.u16(442);
         }
+        F::WasCast => {
+            h.u8(255);
+            h.u16(465);
+        }
+        F::WasCastByYou => {
+            h.u8(255);
+            h.u16(466);
+        }
+        F::CastFromZone(zone) => {
+            h.u8(255);
+            h.u16(467);
+            h.u8(*zone as u8);
+        }
+        F::SurveilledByYouThisTurn => {
+            h.u8(255);
+            h.u16(489);
+        }
     }
 }
 
@@ -3390,7 +3480,13 @@ fn amount_filter_depth_exceeds(amt: &baylee_cards_dsl::Amount, depth: u8) -> boo
         | A::PermanentsSacrificedThisTurn { filter: f, .. }
         | A::SpellsCastMatchingThisTurn { filter: f, .. }
         | A::CreaturesAttackedThisTurn { filter: f, .. }
-        | A::DistinctManaValuesInZone { filter: f, .. } => filter_amount_depth_exceeds(f, depth),
+        | A::DistinctManaValuesInZone { filter: f, .. }
+        | A::DistinctPowersAmong(f)
+        | A::HighestControlledCount { filter: f, .. }
+        | A::TotalManaValueInZone { filter: f, .. }
+        | A::DistinctExactManaCostsInZone { filter: f, .. } => {
+            filter_amount_depth_exceeds(f, depth)
+        }
         A::ThisWay(tw) | A::ThisWayBy { what: tw, .. } => match tw {
             TW::Died(f)
             | TW::Destroyed(f)

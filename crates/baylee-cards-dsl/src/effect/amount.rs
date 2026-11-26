@@ -603,6 +603,47 @@ pub enum Amount {
     /// *Induce Despair*, *Living Destiny*). Appended to preserve replay
     /// identities.
     BeheldOrRevealedManaValue,
+    /// Number of distinct projected powers (`CR 208.3`, including negative and
+    /// zero values; objects without a power characteristic are ignored) among
+    /// battlefield permanents matching `filter` (Coven: *Augur of Autumn*,
+    /// *Golden Ratio*, *Celebrate the Harvest*, *Selvala, Eager Trailblazer*,
+    /// *Sigarda's Vanguard*, *Sigardian Zealot*). Appended to preserve replay
+    /// identities.
+    DistinctPowersAmong(&'static Filter),
+    /// Number of times players matching `who` have cast a commander from the
+    /// command zone this game (`CR 903.8`; *Jeska, Thrice Reborn*, *The
+    /// Swarmlord*). Appended to preserve replay identities.
+    CommanderCasts(super::PlayerRel),
+    /// Greatest number of permanents matching `filter` controlled by any single
+    /// active player matching `among` (*Investigator's Journal*). Appended to
+    /// preserve replay identities.
+    HighestControlledCount {
+        /// Candidate players whose controlled counts are compared.
+        among: super::PlayerRel,
+        /// Permanent characteristics counted per player.
+        filter: &'static Filter,
+    },
+    /// Greatest number of cards drawn this turn by any single player matching
+    /// `who` (*Thought Sponge*). Appended to preserve replay identities.
+    HighestCardsDrawnThisTurn(super::PlayerRel),
+    /// Sum of mana values (`CR 202.3`) of cards/objects in `zone` matching
+    /// `filter` (*Inferno Project*). Appended to preserve replay identities.
+    TotalManaValueInZone {
+        /// Zone scanned.
+        zone: ZoneSel,
+        /// Filter matched against each object in `zone`.
+        filter: &'static Filter,
+    },
+    /// Number of distinct printed mana costs (`CR 202.1`; e.g. `{2}{B}` and
+    /// `{1}{B}{B}` are different mana costs) among cards in `zone` matching
+    /// `filter` (*Embodiment of Agonies*). Appended to preserve replay
+    /// identities.
+    DistinctExactManaCostsInZone {
+        /// Zone scanned.
+        zone: ZoneSel,
+        /// Filter matched against each card in `zone`.
+        filter: &'static Filter,
+    },
 }
 
 /// The recipient [`Amount::DamageThisTurn`] counts.

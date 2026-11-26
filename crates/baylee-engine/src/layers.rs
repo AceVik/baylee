@@ -991,6 +991,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::Unblocked
         | Filter::EnteredThisTurn
         | Filter::PutIntoGraveyardThisTurn
+        | Filter::SurveilledByYouThisTurn
         | Filter::AttackedThisTurn
         | Filter::CountersAtLeast(_, _)
         | Filter::AnyCountersAtLeast(_)
@@ -1028,6 +1029,9 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::InZone(_)
         | Filter::Kicked
         | Filter::CastFromHand
+        | Filter::WasCast
+        | Filter::WasCastByYou
+        | Filter::CastFromZone(_)
         | Filter::HasWatermark
         | Filter::SharesWatermarkWithSource
         | Filter::BlockedByReference
@@ -1380,10 +1384,23 @@ fn apply(
         // Handled by SBAs/legality checks, not by characteristics.
         Modifier::SpellsCostLess(_)
         | Modifier::SpellsCostLessMana { .. }
+        | Modifier::SpellsCostLessManaByAmount { .. }
         | Modifier::SpellsCostLessByAmount(_)
         | Modifier::SpellsCostLessPerCounter(_)
         | Modifier::BuybackCostsLess(_)
         | Modifier::CyclingCostsLess(_)
+        | Modifier::RaiseCostIfTargets { .. }
+        | Modifier::NonManaAbilitiesCostMore { .. }
+        | Modifier::LoyaltyAbilitiesCostMore { .. }
+        | Modifier::AdjustLoyaltyCost { .. }
+        | Modifier::EquipCostsLessIfTargets { .. }
+        | Modifier::ForetellActionCostsLess { .. }
+        | Modifier::MayForetellAnyTurn { .. }
+        | Modifier::UnlockCostsLess { .. }
+        | Modifier::MayCastFromGraveyardUsingAlt(_)
+        | Modifier::GrantsUnearth(_)
+        | Modifier::GrantsScavengeManaCost
+        | Modifier::GrantsDredge(_)
         | Modifier::LoseAllBandsWithOther
         | Modifier::BandsWithOther(_)
         | Modifier::SpellsCostMore(_)

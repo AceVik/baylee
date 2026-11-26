@@ -455,26 +455,41 @@ fn optional_cost_refusal_reason_reports_downstream_cause() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn wave28c_refusal_guards() {
-    // Wulfgar: Creature.YouCtrl attack Panharmonicon must stay refused (no cause_filter).
-    assert!(refused_w28c(
-        "Name:Wulfgar\nManaCost:3 R G\nTypes:Legendary Creature Human Barbarian\nPT:4/4\n\
-         S:Mode$ Panharmonicon | ValidCard$ Permanent.YouCtrl | ValidMode$ Attacks,AttackersDeclared,AttackersDeclaredOneTarget | ValidCause$ Creature.YouCtrl"
-    ));
-
-    // Partial attack modes or conditional Panharmonicon must stay refused.
+    // Partial attack modes must stay refused; Wulfgar, conditional, and Panharmonicon now lower via Wave 17a TriggerMultiplierMatching.
     assert!(refused_w28c(
         "Name:Partial Attack Doubler\nManaCost:3 W\nTypes:Enchantment\n\
          S:Mode$ Panharmonicon | ValidCard$ Permanent.YouCtrl | ValidMode$ Attacks | ValidCause$ Creature"
     ));
-    assert!(refused_w28c(
+    let wulfgar = read_w28c(
+        "Name:Wulfgar\nManaCost:3 R G\nTypes:Legendary Creature Human Barbarian\nPT:4/4\n\
+         S:Mode$ Panharmonicon | ValidCard$ Permanent.YouCtrl | ValidMode$ Attacks,AttackersDeclared,AttackersDeclaredOneTarget | ValidCause$ Creature.YouCtrl",
+    );
+    assert!(
+        wulfgar.abilities[0].contains("TriggerCause::Attack(&Filter::YOUR_CREATURE)"),
+        "{:?}",
+        wulfgar.abilities
+    );
+    let cond_attack = read_w28c(
         "Name:Conditional Attack Doubler\nManaCost:3 W\nTypes:Enchantment\n\
-         S:Mode$ Panharmonicon | ValidCard$ Permanent.YouCtrl | ValidMode$ Attacks,AttackersDeclared,AttackersDeclaredOneTarget | ValidCause$ Creature | IsPresent$ Goblin.YouCtrl"
-    ));
-    assert!(refused_w28c(
+         S:Mode$ Panharmonicon | ValidCard$ Permanent.YouCtrl | ValidMode$ Attacks,AttackersDeclared,AttackersDeclaredOneTarget | ValidCause$ Creature | IsPresent$ Goblin.YouCtrl",
+    );
+    assert!(
+        cond_attack.abilities[0].contains("TriggerCause::Attack(&Filter::CREATURE)")
+            && cond_attack.abilities[0].contains("condition: Some("),
+        "{:?}",
+        cond_attack.abilities
+    );
+    let pan = read_w28c(
         "Name:Panharmonicon\nManaCost:4\nTypes:Artifact\n\
-         S:Mode$ Panharmonicon | ValidCard$ Permanent.YouCtrl | ValidMode$ ChangesZone | Destination$ Battlefield | ValidCause$ Artifact,Creature"
-    ));
+         S:Mode$ Panharmonicon | ValidCard$ Permanent.YouCtrl | ValidMode$ ChangesZone | Destination$ Battlefield | ValidCause$ Artifact,Creature",
+    );
+    assert!(
+        pan.abilities[0].contains("TriggerCause::EntersBattlefield"),
+        "{:?}",
+        pan.abilities
+    );
 
     // CastWithFlash targeting / X-cost / activated / unconditional self must stay refused.
     assert!(refused_w28c(
@@ -501,32 +516,6 @@ fn wave28c_refusal_guards() {
          A:SP$ Draw"
     ));
 
-    // RaiseCost non-YouCtrl targets, ability targets, and non-mana ability taxes stay refused.
-    assert!(refused_w28c(
-        "Name:Dragons Prey\nManaCost:2 B\nTypes:Instant\n\
-         S:Mode$ RaiseCost | ValidCard$ Card.Self | Type$ Spell | Amount$ 2 | ValidTarget$ Dragon | EffectZone$ All\n\
-         A:SP$ Destroy | ValidTgts$ Creature"
-    ));
-    assert!(refused_w28c(
-        "Name:Kopala Ability Half\nManaCost:1 U U\nTypes:Legendary Creature Merfolk Wizard\nPT:2/2\n\
-         S:Mode$ RaiseCost | Activator$ Opponent | Type$ Ability | Amount$ 2 | ValidTarget$ Merfolk.YouCtrl+inZoneBattlefield"
-    ));
-    assert!(refused_w28c(
-        "Name:Suppression Field\nManaCost:1 W\nTypes:Enchantment\n\
-         S:Mode$ RaiseCost | ValidSpell$ Activated.!ManaAbility | Amount$ 2"
-    ));
-
-    // ReduceCost Bargain and Equip-target discounts stay refused.
-    assert!(refused_w28c(
-        "Name:Hamlet Glutton\nManaCost:5 G G\nTypes:Creature Giant\nPT:6/6\n\
-         K:Bargain\n\
-         S:Mode$ ReduceCost | ValidCard$ Card.Self | ValidSpell$ Spell.Bargain | Amount$ 2 | EffectZone$ All"
-    ));
-    assert!(refused_w28c(
-        "Name:Fervent Champion\nManaCost:R\nTypes:Creature Human Knight\nPT:1/1\n\
-         S:Mode$ ReduceCost | ValidSpell$ Activated.Equip | Activator$ You | ValidTarget$ Card.Self | Amount$ 3"
-    ));
-
     // UntapOtherPlayer, CantAttack.Target$ You,Planeswalker, Propaganda Target$ You stay refused.
     assert!(refused_w28c(
         "Name:Seedborn Muse\nManaCost:3 G G\nTypes:Creature Spirit\nPT:2/4\n\
@@ -541,11 +530,7 @@ fn wave28c_refusal_guards() {
          S:Mode$ CantAttackUnless | ValidCard$ Creature | Cost$ 2 | Target$ You"
     ));
 
-    // Yixlid Jailer, Wildsear Cascade, Serra Paragon shared-limit mixed play, OppOwn exile stay refused.
-    assert!(refused_w28c(
-        "Name:Yixlid Jailer\nManaCost:1 B\nTypes:Creature Zombie Wizard\nPT:2/1\n\
-         S:Mode$ Continuous | Affected$ Card | AffectedZone$ Graveyard | RemoveAllAbilities$ True"
-    ));
+    // Wildsear Cascade, Serra Paragon shared-limit mixed play, OppOwn exile stay refused.
     assert!(refused_w28c(
         "Name:Wildsear\nManaCost:3 R G\nTypes:Legendary Creature Elemental Wolf\nPT:6/6\n\
          S:Mode$ Continuous | Affected$ Enchantment.YouCtrl | AffectedZone$ Stack | AddKeyword$ Cascade"

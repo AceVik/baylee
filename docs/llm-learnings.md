@@ -6,6 +6,23 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-11-26 — Wave 17 targeting preflight, `FaceDef` schema pins, and trailer hygiene
+
+- **Client targeting must match every view-readable `Filter` before merging card waves**:
+  `baylee-client`'s `the_pools_targets_are_a_population_this_client_can_read`
+  fails whenever new cards emit filters that `client/src/targeting.rs` or
+  `baylee-ai/src/filter.rs` leave unhandled (`Enchanted`, `Equipped`,
+  `HasAnyCounter`, and public `Amount` bounds like `LifeTotal` or
+  `CountOf(Battlefield | Graveyard)`). Only genuinely non-view-readable filters
+  (such as `DealtDamageThisTurn`, `EnteredThisTurn`, unannounced `X`, or stack
+  abilities) belong in `EXPECTED_BLIND` with explicit documented reasons.
+- **Keep `baylee-train/build.rs` synced with `FaceDef` fields and stamp commit trailers early**:
+  adding `FaceDef.mayhem` requires registering `"mayhem"` in
+  `baylee-train/build.rs`'s optional `FaceDef` child list so `cardstructure`
+  tests stay aligned; every card/DSL/engine commit must also carry
+  `Card-Author: <model>` and `Review: pending` trailers before opening or
+  updating a PR.
+
 ## 2026-11-26 — Wave 16 + Codegen Wave 28 pure-paper expansion
 
 - **Gate new per-turn tracking fields behind explicit enablement flags**: adding

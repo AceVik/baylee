@@ -321,23 +321,35 @@ pub(super) fn repeats(event: &GameEvent) -> u32 {
     }
 }
 
+#[cfg(test)]
 pub(super) fn trigger_count(
     state: &GameState,
     trigger: &Trigger,
     source: ObjectId,
     controller: PlayerId,
 ) -> u32 {
+    trigger_count_for_entry(state, trigger, source, controller, None)
+}
+
+pub(super) fn trigger_count_for_entry(
+    state: &GameState,
+    trigger: &Trigger,
+    source: ObjectId,
+    controller: PlayerId,
+    entry: Option<&crate::event::JournalEntry>,
+) -> u32 {
     let Some(source_obj) = state.object(source) else {
         return 1;
     };
-    trigger_count_for_source(state, trigger, source_obj, controller)
+    trigger_count_for_source_at(state, trigger, source_obj, controller, entry)
 }
 
-pub(super) fn trigger_count_for_source(
+pub(super) fn trigger_count_for_source_at(
     state: &GameState,
     trigger: &Trigger,
     source: &crate::object::GameObject,
     controller: PlayerId,
+    entry: Option<&crate::event::JournalEntry>,
 ) -> u32 {
     let event_kind = match trigger {
         Trigger::EntersBattlefield(_)
@@ -358,21 +370,22 @@ pub(super) fn trigger_count_for_source(
         _ => baylee_cards_dsl::TriggerEventKind::Any,
     };
     let _ = controller;
-    times_triggered_with_source(state, event_kind, source)
+    times_triggered_for_entry(state, event_kind, source, entry)
 }
 
 pub(super) fn tap_trigger_count(
     state: &GameState,
     source: &crate::object::GameObject,
     controller: PlayerId,
+    entry: Option<&crate::event::JournalEntry>,
 ) -> u32 {
     let event = baylee_cards_dsl::TriggerEventKind::Any;
     if source.controller == controller {
-        return times_triggered_with_source(state, event, source);
+        return times_triggered_for_entry(state, event, source, entry);
     }
     let mut source = source.clone();
     source.controller = controller;
-    times_triggered_with_source(state, event, &source)
+    times_triggered_for_entry(state, event, &source, entry)
 }
 
 /// How many times a triggered ability of `source` triggers for one event
@@ -387,21 +400,108 @@ pub(super) fn tap_trigger_count(
 /// pushes used to build one trigger each and never ask, so Katara doubled
 /// Sokka's token and left his prowess, and every Ally's he granted, at one
 /// (#318).
-pub(crate) fn times_triggered(
+pub(crate) fn times_triggered_at(
     state: &GameState,
     event_kind: baylee_cards_dsl::TriggerEventKind,
     source: ObjectId,
+    entry: Option<&crate::event::JournalEntry>,
 ) -> u32 {
     let Some(source_obj) = state.object(source) else {
         return 1;
     };
-    times_triggered_with_source(state, event_kind, source_obj)
+    times_triggered_for_entry(state, event_kind, source_obj, entry)
 }
 
 pub(super) fn times_triggered_with_source(
     state: &GameState,
     event_kind: baylee_cards_dsl::TriggerEventKind,
     source_obj: &crate::object::GameObject,
+) -> u32 {
+    times_triggered_for_entry(state, event_kind, source_obj, None)
+}
+
+/// Evaluates trigger count when a creature `victim` dies after being dealt
+/// damage (`Trigger::DiesAfterDamageByThis`), before the graveyard journal
+/// entry has been assigned its `seq`.
+pub(crate) fn times_triggered_for_dying_victim(
+    state: &GameState,
+    source_obj: &crate::object::GameObject,
+    victim: &crate::object::GameObject,
+) -> u32 {
+    let mut count = 1u32;
+    for rule_entry in &state.replacement_rules {
+        match rule_entry.rule {
+            baylee_cards_dsl::ReplacementRule::TriggerMultiplier {
+                source_filter,
+                event: baylee_cards_dsl::TriggerEventKind::Any,
+            } if eval::matches(
+                source_filter,
+                state,
+                source_obj,
+                rule_entry.controller,
+                rule_entry.source,
+            ) =>
+            {
+                #[cfg(any(test, feature = "test-support"))]
+                crate::ability_log::replaced(rule_entry);
+                count += 1;
+            }
+            baylee_cards_dsl::ReplacementRule::TriggerMultiplierMatching {
+                source_filter,
+                cause,
+                condition,
+            } if eval::matches(
+                source_filter,
+                state,
+                source_obj,
+                rule_entry.controller,
+                rule_entry.source,
+            ) && condition.is_none_or(|cond| {
+                eval::condition_holds(state, rule_entry.controller, rule_entry.source, cond)
+            }) && matches!(
+                cause,
+                baylee_cards_dsl::TriggerCause::Any
+                    | baylee_cards_dsl::TriggerCause::Dies(_)
+                    | baylee_cards_dsl::TriggerCause::LeavesBattlefield(_)
+            ) && match cause {
+                baylee_cards_dsl::TriggerCause::Any => true,
+                baylee_cards_dsl::TriggerCause::Dies(f)
+                | baylee_cards_dsl::TriggerCause::LeavesBattlefield(f) => {
+                    eval::matches(f, state, victim, rule_entry.controller, rule_entry.source)
+                }
+                _ => false,
+            } =>
+            {
+                #[cfg(any(test, feature = "test-support"))]
+                crate::ability_log::replaced(rule_entry);
+                count += 1;
+            }
+            baylee_cards_dsl::ReplacementRule::TriggerSuppress {
+                source_filter,
+                event: baylee_cards_dsl::TriggerEventKind::Any,
+            } if eval::matches(
+                source_filter,
+                state,
+                source_obj,
+                rule_entry.controller,
+                rule_entry.source,
+            ) =>
+            {
+                #[cfg(any(test, feature = "test-support"))]
+                crate::ability_log::replaced(rule_entry);
+                return 0;
+            }
+            _ => {}
+        }
+    }
+    count
+}
+
+pub(super) fn times_triggered_for_entry(
+    state: &GameState,
+    event_kind: baylee_cards_dsl::TriggerEventKind,
+    source_obj: &crate::object::GameObject,
+    journal_entry: Option<&crate::event::JournalEntry>,
 ) -> u32 {
     let mut count = 1u32;
     for entry in &state.replacement_rules {
@@ -417,6 +517,30 @@ pub(super) fn times_triggered_with_source(
                     entry.controller,
                     entry.source,
                 ) =>
+            {
+                #[cfg(any(test, feature = "test-support"))]
+                crate::ability_log::replaced(entry);
+                count += 1;
+            }
+            baylee_cards_dsl::ReplacementRule::TriggerMultiplierMatching {
+                source_filter,
+                cause,
+                condition,
+            } if eval::matches(
+                source_filter,
+                state,
+                source_obj,
+                entry.controller,
+                entry.source,
+            ) && condition.is_none_or(|cond| {
+                eval::condition_holds(state, entry.controller, entry.source, cond)
+            }) && trigger_cause_matches(
+                cause,
+                state,
+                journal_entry,
+                entry.controller,
+                entry.source,
+            ) =>
             {
                 #[cfg(any(test, feature = "test-support"))]
                 crate::ability_log::replaced(entry);
@@ -442,6 +566,249 @@ pub(super) fn times_triggered_with_source(
         }
     }
     count
+}
+
+fn departed_cause_matches(
+    filter: &baylee_cards_dsl::Filter,
+    state: &GameState,
+    journal_entry: &crate::event::JournalEntry,
+    object: ObjectId,
+    you: PlayerId,
+    context: RuleContext,
+) -> bool {
+    if let Some(snapshot) = journal_entry.departure.as_ref().and_then(|dep| {
+        state.source_object(baylee_core::ids::DamageSourceRef {
+            object,
+            version: dep.version,
+        })
+    }) {
+        let mut as_it_was = snapshot.clone();
+        if let Some((_, counters)) = state.ltb_counters.iter().find(|(id, _)| *id == object) {
+            as_it_was.counters = counters.clone();
+        }
+        return eval::matches_with_context(filter, state, &as_it_was, you, context);
+    }
+    departed_matches(filter, state, object, you, context)
+}
+
+fn event_targets_matching(
+    event: &GameEvent,
+    state: &GameState,
+    filter: &baylee_cards_dsl::Filter,
+    you: PlayerId,
+    context: RuleContext,
+) -> bool {
+    let fits = |target: ObjectId| {
+        state.object(target).is_some_and(|o| {
+            o.zone == Zone::Battlefield
+                && eval::matches_with_context(filter, state, o, you, context)
+        })
+    };
+    match *event {
+        GameEvent::BecameTarget { target, .. } => fits(target),
+        GameEvent::SpellCast { object, .. } | GameEvent::AbilityTriggered { object, .. } => {
+            let Some(obj) = state.object(object) else {
+                return false;
+            };
+            obj.targets
+                .iter()
+                .chain(obj.second_targets())
+                .chain(
+                    obj.extra_target_instances()
+                        .iter()
+                        .flat_map(|inst| inst.targets.iter()),
+                )
+                .copied()
+                .any(|t| state.targets_current_object(object, t) && fits(t))
+        }
+        GameEvent::AbilityActivated {
+            ability: Some(ability_ref),
+            ..
+        } => {
+            let Some(obj) = state.source_object(ability_ref) else {
+                return false;
+            };
+            obj.targets
+                .iter()
+                .chain(obj.second_targets())
+                .chain(
+                    obj.extra_target_instances()
+                        .iter()
+                        .flat_map(|inst| inst.targets.iter()),
+                )
+                .copied()
+                .any(|t| state.targets_current_object(ability_ref.object, t) && fits(t))
+        }
+        _ => false,
+    }
+}
+
+fn zone_cause_matches(
+    cause: baylee_cards_dsl::TriggerCause,
+    state: &GameState,
+    journal_entry: &crate::event::JournalEntry,
+    you: PlayerId,
+    rule_source: ObjectId,
+    context: RuleContext,
+) -> Option<bool> {
+    use baylee_cards_dsl::TriggerCause;
+    match (cause, &journal_entry.event) {
+        (
+            TriggerCause::EntersBattlefield(filter),
+            GameEvent::ZoneChanged {
+                object,
+                to: Zone::Battlefield,
+                ..
+            },
+        ) => Some(
+            state
+                .object_or_departed(*object)
+                .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context)),
+        ),
+        (
+            TriggerCause::Dies(filter),
+            GameEvent::ZoneChanged {
+                object,
+                from: Zone::Battlefield,
+                to: Zone::Graveyard,
+                ..
+            },
+        ) => Some(departed_cause_matches(
+            filter,
+            state,
+            journal_entry,
+            *object,
+            you,
+            context,
+        )),
+        (
+            TriggerCause::LeavesBattlefield(filter),
+            GameEvent::ZoneChanged {
+                object,
+                from: Zone::Battlefield,
+                to,
+                ..
+            },
+        ) => Some(
+            *to != Zone::Battlefield
+                && departed_cause_matches(filter, state, journal_entry, *object, you, context),
+        ),
+        (
+            TriggerCause::Sacrificed { filter, who },
+            GameEvent::ZoneChanged {
+                object,
+                from: Zone::Battlefield,
+                to,
+                ..
+            },
+        ) => Some(
+            *to != Zone::Battlefield
+                && journal_entry.departure.as_ref().is_some_and(|dep| {
+                    dep.sacrificed
+                        && eval::players_for_source(who, state, you, Some(rule_source))
+                            .is_some_and(|seats| seats.contains(&dep.controller))
+                })
+                && departed_cause_matches(filter, state, journal_entry, *object, you, context),
+        ),
+        _ => None,
+    }
+}
+
+fn trigger_cause_matches(
+    cause: baylee_cards_dsl::TriggerCause,
+    state: &GameState,
+    journal_entry: Option<&crate::event::JournalEntry>,
+    you: PlayerId,
+    rule_source: ObjectId,
+) -> bool {
+    use baylee_cards_dsl::TriggerCause;
+    if matches!(cause, TriggerCause::Any) {
+        return true;
+    }
+    let Some(journal_entry) = journal_entry else {
+        return false;
+    };
+    let context = eval::live_context(state, rule_source);
+    if let Some(hit) = zone_cause_matches(cause, state, journal_entry, you, rule_source, context) {
+        return hit;
+    }
+    match (cause, &journal_entry.event) {
+        (TriggerCause::Attack(filter), GameEvent::BecameAttacker { object, .. }) => state
+            .object_or_departed(*object)
+            .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context)),
+        (
+            TriggerCause::SpellCastOrCopy { filter, who, .. },
+            GameEvent::SpellCast { object, player, .. },
+        ) => {
+            eval::players_for_source(who, state, you, Some(rule_source))
+                .is_some_and(|seats| seats.contains(player))
+                && state
+                    .object_or_departed(*object)
+                    .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
+        }
+        (
+            TriggerCause::SpellCastOrCopy {
+                filter,
+                who,
+                allow_copy: true,
+            },
+            GameEvent::SpellCopied { object, player },
+        ) => {
+            eval::players_for_source(who, state, you, Some(rule_source))
+                .is_some_and(|seats| seats.contains(player))
+                && state
+                    .object_or_departed(*object)
+                    .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
+        }
+        (
+            TriggerCause::LifeGained(who),
+            GameEvent::LifeChanged {
+                player, old, new, ..
+            },
+        ) => {
+            *new > *old
+                && eval::players_for_source(who, state, you, Some(rule_source))
+                    .is_some_and(|seats| seats.contains(player))
+        }
+        (TriggerCause::CardDrawn(who), GameEvent::CardsDrawn { player, .. }) => {
+            eval::players_for_source(who, state, you, Some(rule_source))
+                .is_some_and(|seats| seats.contains(player))
+        }
+        (
+            TriggerCause::DealsCombatDamageToPlayer(filter),
+            GameEvent::DamageDealt {
+                source: Some(dealer),
+                target: crate::event::DamageTarget::Player(_),
+                is_combat: true,
+                amount,
+            },
+        ) => {
+            *amount > 0
+                && state.object_or_departed(*dealer).is_some_and(|o| {
+                    eval::matches_damage_source_with_context(filter, state, o, you, context)
+                })
+        }
+        (
+            TriggerCause::DealtDamage(filter),
+            GameEvent::DamageDealt {
+                target: crate::event::DamageTarget::Object(dealt),
+                amount,
+                ..
+            },
+        ) => {
+            *amount > 0
+                && state
+                    .object_or_departed(*dealt)
+                    .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
+        }
+        (TriggerCause::TurnedFaceUp(filter), GameEvent::TurnedFaceUp { object }) => state
+            .object_or_departed(*object)
+            .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context)),
+        (TriggerCause::BecomesTarget(filter), event) => {
+            event_targets_matching(event, state, filter, you, context)
+        }
+        _ => false,
+    }
 }
 
 #[allow(clippy::too_many_lines)] // the trigger×event matrix is naturally one flat table
@@ -972,6 +1339,26 @@ fn matches(
                     })
             })
         }
+        (
+            Trigger::OneOrMoreCardsDiscarded {
+                who,
+                filter,
+                first_this_turn,
+                per_player,
+            },
+            GameEvent::Discarded { .. },
+        ) => event_groups::discard_batch_group(
+            event,
+            batch,
+            state,
+            you,
+            context,
+            *who,
+            filter,
+            *first_this_turn,
+            *per_player,
+        )
+        .is_some(),
         (
             Trigger::Discarded { who, filter },
             GameEvent::Discarded {

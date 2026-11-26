@@ -35,18 +35,16 @@ card!(
         ),
         static_ability!(
             Filter::And(&[
-                Filter::And(&[
-                    Filter::NONLAND,
-                    Filter::HasType(
-                        TypeSet::ARTIFACT
-                            .union(TypeSet::BATTLE)
-                            .union(TypeSet::CREATURE)
-                            .union(TypeSet::ENCHANTMENT)
-                            .union(TypeSet::LAND)
-                            .union(TypeSet::PLANESWALKER)
-                    ),
-                    Filter::OwnedByYou
-                ]),
+                Filter::NONLAND,
+                Filter::HasType(
+                    TypeSet::ARTIFACT
+                        .union(TypeSet::BATTLE)
+                        .union(TypeSet::CREATURE)
+                        .union(TypeSet::ENCHANTMENT)
+                        .union(TypeSet::LAND)
+                        .union(TypeSet::PLANESWALKER)
+                ),
+                Filter::OwnedByYou,
                 Filter::InZone(ZoneRef::Graveyard)
             ]),
             Modifier::AddKeyword(KeywordSet::RETRACE),

@@ -141,6 +141,8 @@ pub mod bump_in_the_night;
 pub mod buried_ruin;
 #[path = "mbs/burn_the_impure.rs"]
 pub mod burn_the_impure;
+#[path = "isd/burning_vengeance.rs"]
+pub mod burning_vengeance;
 #[path = "isd/butcher_s_cleaver.rs"]
 pub mod butcher_s_cleaver;
 #[path = "isd/cackling_counterpart.rs"]
@@ -453,6 +455,8 @@ pub mod harvest_pyre;
 pub mod heartless_summoning;
 #[path = "mbs/hellkite_igniter.rs"]
 pub mod hellkite_igniter;
+#[path = "isd/heretic_s_punishment.rs"]
+pub mod heretic_s_punishment;
 #[path = "pmbs/hero_of_bladehold.rs"]
 pub mod hero_of_bladehold;
 #[path = "mbs/hero_of_oxid_ridge.rs"]
@@ -571,6 +575,8 @@ pub mod lurking_crocodile;
 pub mod magmatic_force;
 #[path = "mbs/magnetic_mine.rs"]
 pub mod magnetic_mine;
+#[path = "isd/make_a_wish.rs"]
+pub mod make_a_wish;
 #[path = "isd/makeshift_mauler.rs"]
 pub mod makeshift_mauler;
 #[path = "m12/manalith.rs"]
@@ -603,6 +609,8 @@ pub mod mayor_of_avabruck;
 pub mod melira_s_keepers;
 #[path = "nph/melira_sylvok_outcast.rs"]
 pub mod melira_sylvok_outcast;
+#[path = "isd/memory_s_journey.rs"]
+pub mod memory_s_journey;
 #[path = "nph/mental_misstep.rs"]
 pub mod mental_misstep;
 #[path = "isd/mentor_of_the_meek.rs"]
@@ -825,6 +833,8 @@ pub mod rusted_sentinel;
 pub mod rusted_slasher;
 #[path = "nph/ruthless_invasion.rs"]
 pub mod ruthless_invasion;
+#[path = "mbs/sangromancer.rs"]
+pub mod sangromancer;
 #[path = "cmd/scavenging_ooze.rs"]
 pub mod scavenging_ooze;
 #[path = "m12/scepter_of_empires.rs"]

@@ -6094,6 +6094,93 @@ pub enum Effect {
         /// Number of counters placed on the chosen permanent.
         count: Amount,
     },
+    /// Keyword action `learn` (`CR 701.46a–b`, `CR 903.11`: *Enthusiastic Study*,
+    /// *Eyetwitch*, *Professor of Symbology*, *Pop Quiz*, *Divide by Zero*): you
+    /// may reveal a Lesson card you own from outside the game and put it into
+    /// your hand, or discard a card to draw a card. Appended to preserve replay
+    /// identities.
+    Learn,
+    /// Empower Jace N (`CR 701.71a`) with a dynamic [`Amount`]: if you don't
+    /// control a Jace planeswalker token, first create `token`; then choose a
+    /// Jace planeswalker token you control and put `amount` loyalty counters on
+    /// it (*Protege's Awakening*, *Repurposed Enforcer*, *Overwrite the
+    /// Multiverse*, *Violent Echoes*). Appended to preserve replay identities.
+    Empower {
+        /// Predefined blue Jace planeswalker token created when none is controlled.
+        token: &'static TokenDef,
+        /// Number of loyalty counters placed on the chosen controlled Jace token.
+        amount: Amount,
+    },
+    /// Put the same number of each kind of counter held by `donor` (live if on
+    /// the battlefield, or its last-known battlefield counters per `CR 122.8`
+    /// and `CR 608.2h`) onto `target` (*The Ozolith*, *Star Pupil*, *Iron
+    /// Apprentice*, *Resourceful Defense*, *Denry Klin, Editor in Chief*,
+    /// *Zack Fair*). Appended to preserve replay identities.
+    PutAllCountersFrom {
+        /// Object (or LKI) whose counters are read.
+        donor: CounterDonor,
+        /// Recipient permanent(s) receiving those counters.
+        target: TargetSpec,
+    },
+    /// Put the same number of each kind of counter held by `donor` (live or
+    /// LKI, `CR 122.8`) onto each surviving battlefield token in
+    /// `SubjectContext::found` created earlier in this resolution (*Ambitious
+    /// Augmenter*). Appended to preserve replay identities.
+    PutAllCountersFromIntoFound {
+        /// Object (or LKI) whose counters are read.
+        donor: CounterDonor,
+    },
+    /// Choose between `min` and `max` battlefield permanents matching `filter`
+    /// with pairwise different projected powers (`CR 208.3`, asked one at a
+    /// time when duplicate powers exist among eligible permanents), then run
+    /// `then` with `SubjectContext::found` and `EventObject` bound to the
+    /// chosen permanents (*Sigarda's Vanguard*, *Sigardian Zealot*). Appended
+    /// to preserve replay identities.
+    ChooseDistinctPowersOnBattlefield {
+        /// Player making the choice.
+        chooser: PlayerRel,
+        /// Battlefield eligibility filter evaluated from the resolving controller.
+        filter: &'static Filter,
+        /// Minimum permanents required (clamped to distinct powers available).
+        min: u8,
+        /// Maximum permanents allowed.
+        max: Amount,
+        /// Follow-up instructions run over the chosen permanents.
+        then: &'static [Effect],
+    },
+    /// Doubles the power and/or toughness of each permanent named by `subject`
+    /// until `duration`, optionally granting `keywords` on the same timestamp
+    /// (`CR 701.10b–c`, `CR 611.2c`; *Unnatural Growth*, *Zopandrel, Hunger
+    /// Dominus*, *God-Eternal Rhonas*, *Tifa Lockhart*, *Grunn, the Lonely
+    /// King*, *Junk Jet*, *Wolverine, Claws Out*).
+    ///
+    /// Per `CR 701.10b–c`, each affected permanent gets `+X/+0` (and/or `+0/+Y`)
+    /// where `X` (`Y`) is that individual permanent's projected power
+    /// (toughness) as the effect resolves, preserving signed direction when
+    /// negative. Appended to preserve replay identities.
+    DoublePT {
+        /// Permanent(s) whose power and/or toughness are doubled.
+        subject: DoublePtSubject,
+        /// Whether to double power (`CR 701.10b`).
+        double_power: bool,
+        /// Whether to double toughness (`CR 701.10c`).
+        double_toughness: bool,
+        /// Keywords granted alongside the doubling on the same timestamp.
+        keywords: KeywordSet,
+        /// Lifetime of the registered continuous effect(s).
+        duration: crate::static_ability::Duration,
+    },
+}
+
+/// Which object's counters (or last-known battlefield counters, `CR 122.8`) are
+/// copied by [`Effect::PutAllCountersFrom`] and
+/// [`Effect::PutAllCountersFromIntoFound`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum CounterDonor {
+    /// The ability's own source (or its LKI if sacrificed/departed).
+    Source,
+    /// The triggering event object (or its LKI if it died or left the battlefield).
+    Event,
 }
 
 #[cfg(test)]

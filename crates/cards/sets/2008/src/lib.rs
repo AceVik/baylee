@@ -323,6 +323,8 @@ pub mod drain_the_well;
 pub mod dramatic_entrance;
 #[path = "eve/dream_fracture.rs"]
 pub mod dream_fracture;
+#[path = "shm/dream_salvage.rs"]
+pub mod dream_salvage;
 #[path = "ala/dreg_reaver.rs"]
 pub mod dreg_reaver;
 #[path = "ala/dregscape_zombie.rs"]
@@ -365,6 +367,8 @@ pub mod emberstrike_duo;
 pub mod empyrial_archangel;
 #[path = "shm/enchanted_evening.rs"]
 pub mod enchanted_evening;
+#[path = "eve/endless_horizons.rs"]
+pub mod endless_horizons;
 #[path = "eve/endure.rs"]
 pub mod endure;
 #[path = "ala/esper_battlemage.rs"]
@@ -531,6 +535,8 @@ pub mod hateflayer;
 pub mod heap_doll;
 #[path = "eve/hearthfire_hobgoblin.rs"]
 pub mod hearthfire_hobgoblin;
+#[path = "eve/heartlash_cinder.rs"]
+pub mod heartlash_cinder;
 #[path = "ala/hell_s_thunder.rs"]
 pub mod hell_s_thunder;
 #[path = "drb/hellkite_overlord.rs"]
@@ -881,6 +887,8 @@ pub mod presence_of_gond;
 pub mod prickly_boggart;
 #[path = "mor/primal_beyond.rs"]
 pub mod primal_beyond;
+#[path = "ala/prince_of_thralls.rs"]
+pub mod prince_of_thralls;
 #[path = "shm/prismatic_omen.rs"]
 pub mod prismatic_omen;
 #[path = "shm/prismwake_merrow.rs"]
@@ -1067,6 +1075,8 @@ pub mod scuzzback_scrapper;
 pub mod seaside_citadel;
 #[path = "ala/sedraxis_specter.rs"]
 pub mod sedraxis_specter;
+#[path = "ala/sedris_the_traitor_king.rs"]
+pub mod sedris_the_traitor_king;
 #[path = "shm/seedcradle_witch.rs"]
 pub mod seedcradle_witch;
 #[path = "mor/seething_pathblazer.rs"]
@@ -1137,6 +1147,8 @@ pub mod soot_imp;
 pub mod sootstoke_kindler;
 #[path = "shm/sootwalkers.rs"]
 pub mod sootwalkers;
+#[path = "ala/soul_s_fire.rs"]
+pub mod soul_s_fire;
 #[path = "ala/soul_s_grace.rs"]
 pub mod soul_s_grace;
 #[path = "ala/soul_s_might.rs"]
@@ -1285,6 +1297,8 @@ pub mod topan_ascetic;
 pub mod torpor_dust;
 #[path = "ala/tortoise_formation.rs"]
 pub mod tortoise_formation;
+#[path = "shm/tower_above.rs"]
+pub mod tower_above;
 #[path = "ala/tower_gargoyle.rs"]
 pub mod tower_gargoyle;
 #[path = "shm/traitor_s_roar.rs"]
@@ -1347,6 +1361,8 @@ pub mod wanderbrine_rootcutters;
 pub mod wandering_graybeard;
 #[path = "mor/war_spike_changeling.rs"]
 pub mod war_spike_changeling;
+#[path = "mor/warren_weirding.rs"]
+pub mod warren_weirding;
 #[path = "shm/wasp_lancer.rs"]
 pub mod wasp_lancer;
 #[path = "shm/watchwing_scarecrow.rs"]
@@ -1405,6 +1421,8 @@ pub mod woodlurker_mimic;
 pub mod woolly_thoctar;
 #[path = "eve/worm_harvest.rs"]
 pub mod worm_harvest;
+#[path = "shm/wound_reflection.rs"]
+pub mod wound_reflection;
 #[path = "ala/yoked_plowbeast.rs"]
 pub mod yoked_plowbeast;
 #[path = "shm/zealous_guardian.rs"]

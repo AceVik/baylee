@@ -361,6 +361,8 @@ pub mod erebos_s_emissary;
 pub mod evangel_of_heliod;
 #[path = "dgm/exava_rakdos_blood_witch.rs"]
 pub mod exava_rakdos_blood_witch;
+#[path = "gtc/executioner_s_swing.rs"]
+pub mod executioner_s_swing;
 #[path = "f13/experiment_one.rs"]
 pub mod experiment_one;
 #[path = "ths/fabled_hero.rs"]
@@ -399,6 +401,8 @@ pub mod flamespeaker_adept;
 pub mod fleecemane_lion;
 #[path = "ths/fleetfeather_sandals.rs"]
 pub mod fleetfeather_sandals;
+#[path = "dgm/flesh.rs"]
+pub mod flesh;
 #[path = "ths/fleshmad_steed.rs"]
 pub mod fleshmad_steed;
 #[path = "m14/fleshpulper_giant.rs"]
@@ -501,12 +505,16 @@ pub mod hidden_strings;
 pub mod high_priest_of_penance;
 #[path = "gtc/hindervines.rs"]
 pub mod hindervines;
+#[path = "dgm/hired_torturer.rs"]
+pub mod hired_torturer;
 #[path = "pm14/hive_stirrings.rs"]
 pub mod hive_stirrings;
 #[path = "gtc/hold_the_gates.rs"]
 pub mod hold_the_gates;
 #[path = "gtc/holy_mantle.rs"]
 pub mod holy_mantle;
+#[path = "c13/hooded_horror.rs"]
+pub mod hooded_horror;
 #[path = "ths/hopeful_eidolon.rs"]
 pub mod hopeful_eidolon;
 #[path = "ths/horizon_chimera.rs"]
@@ -543,6 +551,8 @@ pub mod insatiable_harpy;
 pub mod ivy_lane_denizen;
 #[path = "dgm/izzet_cluestone.rs"]
 pub mod izzet_cluestone;
+#[path = "m14/jace_s_mindseeker.rs"]
+pub mod jace_s_mindseeker;
 #[path = "dgm/jelenn_sphinx.rs"]
 pub mod jelenn_sphinx;
 #[path = "c13/jeleva_nephalia_s_scourge.rs"]
@@ -569,6 +579,8 @@ pub mod knight_watch;
 pub mod korozda_gorgon;
 #[path = "ths/kragma_warcaller.rs"]
 pub mod kragma_warcaller;
+#[path = "dgm/krasis_incubation.rs"]
+pub mod krasis_incubation;
 #[path = "dgm/kraul_warrior.rs"]
 pub mod kraul_warrior;
 #[path = "ths/labyrinth_champion.rs"]
@@ -635,6 +647,8 @@ pub mod maze_s_end;
 pub mod maze_sentinel;
 #[path = "pm14/megantic_sliver.rs"]
 pub mod megantic_sliver;
+#[path = "pdgm/melek_izzet_paragon.rs"]
+pub mod melek_izzet_paragon;
 #[path = "ths/meletis_charlatan.rs"]
 pub mod meletis_charlatan;
 #[path = "dgm/mending_touch.rs"]
@@ -847,6 +861,8 @@ pub mod regathan_firecat;
 pub mod renounce_the_guilds;
 #[path = "c13/restore.rs"]
 pub mod restore;
+#[path = "dgm/restore_the_peace.rs"]
+pub mod restore_the_peace;
 #[path = "ths/returned_centaur.rs"]
 pub mod returned_centaur;
 #[path = "ths/returned_phalanx.rs"]
@@ -1153,6 +1169,8 @@ pub mod undead_minotaur;
 pub mod undercity_informer;
 #[path = "gtc/undercity_plague.rs"]
 pub mod undercity_plague;
+#[path = "ths/underworld_cerberus.rs"]
+pub mod underworld_cerberus;
 #[path = "c13/unexpectedly_absent.rs"]
 pub mod unexpectedly_absent;
 #[path = "dgm/unflinching_courage.rs"]
@@ -1169,6 +1187,8 @@ pub mod vampire_warlord;
 pub mod vanquish_the_foul;
 #[path = "ths/vaporkin.rs"]
 pub mod vaporkin;
+#[path = "dgm/varolz_the_scar_striped.rs"]
+pub mod varolz_the_scar_striped;
 #[path = "m14/vial_of_poison.rs"]
 pub mod vial_of_poison;
 #[path = "dgm/viashino_firstblade.rs"]

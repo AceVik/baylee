@@ -47,7 +47,7 @@ card!(
     abilities = &[
         triggered!(
             Trigger::EntersBattlefield(&Filter::YOUR_LAND),
-            &[Effect::exile(TargetSpec::CardInGraveyard(
+            &[Effect::exile_linked(TargetSpec::CardInGraveyard(
                 &TARGET1,
                 PlayerRel::You
             ))],

@@ -499,6 +499,8 @@ pub mod foul_tongue_invocation;
 pub mod foul_tongue_shriek;
 #[path = "ori/foundry_of_the_consuls.rs"]
 pub mod foundry_of_the_consuls;
+#[path = "frf/friendly_fire.rs"]
+pub mod friendly_fire;
 #[path = "bfz/from_beyond.rs"]
 pub mod from_beyond;
 #[path = "frf/frontier_mastodon.rs"]
@@ -919,6 +921,8 @@ pub mod pressure_point;
 pub mod prickleboar;
 #[path = "ori/priest_of_the_blood_rite.rs"]
 pub mod priest_of_the_blood_rite;
+#[path = "bfz/prism_array.rs"]
+pub mod prism_array;
 #[path = "ori/prism_ring.rs"]
 pub mod prism_ring;
 #[path = "dtk/pristine_skywise.rs"]
@@ -1271,6 +1275,8 @@ pub mod thief_of_blood;
 pub mod thopter_engineer;
 #[path = "ori/thopter_spy_network.rs"]
 pub mod thopter_spy_network;
+#[path = "ori/thornbow_archer.rs"]
+pub mod thornbow_archer;
 #[path = "c15/thought_vessel.rs"]
 pub mod thought_vessel;
 #[path = "ori/throwing_knife.rs"]
@@ -1315,6 +1321,8 @@ pub mod undercity_troll;
 pub mod unholy_hunger;
 #[path = "bfz/unified_front.rs"]
 pub mod unified_front;
+#[path = "bfz/unnatural_aggression.rs"]
+pub mod unnatural_aggression;
 #[path = "dtk/updraft_elemental.rs"]
 pub mod updraft_elemental;
 #[path = "bfz/valakut_invoker.rs"]

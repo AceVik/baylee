@@ -69,6 +69,8 @@ pub mod bitter_triumph;
 pub mod bloodthorn_flail;
 #[path = "rex/blue_loyal_raptor.rs"]
 pub mod blue_loyal_raptor;
+#[path = "lci/bonehoard_dracosaur.rs"]
+pub mod bonehoard_dracosaur;
 #[path = "lci/brackish_blunder.rs"]
 pub mod brackish_blunder;
 #[path = "lci/braided_net.rs"]
@@ -343,6 +345,8 @@ pub mod kaslem_s_stonetree;
 pub mod kinjalli_s_dawnrunner;
 #[path = "lci/kitesail_larcenist.rs"]
 pub mod kitesail_larcenist;
+#[path = "lci/kutzil_s_flanker.rs"]
+pub mod kutzil_s_flanker;
 #[path = "who/laser_screwdriver.rs"]
 pub mod laser_screwdriver;
 #[path = "who/leela_sevateem_warrior.rs"]
@@ -365,6 +369,8 @@ pub mod malamet_war_scribe;
 pub mod marauding_brinefang;
 #[path = "lcc/march_of_the_canonized.rs"]
 pub mod march_of_the_canonized;
+#[path = "who/martha_jones.rs"]
+pub mod martha_jones;
 #[path = "lcc/master_of_dark_rites.rs"]
 pub mod master_of_dark_rites;
 #[path = "lci/matzalantli_the_great_door.rs"]
@@ -429,6 +435,8 @@ pub mod pirate_hat;
 pub mod pit_of_offerings;
 #[path = "lci/plundering_pirate.rs"]
 pub mod plundering_pirate;
+#[path = "lci/poetic_ingenuity.rs"]
+pub mod poetic_ingenuity;
 #[path = "lci/poison_dart_frog.rs"]
 pub mod poison_dart_frog;
 #[path = "lci/primordial_gnawer.rs"]
@@ -445,6 +453,8 @@ pub mod quantum_misalignment;
 pub mod queen_s_bay_paladin;
 #[path = "lci/quicksand_whirlpool.rs"]
 pub mod quicksand_whirlpool;
+#[path = "lci/quintorius_kand.rs"]
+pub mod quintorius_kand;
 #[path = "ylci/radiant_smite.rs"]
 pub mod radiant_smite;
 #[path = "lci/rampaging_ceratops.rs"]
@@ -453,6 +463,8 @@ pub mod rampaging_ceratops;
 pub mod rampaging_spiketail;
 #[path = "lci/ray_of_ruin.rs"]
 pub mod ray_of_ruin;
+#[path = "lcc/redemption_choir.rs"]
+pub mod redemption_choir;
 #[path = "lci/relic_s_roar.rs"]
 pub mod relic_s_roar;
 #[path = "lci/restless_anchorage.rs"]
@@ -529,6 +541,8 @@ pub mod soaring_sandwing;
 pub mod song_of_stupefaction;
 #[path = "who/sonic_screwdriver.rs"]
 pub mod sonic_screwdriver;
+#[path = "who/sontaran_general.rs"]
+pub mod sontaran_general;
 #[path = "lci/soulcoil_viper.rs"]
 pub mod soulcoil_viper;
 #[path = "lci/souls_of_the_lost.rs"]

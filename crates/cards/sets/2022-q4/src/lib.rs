@@ -411,6 +411,8 @@ pub mod mine_worker;
 pub mod misery_s_shadow;
 #[path = "brc/mishra_eminent_one.rs"]
 pub mod mishra_eminent_one;
+#[path = "bro/mishra_excavation_prodigy.rs"]
+pub mod mishra_excavation_prodigy;
 #[path = "bro/mishra_s_command.rs"]
 pub mod mishra_s_command;
 #[path = "bro/mishra_s_foundry.rs"]
@@ -421,6 +423,8 @@ pub mod mishra_s_juggernaut;
 pub mod mishra_s_onslaught;
 #[path = "bro/mishra_s_research_desk.rs"]
 pub mod mishra_s_research_desk;
+#[path = "bro/mishra_tamer_of_mak_fawa.rs"]
+pub mod mishra_tamer_of_mak_fawa;
 #[path = "bro/moment_of_defiance.rs"]
 pub mod moment_of_defiance;
 #[path = "unf/monoxa_midway_manager.rs"]
@@ -443,6 +447,8 @@ pub mod no_one_left_behind;
 pub mod nogi_draco_zealot;
 #[path = "40k/noise_marine.rs"]
 pub mod noise_marine;
+#[path = "40k/nurgle_s_conscription.rs"]
+pub mod nurgle_s_conscription;
 #[path = "40k/nurgle_s_rot.rs"]
 pub mod nurgle_s_rot;
 #[path = "bro/obliterating_bolt.rs"]
@@ -483,6 +489,8 @@ pub mod powerstone_engineer;
 pub mod powerstone_fracture;
 #[path = "40k/poxwalkers.rs"]
 pub mod poxwalkers;
+#[path = "j22/preston_the_vanisher.rs"]
+pub mod preston_the_vanisher;
 #[path = "40k/primaris_chaplain.rs"]
 pub mod primaris_chaplain;
 #[path = "40k/primaris_eliminator.rs"]
@@ -649,6 +657,8 @@ pub mod the_flesh_is_weak;
 pub mod the_red_terror;
 #[path = "bro/the_stasis_coffin.rs"]
 pub mod the_stasis_coffin;
+#[path = "40k/the_swarmlord.rs"]
+pub mod the_swarmlord;
 #[path = "40k/their_name_is_death.rs"]
 pub mod their_name_is_death;
 #[path = "40k/their_number_is_legion.rs"]
@@ -687,6 +697,8 @@ pub mod tocasia_s_welcome;
 pub mod tomakul_honor_guard;
 #[path = "bro/tomakul_scrapsmith.rs"]
 pub mod tomakul_scrapsmith;
+#[path = "40k/tomb_blade.rs"]
+pub mod tomb_blade;
 #[path = "40k/tomb_fortress.rs"]
 pub mod tomb_fortress;
 #[path = "bro/tower_worker.rs"]
@@ -723,6 +735,8 @@ pub mod ultramarines_honour_guard;
 pub mod union_of_the_third_path;
 #[path = "bro/unleash_shell.rs"]
 pub mod unleash_shell;
+#[path = "bro/urza_powerstone_prodigy.rs"]
+pub mod urza_powerstone_prodigy;
 #[path = "bro/urza_s_command.rs"]
 pub mod urza_s_command;
 #[path = "bro/urza_s_rebuff.rs"]
@@ -755,6 +769,8 @@ pub mod whirling_strike;
 pub mod wing_commando;
 #[path = "40k/winged_hive_tyrant.rs"]
 pub mod winged_hive_tyrant;
+#[path = "brc/wire_surgeons.rs"]
+pub mod wire_surgeons;
 #[path = "bro/yotian_dissident.rs"]
 pub mod yotian_dissident;
 #[path = "bro/yotian_frontliner.rs"]

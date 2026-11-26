@@ -19,6 +19,8 @@ pub mod an_unexpected_party;
 pub mod attercop;
 #[path = "hoc/bag_end_banquet.rs"]
 pub mod bag_end_banquet;
+#[path = "hob/balin_loremaster.rs"]
+pub mod balin_loremaster;
 #[path = "hoc/bard_heir_of_girion.rs"]
 pub mod bard_heir_of_girion;
 #[path = "hob/bard_king_of_dale.rs"]
@@ -35,6 +37,8 @@ pub mod beorn_reluctant_host;
 pub mod beorn_s_hospitality;
 #[path = "hob/beorn_the_fierce.rs"]
 pub mod beorn_the_fierce;
+#[path = "hob/bifur_melodic_rider.rs"]
+pub mod bifur_melodic_rider;
 #[path = "hob/bilbo_baggins_burglar.rs"]
 pub mod bilbo_baggins_burglar;
 #[path = "hoc/bilbo_s_burglaring.rs"]
@@ -93,6 +97,8 @@ pub mod duskwatch_hunter;
 pub mod dwalin_weaponmaster;
 #[path = "hob/dwarven_mattock.rs"]
 pub mod dwarven_mattock;
+#[path = "hob/dwarven_mauler.rs"]
+pub mod dwarven_mauler;
 #[path = "hob/dwarven_provisioner.rs"]
 pub mod dwarven_provisioner;
 #[path = "hob/dwarven_shortsword.rs"]
@@ -173,6 +179,8 @@ pub mod lake_town_toymaker;
 pub mod lakeshore_apothecary;
 #[path = "hob/large_bear.rs"]
 pub mod large_bear;
+#[path = "hob/last_light_of_durin_s_day.rs"]
+pub mod last_light_of_durin_s_day;
 #[path = "hob/little_bear.rs"]
 pub mod little_bear;
 #[path = "hob/long_bodied_grey_dog.rs"]
@@ -221,8 +229,12 @@ pub mod ordinary_bear;
 pub mod ori_keeper_of_songs;
 #[path = "hoc/ori_plate_stacker.rs"]
 pub mod ori_plate_stacker;
+#[path = "hob/part_in_friendship.rs"]
+pub mod part_in_friendship;
 #[path = "hob/pinecone_strike.rs"]
 pub mod pinecone_strike;
+#[path = "hob/plunder_the_trollshaws.rs"]
+pub mod plunder_the_trollshaws;
 #[path = "hob/quarrel.rs"]
 pub mod quarrel;
 #[path = "hob/radagast_of_rhosgobel.rs"]
@@ -271,6 +283,8 @@ pub mod the_chief_warg;
 pub mod the_lonely_mountain;
 #[path = "hob/the_lord_of_the_eagles.rs"]
 pub mod the_lord_of_the_eagles;
+#[path = "hob/the_misty_mountains_cold.rs"]
+pub mod the_misty_mountains_cold;
 #[path = "hob/the_notary_hobbits.rs"]
 pub mod the_notary_hobbits;
 #[path = "hob/the_sackville_bagginses.rs"]
@@ -289,6 +303,8 @@ pub mod thranduil_the_elvenking;
 pub mod thranduil_the_strategist;
 #[path = "hob/thror_s_map.rs"]
 pub mod thror_s_map;
+#[path = "hob/tidings_of_war.rs"]
+pub mod tidings_of_war;
 #[path = "hob/troll_negotiations.rs"]
 pub mod troll_negotiations;
 #[path = "hob/troop_of_ponies.rs"]

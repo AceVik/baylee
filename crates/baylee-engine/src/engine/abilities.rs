@@ -189,6 +189,7 @@ pub(crate) const fn paid_by_the_casting_wizard(part: &CostPart) -> bool {
         | CostPart::Either(_, _)
         | CostPart::CraftMaterials { .. }
         | CostPart::Behold(_)
+        | CostPart::BeholdAndExile(_)
         | CostPart::RevealFromHand(_)
         | CostPart::RevealFromHandX(_)
         | CostPart::RevealSelfFromHand
@@ -246,6 +247,7 @@ const fn can_refuse_part_way(part: &CostPart) -> bool {
         | CostPart::Either(_, _)
         | CostPart::CraftMaterials { .. }
         | CostPart::Behold(_)
+        | CostPart::BeholdAndExile(_)
         | CostPart::RevealFromHand(_)
         | CostPart::RevealFromHandX(_)
         | CostPart::RevealSelfFromHand

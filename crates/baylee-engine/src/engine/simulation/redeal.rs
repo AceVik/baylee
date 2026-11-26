@@ -730,6 +730,9 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::OncePerPermanentUsedMask { .. }
         | Rider::ControlledSubtypeOnCast(_)
         | Rider::BeheldCostPower(None, _, _)
-        | Rider::EncoreAbility => None,
+        | Rider::EncoreAbility
+        | Rider::CastOriginZone(_)
+        | Rider::MayhemPaid
+        | Rider::UnearthAbility => None,
     }
 }

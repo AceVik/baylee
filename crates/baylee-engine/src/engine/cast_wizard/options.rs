@@ -224,6 +224,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         .keywords
                         .contains(baylee_cards_dsl::KeywordSet::RETRACE)
                     || face.escape.is_some()
+                    || (face.mayhem.is_some()
+                        && casting::mayhem_discarded_this_turn(&self.state, player, o))
+                    || casting::any_graveyard_alt_open(&self.state, player, card)
             });
             if !front_too && !casting::has_alt_cast_grant(&self.state, &self.lookup, player, card) {
                 return Ok((options, Vec::new()));
@@ -279,6 +282,28 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     index: 0,
                     kind: CastModeKind::BeamMeUp,
                     cost: price(beam),
+                });
+            }
+            if let Some(mayhem) = face.mayhem
+                && self
+                    .state
+                    .object(card)
+                    .is_some_and(|o| casting::mayhem_discarded_this_turn(&self.state, player, o))
+                && afford(&mayhem.with_x(0))
+                && casting::additional_payment_capacity_for(
+                    &self.state,
+                    player,
+                    card,
+                    face,
+                    Some(CastModeKind::Mayhem),
+                    &[],
+                )
+                .is_some()
+            {
+                options.push(CastModeDesc {
+                    index: 0,
+                    kind: CastModeKind::Mayhem,
+                    cost: price(mayhem),
                 });
             }
             if (face.jump_start || casting::jump_start_granted(&self.state, card))
@@ -802,10 +827,15 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 });
             }
         }
-        // Warp (CR 702.185a): cast from your hand for its warp cost.
+        // Warp (CR 702.185a): cast from your hand (or graveyard permission) for its warp cost.
         if front_timing_ok
-            && obj.zone == crate::zone::Zone::Hand
-            && obj.zone_owner == Some(player)
+            && ((obj.zone == crate::zone::Zone::Hand && obj.zone_owner == Some(player))
+                || casting::graveyard_alt_open(
+                    &self.state,
+                    player,
+                    card,
+                    baylee_cards_dsl::GraveyardAltKind::Warp,
+                ))
             && let Some(warp) = face.warp
         {
             let taxed = baylee_cards_dsl::Cost {
@@ -1390,6 +1420,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         | CastModeKind::JumpStart
                         | CastModeKind::Retrace
                         | CastModeKind::BeamMeUp
+                        | CastModeKind::Mayhem
                         | CastModeKind::EscapeGranted { .. }
                 ) || (matches!(option.kind, CastModeKind::Face(_))
                     && (def.faces[face_index].disturb || def.faces[face_index].aftermath))
@@ -1398,6 +1429,34 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     || (face_index == 0
                         && casting::mana_cost_mode(def, face_index, option.kind)
                         && casting::flashback_granted(&self.state, card))
+                    || (matches!(option.kind, CastModeKind::Blitz)
+                        && casting::graveyard_alt_open(
+                            &self.state,
+                            player,
+                            card,
+                            baylee_cards_dsl::GraveyardAltKind::Blitz,
+                        ))
+                    || (matches!(option.kind, CastModeKind::Warp)
+                        && casting::graveyard_alt_open(
+                            &self.state,
+                            player,
+                            card,
+                            baylee_cards_dsl::GraveyardAltKind::Warp,
+                        ))
+                    || (matches!(option.kind, CastModeKind::Mutate)
+                        && casting::graveyard_alt_open(
+                            &self.state,
+                            player,
+                            card,
+                            baylee_cards_dsl::GraveyardAltKind::Mutate,
+                        ))
+                    || (matches!(option.kind, CastModeKind::Sneak)
+                        && casting::graveyard_alt_open(
+                            &self.state,
+                            player,
+                            card,
+                            baylee_cards_dsl::GraveyardAltKind::Sneak,
+                        ))
             });
         }
         if foretell_cost.is_some()

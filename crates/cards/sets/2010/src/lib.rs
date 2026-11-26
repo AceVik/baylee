@@ -243,6 +243,8 @@ pub mod cultivate;
 pub mod cunning_sparkmage;
 #[path = "roe/curse_of_wizardry.rs"]
 pub mod curse_of_wizardry;
+#[path = "m11/cyclops_gladiator.rs"]
+pub mod cyclops_gladiator;
 #[path = "som/cystbearer.rs"]
 pub mod cystbearer;
 #[path = "roe/daggerback_basilisk.rs"]
@@ -489,6 +491,8 @@ pub mod harabaz_druid;
 pub mod harbor_serpent;
 #[path = "roe/harmless_assault.rs"]
 pub mod harmless_assault;
+#[path = "roe/haze_frog.rs"]
+pub mod haze_frog;
 #[path = "som/heavy_arbalest.rs"]
 pub mod heavy_arbalest;
 #[path = "wwk/hedron_rover.rs"]
@@ -561,6 +565,8 @@ pub mod kemba_kha_regent;
 pub mod kemba_s_skyguard;
 #[path = "wwk/khalni_garden.rs"]
 pub mod khalni_garden;
+#[path = "roe/khalni_hydra.rs"]
+pub mod khalni_hydra;
 #[path = "roe/kiln_fiend.rs"]
 pub mod kiln_fiend;
 #[path = "wwk/kitesail.rs"]
@@ -663,6 +669,8 @@ pub mod memnite;
 pub mod merfolk_observer;
 #[path = "roe/merfolk_skyscout.rs"]
 pub mod merfolk_skyscout;
+#[path = "m11/merfolk_spy.rs"]
+pub mod merfolk_spy;
 #[path = "roe/might_of_the_masses.rs"]
 pub mod might_of_the_masses;
 #[path = "m11/mighty_leap.rs"]
@@ -671,6 +679,8 @@ pub mod mighty_leap;
 pub mod mnemonic_wall;
 #[path = "som/molder_beast.rs"]
 pub mod molder_beast;
+#[path = "som/molten_psyche.rs"]
+pub mod molten_psyche;
 #[path = "som/molten_tail_masticore.rs"]
 pub mod molten_tail_masticore;
 #[path = "roe/momentous_fall.rs"]
@@ -1041,6 +1051,8 @@ pub mod tempered_steel;
 pub mod temple_bell;
 #[path = "wwk/terra_eternal.rs"]
 pub mod terra_eternal;
+#[path = "wwk/thada_adel_acquisitor.rs"]
+pub mod thada_adel_acquisitor;
 #[path = "som/throne_of_geth.rs"]
 pub mod throne_of_geth;
 #[path = "som/thrummingbird.rs"]
@@ -1087,6 +1099,8 @@ pub mod tuktuk_scrapper;
 pub mod tuktuk_the_explorer;
 #[path = "som/tumble_magnet.rs"]
 pub mod tumble_magnet;
+#[path = "som/turn_aside.rs"]
+pub mod turn_aside;
 #[path = "som/turn_to_slag.rs"]
 pub mod turn_to_slag;
 #[path = "som/twisted_image.rs"]

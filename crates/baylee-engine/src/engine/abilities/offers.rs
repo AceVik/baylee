@@ -92,6 +92,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     baylee_cards_dsl::Modifier::SpellsCostMore(_)
                         | baylee_cards_dsl::Modifier::SpellsCostMorePerControlled(_)
                         | baylee_cards_dsl::Modifier::SpellsCostMoreMana(_)
+                        | baylee_cards_dsl::Modifier::RaiseCostIfTargets {
+                            abilities: false,
+                            ..
+                        }
                         | baylee_cards_dsl::Modifier::AdjustSpellCostByCast {
                             delta_per_unit: 1..=i8::MAX,
                             ..
@@ -120,6 +124,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         fx.modifier,
                         baylee_cards_dsl::Modifier::SpellsCostLess(_)
                             | baylee_cards_dsl::Modifier::SpellsCostLessMana { .. }
+                            | baylee_cards_dsl::Modifier::SpellsCostLessManaByAmount { .. }
                             | baylee_cards_dsl::Modifier::SpellsCostLessByAmount(_)
                             | baylee_cards_dsl::Modifier::SpellsCostLessPerCounter(_)
                             | baylee_cards_dsl::Modifier::AdjustSpellCostByCast {
@@ -376,6 +381,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     .filter(|card| {
                         graveyard_open
                             || casting::mayhem_land_permission(&self.state, player, **card)
+                            || casting::mayhem_spell_permission(&self.state, player, **card)
                     })
                     .map(|c| (c, false)),
             )
@@ -778,25 +784,24 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         if obj.controller != player || !sorcery_timing || self.loyalty_used(id) {
                             continue;
                         }
-                        let price = self.activation_price(player, id, i, &Cost::FREE, None);
-                        if !self.activation_affordable(player, id, &price, &[], 0) {
-                            continue;
-                        }
                         let loyalty = obj.counters.get(baylee_cards_dsl::CounterKind::Loyalty);
-                        if *cost < 0 && loyalty < (-*cost) as u16 {
+                        let adj_cost = self.loyalty_cost(id, i).unwrap_or(*cost);
+                        if adj_cost < 0 && loyalty < (-i16::from(adj_cost)) as u16 {
                             continue;
                         }
-                        if !self.ability_has_targets(
+                        let price = self.activation_price(player, id, i, &Cost::FREE, None);
+                        let payable = self.activation_affordable(player, id, &price, &[], 0);
+                        self.offer_activation_payment(
                             player,
                             id,
                             i,
+                            &price,
+                            payable,
                             *targets,
                             *second_targets,
                             *third_targets,
-                        ) {
-                            continue;
-                        }
-                        legal.abilities.push((id, i));
+                            &mut legal,
+                        );
                     }
                     _ => {}
                 }

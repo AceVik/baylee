@@ -37,7 +37,7 @@ card!(
             &[
                 Effect::SearchLibrary {
                     filter: &SEARCH1,
-                    finds: &[Find::EXILE, Find::EXILE],
+                    finds: &[Find::EXILE_LINKED, Find::EXILE_LINKED],
                     optional: true
                 },
                 Effect::gain_life(2)

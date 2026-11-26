@@ -1372,6 +1372,14 @@ impl Tx<'_> {
                 {
                     return None;
                 }
+                let copy_target = if flags.targets_a_player { target } else { None };
+                if let Some(effs) = self.wave29a_copy_permanent_remembered_haste_next_turn(
+                    p,
+                    copy_target,
+                    flags.targets_a_player,
+                ) {
+                    return Some(effs);
+                }
                 let mut probe = p.clone();
                 probe.take("Defined");
                 probe
@@ -1593,6 +1601,8 @@ impl Tx<'_> {
             }
             (None, None) => {}
         }
+        let trig_mods = self.wave29c_animate_remembered_triggers(&mut probe, duration)?;
+        effects.extend(trig_mods);
 
         // Optional delayed end-step cleanup (`AtEOT$`).
         if let Some(at_eot) = probe.take("AtEOT") {
@@ -1700,7 +1710,14 @@ impl Tx<'_> {
             && scope.single_object
             && matches!(cmp, "GE1" | "EQ1" | "GT0")
         {
-            let filter_expr = self.filter_expr_in_zone(valid.trim(), !scope.from_battlefield)?;
+            let filter_expr = if matches!(valid.trim(), "Card.NamedCard" | "NamedCard") {
+                if !self.has_resolution_chosen_name {
+                    return None;
+                }
+                "Filter::NamedBySource".to_string()
+            } else {
+                self.filter_expr_in_zone(valid.trim(), !scope.from_battlefield)?
+            };
             let filter_name = self.body.filter_static("REM_COND", &filter_expr);
             *p = probe;
             return Some(vec![format!(
@@ -1709,6 +1726,6 @@ impl Tx<'_> {
             )]);
         }
 
-        None
+        self.wave29c_wrap_remembered_plus_svar_condition(p, &raw, cmp, &probe, effects)
     }
 }

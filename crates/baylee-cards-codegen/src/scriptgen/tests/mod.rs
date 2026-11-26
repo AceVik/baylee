@@ -23,6 +23,9 @@ mod tokens_and_zones;
 mod wave16a;
 mod wave16b;
 mod wave16c;
+mod wave17a;
+mod wave17b;
+mod wave17c;
 mod wave24a;
 mod wave24b;
 mod wave24c;
@@ -48,6 +51,10 @@ mod wave28a;
 mod wave28b;
 mod wave28c;
 mod wave28d;
+mod wave29a;
+mod wave29b;
+mod wave29c;
+mod wave29d;
 
 fn cats() -> SubtypeCatalogs {
     let mut c = SubtypeCatalogs {

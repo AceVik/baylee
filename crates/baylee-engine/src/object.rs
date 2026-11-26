@@ -1343,6 +1343,20 @@ pub enum Rider {
     /// Marks a granted stack ability whose resolution runs Encore (`CR 702.141a`;
     /// *Araumi of the Dead Tide*). Appended to preserve replay identities.
     EncoreAbility,
+    /// Non-hand, non-graveyard origin zone (`Exile`, `Library`, `Command`) from
+    /// which this spell or permanent incarnation was cast (`Filter::CastFromZone`,
+    /// `Condition::SourceCastFromZone`, `CR 601.2`, `CR 400.7d`). Recorded only
+    /// when `PerTurn::track_cast_origin_zone` is active so replay hashes are
+    /// untouched on games without a reader. Appended to preserve replay
+    /// identities.
+    CastOriginZone(Zone),
+    /// Marks a spell cast via [`crate::choice::CastModeKind::Mayhem`] and the
+    /// permanent it becomes on resolving from the stack (`CR 702.187a–b`;
+    /// *Sandman's Quicksand*). Appended to preserve replay identities.
+    MayhemPaid,
+    /// Marks a granted stack ability whose resolution runs Unearth (`CR 702.84a`;
+    /// *Sedris*, *Dregscape Sliver*, *Mishra, Tamer of Mak Fawa*).
+    UnearthAbility,
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -1511,7 +1525,10 @@ impl Rider {
             | Self::SpellCostExile(_)
             | Self::ControlledSubtypeOnCast(_)
             | Self::BeheldCostPower(_, _, _)
-            | Self::EncoreAbility => false,
+            | Self::EncoreAbility
+            | Self::CastOriginZone(_)
+            | Self::MayhemPaid
+            | Self::UnearthAbility => false,
         }
     }
 }

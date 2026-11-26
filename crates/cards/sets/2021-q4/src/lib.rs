@@ -125,6 +125,8 @@ pub mod dreamroot_cascade;
 pub mod drogskol_infantry;
 #[path = "voc/drogskol_reinforcements.rs"]
 pub mod drogskol_reinforcements;
+#[path = "pvow/dying_to_serve.rs"]
+pub mod dying_to_serve;
 #[path = "vow/end_the_festivities.rs"]
 pub mod end_the_festivities;
 #[path = "vow/estwald_shieldbasher.rs"]
@@ -205,6 +207,8 @@ pub mod ill_tempered_loner;
 pub mod imperious_mindbreaker;
 #[path = "vow/infestation_expert.rs"]
 pub mod infestation_expert;
+#[path = "pvow/investigator_s_journal.rs"]
+pub mod investigator_s_journal;
 #[path = "voc/kamber_the_plunderer.rs"]
 pub mod kamber_the_plunderer;
 #[path = "pvow/katilda_dawnhart_martyr.rs"]
@@ -273,6 +277,8 @@ pub mod overcharged_amalgam;
 pub mod packsong_pup;
 #[path = "vow/panicked_bystander.rs"]
 pub mod panicked_bystander;
+#[path = "vow/parish_blade_trainee.rs"]
+pub mod parish_blade_trainee;
 #[path = "vow/persistent_specimen.rs"]
 pub mod persistent_specimen;
 #[path = "vow/piercing_light.rs"]
@@ -405,6 +411,8 @@ pub mod welcoming_vampire;
 pub mod whispering_wizard;
 #[path = "vow/witch_s_web.rs"]
 pub mod witch_s_web;
+#[path = "vow/witness_the_future.rs"]
+pub mod witness_the_future;
 #[path = "vow/wolfkin_outcast.rs"]
 pub mod wolfkin_outcast;
 #[path = "vow/wretched_throng.rs"]

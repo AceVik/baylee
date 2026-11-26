@@ -52,6 +52,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .expect("wizard card exists")
                 .clone();
             object.x_value = 0;
+            if wizard.bargained && !object.riders.contains(&crate::object::Rider::Bargained) {
+                object.riders.push(crate::object::Rider::Bargained);
+            }
             if (wizard.optional_cost_paid || wizard.option == Some(CastModeKind::OptionalCost))
                 && !object
                     .riders
@@ -67,6 +70,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .expect("wizard card exists")
                 .clone();
             object.x_value = 0;
+            if wizard.bargained && !object.riders.contains(&crate::object::Rider::Bargained) {
+                object.riders.push(crate::object::Rider::Bargained);
+            }
             if (wizard.optional_cost_paid || wizard.option == Some(CastModeKind::OptionalCost))
                 && !object
                     .riders
@@ -211,6 +217,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
         let mut targeted = baseline.clone();
         targeted.x_value = wizard.x;
+        if wizard.bargained && !targeted.riders.contains(&crate::object::Rider::Bargained) {
+            targeted.riders.push(crate::object::Rider::Bargained);
+        }
         targeted.targets.clone_from(&wizard.targets);
         targeted.target_players = wizard.target_players;
         if self
@@ -286,6 +295,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .with_less_mana(&without.mana_increase, true)
                 .with_more_generic(with_targets.increase.saturating_sub(without.increase)),
         );
+        wizard.target_life_increase = with_targets
+            .life_increase
+            .saturating_sub(without.life_increase);
         let extra_colored_only = with_targets
             .colored_only_reduction
             .with_less_mana(&without.colored_only_reduction, true);
@@ -348,6 +360,7 @@ fn raw_option_cost(
         Some(CastModeKind::Foretell) => face.foretell.expect("foretell"),
         Some(CastModeKind::Flashback) => face.flashback.expect("flashback"),
         Some(CastModeKind::BeamMeUp) => face.beam_me_up.expect("beam me up"),
+        Some(CastModeKind::Mayhem) => face.mayhem.expect("mayhem"),
         Some(CastModeKind::Dash) => face.dash.expect("dash"),
         Some(CastModeKind::Blitz) => face.blitz.expect("blitz").mana,
         Some(CastModeKind::Warp) => face.warp.expect("warp").mana,

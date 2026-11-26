@@ -1672,6 +1672,12 @@ pub(crate) fn can_cast_form_paying(
     let beam_ok = in_own_graveyard
         && beam_cost.is_some()
         && !beam_return_options(state, player, card).is_empty();
+    let mayhem_cost = obj
+        .card
+        .and_then(|card| lookup.card(card.index))
+        .and_then(|def| def.faces[0].mayhem);
+    let mayhem_ok =
+        in_own_graveyard && mayhem_cost.is_some() && mayhem_discarded_this_turn(state, player, obj);
     // Disturb (CR 702.146) and Aftermath (CR 702.127a): a back face with
     // disturb or aftermath is castable from the owner's graveyard.
     let disturb_ok = !in_hand
@@ -1755,10 +1761,49 @@ pub(crate) fn can_cast_form_paying(
     // Wrenn's emblem and Muldrotha: a permanent card cast from its owner's
     // graveyard at its own price.
     let graveyard_ok = !in_hand && graveyard_cast_permission(state, player, obj).is_some();
-    // A granted flashback cost cannot be combined with a second alternative cost.
+    let gy_blitz_ok = in_own_graveyard
+        && graveyard_alt_open(
+            state,
+            player,
+            card,
+            baylee_cards_dsl::GraveyardAltKind::Blitz,
+        );
+    let gy_warp_ok = in_own_graveyard
+        && graveyard_alt_open(
+            state,
+            player,
+            card,
+            baylee_cards_dsl::GraveyardAltKind::Warp,
+        );
+    let gy_mutate_ok = in_own_graveyard
+        && graveyard_alt_open(
+            state,
+            player,
+            card,
+            baylee_cards_dsl::GraveyardAltKind::Mutate,
+        );
+    let gy_sneak_ok = in_own_graveyard
+        && graveyard_alt_open(
+            state,
+            player,
+            card,
+            baylee_cards_dsl::GraveyardAltKind::Sneak,
+        );
+    let gy_alt_any = gy_blitz_ok || gy_warp_ok || gy_mutate_ok || gy_sneak_ok;
+    let gy_alt_only = gy_alt_any
+        && !graveyard_ok
+        && !flashback_ok
+        && !jump_start_ok
+        && !retrace_ok
+        && !escape_ok
+        && !beam_ok
+        && !granted_escape
+        && !disturb_ok
+        && permission.is_none();
+    // A granted flashback or graveyard-alt cost cannot be combined with a second alternative cost.
     let flashback_only =
         in_own_graveyard && flashback_granted(state, card) && !graveyard_ok && permission.is_none();
-    if flashback_only
+    if (flashback_only || gy_alt_only)
         && matches!(
             form,
             Some(
@@ -1808,6 +1853,7 @@ pub(crate) fn can_cast_form_paying(
         && !retrace_ok
         && !escape_ok
         && !beam_ok
+        && !mayhem_ok
         && !granted_escape
         && !disturb_ok
         && !adventure_ok
@@ -1816,6 +1862,7 @@ pub(crate) fn can_cast_form_paying(
         && !foretell_ok
         && !plot_ok
         && !warp_exile_ok
+        && !gy_alt_any
         && permission.is_none()
     {
         return Err(CastError::NotInHand);
@@ -1867,8 +1914,10 @@ pub(crate) fn can_cast_form_paying(
     // an enchantment, and it is cast in answer to an ability on the stack
     // or not at all. A prototype or a disguise is the front, cast another
     // way.
+    let gy_front_ok = !gy_alt_only || gy_blitz_ok || gy_warp_ok || gy_mutate_ok;
     let front_now = !front_forbidden
         && !c.types.contains(TypeSet::LAND)
+        && gy_front_ok
         && graveyard_face_open(state, player, card, 0)
         && permitted_spell_types(state, player, card, c.types, 0)
         && if matches!(form, Some(SpellForm::Plot)) {
@@ -1979,6 +2028,14 @@ pub(crate) fn can_cast_form_paying(
         })
     };
     let adjustment = raw_adjustment.for_preview(preview_delta);
+    if adjustment.life_increase > 0
+        && !state.can_pay_life(
+            player,
+            i32::try_from(adjustment.life_increase).unwrap_or(i32::MAX),
+        )
+    {
+        return Err(CastError::NoWayToCast);
+    }
     let tax = adjustment.increase;
     if let Some(form) = form {
         let form_printed = if matches!(form, SpellForm::Disguise) {
@@ -2352,8 +2409,43 @@ pub(crate) fn can_cast_form_paying(
     if beam_ok && beam_cost.is_some_and(|cost| probe(&cost)) {
         return Ok(());
     }
-    if in_own_graveyard && beam_cost.is_some() && !graveyard_ok && !flashback_ok && !escape_ok {
+    if in_own_graveyard
+        && beam_cost.is_some()
+        && !graveyard_ok
+        && !flashback_ok
+        && !escape_ok
+        && !mayhem_ok
+    {
         return Err(CastError::NoWayToCast);
+    }
+    if mayhem_ok && let Some(cost) = mayhem_cost {
+        let parts_payable = printed.is_some_and(|def| {
+            additional_payment_capacity_for(
+                state,
+                player,
+                card,
+                &def.faces[0],
+                Some(crate::choice::CastModeKind::Mayhem),
+                &[],
+            )
+            .is_some()
+        });
+        if parts_payable && probe(&cost.with_x(0)) {
+            return Ok(());
+        }
+        if !flashback_granted(state, card)
+            && !graveyard_ok
+            && !flashback_ok
+            && !escape_ok
+            && !jump_start_ok
+            && !retrace_ok
+        {
+            return Err(if parts_payable {
+                CastError::NotEnoughMana
+            } else {
+                CastError::NoWayToCast
+            });
+        }
     }
     // so from the graveyard its cost is the price — or, beside a grant
     // (Past in Flames), one of two, the grant's being the mana cost below.
@@ -2688,6 +2780,7 @@ pub(crate) fn can_cast_form_paying(
     if !front_now
         || !front_target_ok
         || modal_only
+        || gy_alt_only
         || !has_a_printed_cost(&c.mana_cost)
         || !probe_normal(&normal_cost.with_x(0))
     {
@@ -2710,6 +2803,7 @@ pub(crate) fn can_cast_form_paying(
         let any_alt = front_now
             && front_target_ok
             && !flashback_only
+            && !gy_alt_only
             && face.alternative_costs.iter().enumerate().any(|(i, alt)| {
                 // Every condition, not merely the one that was written first.
                 // `CommanderControlled` fell through the old `!matches!` as
@@ -2749,6 +2843,7 @@ pub(crate) fn can_cast_form_paying(
         // same intersection `cast_options` makes two files away, which is the
         // half that was already right.
         let any_mode = front_now
+            && !gy_alt_only
             && def.abilities.iter().any(|a| {
                 let Some((modes, choose, can_repeat)) = a.modal_spell() else {
                     return false;
@@ -2794,11 +2889,13 @@ pub(crate) fn can_cast_form_paying(
         let any_dash = front_now
             && front_target_ok
             && !flashback_only
+            && !gy_alt_only
             && face.dash.is_some_and(|dash| probe(&dash));
         // Blitz (CR 702.152a), the offer's `CastModeKind::Blitz`.
         let any_blitz = front_now
             && front_target_ok
             && !flashback_only
+            && (!gy_alt_only || gy_blitz_ok)
             && face.blitz.is_some_and(|blitz| {
                 probe(&blitz.mana.with_x(0))
                     && alternative_parts_payable(state, player, card, blitz.parts)
@@ -2812,10 +2909,10 @@ pub(crate) fn can_cast_form_paying(
                     )
                     .is_some()
             });
-        // Warp (CR 702.185a), the offer's `CastModeKind::Warp` (from hand only).
+        // Warp (CR 702.185a), the offer's `CastModeKind::Warp` (from hand or graveyard permission).
         let any_warp = front_now
             && front_target_ok
-            && in_hand
+            && (in_hand || gy_warp_ok)
             && !flashback_only
             && face.warp.is_some_and(|warp| {
                 probe(&warp.mana.with_x(0))
@@ -2833,6 +2930,7 @@ pub(crate) fn can_cast_form_paying(
         // Awaken (CR 702.113a), the offer's `CastModeKind::Awaken`.
         let any_awaken = front_target_ok
             && !flashback_only
+            && !gy_alt_only
             && crate::engine::cast_wizard::wave10b::face_awaken(def, 0).is_some_and(
                 |(_, awaken)| {
                     crate::engine::cast_wizard::wave10b::awaken_has_legal_land(state, player, card)
@@ -2857,6 +2955,7 @@ pub(crate) fn can_cast_form_paying(
         let any_emerge = front_now
             && front_target_ok
             && !flashback_only
+            && !gy_alt_only
             && face.emerge.is_some_and(|emerge| {
                 emerge_candidates(state, player, card, face, emerge)
                     .into_iter()
@@ -2887,6 +2986,7 @@ pub(crate) fn can_cast_form_paying(
         let any_mutate = front_now
             && front_target_ok
             && !flashback_only
+            && (!gy_alt_only || gy_mutate_ok)
             && face.mutate.is_some_and(|mutate| {
                 kicked_targets_reachable(state, def, player, card, MUTATE_TARGET_REQ) && {
                     if raw_adjustment.has_target_conditional_reduction {
@@ -2921,6 +3021,7 @@ pub(crate) fn can_cast_form_paying(
         let any_sneak = sneak_now
             && front_target_ok
             && !flashback_only
+            && (!gy_alt_only || gy_sneak_ok)
             && sneak_cost_for(state, player, card, Some(def), 0).is_some_and(|sneak| {
                 probe(&sneak.mana.with_x(0))
                     && alternative_parts_payable(state, player, card, sneak.parts)
@@ -3264,7 +3365,9 @@ fn alternative_parts_payable(
         | CostPart::DealDamageToYou(_)
         | CostPart::Forage
         | CostPart::PayLifeX => true,
-        CostPart::Behold(filter) => !behold_options(state, player, card, filter).is_empty(),
+        CostPart::Behold(filter) | CostPart::BeholdAndExile(filter) => {
+            !behold_options(state, player, card, filter).is_empty()
+        }
         CostPart::PutCounterOnOther { .. } | CostPart::RevealFromHand(_) => {
             !crate::engine::cost_wizard::options(state, player, card, part).is_empty()
         }

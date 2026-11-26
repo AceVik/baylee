@@ -615,6 +615,9 @@ impl Tx<'_> {
     /// (*Beseech the Queen*, *Mausoleum Secrets*, *Alesha, Who Laughs at Fate*, *Keldon
     /// Flamesage*, *Buster Sword*, *Bortuk Bonerattle*, *Powerbalance*).
     fn dynamic_amount_filter_atom(&self, atom: &str, card_zone: bool) -> Option<String> {
+        if let Some(expr) = self.wave29c_dynamic_cmc_filter_atom(atom, card_zone) {
+            return Some(expr);
+        }
         let (variant, var) = if card_zone && let Some(v) = atom.strip_prefix("cmcLE") {
             ("Filter::CmcAtMostAmount", v)
         } else if card_zone
@@ -644,7 +647,7 @@ impl Tx<'_> {
         Some(format!("{variant}(&{amt})"))
     }
 
-    fn svar_to_filter_amount(&self, var: &str) -> Option<String> {
+    pub(super) fn svar_to_filter_amount(&self, var: &str) -> Option<String> {
         self.svar_to_filter_amount_depth(var, 0)
     }
 
@@ -711,12 +714,21 @@ impl Tx<'_> {
             {
                 "Amount::EventPower".to_string()
             }
-            "Sacrificed$CardManaCost" => "Amount::SacrificedManaValue".to_string(),
+            "Sacrificed$CardManaCost"
+                if self.cost_sacrifices_other
+                    || self.cost_sacrifices_self
+                    || self.capture_scope.is_none() =>
+            {
+                "Amount::SacrificedManaValue".to_string()
+            }
             "Sacrificed$CardPower" => "Amount::SacrificedPower".to_string(),
             "Sacrificed$CardToughness" => "Amount::SacrificedToughness".to_string(),
             other if self.wave28d_remembered_filter_amount_base(other).is_some() => self
                 .wave28d_remembered_filter_amount_base(other)?
                 .to_string(),
+            other if self.wave29c_svar_filter_amount_base(other).is_some() => {
+                self.wave29c_svar_filter_amount_base(other)?.to_string()
+            }
             other if other.starts_with("SVar$") => {
                 let inner_var = other.strip_prefix("SVar$")?.trim();
                 self.svar_to_filter_amount_depth(inner_var, depth + 1)?
@@ -1051,6 +1063,7 @@ impl Tx<'_> {
                 state.has_controller = true;
                 "Filter::And(&[Filter::CastFromHand, Filter::ControlledByYou])".to_string()
             }
+            other if let Some(cast_atom) = Self::wave17a_was_cast_atom(other) => cast_atom,
             "counters_GE1_ALL" | "counters_GT0_ALL" | "HasCounters" => {
                 "Filter::HasAnyCounter".to_string()
             }
@@ -1245,14 +1258,20 @@ impl Tx<'_> {
             "!ChosenColor" | "nonChosenColor" => {
                 "Filter::Not(&Filter::OfSourceChosenColor)".to_string()
             }
-            "ChosenType" if self.has_chosen_creature_type() => {
+            "ChosenType"
+                if self.has_chosen_creature_type()
+                    || (self.has_chosen_basic_land_type()
+                        && clauses.iter().any(|c| c == "Filter::LAND")) =>
+            {
                 "Filter::MatchesChosenTypeOfSource".to_string()
             }
             "ChosenType" if self.has_chosen_card_type() => {
                 "Filter::OfSourceChosenCardType".to_string()
             }
             "IsNotChosenType" | "!ChosenType" | "nonChosenType"
-                if self.has_chosen_creature_type() =>
+                if self.has_chosen_creature_type()
+                    || (self.has_chosen_basic_land_type()
+                        && clauses.iter().any(|c| c == "Filter::LAND")) =>
             {
                 "Filter::Not(&Filter::MatchesChosenTypeOfSource)".to_string()
             }
@@ -1278,6 +1297,10 @@ impl Tx<'_> {
             }
             "!PutIntoGraveyardThisTurn" if card_zone => {
                 "Filter::Not(&Filter::PutIntoGraveyardThisTurn)".to_string()
+            }
+            "surveilledThisTurn" if card_zone => "Filter::SurveilledByYouThisTurn".to_string(),
+            "!surveilledThisTurn" if card_zone => {
+                "Filter::Not(&Filter::SurveilledByYouThisTurn)".to_string()
             }
             "!firstTurnControlled" if !card_zone => "Filter::ControlledSinceTurnBegan".to_string(),
             "firstTurnControlled" if !card_zone => {
@@ -1573,6 +1596,8 @@ impl Tx<'_> {
             // shape in the corpus, not a corner.
             other => {
                 if let Some(expr) = self.dynamic_amount_filter_atom(other, card_zone) {
+                    expr
+                } else if let Some(expr) = self.wave29a_filter_atom(other, card_zone) {
                     expr
                 } else {
                     let (negated, name) = other
@@ -2061,6 +2086,10 @@ impl Tx<'_> {
             "from any graveyard",
             "in graveyards",
             "from graveyards",
+            "in that player's graveyard",
+            "from that player's graveyard",
+            "in their graveyard",
+            "from their graveyard",
         ]
         .into_iter()
         .any(|phrase| text.contains(phrase))

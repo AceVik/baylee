@@ -36,7 +36,11 @@ card!(
                 duration: Duration::UntilEndOfTurn
             },
             Effect::IfCondition {
-                condition: Condition::AmountAtLeast(Amount::EventManaSpentToCast, 4),
+                condition: Condition::AmountCompare {
+                    left: &Amount::EventManaSpentToCast,
+                    op: AmountCmp::AtLeast,
+                    right: &Amount::Fixed(4)
+                },
                 then: &[Effect::draw(1)],
                 otherwise: &[]
             }

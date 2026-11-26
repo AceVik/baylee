@@ -90,6 +90,12 @@ fn a_face_without_buyback_or_multikicker_keeps_the_tree_it_had() {
     }
     .tree(&mut f);
     assert_eq!(children(&f, optional_flash), children(&f, plain) + 1);
+    let mayhem = FaceDef {
+        mayhem: Some(ManaCost::parse("{1}{B}")),
+        ..FaceDef::DEFAULT
+    }
+    .tree(&mut f);
+    assert_eq!(children(&f, mayhem), children(&f, plain) + 1);
 }
 
 /// A face that prints none of the later optional fields has the 41 children

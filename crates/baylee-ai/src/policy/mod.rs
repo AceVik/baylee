@@ -3941,7 +3941,8 @@ fn mandatory_part_readable(
         baylee_cards_dsl::CostPart::RevealFromHand(filter) => hand(view)
             .iter()
             .any(|c| c.id != id && crate::worth::hand_matches(filter, c) != Some(false)),
-        baylee_cards_dsl::CostPart::Behold(filter) => {
+        baylee_cards_dsl::CostPart::Behold(filter)
+        | baylee_cards_dsl::CostPart::BeholdAndExile(filter) => {
             view.battlefield_of(me).any(|o| {
                 o.id != id
                     && agent.filter_matches(
@@ -4220,7 +4221,10 @@ fn buyback_parts_worth(view: &PlayerView, parts: &[CostPart], card: CardIdentity
         .sum();
     seat.life - life >= BUYBACK_LIFE_FLOOR.min(seat.life)
         && parts.iter().all(|part| match part {
-            CostPart::PayLife(_) | CostPart::Behold(_) | CostPart::RevealFromHand(_) => true,
+            CostPart::PayLife(_)
+            | CostPart::Behold(_)
+            | CostPart::BeholdAndExile(_)
+            | CostPart::RevealFromHand(_) => true,
             CostPart::PutCounterOnOther { filter, kind, n } => {
                 view.battlefield_of(view.seat).any(|o| {
                     let survives = *kind != baylee_cards_dsl::CounterKind::M1M1
@@ -4769,7 +4773,10 @@ fn kicker_parts_worth(view: &PlayerView, parts: &[CostPart], card: Option<CardId
         .sum();
     seat.life - life >= BUYBACK_LIFE_FLOOR.min(seat.life)
         && parts.iter().all(|part| match part {
-            CostPart::PayLife(_) | CostPart::Behold(_) | CostPart::RevealFromHand(_) => true,
+            CostPart::PayLife(_)
+            | CostPart::Behold(_)
+            | CostPart::BeholdAndExile(_)
+            | CostPart::RevealFromHand(_) => true,
             CostPart::PutCounterOnOther { filter, kind, n } => {
                 view.battlefield_of(view.seat).any(|o| {
                     let survives = *kind != baylee_cards_dsl::CounterKind::M1M1

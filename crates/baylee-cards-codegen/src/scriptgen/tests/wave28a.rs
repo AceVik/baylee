@@ -796,12 +796,20 @@ fn wave28a_p2_reference_filters_any_exclusions_and_emblem_subsumption() {
         "Name:BadEmblemOtherOnEmblem\nTypes:Emblem\n\
          T:Mode$ DamageDone | ValidSource$ Card.Other+YouCtrl,Emblem.YouCtrl | ValidTarget$ Opponent | TriggerZones$ Command | Execute$ D\n\
          SVar:D:DB$ GainLife | LifeAmount$ 1",
-        "Name:SageReduceCostRefused\nManaCost:5 U U\nTypes:Creature\nPT:5/5\n\
-         S:Mode$ ReduceCost | ValidCard$ Card.!wasCastFromYourHand | Type$ Spell | Activator$ You | Amount$ 2\n\
-         Oracle:Spells you cast from anywhere other than your hand cost {2} less to cast.",
     ] {
         assert!(refused_w28a(bad), "must refuse:\n{bad}");
     }
+    let sage = read_w28a(
+        "Name:SageReduceCost\nManaCost:5 U U\nTypes:Creature\nPT:5/5\n\
+         S:Mode$ ReduceCost | ValidCard$ Card.!wasCastFromYourHand | Type$ Spell | Activator$ You | Amount$ 2\n\
+         Oracle:Spells you cast from anywhere other than your hand cost {2} less to cast.",
+    );
+    assert!(
+        sage.abilities[0].contains("Filter::CastFromZone(ZoneRef::Hand)")
+            && sage.abilities[0].contains("Filter::OwnedByYou"),
+        "{:?}",
+        sage.abilities
+    );
 }
 
 #[test]

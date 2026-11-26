@@ -33,7 +33,9 @@ async fn the_list_says_when_what_cannot_play_and_whose_art() {
     let port = gw.port;
     let token = login(port, "lister", "Lister");
 
-    let stub = card("a stub", |c| c.coverage == "unimplemented" && !c.commander);
+    let stub = card("a stub cheaper than 5", |c| {
+        c.coverage == "unimplemented" && !c.commander && c.cmc < 5
+    });
     let spell = card("a 5-drop", |c| {
         c.coverage == "implemented" && !c.commander && c.cmc == 5 && !c.kinds.contains(&"Land")
     });

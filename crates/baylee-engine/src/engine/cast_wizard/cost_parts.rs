@@ -460,6 +460,7 @@ impl super::CastWizard {
         };
         base.saturating_add(fixed_life_cost(face, self.cost_choice()))
             .saturating_add(super::phyrexian_life(self))
+            .saturating_add(i32::try_from(self.target_life_increase).unwrap_or(i32::MAX))
     }
 
     /// Total life owed after X has been chosen, including every pay-X-life part.
@@ -499,6 +500,7 @@ pub(crate) fn additional_card_costs_for_x(
                 | CostPart::PutCounterOnOther { .. }
                 | CostPart::Forage
                 | CostPart::Behold(_)
+                | CostPart::BeholdAndExile(_)
                 | CostPart::RevealFromHand(_)
         )
     });
@@ -523,6 +525,7 @@ pub(crate) fn additional_card_costs_for_x(
                     | CostPart::PutCounterOnOther { .. }
                     | CostPart::Forage
                     | CostPart::Behold(_)
+                    | CostPart::BeholdAndExile(_)
                     | CostPart::RevealFromHand(_)
                     | CostPart::RevealFromHandX(_)
             )

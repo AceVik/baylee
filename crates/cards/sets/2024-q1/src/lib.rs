@@ -205,6 +205,8 @@ pub mod escape_tunnel;
 pub mod essence_of_antiquity;
 #[path = "mkm/exit_specialist.rs"]
 pub mod exit_specialist;
+#[path = "mkc/eye_of_duskmantle.rs"]
+pub mod eye_of_duskmantle;
 #[path = "mkm/ezrim_agency_chief.rs"]
 pub mod ezrim_agency_chief;
 #[path = "mkm/fae_flight.rs"]
@@ -291,6 +293,8 @@ pub mod intelligence_bobblehead;
 pub mod inventory_management;
 #[path = "pip/james_wandering_dad.rs"]
 pub mod james_wandering_dad;
+#[path = "pip/junk_jet.rs"]
+pub mod junk_jet;
 #[path = "pip/junktown.rs"]
 pub mod junktown;
 #[path = "mkm/kellan_inquisitive_prodigy.rs"]
@@ -319,6 +323,8 @@ pub mod leering_onlooker;
 pub mod legate_lanius_caesar_s_ace;
 #[path = "mkm/leyline_of_the_guildpact.rs"]
 pub mod leyline_of_the_guildpact;
+#[path = "pip/liberty_prime_recharged.rs"]
+pub mod liberty_prime_recharged;
 #[path = "clu/library.rs"]
 pub mod library;
 #[path = "mkm/living_conundrum.rs"]
@@ -369,6 +375,8 @@ pub mod morska_undersea_sleuth;
 pub mod museum_nightwatch;
 #[path = "mkm/neighborhood_guardian.rs"]
 pub mod neighborhood_guardian;
+#[path = "pip/nerd_rage.rs"]
+pub mod nerd_rage;
 #[path = "mkm/nervous_gardener.rs"]
 pub mod nervous_gardener;
 #[path = "mkm/nightdrinker_moroii.rs"]
@@ -399,6 +407,8 @@ pub mod overflowing_basin;
 pub mod paladin_danse_steel_maverick;
 #[path = "pip/paladin_elizabeth_taggerdy.rs"]
 pub mod paladin_elizabeth_taggerdy;
+#[path = "mkc/panoptic_projektor.rs"]
+pub mod panoptic_projektor;
 #[path = "mkm/person_of_interest.rs"]
 pub mod person_of_interest;
 #[path = "mkm/persuasive_interrogators.rs"]
@@ -443,6 +453,8 @@ pub mod redemption_arc;
 pub mod reenact_the_crime;
 #[path = "mkm/repeat_offender.rs"]
 pub mod repeat_offender;
+#[path = "mkm/repulsive_mutation.rs"]
+pub mod repulsive_mutation;
 #[path = "clu/resonance_technician.rs"]
 pub mod resonance_technician;
 #[path = "pip/robobrain_war_mind.rs"]
@@ -489,6 +501,8 @@ pub mod silver_shroud_costume;
 pub mod slice_from_the_shadows;
 #[path = "mkm/slimy_dualleech.rs"]
 pub mod slimy_dualleech;
+#[path = "clu/sludge_titan.rs"]
+pub mod sludge_titan;
 #[path = "mkm/snarling_gorehound.rs"]
 pub mod snarling_gorehound;
 #[path = "mkc/sophia_dogged_detective.rs"]
@@ -499,6 +513,8 @@ pub mod soul_enervation;
 pub mod soul_search;
 #[path = "pip/strength_bobblehead.rs"]
 pub mod strength_bobblehead;
+#[path = "pip/strong_back.rs"]
+pub mod strong_back;
 #[path = "clu/study.rs"]
 pub mod study;
 #[path = "clu/sumala_rumblers.rs"]
@@ -535,6 +551,8 @@ pub mod topiary_panther;
 pub mod torch_the_witness;
 #[path = "mkm/toxin_analysis.rs"]
 pub mod toxin_analysis;
+#[path = "mkm/treacherous_greed.rs"]
+pub mod treacherous_greed;
 #[path = "clu/tribune_of_rot.rs"]
 pub mod tribune_of_rot;
 #[path = "mkm/trostani_three_whispers.rs"]
@@ -573,6 +591,8 @@ pub mod vengeful_creeper;
 pub mod vengeful_tracker;
 #[path = "clu/vernal_sovereign.rs"]
 pub mod vernal_sovereign;
+#[path = "pip/veronica_dissident_scribe.rs"]
+pub mod veronica_dissident_scribe;
 #[path = "pip/viridescent_bog.rs"]
 pub mod viridescent_bog;
 #[path = "mkm/vitu_ghazi_inspector.rs"]
@@ -591,3 +611,5 @@ pub mod wild_wasteland;
 pub mod wispdrinker_vampire;
 #[path = "mkm/wrench.rs"]
 pub mod wrench;
+#[path = "pip/young_deathclaws.rs"]
+pub mod young_deathclaws;

@@ -17,11 +17,22 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         if o.zone != Zone::Battlefield || !o.doors.is_room() || o.doors.is_unlocked(half) {
             return None;
         }
-        self.lookup
+        let base = self
+            .lookup
             .card(o.card?.index)?
             .faces
             .get(usize::from(half))
-            .map(|f| f.mana_cost)
+            .map(|f| f.mana_cost)?;
+        let mut reduction = 0_u8;
+        for fx in self.state.effects.iter() {
+            if let baylee_cards_dsl::Modifier::UnlockCostsLess { who, amount } = fx.modifier
+                && crate::eval::players_for_source(who, &self.state, fx.controller, fx.source)
+                    .is_some_and(|ps| ps.contains(&o.controller))
+            {
+                reduction = reduction.saturating_add(amount);
+            }
+        }
+        Some(base.with_less_generic(u32::from(reduction)))
     }
 
     /// CR 709.5e: the controller pays a locked half's mana cost, and the

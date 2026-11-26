@@ -1525,10 +1525,11 @@ fn wave5_reduce_cost_and_spell_prevention() {
         "Name:BadSmith\nManaCost:1 W\nTypes:Creature\nPT:1/1\n\
          S:Mode$ ReduceCost | ValidCard$ Card | ValidSpell$ Activated.Equip | Activator$ You | Amount$ 1 | MinMana$ 1"
     ));
-    assert!(refused(
+    let target_smith = read(
         "Name:TargetSmith\nManaCost:R\nTypes:Creature\nPT:1/1\n\
-         S:Mode$ ReduceCost | ValidTarget$ Card.Self | ValidSpell$ Activated.Equip | Activator$ You | Amount$ 3"
-    ));
+         S:Mode$ ReduceCost | ValidTarget$ Card.Self | ValidSpell$ Activated.Equip | Activator$ You | Amount$ 3",
+    );
+    assert!(target_smith.abilities[0].contains("Modifier::EquipCostsLessIfTargets"));
 
     let grounds = read(
         "Name:TrainingRing\nManaCost:U\nTypes:Enchantment\n\
@@ -4815,7 +4816,7 @@ fn wave14c_counter_types_and_wave6c_effect_modifiers() {
     );
     assert!(refused(
         "Name:UnmodeledKindCounter\nManaCost:2 G\nTypes:Sorcery\n\
-         A:SP$ PutCounter | ValidTgts$ Creature | CounterTypes$ P1P1,DIVINITY | CounterNum$ 1"
+         A:SP$ PutCounter | ValidTgts$ Creature | CounterTypes$ P1P1,UNASSIGNED_XYZ | CounterNum$ 1"
     ));
 
     let max_block = read(

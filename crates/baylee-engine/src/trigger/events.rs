@@ -114,6 +114,26 @@ pub(super) fn event_amount_for(
         )
         .map(|matched| u32::try_from(matched.len()).unwrap_or(u32::MAX));
     }
+    if let Trigger::OneOrMoreCardsDiscarded {
+        who,
+        filter,
+        first_this_turn,
+        per_player,
+    } = trigger
+    {
+        return super::event_groups::discard_batch_group(
+            event,
+            batch,
+            state,
+            you,
+            context,
+            *who,
+            filter,
+            *first_this_turn,
+            *per_player,
+        )
+        .map(|(count, _)| count);
+    }
     if let Trigger::OneOrMoreAttack(filter) = trigger {
         let count = batch
             .iter()
@@ -138,6 +158,27 @@ pub(super) fn event_found_for(
     you: PlayerId,
     context: crate::text_changes::RuleContext,
 ) -> Option<std::sync::Arc<Vec<baylee_core::ids::DamageSourceRef>>> {
+    if let Trigger::OneOrMoreCardsDiscarded {
+        who,
+        filter,
+        first_this_turn,
+        per_player,
+    } = trigger
+    {
+        return super::event_groups::discard_batch_group(
+            event,
+            batch,
+            state,
+            you,
+            context,
+            *who,
+            filter,
+            *first_this_turn,
+            *per_player,
+        )
+        .filter(|(_, found)| !found.is_empty())
+        .map(|(_, found)| std::sync::Arc::new(found.into_vec()));
+    }
     let Trigger::AttackersDeclaredAtTarget {
         attackers,
         attacked,

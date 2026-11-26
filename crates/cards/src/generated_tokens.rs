@@ -7767,6 +7767,90 @@ pub static ILLUSION_VILLAIN_3_3_BLUE: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 2/2 black Horror.
+pub static HORROR_2_2_BLACK: TokenDef = TokenDef {
+    name: "Horror",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::HORROR],
+    power: Some(2),
+    toughness: Some(2),
+    ..TokenDef::DEFAULT
+};
+
+/// colorless Questing with enchant creature.
+pub static QUESTING_ENCHANT_CREATURE_AF17BF9C3: TokenDef = TokenDef {
+    name: "Questing",
+    types: TypeSet::ENCHANTMENT,
+    subtypes: &[enchantment::AURA, enchantment::ROLE],
+    abilities: &[
+        spell!(
+            &[Effect::AttachSelf {
+                target: TargetSpec::Object(&Filter::CREATURE)
+            }],
+            targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))
+        ),
+        static_ability!(
+            Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]),
+            Modifier::AddKeyword(
+                KeywordSet::VIGILANCE
+                    .union(KeywordSet::DEATHTOUCH)
+                    .union(KeywordSet::HASTE)
+            )
+        ),
+        static_ability!(
+            Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]),
+            Modifier::GrantTriggeredDefinition(&triggered!(
+                Trigger::DealsCombatDamageToOpponent(&Filter::This),
+                &[Effect::DealDamage {
+                    amount: Amount::EventAmount,
+                    target: TargetSpec::ObjectOfEventPlayer(&Filter::PLANESWALKER)
+                }],
+                targets = Some(TargetReq::one(TargetSpec::ObjectOfEventPlayer(
+                    &Filter::PLANESWALKER
+                )))
+            ))
+        ),
+        static_ability!(
+            Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]),
+            Modifier::GrantStatic {
+                filter: &Filter::And(&[Filter::CREATURE, Filter::This]),
+                modifier: &Modifier::CantBeBlockedBy(&Filter::And(&[
+                    Filter::CREATURE,
+                    Filter::PowerAtMost(2)
+                ]))
+            }
+        ),
+        static_ability!(
+            Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]),
+            Modifier::GrantStatic {
+                filter: &Filter::YOUR_CREATURE,
+                modifier: &Modifier::CombatDamageCantBePrevented
+            }
+        ),
+    ],
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 blue Bird with flying.
+pub static BIRD_1_1_BLUE_FLYING_A92C7E842: TokenDef = TokenDef {
+    name: "Bird",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::BIRD],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::FLYING,
+    abilities: &[static_ability!(
+        Filter::And(&[
+            Filter::CREATURE,
+            Filter::Not(&Filter::HasKeyword(KeywordSet::FLYING))
+        ]),
+        Modifier::CantBeBlockedBy(&Filter::And(&[Filter::CREATURE, Filter::This]))
+    )],
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -9150,6 +9234,9 @@ pub static ALL: &[&TokenDef] = &[
     &SNAIL_1_1_BLACK,
     &MOLOID_1_1_GREEN_A84604C62,
     &ILLUSION_VILLAIN_3_3_BLUE,
+    &HORROR_2_2_BLACK,
+    &QUESTING_ENCHANT_CREATURE_AF17BF9C3,
+    &BIRD_1_1_BLUE_FLYING_A92C7E842,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -9744,6 +9831,9 @@ pub static GENERATED: &[&TokenDef] = &[
     &SNAIL_1_1_BLACK,
     &MOLOID_1_1_GREEN_A84604C62,
     &ILLUSION_VILLAIN_3_3_BLUE,
+    &HORROR_2_2_BLACK,
+    &QUESTING_ENCHANT_CREATURE_AF17BF9C3,
+    &BIRD_1_1_BLUE_FLYING_A92C7E842,
 ];
 
 /// Legacy duplicate ids and the canonical ids they now resolve to.

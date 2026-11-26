@@ -1337,7 +1337,10 @@ fn encode_cast_mode_kind_into(kind: &CastModeKind, cost: &ManaCost, index: u8, f
         CastModeKind::Prototype => 33,
         CastModeKind::Disguise => 34,
         CastModeKind::Miracle => 35,
-        CastModeKind::Flashback | CastModeKind::JumpStart | CastModeKind::Retrace => 36,
+        CastModeKind::Flashback
+        | CastModeKind::JumpStart
+        | CastModeKind::Retrace
+        | CastModeKind::Mayhem => 36,
         CastModeKind::BeamMeUp => 37,
         CastModeKind::Dash | CastModeKind::Blitz | CastModeKind::Warp | CastModeKind::Sneak => 38,
         CastModeKind::Mutate => 39,

@@ -451,6 +451,7 @@ const OFFERS_A_CHOICE: &[&str] = &[
     "MayEffectFromOpeningHand",
     "rider: Copy",
     "MayCastWithAltCost",
+    "MayCastFromGraveyardUsingAlt",
     "can_repeat_modes: true",
     "WishToHand",
     "SacrificeX(",
@@ -955,6 +956,8 @@ pub(crate) fn check_scope_matches_the_text(
         // and `Behold` chooses a permanent you control on the battlefield or reveals from hand.
         || built.contains("RemoveAnyCounter")
         || built.contains("Behold(")
+        || built.contains("ControlledSubtypeOnCast(")
+        || built.contains("Champion {")
         || built.contains("Domain(You)")
         || built.contains("Revolt")
         || built.contains("ControlPlayerNextTurn")

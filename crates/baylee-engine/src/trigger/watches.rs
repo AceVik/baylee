@@ -1346,7 +1346,12 @@ pub(super) fn cipher_triggers(
         {
             continue;
         }
-        let mult = super::times_triggered(state, baylee_cards_dsl::TriggerEventKind::Any, damager);
+        let mult = super::matching::times_triggered_for_entry(
+            state,
+            baylee_cards_dsl::TriggerEventKind::Any,
+            dealer,
+            Some(entry),
+        );
         if mult == 0 {
             continue;
         }

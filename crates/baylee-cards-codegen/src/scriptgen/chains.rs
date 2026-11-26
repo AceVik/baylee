@@ -32,10 +32,11 @@ impl Tx<'_> {
                 .iter()
                 .any(|effect| effect == "Effect::ChooseColor");
         let saved_color = std::mem::replace(&mut self.has_resolution_chosen_color, chosen_color);
-        let chosen_name = chain
-            .effects
-            .iter()
-            .any(|effect| effect.starts_with("Effect::ChooseCardName {"));
+        let chosen_name = self.has_resolution_chosen_name
+            || chain
+                .effects
+                .iter()
+                .any(|effect| effect.starts_with("Effect::ChooseCardName {"));
         let saved_name = std::mem::replace(&mut self.has_resolution_chosen_name, chosen_name);
         let saved_single_player = self.current_single_player_rel;
         let saved_obj_target = self.current_object_target;
@@ -44,7 +45,9 @@ impl Tx<'_> {
             .iter()
             .any(|effect| effect.contains("Effect::LoseLife {"));
         let saved_lose_life = std::mem::replace(&mut self.chain_prev_lose_life, had_lose_life);
+        let saved_in_chain = std::mem::replace(&mut self.in_chain_resolution, true);
         let result = self.chain_inner(spec, chain);
+        self.in_chain_resolution = saved_in_chain;
         self.chain_prev_lose_life = saved_lose_life;
         self.current_object_target = saved_obj_target;
         self.current_single_player_rel = saved_single_player;
@@ -415,6 +418,15 @@ impl Tx<'_> {
             return self.vote_chain(p, sub.as_deref(), chain);
         }
         if !second_target_here
+            && api == "NameCard"
+            && sub.is_some()
+            && self
+                .wave29d_try_name_card_reveal_random(&p, sub.as_deref(), chain)
+                .is_some()
+        {
+            return Some(());
+        }
+        if !second_target_here
             && chain.effects.is_empty()
             && self.capture_scope.is_none()
             && self.trigger_mode.is_none()
@@ -449,6 +461,14 @@ impl Tx<'_> {
             let targets_a_player =
                 targets_here && target.as_deref() == Some("TargetSpec::Player(PlayerRel::Chosen)");
             return match api.as_str() {
+                "ChooseCard" if p.peek("WithDifferentPowers") == Some("True") => self
+                    .wave17b_choose_distinct_powers_chain(
+                        p,
+                        sub.as_deref(),
+                        target.as_deref(),
+                        targets_a_player,
+                        chain,
+                    ),
                 "ChooseCard" if p.has("AtRandom") || p.has("DifferentNames") => self
                     .wave27b_choose_card_chain(
                         p,
@@ -457,6 +477,15 @@ impl Tx<'_> {
                         targets_a_player,
                         chain,
                     ),
+                "ChooseCard"
+                    if p.peek("Mandatory") == Some("True")
+                        && self.sub_is_api(sub.as_deref(), "Effect")
+                        && self
+                            .wave29d_choose_card_prevent_chain(p.clone(), sub.as_deref(), chain)
+                            .is_some() =>
+                {
+                    Some(())
+                }
                 "ChooseCard" => self.choose_card_chain(
                     p,
                     sub.as_deref(),
@@ -580,6 +609,9 @@ impl Tx<'_> {
             split
         } else if !second_target_here
             && api != "Branch"
+            && !(api == "Dig"
+                && p.has("RememberChanged")
+                && self.sub_is_api(sub.as_deref(), "Effect"))
             && let Some(split) = self
                 .try_split_bargained_or_prototyped_amount(
                     &api,
@@ -629,6 +661,52 @@ impl Tx<'_> {
             self.exile_with_permission_effect(&mut p, &mut sub, target.as_deref(), targets_here)?
         } else if !second_target_here
             && api == "ChangeZone"
+            && matches!(p.peek("Origin"), Some("Battlefield" | "Graveyard"))
+            && p.peek("Destination") == Some("Exile")
+            && p.peek("Imprint") == Some("True")
+            && self.sub_is_api(sub.as_deref(), "Effect")
+            && let Some(effects) = self.wave29a_imprint_exile_with_permission(
+                &mut p,
+                &mut sub,
+                target.as_deref(),
+                targets_here,
+            )
+        {
+            effects
+        } else if !second_target_here
+            && !targets_here
+            && api == "ChangeZone"
+            && self.is_etb_self_trigger
+            && let Some(effects) = self.wave29a_champion_etb_chain(&mut p, &mut sub)
+        {
+            effects
+        } else if !second_target_here
+            && !targets_here
+            && api == "ChangeZone"
+            && !self.is_etb_self_trigger
+            && self.trigger_is_self
+            && p.peek("Defined") == Some("Remembered")
+            && let Some(effects) = self.wave29a_champion_ltb_chain(&mut p, &mut sub)
+        {
+            effects
+        } else if !second_target_here
+            && !targets_here
+            && api == "ChangeZone"
+            && p.peek("Origin") == Some("Hand")
+            && p.peek("Destination") == Some("Library")
+            && p.peek("Shuffle") == Some("True")
+            && p.peek("RememberChanged") == Some("True")
+            && self.sub_is_api(sub.as_deref(), "DelayedTrigger")
+            && let Some(effects) = self.wave29a_hand_shuffle_slowtrip_chain(
+                &mut p,
+                &mut sub,
+                target.as_deref(),
+                targets_here,
+            )
+        {
+            effects
+        } else if !second_target_here
+            && api == "ChangeZone"
             && p.peek("Origin") == Some("Hand")
             && p.peek("Destination") == Some("Exile")
             && p.peek("RememberChanged") == Some("True")
@@ -654,13 +732,24 @@ impl Tx<'_> {
                 && !chain.target_is_x
                 && chain.target_constraint.is_none()
                 && chain.target_up_to.is_none_or(|n| n == 1);
-            self.exile_until_end_effect(
+            if let Some(effs) = self.wave29b_blink_with_followup(
                 &mut p,
                 &mut sub,
                 target.as_deref(),
                 targets_here,
                 single_target,
-            )?
+                chain,
+            ) {
+                effs
+            } else {
+                self.exile_until_end_effect(
+                    &mut p,
+                    &mut sub,
+                    target.as_deref(),
+                    targets_here,
+                    single_target,
+                )?
+            }
         } else if api == "PutCounter" && p.peek("Support").is_some() {
             if chain.target.is_some()
                 || targets_here
@@ -862,6 +951,18 @@ impl Tx<'_> {
             && p.peek("Defined") == Some("TopOfLibrary")
             && p.peek("Origin") == Some("Library")
             && p.peek("Destination") == Some("Exile")
+            && p.peek("ExileFaceDown") == Some("True")
+            && p.has("RememberChanged")
+            && self.sub_is_api(sub.as_deref(), "DelayedTrigger")
+            && let Some(effects) = self.wave29a_necropotence_exile_top_chain(&mut p, &mut sub)
+        {
+            effects
+        } else if !second_target_here
+            && api == "ChangeZone"
+            && !targets_here
+            && p.peek("Defined") == Some("TopOfLibrary")
+            && p.peek("Origin") == Some("Library")
+            && p.peek("Destination") == Some("Exile")
             && p.has("RememberChanged")
             && self.sub_is_api(sub.as_deref(), "Effect")
         {
@@ -875,13 +976,46 @@ impl Tx<'_> {
             && p.has("RememberChanged")
             && self.sub_is_api(sub.as_deref(), "Effect")
         {
-            self.dig_exile_top_to_play_effect(
+            let saved_p = p.clone();
+            let saved_sub = sub.clone();
+            let saved_unclaimed = self.unclaimed.borrow().clone();
+            let saved_statics_len = self.body.statics.len();
+            if let Some(effects) = self.dig_exile_top_to_play_effect(
                 &mut p,
                 &mut sub,
                 target.as_deref(),
                 targets_here,
                 targets_a_player,
-            )?
+            ) && !sub
+                .as_deref()
+                .and_then(|s| self.svars.get(s.trim()))
+                .is_some_and(|b| b.contains("Remembered"))
+            {
+                effects
+            } else {
+                p = saved_p;
+                sub = saved_sub;
+                *self.unclaimed.borrow_mut() = saved_unclaimed;
+                self.body.statics.truncate(saved_statics_len);
+                self.wave27c_try_capture_affected_chain(
+                    spec,
+                    &api,
+                    &mut p,
+                    &mut sub,
+                    target.as_deref(),
+                    LineFlags {
+                        targets_here,
+                        targets_a_player,
+                        single_target: chain.target_exact.is_none()
+                            && chain.target_range.is_none()
+                            && !chain.target_is_x
+                            && chain.target_constraint.is_none()
+                            && chain.target_up_to.is_none_or(|n| n <= 1),
+                        prior_target_used: !targets_here && !chain.effects.is_empty(),
+                    },
+                    chain,
+                )?
+            }
         } else if !second_target_here
             && api == "Dig"
             && p.peek("DestinationZone") == Some("Exile")
@@ -891,6 +1025,33 @@ impl Tx<'_> {
             && matches!(p.peek("ChangeNum"), None | Some("1"))
         {
             self.dig_look_at_top_exile_face_down_effect(&mut p, &mut sub, targets_here)?
+        } else if !second_target_here
+            && api == "Dig"
+            && p.peek("RememberChanged") == Some("True")
+            && sub.is_some()
+            && unless.is_none()
+            && dying.is_none()
+            && at_end.is_none()
+            && !optional_counter
+            && !(self.trigger_mode.is_some() && chain.effects.is_empty() && {
+                let saved_s = self.body.statics.len();
+                let saved_u = self.unclaimed.borrow().clone();
+                let mut probe_c = Chain::default();
+                let handled = self.wave24e_dig_trigger_chain(spec, &mut probe_c).is_some();
+                self.body.statics.truncate(saved_s);
+                *self.unclaimed.borrow_mut() = saved_u;
+                handled
+            })
+            && let Some(effects) = self.wave29c_dig_remember_changed_chain(
+                &mut p,
+                &mut sub,
+                target.as_deref(),
+                targets_here,
+                targets_a_player,
+                chain,
+            )
+        {
+            effects
         } else if api == "TargetOnly" {
             if third_target_here {
                 p.take("IsCurse");
@@ -945,11 +1106,46 @@ impl Tx<'_> {
                 }
             }
         } else if !second_target_here
+            && api == "Sacrifice"
+            && p.peek("RememberSacrificed") == Some("True")
+            && self.sub_is_api(sub.as_deref(), "ImmediateTrigger")
+            && unless.is_none()
+            && dying.is_none()
+            && at_end.is_none()
+            && !optional_counter
+            && let Some(effects) = self.wave29c_sacrifice_immediate_trigger_chain(
+                &mut p,
+                &mut sub,
+                target.as_deref(),
+                targets_a_player,
+                chain,
+            )
+        {
+            effects
+        } else if !second_target_here
+            && api == "Sacrifice"
+            && p.peek("RememberSacrificed") == Some("True")
+            && sub.is_some()
+            && unless.is_none()
+            && dying.is_none()
+            && at_end.is_none()
+            && !optional_counter
+            && let Some(effects) = self
+                .wave29c_each_opp_may_sac_or(&mut p, &mut sub)
+                .or_else(|| self.wave29c_each_player_sac_or_cant(&mut p, &mut sub))
+        {
+            effects
+        } else if !second_target_here
             && (api == "Sacrifice"
                 || (api == "SacrificeAll"
                     && !targets_here
                     && !self.on_a_spell
-                    && p.peek("Defined") == Some("Self")))
+                    && (p.peek("Defined") == Some("Self")
+                        || (self.in_delayed
+                            && matches!(
+                                p.peek("Defined"),
+                                Some("DelayTriggerRemembered" | "DelayTriggerRememberedLKI")
+                            )))))
             && p.peek("RememberSacrificed") == Some("True")
             && sub.is_some()
             && !self.sub_is_api(sub.as_deref(), "ImmediateTrigger")
@@ -1121,6 +1317,29 @@ impl Tx<'_> {
                     return None;
                 }
             }
+        } else if api == "DelayedTrigger"
+            && !targets_here
+            && self.capture_scope.is_some()
+            && let Some(effects) = self.wave29a_capture_delayed_trigger(&mut p)
+        {
+            effects
+        } else if !second_target_here
+            && api == "Mill"
+            && !(self.trigger_mode.is_some() && chain.effects.is_empty())
+            && p.peek("RememberMilled") == Some("True")
+            && self.sub_is_api(sub.as_deref(), "ImmediateTrigger")
+            && unless.is_none()
+            && dying.is_none()
+            && at_end.is_none()
+            && !optional_counter
+            && let Some(effects) = self.wave29c_mill_immediate_trigger_chain(
+                &mut p,
+                &mut sub,
+                target.as_deref(),
+                targets_a_player,
+            )
+        {
+            effects
         } else if api == "DelayedTrigger" {
             vec![self.delayed_trigger(&mut p, target.as_deref(), targets_here, chain)?]
         } else if api == "ImmediateTrigger" {
@@ -1319,7 +1538,11 @@ impl Tx<'_> {
                         prior_target_used,
                     },
                     chain,
-                ) {
+                ) && !sub
+                    .as_deref()
+                    .and_then(|s| self.svars.get(s.trim()))
+                    .is_some_and(|b| b.contains("Remembered"))
+                {
                     Some(effects)
                 } else {
                     p = saved_p;
@@ -1372,7 +1595,11 @@ impl Tx<'_> {
                         prior_target_used,
                     },
                     chain,
-                ) {
+                ) && !sub
+                    .as_deref()
+                    .and_then(|s| self.svars.get(s.trim()))
+                    .is_some_and(|b| b.contains("Remembered"))
+                {
                     Some(effects)
                 } else {
                     p = saved_p;
@@ -1427,8 +1654,16 @@ impl Tx<'_> {
                 {
                     return Some(effs);
                 }
+                let allow_capture_delayed = sub
+                    .as_deref()
+                    .and_then(|s| self.svars.get(s.trim()))
+                    .and_then(|b| Params::parse(b))
+                    .is_some_and(|(d_api, mut dp)| {
+                        dp.drop_prose();
+                        d_api == "DelayedTrigger" && self.wave29a_is_capture_delayed_trigger(&dp)
+                    });
                 if self.sub_is_api(sub.as_deref(), "ImmediateTrigger")
-                    || self.sub_is_api(sub.as_deref(), "DelayedTrigger")
+                    || (self.sub_is_api(sub.as_deref(), "DelayedTrigger") && !allow_capture_delayed)
                 {
                     return None;
                 }
@@ -1589,7 +1824,18 @@ impl Tx<'_> {
                             self.wave24a_bite_excess_damage_chain(&mut p, &mut sub, chain)
                         }
                         "DealDamage" if p.peek("DamageSource") == Some("ParentTarget") => {
-                            self.bite_effect(&mut p)
+                            let mut probe = p.clone();
+                            if second_single
+                                && (second_is_obj
+                                    || target.as_deref()
+                                        == Some("TargetSpec::CreatureOrPlaneswalker"))
+                                && let Some(effs) = self.bite_effect(&mut probe)
+                            {
+                                p = probe;
+                                Some(effs)
+                            } else {
+                                self.wave29b_bite_effect(&mut p, target.as_deref())
+                            }
                         }
                         "MoveCounter" => {
                             self.move_counter_effect(&mut p, target.as_deref(), true, true)
@@ -1608,6 +1854,10 @@ impl Tx<'_> {
                                     .wave28d_take_slot2_parent_suppress_untap(&mut sub, second_spec)
                             {
                                 out.push(sup);
+                            } else if let Some(put) =
+                                self.wave29b_take_slot2_parent_put_counter(&mut sub)
+                            {
+                                out.push(put);
                             }
                             Some(out)
                         }
@@ -1659,16 +1909,27 @@ impl Tx<'_> {
                             chain,
                             target.as_deref()?,
                         ),
+                        "ChangeZone" if p.peek("ThisDefinedAndTgts") == Some("ParentTarget") => {
+                            self.wave29b_two_slot_blink_effect(&mut p, &mut sub, chain)
+                        }
                         "ChangeZone"
                             if target.as_deref().is_some_and(|t| {
                                 t.starts_with("TargetSpec::CardInFirstTargetsGraveyard(")
                             }) =>
                         {
-                            wrap_in_second_target = true;
-                            Self::wave26c_first_target_graveyard_change_zone(
-                                &mut p,
-                                target.as_deref()?,
-                            )
+                            if p.peek("Shuffle") == Some("True") {
+                                Self::wave29a_first_target_graveyard_shuffle_into_library(
+                                    &mut p,
+                                    target.as_deref()?,
+                                    chain,
+                                )
+                            } else {
+                                wrap_in_second_target = true;
+                                Self::wave26c_first_target_graveyard_change_zone(
+                                    &mut p,
+                                    target.as_deref()?,
+                                )
+                            }
                         }
                         _ => {
                             wrap_in_second_target = true;
@@ -1795,7 +2056,13 @@ impl Tx<'_> {
         if prevent_damaged_regeneration {
             effects.push("Effect::DamagedThisWayCantBeRegenerated".to_string());
         }
-        effects.extend(dying);
+        if let Some(dying_eff) = dying {
+            if second_target_here && !wrap_in_second_target {
+                effects.push(format!("Effect::WithSecondTarget(&[{dying_eff}])"));
+            } else {
+                effects.push(dying_eff);
+            }
+        }
         effects.extend(at_end);
         let effects = match unless {
             Some(unless) => vec![self.unless_wrap(unless, effects, &mut sub, chain)?],
@@ -2099,6 +2366,7 @@ impl Tx<'_> {
             if let Some(cond_raw) = p.peek("Condition")
                 && let Some(cond) = Self::named_condition(cond_raw)
                     .or_else(|| Self::wave7_named_condition(cond_raw))
+                    .or_else(|| Self::wave21c_named_condition(cond_raw))
             {
                 p.take("Condition");
                 p.take("ConditionDescription");
@@ -2164,6 +2432,9 @@ impl Tx<'_> {
                 )]);
             }
             if let Some(wrapped) = self.wave28b_check_svar_wrap(api, p, &effects) {
+                return Some(wrapped);
+            }
+            if let Some(wrapped) = self.wave29b_check_svar_wrap(api, p, &effects) {
                 return Some(wrapped);
             }
             if let Some(var) = p.peek("ConditionCheckSVar").map(str::to_string) {
@@ -2322,6 +2593,41 @@ impl Tx<'_> {
             } else {
                 "Condition::Not(&Condition::WarpCostPaid)".to_string()
             }
+        } else if matches!(
+            p.peek("ConditionPresent"),
+            Some(
+                "Card.Self+CastSa Spell.Mayhem"
+                    | "Card.CastSa Spell.Mayhem"
+                    | "Card.!CastSa Spell.Mayhem"
+                    | "Card.Self+!CastSa Spell.Mayhem"
+            )
+        ) && matches!(p.peek("ConditionDefined"), None | Some("Self"))
+            && matches!(p.peek("ConditionZone"), None | Some("Stack"))
+            && !p.has("PresentPlayer")
+            && !p.has("PresentZone")
+        {
+            let valid = p.take("ConditionPresent").expect("checked above");
+            p.take("ConditionDefined");
+            p.take("ConditionZone");
+            let cmp = match (p.take("PresentCompare"), p.take("ConditionCompare")) {
+                (Some(_), Some(_)) => {
+                    return self.deny("conflicting mayhem condition comparators".to_string());
+                }
+                (a, b) => a.or(b),
+            };
+            let positive_present = !valid.contains('!');
+            let positive = match cmp.as_deref() {
+                None | Some("GE1" | "EQ1" | "GT0") => positive_present,
+                Some("EQ0" | "LT1") => !positive_present,
+                Some(other) => {
+                    return self.deny(format!("mayhem condition compared `{other}`"));
+                }
+            };
+            if positive {
+                "Condition::MayhemCostPaid".to_string()
+            } else {
+                "Condition::Not(&Condition::MayhemCostPaid)".to_string()
+            }
         } else if matches!(p.peek("ConditionDefined"), None | Some("Self"))
             && !p.has("PresentPlayer")
             && !p.has("PresentZone")
@@ -2444,6 +2750,10 @@ impl Tx<'_> {
             } else {
                 cast_cond
             }
+        } else if let super::wave17a::SelfCastCond::Matched(cast_cond) =
+            self.wave17a_self_cast_condition(p)
+        {
+            cast_cond?
         } else if let Some(obj_cond) = self.wave11_object_matches_condition(p, target, false) {
             obj_cond
         } else {
@@ -2513,7 +2823,7 @@ impl Tx<'_> {
         Some(format!("Condition::All(&[{}])", clauses.join(", ")))
     }
 
-    fn push_main_phase_clauses(p: &mut Params, clauses: &mut Vec<String>) -> Option<()> {
+    pub(super) fn push_main_phase_clauses(p: &mut Params, clauses: &mut Vec<String>) -> Option<()> {
         let phases = p.take("ConditionPhases")?;
         let normalized: Vec<&str> = phases
             .split(',')
@@ -2600,6 +2910,8 @@ impl Tx<'_> {
                             "Filter::And(&[Filter::ControlledByOpponent, Filter::TargetsYouControl(&Filter::LAND)])",
                         );
                         Some(format!("TargetSpec::SpellOrAbility(&{name})"))
+                    } else if api == "Counter" && p.has("TargetValidTargeting") {
+                        self.wave29d_counter_target_valid_targeting(valid, p)
                     } else if api == "Counter" {
                         self.counter_or_stack_target(valid, p.peek("TargetType"), true)
                     } else if api == "CopySpellAbility" {
@@ -2622,7 +2934,13 @@ impl Tx<'_> {
                         self.target_spec(valid, api)
                     }
                 }
-                Some("Stack") => self.counter_or_stack_target(valid, p.peek("TargetType"), true),
+                Some("Stack") => {
+                    if api == "Counter" && p.has("TargetValidTargeting") {
+                        self.wave29d_counter_target_valid_targeting(valid, p)
+                    } else {
+                        self.counter_or_stack_target(valid, p.peek("TargetType"), true)
+                    }
+                }
                 Some("Stack,Battlefield" | "Battlefield,Stack") => {
                     if api == "ChangeZone"
                         && valid.contains("inZoneStack")
@@ -2763,13 +3081,17 @@ impl Tx<'_> {
                     is_obj_spec
                         && single_object_first
                         && p.peek("Defined") == Some("ParentTarget")
-                        && no_riders(p)
+                        && (no_riders(p)
+                            || (p.peek("UnlessCost").is_none()
+                                && p.peek("AtEOT").is_none()
+                                && p.peek("ReplaceDyingDefined") == Some("ThisTargetedCard")))
                 }
                 "DealDamage" if p.peek("DamageSource") == Some("ParentTarget") => {
-                    (is_obj_spec || spec == "TargetSpec::CreatureOrPlaneswalker")
+                    ((is_obj_spec || spec == "TargetSpec::CreatureOrPlaneswalker")
                         && single_object_first
                         && p.peek("Defined").is_none()
-                        && no_riders(p)
+                        && no_riders(p))
+                        || Self::wave29b_second_target_bite_allowed(p, single_object_first)
                 }
                 "MoveCounter" => {
                     is_obj_spec
@@ -2930,9 +3252,14 @@ impl Tx<'_> {
                                         | "Goad"
                                         | "Phases"
                                         | "Animate"
-                                ) || (sub_api == "DealDamage"
-                                    && !sp.has("DividedAsYouChoose")
-                                    && sp.peek("DamageSource").is_none())
+                                ) || (sub_api == "DelayedTrigger"
+                                    && matches!(
+                                        sp.peek("RememberObjects"),
+                                        Some("Targeted" | "ParentTarget" | "TargetedCard")
+                                    ))
+                                    || (sub_api == "DealDamage"
+                                        && !sp.has("DividedAsYouChoose")
+                                        && sp.peek("DamageSource").is_none())
                                     || (sub_api == "Attach"
                                         && sp.peek("Object") == Some("ParentTarget"))
                                     || (sub_api == "ChangeZone"
@@ -3213,7 +3540,10 @@ impl Tx<'_> {
         };
         let payer = p.take("UnlessPayer");
         let targets_a_controlled_object = target.is_some_and(|t| {
-            t.starts_with("TargetSpec::Spell(") || t.starts_with("TargetSpec::Object(")
+            t.starts_with("TargetSpec::Spell(")
+                || t.starts_with("TargetSpec::Object(")
+                || t.starts_with("TargetSpec::SpellOrAbility(")
+                || t.starts_with("TargetSpec::AbilityOnStack(")
         });
         let targets_a_player = target
             .is_some_and(|t| t == "TargetSpec::AnyPlayer" || t.starts_with("TargetSpec::Player("));
@@ -3223,14 +3553,29 @@ impl Tx<'_> {
             targets_a_player,
             switched,
         )?;
-        let price = if payer == "PlayerRel::You" && switched {
-            if let Some(draw_expr) = self.draw_cost_effect(cost.trim()) {
-                Price::Part(format!("__DRAW__:{draw_expr}"))
-            } else {
-                self.unless_price_switched(cost.trim(), switched)?
-            }
+        let raw_cost = cost.trim();
+        let price = if payer == "PlayerRel::You"
+            && let Some(n_str) = raw_cost
+                .strip_prefix("PayEnergy<")
+                .and_then(|s| s.strip_suffix('>'))
+            && let Ok(n) = n_str.trim().parse::<u16>()
+            && (1..=20).contains(&n)
+        {
+            Price::Part(format!("__PAY_ENERGY__:{n}"))
+        } else if payer == "PlayerRel::You"
+            && switched
+            && (raw_cost == "Discard<1/Random>"
+                || (raw_cost.starts_with("Discard<1/Random/")
+                    && raw_cost.find('>') == Some(raw_cost.len() - 1)))
+        {
+            Price::Part("__DISCARD_RANDOM_1__".to_string())
+        } else if payer == "PlayerRel::You"
+            && switched
+            && let Some(draw_expr) = self.draw_cost_effect(raw_cost)
+        {
+            Price::Part(format!("__DRAW__:{draw_expr}"))
         } else {
-            self.unless_price_switched(cost.trim(), switched)?
+            self.unless_price(raw_cost)?
         };
         if payer == "ANY_PLAYER" {
             let valid_any_player = match &price {
@@ -3269,7 +3614,9 @@ impl Tx<'_> {
         match payer {
             Some("You") => Some("PlayerRel::You"),
             Some("EnchantedController") => Some("PlayerRel::ControllerOfAttached"),
-            None | Some("TargetedController") if targets_a_controlled_object => {
+            None | Some("TargetedController" | "ThisTargetedController")
+                if targets_a_controlled_object =>
+            {
                 Some("PlayerRel::ControllerOfTarget")
             }
             Some("Targeted") if targets_a_player => Some("PlayerRel::Chosen"),
@@ -3281,10 +3628,22 @@ impl Tx<'_> {
             Some("TriggeredCardController") if trigger == Some("Drawn") => {
                 self.player_rel(Some("TriggeredCardController"))
             }
+            Some("TriggeredCardController" | "TriggeredCardLKIController")
+                if trigger == Some("ChangesZone") =>
+            {
+                Some("PlayerRel::ControllerOfEvent")
+            }
             Some("TriggeredTargetController") if trigger == Some("DamageDone") => {
                 self.player_rel(Some("TriggeredTargetController"))
             }
-            Some("TriggeredDefendingPlayer")
+            Some("TriggeredTarget")
+                if trigger == Some("DamageDone")
+                    && self.player_rel(Some("TriggeredTarget"))
+                        == Some("PlayerRel::DamagedPlayer") =>
+            {
+                Some("PlayerRel::DamagedPlayer")
+            }
+            Some("TriggeredDefendingPlayer" | "DefendingPlayer")
                 if matches!(trigger, Some("Attacks" | "AttackerBlocked")) =>
             {
                 self.player_rel(Some("TriggeredDefendingPlayer"))
@@ -3301,10 +3660,6 @@ impl Tx<'_> {
         }
     }
 
-    pub(super) fn unless_price(&mut self, raw: &str) -> Option<Price> {
-        self.unless_price_switched(raw, false)
-    }
-
     /// An `UnlessCost$` value as a [`Price`].
     ///
     /// Read by [`Tx::cost_pieces`], the reader an activation cost goes
@@ -3315,10 +3670,16 @@ impl Tx<'_> {
     /// with a Mountain. One part the player pays by naming an object is
     /// `PlayerMayPayCostOr` (or `PlayerMayPayCostThen` when switched); a
     /// switched `PayLife<N>` is `PlayerMayPayLifeThen`.
-    fn unless_price_switched(&mut self, raw: &str, switched: bool) -> Option<Price> {
+    pub(super) fn unless_price(&mut self, raw: &str) -> Option<Price> {
         // "Unless its controller pays {X}" (Power Sink): the X announced
         // for the source, and only where the card says that is what X is.
-        if matches!(raw, "X" | "Y" | "Z") {
+        if matches!(raw, "X" | "Y" | "Z")
+            || (self.has_resolution_chosen_number
+                && self
+                    .svars
+                    .get(raw)
+                    .is_some_and(|v| v.trim() == "Count$ChosenNumber"))
+        {
             if let Some(x) = self.amount_or_count_ext(raw) {
                 return Some(Price::Generic(x));
             }
@@ -3338,7 +3699,7 @@ impl Tx<'_> {
             let as_behold = format!("Behold<{inner}");
             return Some(Price::Part(self.parse_behold_cost_token(&as_behold)?));
         }
-        if switched
+        if !self.on_a_spell
             && (raw == "Sac<1/CARDNAME>"
                 || (raw.starts_with("Sac<1/CARDNAME/") && raw.find('>') == Some(raw.len() - 1)))
         {
@@ -3398,6 +3759,7 @@ impl Tx<'_> {
     /// The line's effects behind its price. A tax runs them on a refusal and
     /// takes them as one effect (a `Sequence` when there are several); a
     /// switched price runs them on a payment and takes the list.
+    #[allow(clippy::too_many_lines)]
     pub(super) fn unless_wrap(
         &mut self,
         unless: Unless,
@@ -3466,7 +3828,9 @@ impl Tx<'_> {
                  effects: &[{list}] }}"
             ),
             (Price::Part(part), false) => {
-                if let Some(n) = part
+                if let Some(n) = part.strip_prefix("__PAY_ENERGY__:") {
+                    format!("Effect::MayPayEnergyOr {{ amount: {n}, effect: &{one} }}")
+                } else if let Some(n) = part
                     .strip_prefix("PayLife(")
                     .and_then(|s| s.strip_suffix(')'))
                 {
@@ -3484,6 +3848,24 @@ impl Tx<'_> {
             (Price::Part(part), true) => {
                 if let Some(draw_expr) = part.strip_prefix("__DRAW__:") {
                     format!("Effect::MayDo {{ effects: &[{draw_expr}, {list}] }}")
+                } else if let Some(n) = part.strip_prefix("__PAY_ENERGY__:") {
+                    format!(
+                        "Effect::IfCondition {{ condition: Condition::AmountAtLeast(\
+                         Amount::CountersOnYou(CounterKind::Energy), {n}), \
+                         then: &[Effect::MayDo {{ effects: &[Effect::ChooseNumberEx {{ \
+                         chooser: PlayerRel::You, min: Amount::Fixed({n}), max: Amount::Fixed({n}), \
+                         prompt: NumberChoiceKind::EnergyPayment, \
+                         pay_cost: Some(VariablePayKind::Energy), then: &[{list}] }}] }}], \
+                         otherwise: &[] }}"
+                    )
+                } else if part == "__DISCARD_RANDOM_1__" {
+                    format!(
+                        "Effect::IfCondition {{ condition: Condition::AmountAtLeast(\
+                         Amount::HandSize(PlayerRel::You), 1), \
+                         then: &[Effect::MayDo {{ effects: &[Effect::DiscardRandom {{ \
+                         who: PlayerRel::You, count: Amount::Fixed(1) }}, {list}] }}], \
+                         otherwise: &[] }}"
+                    )
                 } else if let Some(n) = part
                     .strip_prefix("PayLife(")
                     .and_then(|s| s.strip_suffix(')'))
@@ -3581,6 +3963,7 @@ impl Tx<'_> {
         Some(match api {
             "TwoPiles" => self.targeted_battlefield_two_piles_effect(p, target, targets_here)?,
             "Amass" => self.amass_effect(p, target, targets_a_player)?,
+            "Empower" => self.wave17b_empower_effect(p, target, targets_a_player)?,
             "Incubate" => self.incubate_effect(p, target, targets_a_player)?,
             "MultiplyCounter" => self.multiply_counter_effect(
                 p,
@@ -3752,7 +4135,15 @@ impl Tx<'_> {
                             &["Targeted$CardPower", "ParentTargeted$CardPower"],
                         )
                     {
-                        return None;
+                        return self.wave29b_targeted_damage_source_fallback(
+                            defined.as_deref(),
+                            &num_dmg,
+                            damage_source.as_deref(),
+                            may,
+                            target,
+                            targets_here,
+                            single_target,
+                        );
                     }
                     let dmg = match defined.as_deref() {
                         Some("TargetedController" | "ParentTargetController") => {
@@ -3767,7 +4158,24 @@ impl Tx<'_> {
                             "Effect::DamageEqualToPower { dealer: TargetSlot::First, to: TargetSlot::This }"
                                 .to_string()
                         }
-                        _ => return None,
+                        None if !targets_here
+                            && !self.on_a_spell
+                            && self.wave29b_oracle_deals_damage_to_self() =>
+                        {
+                            "Effect::DamageEqualToPower { dealer: TargetSlot::First, to: TargetSlot::This }"
+                                .to_string()
+                        }
+                        _ => {
+                            return self.wave29b_targeted_damage_source_fallback(
+                                defined.as_deref(),
+                                &num_dmg,
+                                damage_source.as_deref(),
+                                may,
+                                target,
+                                targets_here,
+                                single_target,
+                            );
+                        }
                     };
                     return Some(if may {
                         vec![format!("Effect::MayDo {{ effects: &[{dmg}] }}")]
@@ -4082,6 +4490,11 @@ impl Tx<'_> {
                 }
             }
             "LoseLife" => {
+                if let Some(fx) =
+                    self.wave29b_qualified_multi_player_lose_life(p, target, targets_a_player)
+                {
+                    return Some(fx);
+                }
                 let n = self.amount_or_count_ext(&p.take("LifeAmount")?)?;
                 if let Some(other_rel) =
                     self.split_you_and_player(p.peek("Defined"), target, targets_a_player)
@@ -4175,6 +4588,11 @@ impl Tx<'_> {
             // player draws X cards".
             "Draw" => {
                 if let Some(fx) = self.wave28b_draw_effect(p, target, targets_a_player) {
+                    return Some(fx);
+                }
+                if let Some(fx) =
+                    self.wave29b_qualified_multi_player_draw(p, target, targets_a_player)
+                {
                     return Some(fx);
                 }
                 let n = self.amount_or_count_ext(p.take("NumCards").as_deref().unwrap_or("1"))?;
@@ -4322,6 +4740,9 @@ impl Tx<'_> {
             "Discard" if p.peek("Mode") == Some("LookYouChoose") => {
                 self.wave28d_discard_look_you_choose(p, target, targets_a_player)?
             }
+            "Discard" if p.peek("Mode") == Some("RevealTgtChoose") => {
+                self.wave29b_discard_reveal_tgt_choose(p, target, targets_a_player)?
+            }
             "Discard" if p.peek("Mode") == Some("Defined") => {
                 self.wave27b_discard_defined(p, target, targets_a_player)?
             }
@@ -4354,6 +4775,7 @@ impl Tx<'_> {
                 vec![format!("Effect::Bolster({n})")]
             }
             "Blight" => self.wave16b_blight_effect(p, target, targets_a_player)?,
+            "Learn" => self.wave17a_learn_effect(p, target, prior_target_used, targets_here)?,
             "PutCounter" => {
                 if let Some(monstrosity) = p.take("Monstrosity") {
                     if self.on_a_spell
@@ -4388,6 +4810,14 @@ impl Tx<'_> {
                     return Some(vec![format!("Effect::Bolster({n})")]);
                 }
                 if p.peek("CounterType") == Some("EachFromSource") {
+                    if p.peek("CounterNum").is_none() {
+                        return self.wave17b_put_counters_from_source(
+                            p,
+                            target,
+                            targets_here,
+                            targets_a_player,
+                        );
+                    }
                     return self.wave27e_put_each_counter_kind_from_source(
                         p,
                         target,
@@ -5294,7 +5724,9 @@ impl Tx<'_> {
                 self.copy_permanent_effect(p, target, targets_here, targets_a_player)?
             }
             "Clone" => self.become_copy_effect(p, target, targets_here, false)?,
-            "Pump" => self.pump_effect(p, aimed, false)?,
+            "Pump" => self
+                .wave29b_pump_effect(p, aimed, target, false)
+                .or_else(|| self.pump_effect(p, aimed, false))?,
             "PumpAll" => {
                 self.pump_all_effect(p, target, targets_here, targets_a_player, prior_target_used)?
             }
@@ -5927,7 +6359,7 @@ impl Tx<'_> {
         )])
     }
 
-    fn is_power_of(&self, raw: &str, expected: &[&str]) -> bool {
+    pub(super) fn is_power_of(&self, raw: &str, expected: &[&str]) -> bool {
         let resolved = self
             .svars
             .get(raw.trim())
@@ -6001,7 +6433,7 @@ impl Tx<'_> {
     }
 
     #[allow(clippy::too_many_lines)]
-    fn copy_spell_ability_effect(
+    pub(super) fn copy_spell_ability_effect(
         &mut self,
         p: &mut Params,
         target: Option<&str>,
@@ -6021,6 +6453,12 @@ impl Tx<'_> {
                     .to_string(),
             );
         }
+        if let Some(effs) = self.wave29c_copy_spell_ability_special(p, target, targets_here) {
+            return Some(effs);
+        }
+        if !matches!(p.take("Secondary").as_deref(), None | Some("True")) {
+            return None;
+        }
         let may_choose = match p.take("MayChooseTarget").as_deref() {
             Some("True") => true,
             Some("False") => false,
@@ -6038,12 +6476,22 @@ impl Tx<'_> {
             }
             Some(_) => return None,
         };
-        let optional = match p.take("Optional").as_deref() {
+        p.take("UnlessAI");
+        let mut optional = match p.take("Optional").as_deref() {
             None => false,
             Some("True") => true,
             Some(_) => return None,
         };
         let controller = self.player_of_line(p.take("Controller").as_deref(), target, false)?;
+        if !optional
+            && controller != "PlayerRel::You"
+            && self
+                .oracle
+                .to_ascii_lowercase()
+                .contains("they may copy this spell")
+        {
+            optional = true;
+        }
         let mods = self.copy_mods(p, false)?;
         let target_type = p.take("TargetType");
         let defined = p.take("Defined");
@@ -6078,7 +6526,9 @@ impl Tx<'_> {
         }
         let amount = match raw_num.as_deref() {
             None => "Amount::Fixed(1)".to_string(),
-            Some(raw) => self.amount_or_count_ext(raw)?,
+            Some(raw) => self
+                .wave29c_copy_spell_amount(raw)
+                .or_else(|| self.amount_or_count_ext(raw))?,
         };
         let stack_target = target.filter(|t| {
             t.starts_with("TargetSpec::Spell(")
@@ -6764,7 +7214,14 @@ impl Tx<'_> {
                     && is_dmg_spec(second_spec)
             }
             "ChangeZone" => {
-                both_obj
+                let is_bf_and_gy_exile = first_spec.starts_with("TargetSpec::Object(")
+                    && second_spec.starts_with("TargetSpec::CardInGraveyard(")
+                    && matches!(
+                        sp.peek("Origin"),
+                        Some("Battlefield,Graveyard" | "Graveyard,Battlefield")
+                    )
+                    && sp.peek("Destination") == Some("Exile");
+                (both_obj || is_bf_and_gy_exile)
                     && !sp.has("RememberChanged")
                     && !sp.has("RememberTargets")
                     && !sp.has("RememberLKI")
@@ -6834,6 +7291,31 @@ impl Tx<'_> {
                 vec![format!(
                     "Effect::DealDamageToBothTargetInstances {{ amount: {amt} }}"
                 )]
+            }
+            "ChangeZone"
+                if matches!(
+                    dp.peek("Origin"),
+                    Some("Battlefield,Graveyard" | "Graveyard,Battlefield")
+                ) && dp.peek("Destination") == Some("Exile") =>
+            {
+                let first_spec = chain.target.as_deref()?;
+                let second_spec = chain.second_target.as_deref()?;
+                if !first_spec.starts_with("TargetSpec::Object(")
+                    || !second_spec.starts_with("TargetSpec::CardInGraveyard(")
+                {
+                    return None;
+                }
+                dp.take("Origin");
+                dp.take("Destination");
+                let ctor = if self.has_linked_exile_reader() {
+                    "Effect::exile_linked"
+                } else {
+                    "Effect::exile"
+                };
+                vec![
+                    format!("{ctor}({first_spec})"),
+                    format!("Effect::WithSecondTarget(&[{ctor}({second_spec})])"),
+                ]
             }
             "ChangeZone" | "PutCounter" | "RemoveCounter" | "Phases" | "Detain" | "Goad"
             | "Regenerate" | "TapOrUntap" => {
@@ -7254,7 +7736,9 @@ impl Tx<'_> {
             {
                 Some("PlayerRel::EventPlayer")
             }
-            "TriggeredSourceController" if trigger == Some("BecomesTarget") => {
+            "TriggeredSourceController" | "TriggeredSourceSAController"
+                if trigger == Some("BecomesTarget") =>
+            {
                 Some("PlayerRel::EventPlayer")
             }
             "EnchantedPlayer" | "Player.EnchantedBy" => Some("PlayerRel::EnchantedPlayer"),
@@ -7323,6 +7807,12 @@ impl Tx<'_> {
             && let Some(rel) = self.wave11_trigger_player_rel(who)
         {
             return Some(rel);
+        }
+        if defined == Some("DelayTriggerRememberedController")
+            && self.in_delayed
+            && target.is_none()
+        {
+            return Some("PlayerRel::ControllerOfEvent");
         }
         if matches!(defined, Some("ChosenPlayer" | "Player.Chosen"))
             && target.is_none()
@@ -8299,6 +8789,18 @@ impl Tx<'_> {
                     tok.constant
                 )]
             }
+            "Empower" => {
+                if !matches!(sp.take("Defined").as_deref(), None | Some("You"))
+                    || sp.take("Type").as_deref() != Some("Jace")
+                {
+                    return None;
+                }
+                let raw_num = sp.take("Num")?;
+                let amt = resolve_amt(self, &raw_num, &mut used_excess)?;
+                vec![format!(
+                    "Effect::Empower {{ token: &generated_tokens::JACE_PLANESWALKER_BLUE, amount: {amt} }}"
+                )]
+            }
             "Scry" => {
                 if !matches!(sp.take("Defined").as_deref(), None | Some("You")) {
                     return None;
@@ -8411,7 +8913,8 @@ impl Tx<'_> {
                 (p.peek("Origin"), p.peek("Destination")),
                 (Some("Battlefield" | "Graveyard"), Some("Exile"))
             )
-            && self.sub_is_api(sub.as_deref(), "Incubate")
+            && (self.sub_is_api(sub.as_deref(), "Incubate")
+                || self.sub_is_api(sub.as_deref(), "Empower"))
         {
             return self.wave24a_cz_all_remembered_count_chain(p, sub, target, flags);
         }
@@ -9846,7 +10349,7 @@ impl Tx<'_> {
         let next_body = self.svars.get(next_name.trim())?.clone();
         let (s_api, mut sp) = Params::parse(&next_body)?;
         sp.drop_prose();
-        if s_api != "Incubate"
+        if !matches!(s_api.as_str(), "Incubate" | "Empower")
             || sp.has("ValidTgts")
             || sp.has("UnlessCost")
             || sp.has("AtEOT")
@@ -9862,6 +10365,26 @@ impl Tx<'_> {
         } else {
             ("ExiledFromBattlefield", false, "EXILED")
         };
+        if s_api == "Empower" {
+            if sp.take("Type").as_deref() != Some("Jace") {
+                return None;
+            }
+            let raw_num = sp.take("Num").or_else(|| sp.take("Amount"))?;
+            let count = self.wave24a_resolve_exiled_count_amount(&raw_num, this_way_variant)?;
+            let who = self.wave11_player_of_line(sp.take("Defined").as_deref(), target, false)?;
+            if who != "PlayerRel::You" {
+                return None;
+            }
+            let after = sp.take("SubAbility");
+            if !sp.exhausted() {
+                return None;
+            }
+            self.wave24a_take_optional_cleanup(after, sub)?;
+            out.push(format!(
+                "Effect::Empower {{ token: &generated_tokens::JACE_PLANESWALKER_BLUE, amount: {count} }}"
+            ));
+            return Some(out);
+        }
         let raw_amt = sp.take("Amount")?;
         let count = self.wave24a_resolve_exiled_count_amount(&raw_amt, this_way_variant)?;
         let who = self.wave11_player_of_line(sp.take("Defined").as_deref(), target, false)?;
@@ -10005,7 +10528,7 @@ impl Tx<'_> {
             && !p.has("AllValid"))
             || (api == "DealDamage"
                 && !p.has("DividedAsYouChoose")
-                && p.peek("DamageSource").is_none()
+                && matches!(p.peek("DamageSource"), None | Some("ParentTarget"))
                 && !p.has("ExcessSVar"))
             || (api == "SetState" && p.peek("Mode") == Some("TurnFaceUp"))
             || (api == "Attach"

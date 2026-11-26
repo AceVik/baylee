@@ -111,6 +111,7 @@ const fn counter_benefit(kind: CounterKind) -> Option<i32> {
 /// no sign of its own; `None` where this reading has no row, and what the
 /// effect runs inside itself ([`Effect::branches`]) keeps its word.
 #[must_use]
+#[allow(clippy::too_many_lines)]
 pub fn effect_benefit(effect: &Effect, x: u32) -> Option<i32> {
     match effect {
         Effect::AddCounter { kind, .. } | Effect::PutCountersDivided { kind, .. } => {
@@ -130,6 +131,22 @@ pub fn effect_benefit(effect: &Effect, x: u32) -> Option<i32> {
                 Some(1)
             } else {
                 Some(sign)
+            }
+        }
+        Effect::DoublePT {
+            subject: baylee_cards_dsl::DoublePtSubject::Targets,
+            double_power,
+            double_toughness,
+            keywords,
+            ..
+        } => {
+            if *double_power
+                || *double_toughness
+                || (keywords.bits() & !KeywordSet::DEFENDER.bits() != 0)
+            {
+                Some(1)
+            } else {
+                Some(0)
             }
         }
         Effect::CreateContinuousEffect { modifier, .. }
@@ -173,6 +190,10 @@ pub fn effect_benefit(effect: &Effect, x: u32) -> Option<i32> {
         | Effect::GoadAll { .. } => Some(-2),
         Effect::Blink { .. }
         | Effect::PutEachCounterKindFromSource { .. }
+        | Effect::PutAllCountersFrom { .. }
+        | Effect::PutAllCountersFromIntoFound { .. }
+        | Effect::Empower { .. }
+        | Effect::ChooseDistinctPowersOnBattlefield { .. }
         | Effect::ExileAndReturnAtEndStep
         | Effect::UntapTarget
         | Effect::UntapTargetSlot(baylee_cards_dsl::TargetSlot::First)

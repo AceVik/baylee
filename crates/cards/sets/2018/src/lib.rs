@@ -89,6 +89,8 @@ pub mod arcane_encyclopedia;
 pub mod arcane_flight;
 #[path = "prix/arch_of_orazca.rs"]
 pub mod arch_of_orazca;
+#[path = "bbd/archfiend_of_despair.rs"]
+pub mod archfiend_of_despair;
 #[path = "grn/arclight_phoenix.rs"]
 pub mod arclight_phoenix;
 #[path = "m19/arisen_gorgon.rs"]
@@ -427,6 +429,8 @@ pub mod dwarven_priest;
 pub mod earth_origin_yak;
 #[path = "gs1/earthshaking_si.rs"]
 pub mod earthshaking_si;
+#[path = "c18/echo_storm.rs"]
+pub mod echo_storm;
 #[path = "grn/electrostatic_field.rs"]
 pub mod electrostatic_field;
 #[path = "prix/elenda_the_dusk_rose.rs"]
@@ -439,6 +443,8 @@ pub mod elvish_clancaller;
 pub mod elvish_rejuvenator;
 #[path = "grn/emmara_soul_of_the_accord.rs"]
 pub mod emmara_soul_of_the_accord;
+#[path = "c18/empyrial_storm.rs"]
+pub mod empyrial_storm;
 #[path = "rix/enter_the_unknown.rs"]
 pub mod enter_the_unknown;
 #[path = "c18/entreat_the_dead.rs"]
@@ -515,6 +521,8 @@ pub mod forerunner_of_the_heralds;
 pub mod forerunner_of_the_legion;
 #[path = "c18/forge_of_heroes.rs"]
 pub mod forge_of_heroes;
+#[path = "prix/form_of_the_dinosaur.rs"]
+pub mod form_of_the_dinosaur;
 #[path = "m19/fountain_of_renewal.rs"]
 pub mod fountain_of_renewal;
 #[path = "dom/frenzied_rage.rs"]
@@ -529,6 +537,8 @@ pub mod frilled_sea_serpent;
 pub mod fungal_infection;
 #[path = "dom/fungal_plots.rs"]
 pub mod fungal_plots;
+#[path = "c18/fury_storm.rs"]
+pub mod fury_storm;
 #[path = "m19/gallant_cavalry.rs"]
 pub mod gallant_cavalry;
 #[path = "dom/garna_the_bloodflame.rs"]
@@ -545,6 +555,8 @@ pub mod gearsmith_guardian;
 pub mod gearsmith_prodigy;
 #[path = "grn/generous_stray.rs"]
 pub mod generous_stray;
+#[path = "c18/genesis_storm.rs"]
+pub mod genesis_storm;
 #[path = "c18/geode_golem.rs"]
 pub mod geode_golem;
 #[path = "prix/ghalta_primal_hunger.rs"]
@@ -601,6 +613,8 @@ pub mod golgari_locket;
 pub mod golgari_raiders;
 #[path = "m19/goreclaw_terror_of_qal_sisma.rs"]
 pub mod goreclaw_terror_of_qal_sisma;
+#[path = "dom/grand_warlord_radha.rs"]
+pub mod grand_warlord_radha;
 #[path = "grn/grappling_sundew.rs"]
 pub mod grappling_sundew;
 #[path = "rix/grasping_scoundrel.rs"]
@@ -613,10 +627,14 @@ pub mod graveyard_marshal;
 pub mod greenwood_sentinel;
 #[path = "rix/gruesome_fate.rs"]
 pub mod gruesome_fate;
+#[path = "dom/grunn_the_lonely_king.rs"]
+pub mod grunn_the_lonely_king;
 #[path = "dom/guardians_of_koilos.rs"]
 pub mod guardians_of_koilos;
 #[path = "grn/guildmages_forum.rs"]
 pub mod guildmages_forum;
+#[path = "c18/gyrus_waker_of_corpses.rs"]
+pub mod gyrus_waker_of_corpses;
 #[path = "grn/haazda_marshal.rs"]
 pub mod haazda_marshal;
 #[path = "prix/hadana_s_climb.rs"]
@@ -941,6 +959,8 @@ pub mod murmuring_mystic;
 pub mod muse_drake;
 #[path = "m19/mystic_archaeologist.rs"]
 pub mod mystic_archaeologist;
+#[path = "dom/naban_dean_of_iteration.rs"]
+pub mod naban_dean_of_iteration;
 #[path = "dom/naru_meha_master_wizard.rs"]
 pub mod naru_meha_master_wizard;
 #[path = "grn/necrotic_wound.rs"]
@@ -977,6 +997,8 @@ pub mod oathsworn_vampire;
 pub mod ochran_assassin;
 #[path = "c18/octopus_umbra.rs"]
 pub mod octopus_umbra;
+#[path = "bbd/okaun_eye_of_chaos.rs"]
+pub mod okaun_eye_of_chaos;
 #[path = "grn/omnispell_adept.rs"]
 pub mod omnispell_adept;
 #[path = "dom/on_serra_s_wings.rs"]
@@ -1035,6 +1057,8 @@ pub mod pitiless_gorgon;
 pub mod pitiless_plunderer;
 #[path = "m19/plague_mare.rs"]
 pub mod plague_mare;
+#[path = "grn/plaguecrafter.rs"]
+pub mod plaguecrafter;
 #[path = "m19/poison_tip_archer.rs"]
 pub mod poison_tip_archer;
 #[path = "prix/polyraptor.rs"]
@@ -1495,6 +1519,8 @@ pub mod vampire_neonate;
 pub mod vampire_revenant;
 #[path = "m19/vampire_sovereign.rs"]
 pub mod vampire_sovereign;
+#[path = "c18/varina_lich_queen.rs"]
+pub mod varina_lich_queen;
 #[path = "c18/vedalken_humiliator.rs"]
 pub mod vedalken_humiliator;
 #[path = "grn/vedalken_mesmerist.rs"]
@@ -1525,6 +1551,8 @@ pub mod vivid_flying_fish;
 pub mod vivid_revival;
 #[path = "m19/vivien_reid.rs"]
 pub mod vivien_reid;
+#[path = "m19/vivien_s_invocation.rs"]
+pub mod vivien_s_invocation;
 #[path = "m19/vivien_s_jaguar.rs"]
 pub mod vivien_s_jaguar;
 #[path = "dom/vodalian_arcanist.rs"]

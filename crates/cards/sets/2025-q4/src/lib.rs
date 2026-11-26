@@ -83,6 +83,8 @@ pub mod bosco_just_a_bear;
 pub mod bumi_bash;
 #[path = "tle/bumi_eclectic_earthbender.rs"]
 pub mod bumi_eclectic_earthbender;
+#[path = "tla/buzzard_wasp_colony.rs"]
+pub mod buzzard_wasp_colony;
 #[path = "tla/callous_inspector.rs"]
 pub mod callous_inspector;
 #[path = "tla/canyon_crawler.rs"]
@@ -197,6 +199,8 @@ pub mod fire_nation_salvagers;
 pub mod fire_nation_sentinels;
 #[path = "tle/fire_nation_soldier.rs"]
 pub mod fire_nation_soldier;
+#[path = "tle/fire_nation_turret.rs"]
+pub mod fire_nation_turret;
 #[path = "tla/fire_nation_warship.rs"]
 pub mod fire_nation_warship;
 #[path = "tla/fire_navy_trebuchet.rs"]
@@ -247,6 +251,8 @@ pub mod hakoda_selfless_commander;
 pub mod haru_hidden_talent;
 #[path = "tle/hei_bai_forest_guardian.rs"]
 pub mod hei_bai_forest_guardian;
+#[path = "tla/hei_bai_spirit_of_balance.rs"]
+pub mod hei_bai_spirit_of_balance;
 #[path = "tla/hermitic_herbalist.rs"]
 pub mod hermitic_herbalist;
 #[path = "tle/hippo_cows.rs"]
@@ -265,6 +271,8 @@ pub mod inspired_insurgent;
 pub mod invasion_reinforcements;
 #[path = "tla/invasion_tactics.rs"]
 pub mod invasion_tactics;
+#[path = "tle/iroh_dragon_of_the_west.rs"]
+pub mod iroh_dragon_of_the_west;
 #[path = "tle/iroh_firebending_instructor.rs"]
 pub mod iroh_firebending_instructor;
 #[path = "tla/iroh_s_demonstration.rs"]
@@ -369,6 +377,8 @@ pub mod nightmares_and_daydreams;
 pub mod north_pole_gates;
 #[path = "tla/northern_air_temple.rs"]
 pub mod northern_air_temple;
+#[path = "ptla/obsessive_pursuit.rs"]
+pub mod obsessive_pursuit;
 #[path = "tla/octopus_form.rs"]
 pub mod octopus_form;
 #[path = "tla/omashu_city.rs"]
@@ -475,6 +485,8 @@ pub mod solstice_revelations;
 pub mod south_pole_voyager;
 #[path = "tla/southern_air_temple.rs"]
 pub mod southern_air_temple;
+#[path = "ptla/sozin_s_comet.rs"]
+pub mod sozin_s_comet;
 #[path = "ptla/spirit_water_revival.rs"]
 pub mod spirit_water_revival;
 #[path = "tle/stand_united.rs"]
@@ -497,6 +509,8 @@ pub mod swampsnare_trap;
 pub mod team_avatar;
 #[path = "tla/teo_spirited_glider.rs"]
 pub mod teo_spirited_glider;
+#[path = "tle/that_s_rough_buddy.rs"]
+pub mod that_s_rough_buddy;
 #[path = "tle/the_art_of_tea.rs"]
 pub mod the_art_of_tea;
 #[path = "tle/the_blue_spirit.rs"]
@@ -507,6 +521,8 @@ pub mod the_cabbage_merchant;
 pub mod the_cave_of_two_lovers;
 #[path = "tle/the_duke_rebel_sentry.rs"]
 pub mod the_duke_rebel_sentry;
+#[path = "ptla/the_earth_king.rs"]
+pub mod the_earth_king;
 #[path = "ptla/the_fire_nation_drill.rs"]
 pub mod the_fire_nation_drill;
 #[path = "ptla/the_legend_of_roku.rs"]
@@ -567,6 +583,8 @@ pub mod walltop_sentries;
 pub mod wan_shi_tong_librarian;
 #[path = "tla/wandering_musicians.rs"]
 pub mod wandering_musicians;
+#[path = "tla/war_balloon.rs"]
+pub mod war_balloon;
 #[path = "tle/warship_scout.rs"]
 pub mod warship_scout;
 #[path = "ptla/wartime_protestors.rs"]

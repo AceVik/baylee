@@ -674,6 +674,52 @@ pub(crate) fn amount_with_version(
         Amount::BeheldOrRevealedManaValue => {
             beheld_or_revealed_mana_value(state, this, source_version)
         }
+        Amount::DistinctPowersAmong(filter) => distinct_powers_among(state, you, filter, context),
+        Amount::CommanderCasts(who) => {
+            super::players_for_source(*who, state, you, Some(context.source)).map_or(0, |seats| {
+                seats.into_iter().fold(0_u32, |acc, p| {
+                    acc.saturating_add(
+                        state
+                            .commander_casts
+                            .get(usize::from(p.get()))
+                            .copied()
+                            .unwrap_or(0),
+                    )
+                })
+            })
+        }
+        Amount::HighestControlledCount { among, filter } => {
+            super::players_for_source(*among, state, you, Some(context.source)).map_or(0, |seats| {
+                seats
+                    .into_iter()
+                    .filter(|p| !state.players[usize::from(p.get())].has_lost())
+                    .map(|p| count_controlled_by(state, p, you, filter, context))
+                    .max()
+                    .unwrap_or(0)
+            })
+        }
+        Amount::HighestCardsDrawnThisTurn(who) => {
+            turn_history_seats(*who, state, you, Some(context.source)).map_or(0, |seats| {
+                seats
+                    .iter()
+                    .map(|&p| {
+                        state
+                            .per_turn
+                            .draws
+                            .get(usize::from(p.get()))
+                            .copied()
+                            .unwrap_or(0)
+                    })
+                    .max()
+                    .unwrap_or(0)
+            })
+        }
+        Amount::TotalManaValueInZone { zone, filter } => {
+            total_mana_value_in_zone(filter, *zone, state, you, context)
+        }
+        Amount::DistinctExactManaCostsInZone { zone, filter } => {
+            distinct_exact_mana_costs_in_zone(filter, *zone, state, you, context)
+        }
     }
 }
 
@@ -1300,6 +1346,71 @@ fn distinct_mana_values_in_zone(
         }
     });
     u32::try_from(values.len()).unwrap_or(u32::MAX)
+}
+
+/// Number of distinct projected powers (`CR 208.3`) among matching battlefield permanents.
+pub(crate) fn distinct_powers_among(
+    state: &GameState,
+    you: PlayerId,
+    filter: &Filter,
+    context: RuleContext,
+) -> u32 {
+    let mut powers = std::collections::BTreeSet::<i32>::new();
+    for id in state.battlefield_seen() {
+        if let Some(object) = state.object(id)
+            && matches_with_context(filter, state, object, you, context)
+            && let Some(power) = object.characteristics().power
+        {
+            powers.insert(i32::from(power));
+        }
+    }
+    u32::try_from(powers.len()).unwrap_or(u32::MAX)
+}
+
+/// Sum of mana values (`CR 202.3`) of matching objects in `zone`.
+fn total_mana_value_in_zone(
+    filter: &Filter,
+    zone: ZoneSel,
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+) -> u32 {
+    let require_card = !matches!(zone, ZoneSel::Battlefield);
+    let mut sum = 0_u32;
+    visit_zone(zone, state, you, context, |id| {
+        if let Some(object) = state.object(id)
+            && (!require_card || object.is_card())
+            && matches_with_context(filter, state, object, you, context)
+        {
+            sum = sum.saturating_add(object.characteristics().mana_value());
+        }
+    });
+    sum
+}
+
+/// Number of distinct printed mana costs (`CR 202.1`; cards without a mana cost
+/// have no mana cost to count) among matching cards in `zone`.
+fn distinct_exact_mana_costs_in_zone(
+    filter: &Filter,
+    zone: ZoneSel,
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+) -> u32 {
+    let require_card = !matches!(zone, ZoneSel::Battlefield);
+    let mut seen: Vec<baylee_core::mana::ManaCost> = Vec::new();
+    visit_zone(zone, state, you, context, |id| {
+        if let Some(object) = state.object(id)
+            && (!require_card || object.is_card())
+            && matches_with_context(filter, state, object, you, context)
+        {
+            let cost = object.characteristics().mana_cost;
+            if crate::casting::has_a_printed_cost(&cost) && !seen.contains(&cost) {
+                seen.push(cost);
+            }
+        }
+    });
+    u32::try_from(seen.len()).unwrap_or(u32::MAX)
 }
 
 /// Seats matching `who` for cumulative per-turn history tallies (`CR 800.4a`:

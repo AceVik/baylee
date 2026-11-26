@@ -3,7 +3,6 @@
 //! - Evolve (`KeywordSet::EVOLVE`, CR 702.100a–d, CR 603.4)
 
 use super::events::{ObjectMove, object_moves};
-use super::matching::times_triggered_with_source;
 use super::{PendingTrigger, source_at_event_with_moves};
 use crate::{
     event::{GameEvent, JournalEntry},
@@ -52,8 +51,12 @@ pub(super) fn collect(
         let kws = source.characteristics().keywords;
         if *object == permanent {
             if kws.contains(KeywordSet::EXPLOIT) {
-                let mult =
-                    times_triggered_with_source(state, TriggerEventKind::EntersBattlefield, source);
+                let mult = super::matching::times_triggered_for_entry(
+                    state,
+                    TriggerEventKind::EntersBattlefield,
+                    source,
+                    Some(entry),
+                );
                 let n = crate::layers::keyword_instances(state, source, KeywordSet::EXPLOIT)
                     .saturating_mul(mult);
                 push_entry_trigger(
@@ -88,7 +91,12 @@ pub(super) fn collect(
         if !crate::eval::evolve_holds(state, permanent, Some(source.version), Some(ent_ref)) {
             continue;
         }
-        let mult = times_triggered_with_source(state, TriggerEventKind::EntersBattlefield, source);
+        let mult = super::matching::times_triggered_for_entry(
+            state,
+            TriggerEventKind::EntersBattlefield,
+            source,
+            Some(entry),
+        );
         let n = crate::layers::keyword_instances(state, source, KeywordSet::EVOLVE)
             .saturating_mul(mult);
         let identity = Some((ent.version, ent.characteristics().power.unwrap_or(0)));
@@ -198,8 +206,12 @@ pub(super) fn collect_champion(
                 {
                     continue;
                 }
-                let mult =
-                    times_triggered_with_source(state, TriggerEventKind::EntersBattlefield, source);
+                let mult = super::matching::times_triggered_for_entry(
+                    state,
+                    TriggerEventKind::EntersBattlefield,
+                    source,
+                    Some(entry),
+                );
                 push_champion_etb(state, source, index, list, mult, triggers);
             } else {
                 let GameEvent::ZoneChanged {
@@ -221,7 +233,12 @@ pub(super) fn collect_champion(
                 {
                     continue;
                 }
-                let mult = times_triggered_with_source(state, TriggerEventKind::Any, source);
+                let mult = super::matching::times_triggered_for_entry(
+                    state,
+                    TriggerEventKind::Any,
+                    source,
+                    Some(entry),
+                );
                 push_entry_trigger(
                     source,
                     permanent,

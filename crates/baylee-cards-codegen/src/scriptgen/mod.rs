@@ -72,6 +72,9 @@ mod wall52;
 mod wave16a;
 mod wave16b;
 mod wave16c;
+mod wave17a;
+mod wave17b;
+mod wave17c;
 mod wave27a;
 mod wave27b;
 mod wave27c;
@@ -81,6 +84,10 @@ mod wave28a;
 mod wave28b;
 mod wave28c;
 mod wave28d;
+mod wave29a;
+mod wave29b;
+mod wave29c;
+mod wave29d;
 
 use atoms::{
     Bound, amount, color_atom, count_bound, hybrid_pair, keyword_atom, mana_color_const,
@@ -109,6 +116,8 @@ pub struct CardScript {
     pub type_line: String,
     /// Whether the `ManaCost:` line contains a variable `X`.
     pub has_x_mana_cost: bool,
+    /// Verbatim `ManaCost:` header on this face, used for exact `EventManaValue` arithmetic.
+    pub mana_cost: String,
     /// `Oracle:` line, when present, for cross-checking target player vs. opponent.
     pub oracle: String,
     /// `PT:` line (e.g. `*/4`, `2/1+*`), used by single-sided P/T CDAs.
@@ -200,7 +209,10 @@ fn parse_face(lines: &[&str]) -> CardScript {
                 out.is_room = rest.split_whitespace().any(|word| word == "Room");
                 out.type_line = rest.to_string();
             }
-            "ManaCost" => out.has_x_mana_cost = rest.split_whitespace().any(|word| word == "X"),
+            "ManaCost" => {
+                out.has_x_mana_cost = rest.split_whitespace().any(|word| word == "X");
+                out.mana_cost = rest.trim().to_string();
+            }
             "PT" => out.pt = Some(rest.trim().to_string()),
             "Oracle" => out.oracle = rest.to_string(),
             "AlternateMode" => {
@@ -610,6 +622,20 @@ struct Tx<'a> {
     /// True while inside a chain opened by a leading `DB$ Cleanup | ClearRemembered$ True`
     /// (*Deathrender*).
     preceded_by_cleanup: bool,
+    /// True while reading an ability whose `Cost$` contains `Sac<All/...>`.
+    cost_sacrifices_all: bool,
+    /// True while reading an ability whose `Cost$` contains `Sac<X/...>`.
+    cost_sacrifices_x: bool,
+    /// True while reading an ability whose `Cost$` returns `CARDNAME`/`NICKNAME` to hand.
+    cost_returns_self: bool,
+    /// True when the script declares `K:Kicker:X ...` without a mana-cost `X`.
+    has_x_kicker: bool,
+    /// True while lowering resolution effects inside `Tx::chain`.
+    in_chain_resolution: bool,
+    /// Verbatim `ManaCost:` line on this face.
+    mana_cost: &'a str,
+    /// Active vote option index while lowering a `StoreVoteNum$ True` option chain.
+    vote_option_idx: Option<u8>,
     body: CardBody,
     /// The first `Api.Key` no rule claimed, if that is why this
     /// script was refused. Recorded rather than derived, because a
@@ -629,6 +655,15 @@ impl<'a> Tx<'a> {
                 .enter_modifiers
                 .iter()
                 .any(|m| m == "EnterModifier::ChooseSubtype")
+    }
+
+    pub(super) fn has_chosen_basic_land_type(&self) -> bool {
+        self.body.enter_modifiers.iter().any(|m| {
+            matches!(
+                m.as_str(),
+                "EnterModifier::ChooseBasicLandType" | "EnterModifier::ChooseTwoBasicLandTypes"
+            )
+        })
     }
 
     pub(super) fn new(
@@ -677,6 +712,11 @@ impl<'a> Tx<'a> {
             chain_prev_lose_life: false,
             single_object_target: false,
             cost_beholds_or_reveals: false,
+            cost_sacrifices_all: false,
+            cost_sacrifices_x: false,
+            cost_returns_self: false,
+            has_x_kicker: Self::wave29b_script_has_x_kicker(script),
+            in_chain_resolution: false,
             has_x_mana_cost: script.has_x_mana_cost,
             has_flash: script.keywords.iter().any(|k| k.trim() == "Flash"),
             has_single_kicker: !multi_or_dual && single_kickers == 1,
@@ -706,6 +746,8 @@ impl<'a> Tx<'a> {
             current_single_player_rel: None,
             current_object_target: false,
             preceded_by_cleanup: false,
+            mana_cost: &script.mana_cost,
+            vote_option_idx: None,
             body: CardBody::default(),
             unclaimed: std::cell::RefCell::new(None),
         }

@@ -26,12 +26,9 @@ card!(
                 whose: PlayerRel::You
             },
             &[
-                Effect::SacrificeFilter {
-                    who: PlayerRel::You,
-                    filter: &Filter::This
-                },
+                Effect::SacrificeSelf,
                 Effect::ReflexiveTrigger {
-                    when: ReflexiveWhen::Event(ReflexiveEvent::Sacrificed(&Filter::Any)),
+                    when: ReflexiveWhen::Event(ReflexiveEvent::Sacrificed(&Filter::This)),
                     once: true,
                     condition: None,
                     targets: Some(TargetReq::one(TargetSpec::Object(&Filter::YOUR_CREATURE))),

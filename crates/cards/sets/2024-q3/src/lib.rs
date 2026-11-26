@@ -143,6 +143,8 @@ pub mod bushy_bodyguard;
 pub mod byrke_long_ear_of_the_law;
 #[path = "blb/byway_barterer.rs"]
 pub mod byway_barterer;
+#[path = "blb/cache_grab.rs"]
+pub mod cache_grab;
 #[path = "dsk/cackling_slasher.rs"]
 pub mod cackling_slasher;
 #[path = "acr/caduceus_staff_of_hermes.rs"]
@@ -249,6 +251,8 @@ pub mod eagle_vision;
 pub mod early_winter;
 #[path = "acr/eivor_battle_ready.rs"]
 pub mod eivor_battle_ready;
+#[path = "acr/eivor_wolf_kissed.rs"]
+pub mod eivor_wolf_kissed;
 #[path = "dsk/emerge_from_the_cocoon.rs"]
 pub mod emerge_from_the_cocoon;
 #[path = "dsk/enduring_courage.rs"]
@@ -317,6 +321,8 @@ pub mod floodfarm_verge;
 pub mod flubs_the_fool;
 #[path = "dsc/formless_genesis.rs"]
 pub mod formless_genesis;
+#[path = "blc/fortune_teller_s_talent.rs"]
+pub mod fortune_teller_s_talent;
 #[path = "blb/fountainport.rs"]
 pub mod fountainport;
 #[path = "blb/fountainport_bell.rs"]
@@ -443,6 +449,8 @@ pub mod indicate;
 pub mod innkeeper_s_talent;
 #[path = "dsk/innocuous_rat.rs"]
 pub mod innocuous_rat;
+#[path = "dsk/inquisitive_glimmer.rs"]
+pub mod inquisitive_glimmer;
 #[path = "dsk/insidious_fungus.rs"]
 pub mod insidious_fungus;
 #[path = "dsc/into_the_pit.rs"]
@@ -511,6 +519,8 @@ pub mod longstalk_brawl;
 pub mod loyal_inventor;
 #[path = "blb/lumra_bellow_of_the_woods.rs"]
 pub mod lumra_bellow_of_the_woods;
+#[path = "blb/lunar_convocation.rs"]
+pub mod lunar_convocation;
 #[path = "blb/lupinflower_village.rs"]
 pub mod lupinflower_village;
 #[path = "acr/lydia_frye.rs"]
@@ -533,6 +543,8 @@ pub mod manifold_mouse;
 pub mod marina_vendrell_s_grimoire;
 #[path = "dsk/meat_locker.rs"]
 pub mod meat_locker;
+#[path = "dsk/meathook_massacre_ii.rs"]
+pub mod meathook_massacre_ii;
 #[path = "acr/merciless_harlequin.rs"]
 pub mod merciless_harlequin;
 #[path = "dsc/metamorphosis_fanatic.rs"]
@@ -567,6 +579,8 @@ pub mod most_valuable_slayer;
 pub mod mox_poison;
 #[path = "blc/mr_foxglove.rs"]
 pub mod mr_foxglove;
+#[path = "blc/ms_bumbleflower.rs"]
+pub mod ms_bumbleflower;
 #[path = "blb/mudflat_village.rs"]
 pub mod mudflat_village;
 #[path = "blb/muerra_trash_tactician.rs"]
@@ -641,6 +655,10 @@ pub mod plumecreed_escort;
 pub mod plumecreed_mentor;
 #[path = "acr/poison_blade_mentor.rs"]
 pub mod poison_blade_mentor;
+#[path = "blb/polliwallop.rs"]
+pub mod polliwallop;
+#[path = "blc/pollywog_prodigy.rs"]
+pub mod pollywog_prodigy;
 #[path = "blb/pond_prophet.rs"]
 pub mod pond_prophet;
 #[path = "dsk/popular_egotist.rs"]
@@ -653,6 +671,8 @@ pub mod prosperous_bandit;
 pub mod pyreswipe_hawk;
 #[path = "blb/quaketusk_boar.rs"]
 pub mod quaketusk_boar;
+#[path = "mb2/questing_cosplayer.rs"]
+pub mod questing_cosplayer;
 #[path = "blb/rabbit_response.rs"]
 pub mod rabbit_response;
 #[path = "blb/rabid_gnaw.rs"]
@@ -711,6 +731,8 @@ pub mod ruthless_negotiation;
 pub mod savior_of_the_small;
 #[path = "blb/savor.rs"]
 pub mod savor;
+#[path = "dsk/sawblade_skinripper.rs"]
+pub mod sawblade_skinripper;
 #[path = "blb/scales_of_shale.rs"]
 pub mod scales_of_shale;
 #[path = "blb/scavenger_s_talent.rs"]
@@ -865,6 +887,8 @@ pub mod thornspire_verge;
 pub mod thornvault_forager;
 #[path = "blb/thought_shucker.rs"]
 pub mod thought_shucker;
+#[path = "blb/thought_stalker_warlock.rs"]
+pub mod thought_stalker_warlock;
 #[path = "dsk/threats_around_every_corner.rs"]
 pub mod threats_around_every_corner;
 #[path = "blb/three_tree_city.rs"]

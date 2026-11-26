@@ -25,17 +25,25 @@ card!(
             target: PlayerRel::You
         },
         Effect::IfCondition {
-            condition: Condition::Any(&[
-                Condition::AmountAtLeast(
-                    Amount::LeftZoneThisTurn {
-                        filter: &Filter::NONLAND,
-                        from: ZoneRef::Battlefield,
-                        owner_or_ctrl: PlayerRel::EachPlayer
-                    },
-                    1
-                ),
-                Condition::SpellWarpedThisTurn(None)
-            ]),
+            condition: Condition::AmountCompare {
+                left: &Amount::IfCondition {
+                    condition: &Condition::Any(&[
+                        Condition::AmountAtLeast(
+                            Amount::LeftZoneThisTurn {
+                                filter: &Filter::NONLAND,
+                                from: ZoneRef::Battlefield,
+                                owner_or_ctrl: PlayerRel::EachPlayer
+                            },
+                            1
+                        ),
+                        Condition::SpellWarpedThisTurn(None)
+                    ]),
+                    then: &Amount::Fixed(1),
+                    otherwise: &Amount::Fixed(0)
+                },
+                op: AmountCmp::AtLeast,
+                right: &Amount::Fixed(1)
+            },
             then: &[Effect::draw(1)],
             otherwise: &[]
         }

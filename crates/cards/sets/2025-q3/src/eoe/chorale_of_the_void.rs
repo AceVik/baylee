@@ -48,17 +48,25 @@ card!(
                 whose: PlayerRel::You
             },
             &[Effect::IfCondition {
-                condition: Condition::Not(&Condition::Any(&[
-                    Condition::AmountAtLeast(
-                        Amount::LeftZoneThisTurn {
-                            filter: &Filter::NONLAND,
-                            from: ZoneRef::Battlefield,
-                            owner_or_ctrl: PlayerRel::EachPlayer
-                        },
-                        1
-                    ),
-                    Condition::SpellWarpedThisTurn(None)
-                ])),
+                condition: Condition::AmountCompare {
+                    left: &Amount::IfCondition {
+                        condition: &Condition::Any(&[
+                            Condition::AmountAtLeast(
+                                Amount::LeftZoneThisTurn {
+                                    filter: &Filter::NONLAND,
+                                    from: ZoneRef::Battlefield,
+                                    owner_or_ctrl: PlayerRel::EachPlayer
+                                },
+                                1
+                            ),
+                            Condition::SpellWarpedThisTurn(None)
+                        ]),
+                        then: &Amount::Fixed(0),
+                        otherwise: &Amount::Fixed(1)
+                    },
+                    op: AmountCmp::AtLeast,
+                    right: &Amount::Fixed(1)
+                },
                 then: &[Effect::SacrificeFilter {
                     who: PlayerRel::You,
                     filter: &Filter::This

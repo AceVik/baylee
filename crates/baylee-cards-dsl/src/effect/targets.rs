@@ -525,3 +525,18 @@ pub enum TargetSlot {
     /// (`third_targets` on the ability).
     Third,
 }
+
+/// Which permanent(s) [`crate::Effect::DoublePT`] doubles (`CR 701.10b–c`).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum DoublePtSubject {
+    /// The resolving ability's source permanent (`Defined$ Self` or omitted `Defined$`).
+    Source,
+    /// The permanent the source Aura, Equipment, or Fortification is attached to.
+    Attached,
+    /// The triggering event's permanent (`TriggeredAttacker`, `TriggeredCard`, …).
+    EventObject,
+    /// Every legal object target in the ability's first target slot.
+    Targets,
+    /// Every battlefield permanent matching `0` at resolution (`CR 611.2c`).
+    Filter(&'static Filter),
+}

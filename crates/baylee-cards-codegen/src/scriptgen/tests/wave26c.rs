@@ -325,11 +325,27 @@ fn with_second_target_target_only_unique_and_first_target_graveyard() {
         "{ge}"
     );
 
-    // Shuffle$ True on 0..=3 CardInFirstTargetsGraveyard must stay refused (0 targets still shuffles per CR 701.20).
-    assert!(refused_w26c(
+    // Wave 29a: Shuffle$ True on 0..=3 CardInFirstTargetsGraveyard now lowers via
+    // PutOnBottomOfLibraryFromGraveyard + ShuffleLibrary { who: FirstTargetPlayerOrController }
+    // (0 chosen graveyard cards still shuffles the targeted player's library per CR 701.20);
+    // unsupported LibraryPosition$ 2 on CardInFirstTargetsGraveyard stays refused.
+    let krosan = read_w26c(
         "Name:Krosan Reclamation Proxy\nManaCost:1 G\nTypes:Instant\n\
          A:SP$ TargetOnly | ValidTgts$ Player | SubAbility$ DBShuffle\n\
-         SVar:DBShuffle:DB$ ChangeZone | TargetMin$ 0 | TargetMax$ 3 | TargetsWithDefinedController$ ParentTarget | Origin$ Graveyard | Destination$ Library | Shuffle$ True | ValidTgts$ Card"
+         SVar:DBShuffle:DB$ ChangeZone | TargetMin$ 0 | TargetMax$ 3 | TargetsWithDefinedController$ ParentTarget | Origin$ Graveyard | Destination$ Library | Shuffle$ True | ValidTgts$ Card",
+    );
+    assert!(
+        krosan.abilities[0].contains("Effect::PutOnBottomOfLibraryFromGraveyard")
+            && krosan.abilities[0].contains(
+                "Effect::ShuffleLibrary { who: PlayerRel::FirstTargetPlayerOrController }"
+            ),
+        "{}",
+        krosan.abilities[0]
+    );
+    assert!(refused_w26c(
+        "Name:BadLibraryPosProxy\nManaCost:1 G\nTypes:Instant\n\
+         A:SP$ TargetOnly | ValidTgts$ Player | SubAbility$ DBPos\n\
+         SVar:DBPos:DB$ ChangeZone | TargetMin$ 0 | TargetMax$ 3 | TargetsWithDefinedController$ ParentTarget | Origin$ Graveyard | Destination$ Library | LibraryPosition$ 2 | ValidTgts$ Card"
     ));
 
     // Wave 27c: ChangeZone with TargetUnique$ True now lowers via DistinctFromPriorTargetGroups.

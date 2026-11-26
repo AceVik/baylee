@@ -19,6 +19,8 @@ pub mod academy_wall;
 pub mod aether_channeler;
 #[path = "dmu/aggressive_sabotage.rs"]
 pub mod aggressive_sabotage;
+#[path = "dmu/anointed_peacekeeper.rs"]
+pub mod anointed_peacekeeper;
 #[path = "dmu/archangel_of_wrath.rs"]
 pub mod archangel_of_wrath;
 #[path = "dmu/argivian_cavalier.rs"]
@@ -197,6 +199,8 @@ pub mod jedit_ojanen_mercenary;
 pub mod jenson_carthalion_druid_exile;
 #[path = "dmu/jodah_s_codex.rs"]
 pub mod jodah_s_codex;
+#[path = "dmu/jodah_the_unifier.rs"]
+pub mod jodah_the_unifier;
 #[path = "dmu/join_forces.rs"]
 pub mod join_forces;
 #[path = "dmu/joint_exploration.rs"]
@@ -299,6 +303,8 @@ pub mod rona_s_vortex;
 pub mod rona_sheoldred_s_faithful;
 #[path = "dmc/rosnakht_heir_of_rohgahh.rs"]
 pub mod rosnakht_heir_of_rohgahh;
+#[path = "dmu/rulik_mons_warren_chief.rs"]
+pub mod rulik_mons_warren_chief;
 #[path = "dmu/rundvelt_hordemaster.rs"]
 pub mod rundvelt_hordemaster;
 #[path = "dmu/runic_shot.rs"]

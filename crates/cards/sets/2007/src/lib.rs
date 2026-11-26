@@ -161,6 +161,8 @@ pub mod cloudseeder;
 pub mod cloudthresher;
 #[path = "fut/coalition_relic.rs"]
 pub mod coalition_relic;
+#[path = "lrw/colfenor_s_urn.rs"]
+pub mod colfenor_s_urn;
 #[path = "lrw/consuming_bonfire.rs"]
 pub mod consuming_bonfire;
 #[path = "plc/cradle_to_grave.rs"]
@@ -461,6 +463,8 @@ pub mod knucklebone_witch;
 pub mod lace_with_moonglove;
 #[path = "lrw/lairwatch_giant.rs"]
 pub mod lairwatch_giant;
+#[path = "lrw/lammastide_weave.rs"]
+pub mod lammastide_weave;
 #[path = "lrw/lash_out.rs"]
 pub mod lash_out;
 #[path = "plc/lavacore_elemental.rs"]
@@ -485,6 +489,8 @@ pub mod llanowar_mentor;
 pub mod llanowar_reborn;
 #[path = "fut/logic_knot.rs"]
 pub mod logic_knot;
+#[path = "fut/lost_auramancers.rs"]
+pub mod lost_auramancers;
 #[path = "lrw/lowland_oaf.rs"]
 pub mod lowland_oaf;
 #[path = "fut/lucent_liminid.rs"]
@@ -669,6 +675,8 @@ pub mod rathi_trapper;
 pub mod ravaging_riftwurm;
 #[path = "fut/reality_strobe.rs"]
 pub mod reality_strobe;
+#[path = "plc/rebuff_the_wicked.rs"]
+pub mod rebuff_the_wicked;
 #[path = "plc/reckless_wurm.rs"]
 pub mod reckless_wurm;
 #[path = "plc/reflex_sliver.rs"]
@@ -947,6 +955,8 @@ pub mod wren_s_run_packmaster;
 pub mod wren_s_run_vanquisher;
 #[path = "lrw/wydwen_the_biting_gale.rs"]
 pub mod wydwen_the_biting_gale;
+#[path = "fut/yixlid_jailer.rs"]
+pub mod yixlid_jailer;
 #[path = "lrw/zephyr_net.rs"]
 pub mod zephyr_net;
 #[path = "fut/zoetic_cavern.rs"]

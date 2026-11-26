@@ -582,6 +582,11 @@ const REACHES_FURTHER: &[(&str, &str)] = &[
          destroys bystanding Llanowar Elves",
     ),
     (
+        "Soulblast",
+        "\"As an additional cost to cast this spell, sacrifice all creatures you control\": \
+         paying the additional cast cost sacrifices bystanding Llanowar Elves",
+    ),
+    (
         "Grub's Command",
         "\"Creatures target player controls get +1/+1 and gain haste until end of turn\": \
          when chosen as a mode beside targeting an artifact/creature, the pump hits \

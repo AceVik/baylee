@@ -365,6 +365,12 @@ pub enum CostPart {
     /// card in hand revealed until it leaves the hand or the upkeep step ends.
     /// Appended to preserve replay identities.
     RevealSelfFromHand,
+    /// Behold a [quality] and exile it (`CR 701.4a`, `CR 607.2a`; Lorwyn
+    /// Eclipsed *Champion of the Clachan* cycle): choose a matching permanent
+    /// you control or a matching card from your hand (other than the spell or
+    /// source itself), exile it, and link it to the resolving permanent via
+    /// `Rider::SpellCostExile`. Appended to preserve replay identities.
+    BeholdAndExile(&'static Filter),
 }
 
 /// A cost reduction printed on a card (Surgical Metamorph) or on one of its

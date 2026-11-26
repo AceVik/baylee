@@ -134,7 +134,8 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::OptionalBasicLandSearchFor { .. }
         | Effect::ExileAttackingForThenMaySearchBasicLands { .. }
         | Effect::Recruit { .. }
-        | Effect::WishToHand { .. } => {
+        | Effect::WishToHand { .. }
+        | Effect::Learn => {
             ch.tutor_search += 1.0;
         }
         Effect::Mill { amount, .. } => {
@@ -288,7 +289,8 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         Effect::ModifyTargets { .. }
         | Effect::ModifySource { .. }
         | Effect::ModifyAttached { .. }
-        | Effect::ModifyEvent { .. } => {
+        | Effect::ModifyEvent { .. }
+        | Effect::DoublePT { .. } => {
             ch.pump_pt += 1.5;
         }
         Effect::AddCounter { amount, .. }
@@ -335,7 +337,10 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::MoveCounter { .. }
         | Effect::MoveCounterToEvent { .. }
         | Effect::PutEachCounterKindFromSource { .. }
+        | Effect::PutAllCountersFrom { .. }
+        | Effect::PutAllCountersFromIntoFound { .. }
         | Effect::Amass { .. }
+        | Effect::Empower { .. }
         | Effect::Energy { .. }
         | Effect::Poison { .. } => {
             ch.counters_add += 1.5;

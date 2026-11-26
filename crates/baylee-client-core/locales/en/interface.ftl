@@ -3954,6 +3954,9 @@ CastAwaken = Awaken
 # Beam me up's casting option.
 CastBeamMeUp = Beam me up
 
+# Mayhem's graveyard casting option (CR 702.187a).
+CastMayhem = Mayhem
+
 # Agadeem's Awakening target constraint.
 DifferentManaValues = Choose targets with different mana values
 

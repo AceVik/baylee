@@ -960,6 +960,16 @@ impl Tx<'_> {
             {
                 Some("PlayerRel::ActivePlayer")
             }
+            "TriggeredSourceController"
+                if matches!(
+                    self.trigger_mode.as_deref(),
+                    Some("DamageDone" | "DamageDoneOnce" | "DamageDealtOnce")
+                ) && self.damage_trigger_source_is_attached
+                    && !targets_a_player
+                    && target.is_none() =>
+            {
+                Some("PlayerRel::ControllerOfAttached")
+            }
             "ThisTargetedPlayer"
                 if targets_a_player
                     || target == Some("TargetSpec::Player(PlayerRel::Chosen)")
@@ -1092,7 +1102,7 @@ impl Tx<'_> {
                     "Effect::IfTargetMatches {{ filter: &{name}, then: &[{inner}] }}"
                 )])
             }
-            _ => None,
+            _ => self.wave29b_put_counter_defined(def, target, specs),
         }
     }
 

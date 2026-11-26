@@ -1721,7 +1721,7 @@ fn wave19d_raise_and_reduce_cost_zone_and_valid_spell_shapes() {
     );
 
     for bad in [
-        "Name:BadNonManaExclusion\nTypes:Artifact\nS:Mode$ RaiseCost | EffectZone$ Battlefield | ValidCard$ Card | ValidSpell$ Activated.!ManaAbility | Amount$ 2",
+        "Name:BadNonManaExclusion\nTypes:Artifact\nS:Mode$ RaiseCost | EffectZone$ Graveyard | ValidCard$ Card | ValidSpell$ Activated.!ManaAbility | Amount$ 2",
         "Name:BadGlobalManaLife\nTypes:Enchantment\nS:Mode$ RaiseCost | Type$ Ability | ValidSpell$ Activated.ManaAbility | ValidCard$ Land | Cost$ PayLife<1> | EffectZone$ All",
         "Name:BadInZoneLibrary\nTypes:Artifact\nS:Mode$ ReduceCost | ValidCard$ Creature.YouOwn+inZoneLibrary | Type$ Ability | Amount$ 1",
     ] {

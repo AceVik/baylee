@@ -254,17 +254,27 @@ fn wave26f_static_spells_cant_be_countered_and_refusals() {
         taigam.abilities
     );
 
-    // Spider-Punk (abilities too), cast-by-you scoping, and Guile (ReplaceWith) stay refused.
+    // Spider-Punk (abilities too) and Guile (ReplaceWith) stay refused; Thryx lowers via Filter::WasCastByYou.
     assert!(refused(
         "Name:SpiderPunk\nManaCost:1 R\nTypes:Creature Human\nPT:2/1\n\
          R:Event$ Counter | ValidSA$ Spell,Activated,Triggered | Layer$ CantHappen | \
          ActiveZones$ Battlefield"
     ));
-    assert!(refused(
+    let thryx = read(
         "Name:ThryxGuard\nManaCost:3 U U\nTypes:Creature Elemental\nPT:4/5\n\
          R:Event$ Counter | ValidCard$ Card.cmcGE5+wasCastByYou | ValidSA$ Spell | \
-         Layer$ CantHappen | ActiveZones$ Battlefield"
-    ));
+         Layer$ CantHappen | ActiveZones$ Battlefield",
+    );
+    assert!(
+        thryx.statics.contains("Filter::WasCastByYou")
+            && thryx
+                .abilities
+                .iter()
+                .any(|a| a.contains("Modifier::SpellsCantBeCountered")),
+        "{:?} / {}",
+        thryx.abilities,
+        thryx.statics
+    );
     assert!(refused(
         "Name:GuileGuard\nManaCost:3 U U U\nTypes:Creature Elemental\nPT:6/6\n\
          R:Event$ Counter | ActiveZones$ Battlefield | ValidSA$ Spell | \
