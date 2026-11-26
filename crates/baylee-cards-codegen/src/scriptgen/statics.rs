@@ -3466,6 +3466,9 @@ impl Tx<'_> {
         if p.peek("OnlyFirstSpell") == Some("True") {
             return self.wave27d_first_spell_cost_adjust(p, true);
         }
+        if let Some(res) = self.try_raise_cost_modifiers(&p) {
+            return res.ok();
+        }
         let hum_of_the_radix = p.peek("Relative") == Some("True")
             && p.peek("Amount").is_some_and(|a| {
                 self.svars
@@ -3492,7 +3495,10 @@ impl Tx<'_> {
                     && p.peek("ValidCard") == Some("Card.Self")
                     && p.peek("Cost") == Some("PayLife<1>")))
             && p.has("Type")
-            && matches!(p.peek("ValidSpell"), None | Some("Activated.ManaAbility"))
+            && matches!(
+                p.peek("ValidSpell"),
+                None | Some("Activated.ManaAbility" | "Spell.Flashback" | "Spell.Dash")
+            )
             && (p.peek("Type") != Some("Spell") || p.has("ValidCard") || p.has("ValidTarget"))
             && p.peek("ValidTarget").is_none_or(|vt| {
                 Self::raise_cost_target_filter(vt, p.peek("EffectZone") == Some("Stack")).is_some()
@@ -3538,7 +3544,11 @@ impl Tx<'_> {
         {
             self.raise_cost_ability(p)
         } else if p.peek("Type") == Some("Spell")
-            || (p.peek("Type").is_none() && p.peek("ValidSpell") == Some("Spell"))
+            || (p.peek("Type").is_none()
+                && matches!(
+                    p.peek("ValidSpell"),
+                    Some("Spell" | "Spell.Flashback" | "Spell.Dash")
+                ))
         {
             self.raise_cost_spell(p)
         } else {
@@ -3694,9 +3704,14 @@ impl Tx<'_> {
     }
 
     fn raise_cost_spell(&mut self, mut p: Params) -> Option<()> {
-        if p.take("Type").is_none() {
-            p.take("ValidSpell");
-        }
+        let spell_type = p.take("Type");
+        let valid_spell = p.take("ValidSpell");
+        let spell_rider = match (spell_type.as_deref(), valid_spell.as_deref()) {
+            (Some("Spell"), None | Some("Spell")) | (None, Some("Spell")) => None,
+            (Some("Spell") | None, Some("Spell.Flashback")) => Some("Filter::CastForFlashback"),
+            (Some("Spell") | None, Some("Spell.Dash")) => Some("Filter::CastForDash"),
+            _ => return self.deny("static ability `S: Mode$ RaiseCost`".into()),
+        };
         let effect_zone = p.take("EffectZone");
         let valid_target = p.take("ValidTarget");
         let stack_self_target = effect_zone.as_deref() == Some("Stack")
@@ -3786,7 +3801,8 @@ impl Tx<'_> {
             base_filter,
             target_filter
                 .into_iter()
-                .chain(act_filter.map(str::to_string)),
+                .chain(act_filter.map(str::to_string))
+                .chain(spell_rider.map(str::to_string)),
         );
         self.body
             .abilities
@@ -3909,6 +3925,9 @@ impl Tx<'_> {
         if p.peek("OnlyFirstSpell") == Some("True") {
             return self.wave27d_first_spell_cost_adjust(p, false);
         }
+        if let Some(res) = self.try_reduce_cost_modifiers(&p) {
+            return res.ok();
+        }
         // Keep `final_portals::reduce_cost` handling plain battlefield fixed
         // generic spell reductions unchanged.
         if Self::is_plain_battlefield_reduce_cost(&p) {
@@ -3951,11 +3970,19 @@ impl Tx<'_> {
         ) {
             return self.reduce_cost_ability(p);
         }
-        let mut blitz_only = false;
+        let mut spell_rider: Option<&'static str> = None;
         let face_down = match (spell_type.as_deref(), valid_spell.as_deref()) {
             (Some("Spell"), None | Some("Spell")) | (None, Some("Spell")) => false,
             (Some("Spell") | None, Some("Spell.Blitz")) => {
-                blitz_only = true;
+                spell_rider = Some("Filter::CastForBlitz");
+                false
+            }
+            (Some("Spell") | None, Some("Spell.Flashback")) => {
+                spell_rider = Some("Filter::CastForFlashback");
+                false
+            }
+            (Some("Spell") | None, Some("Spell.Dash")) => {
+                spell_rider = Some("Filter::CastForDash");
                 false
             }
             (Some("Spell") | None, Some("Spell.isCastFaceDown")) => true,
@@ -4061,7 +4088,7 @@ impl Tx<'_> {
                 .into_iter()
                 .map(str::to_string)
                 .chain(act_filter.map(str::to_string))
-                .chain(blitz_only.then(|| "Filter::CastForBlitz".to_string())),
+                .chain(spell_rider.map(str::to_string)),
         );
         self.body
             .abilities
@@ -6316,6 +6343,18 @@ impl Tx<'_> {
             out.push(Self::static_expr(
                 filter,
                 &format!("Modifier::ProtectionFrom(&{from})"),
+            ));
+            return Some(true);
+        }
+        if trimmed == "Hexproof:CardColors" {
+            out.push(Self::static_expr(filter, "Modifier::HexproofFromOwnColors"));
+            return Some(true);
+        }
+        if let Some(expr) = self.hexproof_filter(word) {
+            let from = self.body.filter_static("HEXPROOF", &expr);
+            out.push(Self::static_expr(
+                filter,
+                &format!("Modifier::HexproofFrom(&{from})"),
             ));
             return Some(true);
         }

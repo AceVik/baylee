@@ -150,14 +150,9 @@ fn activated_abilities_cost_less_honest_refusals() {
              S:Mode$ ReduceCost | ValidCard$ Card | Activator$ You | ValidSpell$ Activated.!ManaAbility | Amount$ 2 | MinMana$ 1",
         ),
         (
-            "boast-only ability reduction",
-            "Name:BoastDisc\nManaCost:1 R\nTypes:Creature\nPT:2/2\n\
-             S:Mode$ ReduceCost | ValidCard$ Card | ValidSpell$ Activated.Boast | Activator$ You | Amount$ 1",
-        ),
-        (
-            "ninjutsu-only ability reduction",
-            "Name:NinjaDisc\nManaCost:U B\nTypes:Creature\nPT:2/2\n\
-             S:Mode$ ReduceCost | ValidCard$ Card | ValidSpell$ Activated.Ninjutsu | Activator$ You | Amount$ 1",
+            "unknown activated keyword reduction",
+            "Name:CrewDisc\nManaCost:1 R\nTypes:Creature\nPT:2/2\n\
+             S:Mode$ ReduceCost | ValidCard$ Card | ValidSpell$ Activated.Crew | Activator$ You | Amount$ 1",
         ),
         (
             "colored mana reduction on activated ability",

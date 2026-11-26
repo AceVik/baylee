@@ -2681,9 +2681,6 @@ fn w20_switch_block_and_target_only_refusals() {
          SVar:DBChoose:DB$ ChooseCard | DefinedCards$ Targeted | Amount$ 1 | Mandatory$ True | SubAbility$ DBExile\n\
          SVar:DBExile:DB$ ChangeZone | Defined$ ChosenCard | Origin$ Battlefield | Destination$ Exile | SubAbility$ DBCounters\n\
          SVar:DBCounters:DB$ PutCounter | Defined$ Targeted.!ChosenCard | CounterType$ P1P1 | CounterNum$ 2",
-        // Bioshift (`MoveCounter` with `TargetMin$ 2 | TargetMax$ 2 | TargetsWithSameController$ True | CounterNum$ Any`)
-        "Name:Bioshift\nManaCost:GU\nTypes:Instant\n\
-         A:SP$ MoveCounter | ValidTgts$ Creature | TargetMin$ 2 | TargetMax$ 2 | TargetsWithSameController$ True | CounterType$ P1P1 | CounterNum$ Any",
         // Single-target TargetOnly with TargetUnique$ True cannot skip second-slot restriction
         "Name:SingleTargetUnique\nManaCost:1 U\nTypes:Instant\n\
          A:SP$ TargetOnly | ValidTgts$ Creature | TargetUnique$ True | SubAbility$ DBDraw\n\

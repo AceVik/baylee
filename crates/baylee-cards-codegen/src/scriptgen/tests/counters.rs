@@ -106,22 +106,8 @@ fn remove_counter_attached_remember_removed_and_refusals() {
     );
 
     for bad in [
-        "Name:BadAllSelf\nManaCost:1 B\nTypes:Sorcery\n\
-         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | Execute$ R\n\
-         SVar:R:DB$ RemoveCounter | Defined$ Self | CounterType$ All | CounterNum$ All",
         "Name:BadAllFixed\nManaCost:1 B\nTypes:Sorcery\n\
          A:SP$ RemoveCounter | ValidTgts$ Creature | CounterType$ All | CounterNum$ 2",
-        "Name:BadAllEnchanted\nManaCost:1 B\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
-         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ R\n\
-         SVar:R:DB$ RemoveCounter | Defined$ Enchanted | CounterType$ All | CounterNum$ All",
-        "Name:BadMandatoryAny\nManaCost:3\nTypes:Artifact Creature\nPT:1/1\n\
-         A:AB$ RemoveCounter | Cost$ T | ValidTgts$ Permanent | CounterType$ Any | CounterNum$ 1",
-        "Name:BadUpToX\nManaCost:1\nTypes:Artifact Creature\nPT:1/1\n\
-         A:AB$ RemoveCounter | Cost$ X | ValidTgts$ Permanent | CounterType$ Any | CounterNum$ X | UpTo$ True\nSVar:X:Count$xPaid",
-        "Name:BadPriceOfBetrayal\nManaCost:B\nTypes:Sorcery\n\
-         A:SP$ RemoveCounter | ValidTgts$ Creature,Opponent | CounterType$ Any | CounterNum$ 5 | UpTo$ True",
-        "Name:BadConcreteUpTo\nManaCost:1 B\nTypes:Sorcery\n\
-         A:SP$ RemoveCounter | ValidTgts$ Creature | CounterType$ P1P1 | CounterNum$ 3 | UpTo$ True",
         "Name:BadImpossibleRem\nManaCost:2\nTypes:Artifact\n\
          T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ R\n\
          SVar:R:DB$ RemoveCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1 | RememberRemoved$ True | SubAbility$ D\n\

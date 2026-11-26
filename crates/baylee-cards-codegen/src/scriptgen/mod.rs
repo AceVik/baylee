@@ -44,6 +44,7 @@ mod archon_kismet;
 mod atoms;
 mod chains;
 mod constants;
+mod cost_modifiers;
 mod counters;
 
 mod copy;
@@ -602,6 +603,9 @@ struct Tx<'a> {
     /// with `RememberRemoved$ True` so `Count$RememberedSize` maps to
     /// `Amount::ThisWay(ThisWay::CountersRemovedFromTargets)`.
     chain_prev_removed_counters: bool,
+    /// Temporary `Amount::ThisWay(...)` binding while walking follow-up steps of a
+    /// `RemoveCounter | RememberRemoved$/RememberAmount$` or `MoveCounter | RememberPut$/RememberAmount$` chain.
+    chain_remembered_amount_expr: Option<&'static str>,
     /// Whether the line currently being lowered has a single object target.
     single_object_target: bool,
     /// Whether the spell being read beholds or reveals a card in its `Cost$`.
@@ -737,6 +741,11 @@ struct Tx<'a> {
     etb_chosen_modes: Vec<String>,
     /// Named `NotedFor<Name>` tags for `ETBReplacement:Other` `EachPlayerChooseMode` (`0..n`).
     etb_player_chosen_modes: Vec<String>,
+    /// True when the face declares the exact pair `K:Hexproof:Activated:...` and
+    /// `K:Hexproof:Triggered:...` (*Volatile Stormdrake*, `CR 702.11d`).
+    has_hexproof_from_abilities_pair: bool,
+    /// Paired `ReduceCost` + `RaiseCost` for *Liesa, Shroud of Dusk* commander tax life replacement.
+    commander_tax_pair: cost_modifiers::CommanderTaxLifePair,
     /// Melded back-face `(name, static_ident)` while transcoding a primary `AlternateMode:Meld` front face.
     melded_face: Option<(String, String)>,
     body: CardBody,
@@ -776,7 +785,14 @@ impl<'a> Tx<'a> {
     ) -> Self {
         let mut single_kickers = 0usize;
         let mut multi_or_dual = false;
+        let mut hex_act = 0usize;
+        let mut hex_trig = 0usize;
         for kw in &script.keywords {
+            if kw.starts_with("Hexproof:Activated") {
+                hex_act += 1;
+            } else if kw.starts_with("Hexproof:Triggered") {
+                hex_trig += 1;
+            }
             if let Some(rest) = kw.strip_prefix("Kicker:") {
                 if rest.contains(':') {
                     multi_or_dual = true;
@@ -825,6 +841,7 @@ impl<'a> Tx<'a> {
             in_resolution_chosen_x: false,
             chain_prev_lose_life: false,
             chain_prev_removed_counters: false,
+            chain_remembered_amount_expr: None,
             single_object_target: false,
             cost_beholds_or_reveals: false,
             cost_sacrifices_all: false,
@@ -874,6 +891,8 @@ impl<'a> Tx<'a> {
             allow_defined_cost_x: false,
             etb_chosen_modes: Vec::new(),
             etb_player_chosen_modes: Vec::new(),
+            has_hexproof_from_abilities_pair: hex_act == 1 && hex_trig == 1,
+            commander_tax_pair: cost_modifiers::CommanderTaxLifePair::default(),
             melded_face: None,
             body: CardBody::default(),
             unclaimed: std::cell::RefCell::new(None),
@@ -1216,6 +1235,7 @@ fn transcode_face_with_meld(
         return tx.deny("linked-exile `MayPlay` beside an unlinked exile producer".to_string());
     }
     tx.block_halves_paired()?;
+    tx.commander_tax_pair_complete()?;
     tx.align_dual_kicker_order();
     tx.apply_overload()?;
     if !(tx.body.has_own_rules() || allow_vanilla && is_vanilla_face(script)) {

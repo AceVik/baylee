@@ -6,6 +6,7 @@ mod animation_rules;
 mod archon_kismet;
 mod blocks_and_conditions;
 mod costs_and_refusals;
+mod costs_hexproof_counters;
 mod counters;
 mod creature_type;
 mod cycling;
