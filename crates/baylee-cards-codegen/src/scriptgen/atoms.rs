@@ -701,6 +701,7 @@ const PRINTED_KEYWORDS: &[&str] = &[
     "Unleash",
     "Umbra Armor",
     "Assist",
+    "Decayed",
 ];
 
 /// `withFlying` / `hasKeywordFlying` as `Filter::HasKeyword(KeywordSet::FLYING)`,

@@ -3870,6 +3870,7 @@ impl Tx<'_> {
                 .wave24e_self_etb_moved_replacement(spec)
                 .or_else(|| self.wave26f_moved_replacement(spec))
                 .or_else(|| self.wave16c_replacement(spec))
+                .or_else(|| self.enters_under_chosen_opponent_control(spec))
                 .is_some()
             {
                 return Some(());
@@ -3993,6 +3994,84 @@ impl Tx<'_> {
     ///   (*Frankenstein's Monster*)
     /// - `Sacrifice` (optional any number) -> `PutCounter` (`P1P1`) (*Shimatsu*, *Devouring Hellion*)
     /// - `Card.Self+escaped` -> `PutCounter` -> `ImmediateTrigger` (*Pharika's Spawn*)
+    /// - `R: Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | Layer$ Control`
+    ///   chaining `ChoosePlayer(Opponent) -> ChangeZone(ReplacedCard -> Battlefield,
+    ///   GainControl$ ChosenPlayer) [-> Cleanup(ClearChosenPlayer$ True)]`
+    ///   (*Xantcha, Sleeper Agent*, *Captive Audience*, *Pendant of Prosperity*) emits
+    ///   `EnterModifier::EntersUnderChosenOpponentControl`.
+    fn enters_under_chosen_opponent_control(&mut self, spec: &str) -> Option<()> {
+        let (event, mut p) = Params::parse(spec)?;
+        if event != "Moved" {
+            return None;
+        }
+        p.drop_prose();
+        if p.take("ValidCard").as_deref() != Some("Card.Self")
+            || p.take("Destination").as_deref() != Some("Battlefield")
+            || p.take("Layer").as_deref() != Some("Control")
+            || !matches!(
+                p.take("ActiveZones").as_deref(),
+                None | Some("Battlefield" | "All")
+            )
+        {
+            return None;
+        }
+        let with = p.take("ReplaceWith")?;
+        if !p.exhausted() {
+            return None;
+        }
+        let (choose_api, mut cp) = self.svars.get(with.trim()).and_then(|s| Params::parse(s))?;
+        cp.drop_prose();
+        cp.take("ChoiceTitle");
+        cp.take("AILogic");
+        if choose_api != "ChoosePlayer"
+            || !matches!(cp.take("Defined").as_deref(), None | Some("You"))
+            || !matches!(
+                cp.take("Choices").as_deref(),
+                Some("Player.Opponent" | "Opponent")
+            )
+        {
+            return None;
+        }
+        let move_name = cp.take("SubAbility")?;
+        if !cp.exhausted() {
+            return None;
+        }
+        let (move_api, mut mp) = self
+            .svars
+            .get(move_name.trim())
+            .and_then(|s| Params::parse(s))?;
+        mp.drop_prose();
+        if move_api != "ChangeZone"
+            || !matches!(mp.take("Hidden").as_deref(), None | Some("True"))
+            || !matches!(mp.take("Origin").as_deref(), None | Some("All"))
+            || mp.take("Destination").as_deref() != Some("Battlefield")
+            || mp.take("Defined").as_deref() != Some("ReplacedCard")
+            || mp.take("GainControl").as_deref() != Some("ChosenPlayer")
+        {
+            return None;
+        }
+        if let Some(cleanup_name) = mp.take("SubAbility") {
+            let (clean_api, mut clp) = self
+                .svars
+                .get(cleanup_name.trim())
+                .and_then(|s| Params::parse(s))?;
+            clp.drop_prose();
+            if clean_api != "Cleanup"
+                || clp.take("ClearChosenPlayer").as_deref() != Some("True")
+                || !clp.exhausted()
+            {
+                return None;
+            }
+        }
+        if !mp.exhausted() {
+            return None;
+        }
+        self.body
+            .enter_modifiers
+            .push("EnterModifier::EntersUnderChosenOpponentControl".to_string());
+        Some(())
+    }
+
     #[allow(clippy::too_many_lines)]
     fn wave24e_self_etb_moved_replacement(&mut self, spec: &str) -> Option<()> {
         let (event, mut p) = Params::parse(spec)?;

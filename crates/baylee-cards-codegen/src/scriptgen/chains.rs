@@ -125,6 +125,19 @@ impl Tx<'_> {
             *self.unclaimed.borrow_mut() = saved_unclaimed;
             self.body.statics.truncate(saved_statics_len);
         }
+        if api == "Effect"
+            && chain.target.is_some()
+            && chain.second_target.is_none()
+            && p.has("ValidTgts")
+            && p.peek("ReplacementEffects").is_some()
+            && p.peek("RememberObjects") == Some("ParentTarget")
+            && !p.has("UnlessCost")
+            && !p.has("AtEOT")
+            && !p.has("ReplaceDyingDefined")
+            && self.redirect_two_target_effect(&p, chain).is_some()
+        {
+            return Some(());
+        }
         if let Some(outcome) =
             self.wave18a_try_special_chain(&api, &p, graveyard_description.as_deref(), chain)
         {

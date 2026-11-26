@@ -76,6 +76,18 @@ fn wave30d_unlocks_remember_valid_prevention_and_graveyard_player_choice() {
 
 #[test]
 fn wave30d_keeps_unsound_refusal_boundaries_strict() {
+    let phantom = read_w30d(
+        "Name:PhantomShape\nManaCost:1 W\nTypes:Creature Spirit\nPT:0/0\n\
+         K:etbCounter:P1P1:2\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.Self | ReplaceWith$ DBRemoveCounters | PreventionEffect$ True | AlwaysReplace$ True\n\
+         SVar:DBRemoveCounters:DB$ RemoveCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1",
+    );
+    assert!(
+        phantom.abilities.iter().any(|a| a.contains("Modifier::PreventDamageRemovingOneCounter { kind: CounterKind::P1P1, require_counter: false }")),
+        "{:?}",
+        phantom.abilities
+    );
+
     for bad in [
         // CantAttackUnless Target$ You without Planeswalker.YouCtrl (AttackTaxMana hits planeswalkers too).
         "Name:PropagandaShape\nManaCost:2 U\nTypes:Enchantment\n\
@@ -87,11 +99,11 @@ fn wave30d_keeps_unsound_refusal_boundaries_strict() {
         "Name:LeyLineShape\nManaCost:3 G\nTypes:Enchantment\n\
          T:Mode$ Phase | Phase$ Upkeep | TriggerZones$ Battlefield | OptionalDecider$ TriggeredPlayer | Execute$ TrigPutCounter\n\
          SVar:TrigPutCounter:DB$ PutCounter | ValidTgts$ Creature | CounterType$ P1P1 | CounterNum$ 1 | TargetingPlayer$ TriggeredPlayer | Placer$ TriggeredPlayer",
-        // Fixed-1 counter removal damage prevention (Phantom* removes 1 even at 0 counters vs PreventDamageRemovingCounters).
-        "Name:PhantomShape\nManaCost:1 W\nTypes:Creature Spirit\nPT:0/0\n\
+        // Fixed-2 counter removal damage prevention remains refused (only fixed-1 is modeled).
+        "Name:PhantomTwoShape\nManaCost:1 W\nTypes:Creature Spirit\nPT:0/0\n\
          K:etbCounter:P1P1:2\n\
          R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.Self | ReplaceWith$ DBRemoveCounters | PreventionEffect$ True | AlwaysReplace$ True\n\
-         SVar:DBRemoveCounters:DB$ RemoveCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1",
+         SVar:DBRemoveCounters:DB$ RemoveCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 2",
         // Graveyard-to-battlefield conditional ETB counter based on battlefield entry types (CR 614.12 lookahead).
         "Name:RecommissionShape\nManaCost:1 W\nTypes:Sorcery\n\
          A:SP$ Effect | RememberObjects$ Targeted & Self | ReplacementEffects$ ETBCreat | ExileOnMoved$ Graveyard,Stack | SubAbility$ DBReturn\n\

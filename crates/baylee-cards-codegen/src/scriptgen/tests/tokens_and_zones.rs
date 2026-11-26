@@ -2870,3 +2870,75 @@ fn tap_card_choices_choose_card_ex_and_capture() {
         assert!(refused(bad), "must refuse: {bad}");
     }
 }
+
+#[test]
+fn decayed_tokens_and_moved_battlefield_replacements() {
+    let mut c = cats();
+    c.creature.push("Zombie".into());
+    c.normalize();
+    let toks = TokenLookup::held(&[(
+        "b_2_2_zombie_decayed",
+        "Name:Zombie\nTypes:Creature Zombie\nColors:black\nPT:2/2\nK:Decayed",
+    )]);
+    let jadar = transcode(
+        &parse(
+            "Name:Jadar, Ghoulcaller of Nephalia\nManaCost:1 B\nTypes:Legendary Creature Human Wizard\nPT:1/1\n\
+             T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | \
+             IsPresent$ Creature.YouCtrl+withDecayed | PresentCompare$ EQ0 | Execute$ TrigToken\n\
+             SVar:TrigToken:DB$ Token | TokenAmount$ 1 | TokenScript$ b_2_2_zombie_decayed",
+        ),
+        &c,
+        Some(&toks),
+    )
+    .expect("Jadar reads with b_2_2_zombie_decayed");
+    assert!(
+        jadar.statics.contains("KeywordSet::DECAYED")
+            && jadar.abilities[0].contains("ZOMBIE_2_2_BLACK_DECAYED"),
+        "statics={}, abilities={:?}",
+        jadar.statics,
+        jadar.abilities
+    );
+
+    let rakshasa = parse("Name:DecayedCard\nManaCost:1 B\nTypes:Creature\nPT:2/2\nK:Decayed");
+    let rakshasa_body = transcode(&rakshasa, &c, None).expect("K:Decayed reads");
+    assert!(
+        rakshasa_body
+            .keywords
+            .iter()
+            .any(|k| k == "KeywordSet::DECAYED"),
+        "{:?}",
+        rakshasa_body.keywords
+    );
+    assert!(refused(
+        "Name:DecayedCounterRefused\nManaCost:1 B\nTypes:Creature\nPT:2/2\nK:etbCounter:Decayed:1",
+    ));
+
+    let due_respect = read(
+        "Name:Due Respect\nManaCost:1 W\nTypes:Instant\n\
+         A:SP$ Effect | ReplacementEffects$ RepETB | SubAbility$ DBDraw\n\
+         SVar:RepETB:Event$ Moved | ValidCard$ Permanent | Destination$ Battlefield | ReplaceWith$ ETBTapped | ReplacementResult$ Updated\n\
+         SVar:ETBTapped:DB$ Tap | ETB$ True | Defined$ ReplacedCard\n\
+         SVar:DBDraw:DB$ Draw",
+    );
+    assert!(
+        due_respect.abilities[0].contains("Modifier::PermanentsEnterTapped"),
+        "{:?}",
+        due_respect.abilities
+    );
+
+    let xantcha = read(
+        "Name:Xantcha Shape\nManaCost:1 B R\nTypes:Legendary Creature\nPT:5/5\n\
+         R:Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | ReplaceWith$ DBChooseOpp | Layer$ Control\n\
+         SVar:DBChooseOpp:DB$ ChoosePlayer | Defined$ You | Choices$ Player.Opponent | SubAbility$ MoveToPlay\n\
+         SVar:MoveToPlay:DB$ ChangeZone | Hidden$ True | Origin$ All | Destination$ Battlefield | Defined$ ReplacedCard | GainControl$ ChosenPlayer | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearChosenPlayer$ True",
+    );
+    assert!(
+        xantcha
+            .enter_modifiers
+            .iter()
+            .any(|e| e == "EnterModifier::EntersUnderChosenOpponentControl"),
+        "{:?}",
+        xantcha.enter_modifiers
+    );
+}

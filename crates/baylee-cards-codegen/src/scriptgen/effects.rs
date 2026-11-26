@@ -15000,6 +15000,16 @@ impl Tx<'_> {
             {
                 return self.deny(format!("scoped `{api}` referencing outer event object"));
             }
+            if api == "Effect"
+                && scope == Wave8Scope::ChosenObject
+                && sp.peek("RememberObjects") == Some("ChosenCard")
+                && sp.peek("ReplacementEffects").is_some()
+            {
+                let mut eff_probe = sp.clone();
+                if let Some(eff) = self.chosen_object_redirect_damage_effect(&mut eff_probe) {
+                    return Some((vec![eff], next_sub));
+                }
+            }
             if api == "Attach" && sp.peek("Choices").is_some() {
                 let obj_matches = matches!(
                     (scope, sp.peek("Object")),
