@@ -1997,7 +1997,7 @@ impl Tx<'_> {
     }
 
     fn mixed_player_object_target(&mut self, valid: &str, api: &str) -> Option<String> {
-        if !matches!(api, "DealDamage" | "PreventDamage") || !valid.contains(',') {
+        if !matches!(api, "DealDamage" | "PreventDamage" | "Attach") || !valid.contains(',') {
             return None;
         }
         let alts: Vec<&str> = valid

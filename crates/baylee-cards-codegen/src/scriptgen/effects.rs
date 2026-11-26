@@ -5228,10 +5228,14 @@ impl Tx<'_> {
         if p.has("Hidden")
             || p.take("Origin").as_deref() != Some("Graveyard")
             || p.take("Destination").as_deref() != Some("Battlefield")
-            || p.take("RememberChanged").as_deref() != Some("True")
         {
             return None;
         }
+        let remembered_changed = match p.take("RememberChanged").as_deref() {
+            Some("True") => true,
+            None if !p.has("StaticEffect") && !p.has("WithCountersType") => false,
+            _ => return None,
+        };
         if let Some(forget) = p.take("ForgetOtherRemembered")
             && forget != "True"
         {
@@ -5286,7 +5290,8 @@ impl Tx<'_> {
                 }
                 break;
             }
-            if s_api == "PutCounter"
+            if remembered_changed
+                && s_api == "PutCounter"
                 && sp.peek("Defined") == Some("Remembered")
                 && !sp.has("ValidTgts")
                 && !sp.has("Choices")
@@ -5307,7 +5312,8 @@ impl Tx<'_> {
                 cursor = next;
                 continue;
             }
-            if s_api == "Animate"
+            if remembered_changed
+                && s_api == "Animate"
                 && sp.peek("Defined") == Some("Remembered")
                 && sp.peek("Duration") == Some("Permanent")
                 && !sp.has("ValidTgts")
@@ -5352,7 +5358,12 @@ impl Tx<'_> {
                 continue;
             }
             if s_api == "Pump"
-                && sp.peek("Defined") == Some("Remembered")
+                && sp.peek("Defined")
+                    == Some(if remembered_changed {
+                        "Remembered"
+                    } else {
+                        "Targeted"
+                    })
                 && sp.peek("Duration") == Some("Permanent")
                 && !sp.has("ValidTgts")
                 && !sp.has("AtEOT")
@@ -5361,12 +5372,33 @@ impl Tx<'_> {
                 sp.take("Defined");
                 sp.take("Duration");
                 let next = sp.take("SubAbility");
-                let kws = sp.take("KW")?;
-                let bits = Self::pump_keyword_bits(&kws)?;
-                if !sp.exhausted() {
+                let before = modifiers.len();
+                if let Some(leave) = sp.take("LeaveBattlefield") {
+                    if leave != "Exile" {
+                        return None;
+                    }
+                    modifiers.push("Modifier::ExileInsteadOfLeavingBattlefield".to_string());
+                }
+                if let Some(kws) = sp.take("KW") {
+                    let mut normal = Vec::new();
+                    for part in kws.split('&').map(str::trim).filter(|s| !s.is_empty()) {
+                        if let Some(rest) = part.strip_prefix("Cumulative upkeep:") {
+                            let payment = self.cumulative_upkeep_payment(rest)?;
+                            modifiers.push(format!(
+                                "Modifier::GrantTriggered {{                                  trigger: Trigger::StepBegin {{ step: StepKind::Upkeep, whose: PlayerRel::You }},                                  effects: &[Effect::AddCounter {{ kind: counters::AGE, amount: Amount::Fixed(1) }}, {payment}],                                  target: None }}"
+                            ));
+                        } else {
+                            normal.push(part);
+                        }
+                    }
+                    if !normal.is_empty() {
+                        let bits = Self::pump_keyword_bits(&normal.join(" & "))?;
+                        modifiers.push(format!("Modifier::AddKeyword({bits})"));
+                    }
+                }
+                if !sp.exhausted() || modifiers.len() == before {
                     return None;
                 }
-                modifiers.push(format!("Modifier::AddKeyword({bits})"));
                 consumed_any = true;
                 cursor = next;
                 continue;
@@ -5413,6 +5445,42 @@ impl Tx<'_> {
                  owner_control: false, counters: {legacy_counters} }}"
             )])
         }
+    }
+
+    /// Lower `DB$ Pump | Defined$ Self | KW$ Vanishing | Duration$ Permanent`
+    /// (*Maelstrom Djinn*) into `ModifySource` triggers matching `K:Vanishing`.
+    pub(super) fn pump_vanishing_effect(
+        &mut self,
+        p: &mut Params,
+        aimed: &str,
+    ) -> Option<Vec<String>> {
+        if self.on_a_spell
+            || aimed != "TargetSpec::AnyPlayer"
+            || p.peek("Defined") != Some("Self")
+            || p.peek("KW").map(str::trim) != Some("Vanishing")
+            || p.peek("Duration") != Some("Permanent")
+        {
+            return None;
+        }
+        let mut probe = p.clone();
+        probe.take("Defined");
+        probe.take("KW");
+        probe.take("Duration");
+        if !probe.exhausted() {
+            return None;
+        }
+        *p = probe;
+        let def_name = self.body.ability_static(
+            "GRANTED_TRIGGER_",
+            "triggered!(Trigger::StepBegin { step: StepKind::Upkeep, whose: PlayerRel::You },              &[Effect::RemoveCounterSelf { kind: CounterKind::Time, n: 1 }],              condition = Some(Condition::CountersOnSelf(CounterKind::Time, 1)))",
+        );
+        Some(vec![
+            format!(
+                "Effect::ModifySource {{ modifier: Modifier::GrantTriggeredDefinition(&{def_name}),                  duration: Duration::Indefinitely }}"
+            ),
+            "Effect::ModifySource { modifier: Modifier::GrantTriggered {              trigger: Trigger::LastCounterRemoved { kind: CounterKind::Time, by: None },              effects: &[Effect::SacrificeSelf], target: None },              duration: Duration::Indefinitely }"
+                .to_string(),
+        ])
     }
 
     pub(super) fn plot_remembered_effect(
@@ -11821,6 +11889,8 @@ impl Tx<'_> {
         let saved_exact = chain.target_exact;
         let saved_range = chain.target_range;
         let saved_is_x = chain.target_is_x;
+        let saved_up_to_x = chain.target_up_to_x;
+        let saved_distinct_cmc = chain.target_distinct_mana_values;
         let saved_second = chain.second_target.clone();
         let saved_second_up_to = chain.second_target_up_to;
         let saved_second_range = chain.second_target_range;
@@ -11831,6 +11901,8 @@ impl Tx<'_> {
             c.target_exact = saved_exact;
             c.target_range = saved_range;
             c.target_is_x = saved_is_x;
+            c.target_up_to_x = saved_up_to_x;
+            c.target_distinct_mana_values = saved_distinct_cmc;
             c.second_target.clone_from(&saved_second);
             c.second_target_up_to = saved_second_up_to;
             c.second_target_range = saved_second_range;
@@ -12598,6 +12670,8 @@ impl Tx<'_> {
         let saved_exact = chain.target_exact;
         let saved_range = chain.target_range;
         let saved_is_x = chain.target_is_x;
+        let saved_up_to_x = chain.target_up_to_x;
+        let saved_distinct_cmc = chain.target_distinct_mana_values;
         let saved_second = chain.second_target.clone();
         let saved_second_up_to = chain.second_target_up_to;
         let saved_second_range = chain.second_target_range;
@@ -12608,6 +12682,8 @@ impl Tx<'_> {
             c.target_exact = saved_exact;
             c.target_range = saved_range;
             c.target_is_x = saved_is_x;
+            c.target_up_to_x = saved_up_to_x;
+            c.target_distinct_mana_values = saved_distinct_cmc;
             c.second_target.clone_from(&saved_second);
             c.second_target_up_to = saved_second_up_to;
             c.second_target_range = saved_second_range;
@@ -12656,6 +12732,8 @@ impl Tx<'_> {
             let step_saved_exact = chain.target_exact;
             let step_saved_range = chain.target_range;
             let step_saved_is_x = chain.target_is_x;
+            let step_saved_up_to_x = chain.target_up_to_x;
+            let step_saved_distinct_cmc = chain.target_distinct_mana_values;
             let step_saved_second = chain.second_target.clone();
             let step_saved_second_up_to = chain.second_target_up_to;
             let step_saved_second_range = chain.second_target_range;
@@ -12710,6 +12788,8 @@ impl Tx<'_> {
                 chain.target_exact = step_saved_exact;
                 chain.target_range = step_saved_range;
                 chain.target_is_x = step_saved_is_x;
+                chain.target_up_to_x = step_saved_up_to_x;
+                chain.target_distinct_mana_values = step_saved_distinct_cmc;
                 chain.second_target = step_saved_second;
                 chain.second_target_up_to = step_saved_second_up_to;
                 chain.second_target_range = step_saved_second_range;
