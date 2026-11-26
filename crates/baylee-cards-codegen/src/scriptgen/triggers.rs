@@ -2965,9 +2965,11 @@ impl Tx<'_> {
             }
             self.trigger_is_self = trigger_is_self;
             self.is_etb_self_trigger = trigger == "Trigger::ETB";
+            self.trigger_self_etb_kicked = trigger_self_etb_kicked;
             let parsed = self.read_charm_modes(&choices);
             self.trigger_is_self = false;
             self.is_etb_self_trigger = false;
+            self.trigger_self_etb_kicked = false;
             self.damage_trigger_source_is_attached = false;
             let parsed = parsed?;
             if parsed.len() < 2 || (!restriction.is_empty() && parsed.len() > 64) {
@@ -2984,6 +2986,7 @@ impl Tx<'_> {
         let mut chain = Chain::default();
         self.trigger_is_self = trigger_is_self;
         self.is_etb_self_trigger = trigger == "Trigger::ETB";
+        self.trigger_self_etb_kicked = trigger_self_etb_kicked;
         self.trigger_blocks_creature = trigger.starts_with("Trigger::BlocksCreature(");
         self.damage_trigger_binds_source = Self::wave28b_trigger_binds_damage_source(&trigger);
         self.damage_trigger_is_combat = trigger.contains("CombatDamage");
@@ -3130,6 +3133,7 @@ impl Tx<'_> {
             {
                 self.trigger_is_self = false;
                 self.is_etb_self_trigger = false;
+                self.trigger_self_etb_kicked = false;
                 self.trigger_blocks_creature = false;
                 self.damage_trigger_binds_source = false;
                 self.damage_trigger_source_is_attached = false;
@@ -3149,6 +3153,7 @@ impl Tx<'_> {
         }
         self.trigger_is_self = false;
         self.is_etb_self_trigger = false;
+        self.trigger_self_etb_kicked = false;
         self.trigger_blocks_creature = false;
         self.damage_trigger_binds_source = false;
         self.damage_trigger_source_is_attached = false;

@@ -576,11 +576,11 @@ fn wave28b_honest_refusal_boundaries() {
          T:Mode$ Attacks | ValidCard$ Card.Self | TriggerZones$ Battlefield | Execute$ TrigDraw\n\
          SVar:TrigDraw:AB$ Draw | Cost$ tapXType<2/Creature>\n\
          Oracle:Whenever BadMissingOtherTap attacks, you may tap two other untapped creatures you control. If you do, draw a card.",
-        // Multi-target SP$ Animate | Abilities$ (CreateContinuousEffect(&Filter::This) only affects targets[0]).
-        "Name:BadMultiTargetAnimateAbilities\nManaCost:1 G\nTypes:Instant\n\
+        // Multi-target SP$ Animate | SetPower$ X cannot lower SetPTByCountFilter across ModifyTargets.
+        "Name:BadMultiTargetAnimateCountPT\nManaCost:1 G\nTypes:Instant\n\
          A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +1 | NumDef$ +1 | TargetMin$ 0 | TargetMax$ 2 | SubAbility$ DBAnimate\n\
-         SVar:DBAnimate:DB$ Animate | Defined$ Targeted | Abilities$ ABFight\n\
-         SVar:ABFight:AB$ Fight | Cost$ T | Defined$ Self | ValidTgts$ Creature.Other",
+         SVar:DBAnimate:DB$ Animate | Defined$ Targeted | Power$ X\n\
+         SVar:X:Count$Valid Creature.YouCtrl",
         // PayEnergy<0> is invalid; PayEnergy<X> without consuming ResolutionChosenNumber stays refused.
         "Name:BadPayZeroEnergy\nManaCost:2 R\nTypes:Creature\nPT:2/2\n\
          T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ TrigPump\n\

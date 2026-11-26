@@ -6133,26 +6133,59 @@ impl Tx<'_> {
             // `Implemented` and does nothing. Nothing in the pool was
             // written that way (asserted in `untap_tests`); it was one
             // reference script away from being.
-            "Untap" => match (p.take("Defined").as_deref(), target) {
-                (None, Some(t))
-                    if t.starts_with("TargetSpec::Object(")
-                        || t.starts_with("TargetSpec::ObjectOfEachOpponent(") =>
-                {
-                    vec!["Effect::UntapTarget".to_string()]
+            "Untap" if p.peek("UntapUpTo") == Some("True") => {
+                if targets_here || (target.is_some() && !prior_target_used) {
+                    return None;
                 }
-                (Some("Targeted" | "ParentTarget"), Some(t))
-                    if t.starts_with("TargetSpec::Object(")
-                        || t.starts_with("TargetSpec::ObjectOfEachOpponent(") =>
-                {
-                    vec!["Effect::UntapTarget".to_string()]
+                p.take("UntapUpTo");
+                p.take("IsCurse");
+                if !matches!(p.take("Defined").as_deref(), None | Some("You")) {
+                    return None;
                 }
-                (None, None) | (Some("Self"), _) => vec!["Effect::UntapSelf".to_string()],
-                // "Untap enchanted creature" (Instill Energy).
-                (Some("Enchanted" | "Equipped"), _) => {
-                    vec!["Effect::UntapAll { filter: &Filter::AttachedToBySource }".to_string()]
+                let raw_type = p.take("UntapType")?;
+                let count = p
+                    .take("Amount")?
+                    .trim()
+                    .parse::<u8>()
+                    .ok()
+                    .filter(|&n| n >= 1)?;
+                let expr = self.filter_expr(&raw_type)?;
+                let filter = self.body.filter_static("UNTAP_CHOSEN", &expr);
+                vec![format!(
+                    "Effect::UntapChosen {{ filter: &{filter}, count: {count} }}"
+                )]
+            }
+            "Untap" => {
+                p.take("IsCurse");
+                match (p.take("Defined").as_deref(), target) {
+                    (None, Some(t))
+                        if t.starts_with("TargetSpec::Object(")
+                            || t.starts_with("TargetSpec::ObjectOfEachOpponent(") =>
+                    {
+                        vec!["Effect::UntapTarget".to_string()]
+                    }
+                    (Some("Targeted" | "ParentTarget"), Some(t))
+                        if t.starts_with("TargetSpec::Object(")
+                            || t.starts_with("TargetSpec::ObjectOfEachOpponent(") =>
+                    {
+                        vec!["Effect::UntapTarget".to_string()]
+                    }
+                    (None, None) | (Some("Self"), _) => vec!["Effect::UntapSelf".to_string()],
+                    // "Untap enchanted creature" (Instill Energy).
+                    (Some("Enchanted" | "Equipped"), _) => {
+                        vec!["Effect::UntapAll { filter: &Filter::AttachedToBySource }".to_string()]
+                    }
+                    (Some("Remembered"), _)
+                        if !targets_here && (target.is_none() || prior_target_used) =>
+                    {
+                        vec!["Effect::UntapAll { filter: &Filter::IsRemembered }".to_string()]
+                    }
+                    (Some(def), None) if self.is_event_object_defined(def) => {
+                        vec!["Effect::UntapAll { filter: &Filter::Reference }".to_string()]
+                    }
+                    _ => return None,
                 }
-                _ => return None,
-            },
+            }
             "UntapAll" => {
                 if targets_here || (target.is_some() && !prior_target_used) {
                     return None;
@@ -6171,6 +6204,9 @@ impl Tx<'_> {
             "RemoveFromCombat" => match (p.take("Defined").as_deref(), target) {
                 (None | Some("Self"), None) => {
                     vec!["Effect::RemoveTargetFromCombat { unblock: false }".to_string()]
+                }
+                (Some(def), None) if self.is_event_object_defined(def) => {
+                    vec!["Effect::RemoveEventObjectFromCombat { unblock: false }".to_string()]
                 }
                 _ => return None,
             },
@@ -6573,7 +6609,8 @@ impl Tx<'_> {
         } else {
             match p.take("Defined").as_deref() {
                 Some("Self") if !self.on_a_spell => {}
-                Some("TriggeredCardLKICopy" | "TriggeredCard") if self.is_etb_self_trigger => {}
+                Some("TriggeredCardLKICopy" | "TriggeredCard")
+                    if self.is_etb_self_trigger || self.trigger_self_etb_kicked => {}
                 Some("TriggeredTargetLKICopy" | "TriggeredTarget") if self.trigger_is_self => {}
                 _ => return None,
             }

@@ -575,7 +575,7 @@ impl Tx<'_> {
         }
     }
 
-    fn take_true_flag(&mut self, p: &mut Params, key: &str) -> Option<bool> {
+    pub(super) fn take_true_flag(&mut self, p: &mut Params, key: &str) -> Option<bool> {
         match p.take(key).as_deref() {
             None => Some(false),
             Some("True") => Some(true),
