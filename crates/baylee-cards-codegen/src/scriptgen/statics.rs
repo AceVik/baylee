@@ -3408,7 +3408,12 @@ impl Tx<'_> {
                 p.peek("Activator"),
                 Some("Player.!Active" | "Player.Active")
             )
-            && matches!(p.peek("EffectZone"), None | Some("Battlefield" | "Stack"))
+            && (matches!(p.peek("EffectZone"), None | Some("Battlefield" | "Stack"))
+                || (p.peek("EffectZone") == Some("All")
+                    && p.peek("Type") == Some("Ability")
+                    && p.peek("ValidSpell") == Some("Activated.ManaAbility")
+                    && p.peek("ValidCard") == Some("Card.Self")
+                    && p.peek("Cost") == Some("PayLife<1>")))
             && p.has("Type")
             && matches!(p.peek("ValidSpell"), None | Some("Activated.ManaAbility"))
             && (p.peek("Type") != Some("Spell") || p.has("ValidCard") || p.has("ValidTarget"))
@@ -3937,18 +3942,37 @@ impl Tx<'_> {
             is_self_zone,
             face_down,
         )?;
-        let cond = self.reduce_cost_condition(&mut p)?;
-        let Some(modifier) = self.reduce_cost_modifier(&mut p) else {
-            if let Some((saved_p, saved_statics, saved_unclaimed)) = adjust_fallback {
-                return self.try_reduce_cost_dynamic_fallback(
-                    saved_p,
-                    saved_statics,
-                    saved_unclaimed,
-                    is_self_zone,
-                    zone,
-                );
-            }
-            return None;
+        let mut cond = self.reduce_cost_condition(&mut p)?;
+        let modifier = if is_self_zone
+            && cond.is_empty()
+            && !face_down
+            && target_filter.is_none()
+            && !p.has("Color")
+            && p.peek("Amount").is_some_and(|raw| {
+                let raw = raw.trim();
+                raw == "Count$StartingPlayer.0.1"
+                    || self
+                        .svars
+                        .get(raw)
+                        .is_some_and(|d| d.trim() == "Count$StartingPlayer.0.1")
+            }) {
+            p.take("Amount");
+            cond = ", condition = Some(Condition::NotStartingPlayer)".to_string();
+            "Modifier::SpellsCostLess(1)".to_string()
+        } else {
+            let Some(modifier) = self.reduce_cost_modifier(&mut p) else {
+                if let Some((saved_p, saved_statics, saved_unclaimed)) = adjust_fallback {
+                    return self.try_reduce_cost_dynamic_fallback(
+                        saved_p,
+                        saved_statics,
+                        saved_unclaimed,
+                        is_self_zone,
+                        zone,
+                    );
+                }
+                return None;
+            };
+            modifier
         };
         if let Some(key) = p.first_key() {
             return self.deny(format!("unclaimed parameter `ReduceCost.{key}`"));
@@ -4624,7 +4648,8 @@ impl Tx<'_> {
         };
         let amt_expr = self
             .wave14_static_amount(&amt_def)
-            .or_else(|| allow_base_static_count.then(|| self.static_count_expr_ext(&amt_def))?)?;
+            .or_else(|| allow_base_static_count.then(|| self.static_count_expr_ext(&amt_def))?)
+            .or_else(|| self.adjust_spell_cost_extra_amount(&amt_def, is_self_zone))?;
         let cond = self.reduce_cost_condition(&mut p)?;
         if !p.exhausted() {
             return None;
@@ -4639,6 +4664,32 @@ impl Tx<'_> {
             &cond,
         ));
         Some(())
+    }
+
+    fn adjust_spell_cost_extra_amount(&mut self, def: &str, is_self_zone: bool) -> Option<String> {
+        let trimmed = def.trim();
+        if trimmed == "PlayerCount$SacrificedThisTurn Permanent" {
+            return Some(
+                "Amount::PermanentsSacrificedThisTurn { who: PlayerRel::EachPlayer, filter: &Filter::Any }"
+                    .to_string(),
+            );
+        }
+        if trimmed == "Count$AttackersDeclared" {
+            return Some(
+                "Amount::CreaturesAttackedThisTurn { filter: &Filter::Any, controller: PlayerRel::EachPlayer }"
+                    .to_string(),
+            );
+        }
+        if !is_self_zone {
+            return None;
+        }
+        if trimmed == "Count$ThisTurnCast_Card.OppCtrl" {
+            return Some("Amount::SpellsCastThisTurn(PlayerRel::EachOpponent)".to_string());
+        }
+        if let Some(valid) = trimmed.strip_prefix("PlayerCountOpponents$HighestValid ") {
+            return self.wave17b_highest_controlled_amount("PlayerRel::EachOpponent", valid);
+        }
+        None
     }
 
     fn parse_ability_reduction(

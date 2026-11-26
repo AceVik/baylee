@@ -673,10 +673,6 @@ fn wave24b_refuses_engine_gaps_and_non_paper_scripts() {
          Cost$ Discard<X/Random> | EffectZone$ All\n\
          A:SP$ Draw | NumCards$ X\n\
          SVar:X:Count$xPaid",
-        // `RaiseCost` `ValidSpell$ Activated.ManaAbility | EffectZone$ All` (Thran Portal).
-        "Name:Thran Portal Shape\nTypes:Land\n\
-         S:Mode$ RaiseCost | ValidCard$ Card.Self | ValidSpell$ Activated.ManaAbility | \
-         Cost$ PayLife<1> | EffectZone$ All",
         // `AffectedZone$ Library` / `Graveyard` `MayPlay$ True` (engine/DSL gaps).
         "Name:Graveyard Mutate\nManaCost:3 B G\nTypes:Creature\nPT:4/4\n\
          S:Mode$ Continuous | Affected$ Creature.YouOwn | AffectedZone$ Graveyard | \

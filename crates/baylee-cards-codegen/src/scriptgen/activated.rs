@@ -276,14 +276,16 @@ impl Tx<'_> {
                 }
             }
         }
-        let Some(first) = self.svar_condition_clause(name, cmp.as_deref().unwrap_or("GE1")) else {
+        let Some(first) =
+            self.activation_svar_condition_clause(name, cmp.as_deref().unwrap_or("GE1"))
+        else {
             return self.deny(format!("activation check `{name}`"));
         };
         let clause = if let Some(name2) = probe.take("CheckSecondSVar") {
             let cmp2 = probe
                 .take("SecondSVarCompare")
                 .unwrap_or_else(|| "GE1".to_string());
-            let Some(second) = self.svar_condition_clause(&name2, &cmp2) else {
+            let Some(second) = self.activation_svar_condition_clause(&name2, &cmp2) else {
                 return self.deny(format!("activation check `{name2}`"));
             };
             claimed.push("CheckSecondSVar$");
@@ -2463,6 +2465,30 @@ impl Tx<'_> {
         }
     }
 
+    fn activation_svar_condition_clause(&mut self, var: &str, cmp: &str) -> Option<String> {
+        if let Some(cond) = self.svar_condition_clause(var, cmp) {
+            return Some(cond);
+        }
+        let raw = if var.trim().starts_with("Count$") || var.trim().starts_with("PlayerCount") {
+            var.trim().to_string()
+        } else {
+            self.svars.get(var.trim())?.trim().to_string()
+        };
+        if raw == "Count$ThisTurnCast_Card.YouCtrl" {
+            let bound = count_bound(cmp.trim());
+            let eq_num = cmp
+                .trim()
+                .strip_prefix("EQ")
+                .and_then(|n| n.parse::<u16>().ok());
+            return self.amount_bound_condition(
+                "Amount::SpellsCastThisTurn(PlayerRel::You)",
+                bound,
+                eq_num,
+            );
+        }
+        self.wave16a_trigger_svar_condition(&raw, cmp)
+    }
+
     /// Unified `CheckSVar$` + `SVarCompare$` entry point across activated,
     /// static, and cost-reduction readers.
     pub(super) fn svar_condition_clause(&mut self, var: &str, cmp: &str) -> Option<String> {
@@ -3022,10 +3048,77 @@ impl Tx<'_> {
                 }
             }
         }
-        let amt = self
+        if let Some(amt) = self
             .static_count_expr(&raw)
-            .or_else(|| self.static_wave14_condition_amount(&raw))?;
-        self.amount_bound_condition(&amt, bound, eq_num)
+            .or_else(|| self.static_wave14_condition_amount(&raw))
+            && let Some(cond) = self.amount_bound_condition(&amt, bound, eq_num)
+        {
+            return Some(cond);
+        }
+        self.hand_compare_disjunction(&raw, cmp)
+            .or_else(|| self.plus_times_disjunction(&raw, cmp))
+    }
+
+    /// Lowers `Count$Compare Z EQ7.1.Y` + `Y:Count$Compare Z EQ0.1.0` over
+    /// `Count$CardsInYourHand` (`GE1` / `EQ1` / `GT0`) onto a disjunction of
+    /// exact hand-size checks (*The Biblioplex*).
+    fn hand_compare_disjunction(&self, raw: &str, cmp: &str) -> Option<String> {
+        if !matches!(cmp, "GE1" | "EQ1" | "GT0") {
+            return None;
+        }
+        let (hand_var, n1, rest_var) = Self::parse_compare_eq_1(raw)?;
+        let rest_raw = self.svars.get(rest_var)?.trim();
+        let (hand_var2, n2, zero) = Self::parse_compare_eq_1(rest_raw)?;
+        if hand_var != hand_var2 || zero != "0" {
+            return None;
+        }
+        let hand_raw = self.svars.get(hand_var)?.trim();
+        if !matches!(
+            hand_raw,
+            "Count$CardsInYourHand" | "Count$ValidHand Card.YouOwn"
+        ) {
+            return None;
+        }
+        let fmt_eq = |n: u8| {
+            if n == 0 {
+                "Condition::HandSizeAtMost(0)".to_string()
+            } else {
+                format!("Condition::HandSizeExactly({n})")
+            }
+        };
+        Some(format!("Condition::Any(&[{}, {}])", fmt_eq(n1), fmt_eq(n2)))
+    }
+
+    fn parse_compare_eq_1(raw: &str) -> Option<(&str, u8, &str)> {
+        let rest = raw.strip_prefix("Count$Compare ")?;
+        let (var, tail) = rest.split_once(" EQ")?;
+        let (n_str, branch) = tail.split_once(".1.")?;
+        let n = n_str.trim().parse::<u8>().ok()?;
+        Some((var.trim(), n, branch.trim()))
+    }
+
+    /// Lowers `<A>/Plus.<Y>` where `<Y>` is `<B>/Times.<N>` and `SVarCompare$`
+    /// is `GE<N>` (`N >= 1`) onto `AmountAtLeast(A, N) || AmountAtLeast(B, 1)`
+    /// (*Bonecache Overseer*).
+    fn plus_times_disjunction(&mut self, raw: &str, cmp: &str) -> Option<String> {
+        let min_n = cmp
+            .strip_prefix("GE")?
+            .trim()
+            .parse::<u32>()
+            .ok()
+            .filter(|&n| n >= 1)?;
+        let (lhs_raw, rhs_var) = raw.split_once("/Plus.")?;
+        let rhs_def = self.svars.get(rhs_var.trim())?.trim().to_string();
+        let (rhs_raw, mult_str) = rhs_def.split_once("/Times.")?;
+        let mult = mult_str.trim().parse::<u32>().ok()?;
+        if mult != min_n {
+            return None;
+        }
+        let lhs_amt = self.wave16a_etb_amount(lhs_raw.trim())?;
+        let rhs_amt = self.wave16a_etb_amount(rhs_raw.trim())?;
+        Some(format!(
+            "Condition::Any(&[Condition::AmountAtLeast({lhs_amt}, {min_n}), Condition::AmountAtLeast({rhs_amt}, 1)])"
+        ))
     }
 
     fn static_wave14_condition_amount(&self, raw: &str) -> Option<String> {

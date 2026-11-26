@@ -6180,3 +6180,139 @@ fn wave22a_explicit_refusal_reasons_no_silent_none() {
         );
     }
 }
+
+#[test]
+fn activation_check_svar_unlocks() {
+    let mut c = cats();
+    c.artifact.push("Food".into());
+    let read_food = |src: &str| transcode(&parse(src), &c, None).expect("read");
+    let refused_food = |src: &str| transcode(&parse(src), &c, None).is_none();
+    let prowler = read(
+        "Name:Gilt-Blade Prowler\nManaCost:2 B\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Draw | Cost$ 1 T PayLife<1> | CheckSVar$ X\n\
+         SVar:X:PlayerCountPropertyYou$CardsDiscardedThisTurn",
+    );
+    assert!(
+        prowler.abilities[0].contains(
+            "Condition::AmountAtLeast(Amount::CardsDiscardedThisTurn(PlayerRel::You), 1)"
+        ),
+        "{:?}",
+        prowler.abilities
+    );
+
+    let idol = read(
+        "Name:Idol of Oblivion\nManaCost:2\nTypes:Artifact\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | CheckSVar$ X\n\
+         SVar:X:Count$ThisTurnEntered_Battlefield_Card.tokenCreated+YouOwn",
+    );
+    assert!(
+        idol.abilities[0].contains("Condition::AmountAtLeast(Amount::TokensCreatedThisTurn { filter: &Filter::Any, creator: PlayerRel::You }, 1)"),
+        "{:?}",
+        idol.abilities
+    );
+
+    let anchor = read(
+        "Name:Essence Anchor\nManaCost:2 U\nTypes:Artifact\n\
+         A:AB$ Draw | Cost$ T | PlayerTurn$ True | CheckSVar$ X\n\
+         SVar:X:Count$LeftGraveyardThisTurn Card.YouOwn",
+    );
+    assert!(
+        anchor.abilities[0].contains("Condition::AmountAtLeast(Amount::LeftZoneThisTurn { filter: &Filter::Any, from: ZoneRef::Graveyard, owner_or_ctrl: PlayerRel::You }, 1)"),
+        "{:?}",
+        anchor.abilities
+    );
+
+    let overseer = read_food(
+        "Name:Bonecache Overseer\nManaCost:B\nTypes:Creature\nPT:1/1\n\
+         A:AB$ Draw | Cost$ T PayLife<1> | CheckSVar$ X | SVarCompare$ GE3\n\
+         SVar:X:Count$LeftGraveyardThisTurn Card.YouOwn/Plus.Y\n\
+         SVar:Y:PlayerCountPropertyYou$SacrificedThisTurn Food/Times.3",
+    );
+    assert!(
+        overseer.abilities[0].contains("Condition::Any(&[Condition::AmountAtLeast(Amount::LeftZoneThisTurn { filter: &Filter::Any, from: ZoneRef::Graveyard, owner_or_ctrl: PlayerRel::You }, 3), Condition::AmountAtLeast(Amount::PermanentsSacrificedThisTurn { who: PlayerRel::You, filter: &COUNT1 }, 1)])"),
+        "{:?}",
+        overseer.abilities
+    );
+
+    let knight = read(
+        "Name:Xerex Strobe-Knight\nManaCost:2 U\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Draw | Cost$ T | CheckSVar$ X | SVarCompare$ GE2\n\
+         SVar:X:Count$ThisTurnCast_Card.YouCtrl",
+    );
+    assert!(
+        knight.abilities[0]
+            .contains("Condition::AmountAtLeast(Amount::SpellsCastThisTurn(PlayerRel::You), 2)"),
+        "{:?}",
+        knight.abilities
+    );
+
+    let biblioplex = read(
+        "Name:The Biblioplex\nTypes:Land\n\
+         A:AB$ PeekAndReveal | Cost$ 2 T | PeekAmount$ 1 | RevealValid$ Card.Instant,Card.Sorcery | RevealOptional$ True | RememberRevealed$ True | CheckSVar$ X | SubAbility$ DB1\n\
+         SVar:DB1:DB$ ChangeZone | Defined$ Remembered | Origin$ Library | Destination$ Hand | SubAbility$ DB2\n\
+         SVar:DB2:DB$ ChangeZone | ConditionDefined$ Remembered | ConditionPresent$ Card | ConditionCompare$ EQ0 | Defined$ TopOfLibrary | Origin$ Library | Destination$ Graveyard | Optional$ True | SubAbility$ DBC\n\
+         SVar:DBC:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Count$Compare Z EQ7.1.Y\n\
+         SVar:Y:Count$Compare Z EQ0.1.0\n\
+         SVar:Z:Count$CardsInYourHand",
+    );
+    assert!(
+        biblioplex.abilities[0].contains(
+            "Condition::Any(&[Condition::HandSizeExactly(7), Condition::HandSizeAtMost(0)])"
+        ),
+        "{:?}",
+        biblioplex.abilities
+    );
+
+    for bad in [
+        "Name:BadOverseer\nTypes:Creature\nPT:1/1\n\
+         A:AB$ Draw | Cost$ T | CheckSVar$ X | SVarCompare$ GE3\n\
+         SVar:X:Count$LeftGraveyardThisTurn Card.YouOwn/Plus.Y\n\
+         SVar:Y:PlayerCountPropertyYou$SacrificedThisTurn Food/Times.2",
+        "Name:BadHandDisjunction\nTypes:Artifact\n\
+         A:AB$ Draw | Cost$ T | CheckSVar$ X | SVarCompare$ EQ0\n\
+         SVar:X:Count$Compare Z EQ7.1.Y\n\
+         SVar:Y:Count$Compare Z EQ0.1.0\n\
+         SVar:Z:Count$CardsInYourHand",
+    ] {
+        assert!(refused_food(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn move_attachment_targeted_unlocks() {
+    let mut c = cats();
+    c.enchantment.push("Aura".into());
+    let read_aura = |src: &str| transcode(&parse(src), &c, None).expect("read");
+    let refused_aura = |src: &str| transcode(&parse(src), &c, None).is_none();
+    let crown = read_aura(
+        "Name:Crown of the Ages\nManaCost:2\nTypes:Artifact\n\
+         A:AB$ Attach | Cost$ 4 T | ValidTgts$ Aura.AttachedTo Creature | Object$ Targeted | Choices$ Creature | Move$ True",
+    );
+    assert!(
+        crown.abilities[0].contains("Effect::MoveAttachment { attachment: TargetSpec::Object(&")
+            && crown.abilities[0].contains(
+                "recipient_filter: &Filter::CREATURE, must_change_recipient: true, optional: false"
+            ),
+        "{:?}",
+        crown.abilities
+    );
+
+    let graft = read_aura(
+        "Name:Aura Graft\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ GainControl | ValidTgts$ Aura.AttachedTo Permanent | SubAbility$ ReEnchant\n\
+         SVar:ReEnchant:DB$ Attach | Object$ ParentTarget | Move$ True | Choices$ Permanent",
+    );
+    assert!(
+        graft.abilities[0].contains("Effect::MoveAttachment { attachment: TargetSpec::Object(&")
+            && graft.abilities[0].contains(
+                "recipient_filter: &Filter::Any, must_change_recipient: true, optional: false"
+            ),
+        "{:?}",
+        graft.abilities
+    );
+
+    let bad = "Name:BadAttachChooser\nTypes:Artifact\n\
+         A:AB$ Attach | Cost$ 4 T | ValidTgts$ Aura.AttachedTo Creature | Object$ Targeted | Choices$ Creature | Chooser$ Opponent | Move$ True";
+    assert!(refused_aura(bad), "must refuse: {bad}");
+}

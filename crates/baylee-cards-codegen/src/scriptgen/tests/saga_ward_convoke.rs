@@ -4996,3 +4996,44 @@ fn non_mana_activated_ability_filter_lowers_in_untap_statics() {
         card.abilities
     );
 }
+
+#[test]
+fn draw_dig_replacement_supports_change_valid_card_and_no_reveal_exile() {
+    let lich = read(
+        "Name:Underrealm Lich\nManaCost:3 B G\nTypes:Creature Zombie Elf Shaman\nPT:4/3\n\
+         R:Event$ Draw | ActiveZones$ Battlefield | ValidPlayer$ You | ReplaceWith$ Dig\n\
+         SVar:Dig:DB$ Dig | DigNum$ 3 | ChangeNum$ 1 | ChangeValid$ Card | DestinationZone2$ Graveyard | NoReveal$ True",
+    );
+    assert!(
+        lich.abilities.iter().any(|a| a.contains(
+            "AbilityDef::Replacement(ReplacementRule::ReplaceDrawLookTop { count: 3, rest_to_graveyard: true })"
+        )),
+        "abilities: {:?}",
+        lich.abilities
+    );
+
+    let mask = read(
+        "Name:Uba Mask\nManaCost:4\nTypes:Artifact\n\
+         R:Event$ Draw | ActiveZones$ Battlefield | ValidPlayer$ Player | ReplaceWith$ ExileTop\n\
+         SVar:ExileTop:DB$ Dig | Defined$ ReplacedPlayer | DigNum$ 1 | ChangeNum$ All | DestinationZone$ Exile | NoReveal$ True\n\
+         S:Mode$ Continuous | MayPlay$ True | MayPlayPlayer$ CardOwner | Affected$ Card.ExiledWithSource+ThisTurnEntered | AffectedZone$ Exile",
+    );
+    assert!(
+        mask.abilities.iter().any(|a| a.contains(
+            "AbilityDef::Replacement(ReplacementRule::ReplaceDrawExileTop { who: PlayerRel::EachPlayer, face_down: false, may_play_this_turn: true })"
+        )),
+        "abilities: {:?}",
+        mask.abilities
+    );
+
+    for bad in [
+        "Name:BadNarrowDig\nManaCost:2 U\nTypes:Enchantment\n\
+         R:Event$ Draw | ActiveZones$ Battlefield | ValidPlayer$ You | ReplaceWith$ Dig\n\
+         SVar:Dig:DB$ Dig | DigNum$ 3 | ChangeNum$ 1 | ChangeValid$ Creature | DestinationZone2$ Graveyard | NoReveal$ True",
+        "Name:BadRevealExile\nManaCost:4\nTypes:Artifact\n\
+         R:Event$ Draw | ActiveZones$ Battlefield | ValidPlayer$ Player | ReplaceWith$ ExileTop\n\
+         SVar:ExileTop:DB$ Dig | Defined$ ReplacedPlayer | DigNum$ 1 | ChangeNum$ All | DestinationZone$ Exile | Reveal$ True",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
+}
