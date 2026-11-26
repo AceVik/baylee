@@ -5566,6 +5566,21 @@ impl Tx<'_> {
         if raw == "PlayerCountPropertyYou$DamageThisTurn" {
             return Self::wave15_amount_cmp("Amount::DamageDealtToYouThisTurn", cmp);
         }
+        if let Some(valid) = raw
+            .strip_prefix("Count$Valid ")
+            .and_then(|s| s.strip_suffix("$DifferentCardNames"))
+            && valid
+                .split(',')
+                .all(|alt| alt.split(['.', '+']).any(|a| a.trim() == "YouCtrl"))
+            && let Some(max) = Self::wave19c_at_most_u32(cmp)
+            && let Some(min) = max.checked_add(1).and_then(|n| u8::try_from(n).ok())
+        {
+            let expr = self.filter_expr(valid)?;
+            let name = self.body.filter_static("CHECK", &expr);
+            return Some(format!(
+                "Condition::Not(&Condition::ControlDistinctNames(&{name}, {min}))"
+            ));
+        }
         if let Some(cond) = self.wave22c_svar_condition(raw, cmp) {
             return Some(cond);
         }
@@ -5614,21 +5629,6 @@ impl Tx<'_> {
         }
         if let Some(valid) = raw.strip_prefix("PlayerCountOpponents$HighestValid ") {
             return self.wave19c_opp_highest_valid(valid.trim(), cmp);
-        }
-        if let Some(valid) = raw
-            .strip_prefix("Count$Valid ")
-            .and_then(|s| s.strip_suffix("$DifferentCardNames"))
-            && valid
-                .split(',')
-                .all(|alt| alt.split(['.', '+']).any(|a| a.trim() == "YouCtrl"))
-            && let Some(max) = Self::wave19c_at_most_u32(cmp)
-            && let Some(min) = max.checked_add(1).and_then(|n| u8::try_from(n).ok())
-        {
-            let expr = self.filter_expr(valid)?;
-            let name = self.body.filter_static("CHECK", &expr);
-            return Some(format!(
-                "Condition::Not(&Condition::ControlDistinctNames(&{name}, {min}))"
-            ));
         }
         if matches!(
             raw,

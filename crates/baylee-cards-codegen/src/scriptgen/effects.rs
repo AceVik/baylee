@@ -6893,6 +6893,26 @@ impl Tx<'_> {
                     _ => self.deny(format!("`ChangeZone` of `Defined$ Enchanted` to `{destination}`")),
                 };
             }
+            Some(def)
+                if origin == "Graveyard"
+                    && matches!(destination.as_str(), "Battlefield" | "Hand")
+                    && target == "TargetSpec::AnyPlayer"
+                    && !p.has("ChangeType")
+                    && !p.has("Hidden")
+                    && def
+                        .strip_prefix("ValidGraveyard ")
+                        .is_some_and(|v| !v.trim().is_empty()) =>
+            {
+                let valid = def
+                    .strip_prefix("ValidGraveyard ")
+                    .expect("checked")
+                    .trim()
+                    .to_string();
+                p.entries.push(("Origin".to_string(), origin));
+                p.entries.push(("Destination".to_string(), destination));
+                p.entries.push(("ChangeType".to_string(), valid));
+                return self.shuffle_into_library_with_prior(p, None, false, false);
+            }
             Some("Enchanted & Self" | "Self & Enchanted")
                 if !self.on_a_spell
                     && !self.cost_sacrifices_self

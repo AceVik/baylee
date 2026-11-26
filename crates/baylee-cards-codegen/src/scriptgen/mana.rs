@@ -1364,6 +1364,50 @@ impl Tx<'_> {
                     .to_string(),
             );
         }
+        if let Some(valid) = def
+            .strip_prefix("Count$ValidGraveyard ")
+            .and_then(|rest| rest.strip_suffix("$DifferentCardNames"))
+            && !valid.contains(['$', '/'])
+        {
+            let valid_owned = normalize_graveyard_entered(valid);
+            let valid = valid_owned.as_str();
+            let (zone, expr) = if !valid.contains("Ctrl") && !valid.contains("Own") {
+                (
+                    "ZoneSel::GraveyardAll",
+                    self.filter_expr_in_zone(valid, true)?,
+                )
+            } else if let Some(stripped) = Self::strip_your_graveyard_owner(valid) {
+                (
+                    "ZoneSel::GraveyardOf(PlayerRel::You)",
+                    self.filter_expr_in_zone(&stripped, true)?,
+                )
+            } else if let Some(stripped) = Self::strip_opp_graveyard_owner(valid) {
+                let lower = self.oracle.to_ascii_lowercase();
+                if lower.contains("target opponent's graveyard")
+                    || lower.contains("target player's graveyard")
+                {
+                    return None;
+                }
+                (
+                    "ZoneSel::GraveyardOpponents",
+                    self.filter_expr_in_zone(&stripped, true)?,
+                )
+            } else if let Some((stripped, who)) =
+                self.strip_named_graveyard_owner(valid, static_only)
+            {
+                let expr = self.filter_expr_in_zone(&stripped, true)?;
+                let name = self.body.filter_static("COUNT", &expr);
+                return Some(format!(
+                    "Amount::DistinctNames {{ filter: &{name}, zone: ZoneSel::GraveyardOf({who}) }}"
+                ));
+            } else {
+                return None;
+            };
+            let name = self.body.filter_static("COUNT", &expr);
+            return Some(format!(
+                "Amount::DistinctNames {{ filter: &{name}, zone: {zone} }}"
+            ));
+        }
         if let Some(valid) = def.strip_prefix("Count$ValidGraveyard ") {
             let valid_owned = normalize_graveyard_entered(valid);
             let valid = valid_owned.as_str();
@@ -1403,12 +1447,47 @@ impl Tx<'_> {
             }
             return None;
         }
+        if let Some(valid) = def
+            .strip_prefix("Count$ValidHand ")
+            .and_then(|rest| rest.strip_suffix("$DifferentCardNames"))
+            && !valid.contains(['$', '/'])
+        {
+            let stripped = Self::strip_your_graveyard_owner(valid)?;
+            let expr = self.filter_expr_in_zone(&stripped, true)?;
+            let name = self.body.filter_static("COUNT", &expr);
+            return Some(format!(
+                "Amount::DistinctNames {{ filter: &{name}, zone: ZoneSel::HandYou }}"
+            ));
+        }
         if let Some(valid) = def.strip_prefix("Count$ValidHand ") {
             let stripped = Self::strip_your_graveyard_owner(valid)?;
             let expr = self.filter_expr_in_zone(&stripped, true)?;
             let name = self.body.filter_static("COUNT", &expr);
             return Some(format!(
                 "Amount::CountOf {{ filter: &{name}, zone: ZoneSel::HandYou }}"
+            ));
+        }
+        if let Some(valid) = def
+            .strip_prefix("Count$ValidExile ")
+            .and_then(|rest| rest.strip_suffix("$DifferentCardNames"))
+            && !valid.contains(['$', '/'])
+        {
+            let (zone, expr) = if valid == "Card.ExiledWithSource" {
+                ("ZoneSel::LinkedExile", "Filter::Any".to_string())
+            } else if let Some(stripped) = valid
+                .strip_suffix("+ExiledWithSource")
+                .or_else(|| valid.strip_suffix(".ExiledWithSource"))
+            {
+                (
+                    "ZoneSel::LinkedExile",
+                    self.filter_expr_in_zone(stripped, true)?,
+                )
+            } else {
+                ("ZoneSel::ExileAll", self.filter_expr_in_zone(valid, true)?)
+            };
+            let name = self.body.filter_static("COUNT", &expr);
+            return Some(format!(
+                "Amount::DistinctNames {{ filter: &{name}, zone: {zone} }}"
             ));
         }
         if let Some(valid) = def.strip_prefix("Count$ValidExile ") {
@@ -1439,6 +1518,16 @@ impl Tx<'_> {
             ));
         }
         let valid = def.strip_prefix("Count$Valid ")?;
+        if let Some(distinct_valid) = valid.strip_suffix("$DifferentCardNames")
+            && !distinct_valid.contains('/')
+            && !distinct_valid.contains('$')
+        {
+            let expr = self.filter_expr_in_zone(distinct_valid, false)?;
+            let name = self.body.filter_static("COUNT", &expr);
+            return Some(format!(
+                "Amount::DistinctNames {{ zone: ZoneSel::Battlefield, filter: &{name} }}"
+            ));
+        }
         if let Some(color_valid) = valid.strip_suffix("$Colors")
             && !color_valid.contains('/')
             && !color_valid.contains('$')

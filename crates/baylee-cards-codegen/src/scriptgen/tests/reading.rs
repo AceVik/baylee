@@ -3141,7 +3141,7 @@ fn reduce_cost_check_svar_turn_history_and_refusals() {
         "Name:BadContinuousArtifactSac\nManaCost:1 R\nTypes:Enchantment\nS:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Flying | CheckSVar$ X | SVarCompare$ GE1\nSVar:X:PlayerCountPropertyYou$SacrificedThisTurn Artifact",
         "Name:GhostlyPrison\nManaCost:2 W\nTypes:Enchantment\nS:Mode$ CantAttackUnless | ValidCard$ Creature | Target$ You | Cost$ 2",
         "Name:SeedbornMuse\nManaCost:3 G G\nTypes:Creature\nPT:2/4\nS:Mode$ UntapOtherPlayer | ValidCard$ Permanent.YouCtrl",
-        "Name:Telepathy\nManaCost:U\nTypes:Enchantment\nS:Mode$ Continuous | AffectedZone$ Hand | Affected$ Card.OppOwn | MayLookAt$ Player",
+        "Name:BadHandGrant\nManaCost:U\nTypes:Enchantment\nS:Mode$ Continuous | AffectedZone$ Hand | Affected$ Card.OppOwn | AddKeyword$ Flying",
         "Name:CanopyStalker\nManaCost:3 G\nTypes:Creature\nPT:4/2\nK:CARDNAME must be blocked if able.",
     ] {
         assert!(refused(bad), "must refuse:\n{bad}");

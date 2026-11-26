@@ -260,6 +260,7 @@ impl Tx<'_> {
             "OptionalAttackCost" => return self.optional_attack_cost(p),
             "IgnoreLandWalk" => return self.ignore_landwalk(p),
             "ForetellAnyTurn" => return self.wave17c_foretell_any_turn(p),
+            "CantBeBeamedUp" => return self.cant_be_beamed_up_static(p),
             _ => {}
         }
         if p.peek("EffectZone") == Some("Graveyard") && p.peek("Affected") == Some("Land.YouCtrl") {
@@ -278,6 +279,7 @@ impl Tx<'_> {
             return None;
         }
         let had_description = p.has("Description");
+        let static_desc = p.peek("Description").map(str::to_string);
         p.drop_prose();
         match p.take("Secondary").as_deref() {
             None | Some("True") => {}
@@ -297,8 +299,14 @@ impl Tx<'_> {
             && p.peek("AffectedZone") == Some("Graveyard")
             && p.peek("Affected") == Some("Card.Self")
             && (p.has("AddAbility") || p.has("AddStaticAbility"));
+        let graveyard_self_alt_play = p.peek("EffectZone") == Some("Graveyard")
+            && p.peek("AffectedZone") == Some("Graveyard")
+            && p.peek("Affected") == Some("Card.Self")
+            && p.peek("MayPlay") == Some("True")
+            && self.has_paired_may_play_on_current_rule();
         let graveyard_ok = (p.peek("Affected") == Some("Creature.YouCtrl") && p.has("AddKeyword"))
-            || graveyard_self_grant;
+            || graveyard_self_grant
+            || graveyard_self_alt_play;
         let stack_self_zone = p.peek("EffectZone") == Some("Stack")
             && p.peek("AffectedZone") == Some("Stack")
             && p.peek("Affected") == Some("Card.Self");
@@ -317,6 +325,11 @@ impl Tx<'_> {
                 None => None,
             }
         };
+        if let super::zone_grants::HandGrantOutcome::Handled(handled) =
+            self.try_hand_grant_static(&mut p, effect_zone)
+        {
+            return handled;
+        }
         if p.peek("AffectedZone") == Some("Hand")
             && p.peek("MayLookAt") == Some("Player")
             && p.peek("Affected").is_none()
@@ -325,6 +338,9 @@ impl Tx<'_> {
         }
         if graveyard_self_grant {
             return self.graveyard_self_granted_ability(p);
+        }
+        if graveyard_self_alt_play {
+            return self.continuous_graveyard_self_alt_play(p);
         }
         if effect_zone != Some("ZoneRef::Graveyard")
             && p.peek("AffectedZone") == Some("Graveyard")
@@ -371,11 +387,16 @@ impl Tx<'_> {
         if effect_zone != Some("ZoneRef::Graveyard")
             && p.peek("AffectedZone")
                 .is_some_and(is_all_non_battlefield_zones)
-            && p.peek("AddKeyword").map(str::trim) == Some("Flash")
+            && p.peek("AddKeyword").map(str::trim).is_some_and(|kw| {
+                matches!(kw, "Flash" | "Madness:ManaCost" | "Madness:CardManaCost")
+            })
             && !p.has("MayPlay")
         {
             let raw_zone = p.take("AffectedZone").unwrap_or_default();
-            return self.offboard_flash_static(p, effect_zone, &raw_zone);
+            if p.peek("AddKeyword").map(str::trim) == Some("Flash") {
+                return self.offboard_flash_static(p, effect_zone, &raw_zone);
+            }
+            return self.offboard_madness_static(p, effect_zone, &raw_zone);
         }
         if effect_zone != Some("ZoneRef::Graveyard")
             && p.peek("MayPlay") == Some("True")
@@ -383,7 +404,7 @@ impl Tx<'_> {
                 || p.has("MayPlayWithoutManaCost")
                 || p.peek("AffectedZone") == Some("Exile"))
         {
-            return self.may_cast_with_alt_cost(p, effect_zone);
+            return self.may_cast_with_alt_cost_with_desc(p, effect_zone, static_desc.as_deref());
         }
         if effect_zone.is_none() && p.peek("AffectedZone") == Some("Library") {
             return self.continuous_library_top_dispatch(p);
@@ -1102,13 +1123,19 @@ impl Tx<'_> {
             return deny_zone(self);
         };
         let zone_arg = effect_zone.map_or_else(String::new, |z| format!(", zone = {z}"));
-        if matches!(
-            affected.as_str(),
-            "Instant.YouCtrl,Sorcery.YouCtrl"
-                | "Sorcery.YouCtrl,Instant.YouCtrl"
-                | "Instant.YouOwn,Sorcery.YouOwn"
-                | "Sorcery.YouOwn,Instant.YouOwn"
-        ) {
+        if !p.has("RaiseCost")
+            && !p.has("MayPlayIgnoreColor")
+            && !p.has("MayPlayIgnoreType")
+            && !p.has("MayPlaySnowIgnoreColor")
+            && !self.has_paired_may_play_on_current_rule()
+            && matches!(
+                affected.as_str(),
+                "Instant.YouCtrl,Sorcery.YouCtrl"
+                    | "Sorcery.YouCtrl,Instant.YouCtrl"
+                    | "Instant.YouOwn,Sorcery.YouOwn"
+                    | "Sorcery.YouOwn,Instant.YouOwn"
+            )
+        {
             if p.take("Condition").as_deref() != Some("PlayerTurn")
                 || p.take("ReplaceGraveyard").as_deref() != Some("Exile")
                 || p.take("MayPlayLimit").as_deref() != Some("1")
@@ -1137,7 +1164,15 @@ impl Tx<'_> {
             ],
             _ => &[],
         };
-        if !modifiers.is_empty() {
+        if !modifiers.is_empty()
+            && !p.has("RaiseCost")
+            && !p.has("ReplaceGraveyard")
+            && !p.has("MayPlayIgnoreColor")
+            && !p.has("MayPlayIgnoreType")
+            && !p.has("MayPlaySnowIgnoreColor")
+            && !p.has("ValidAfterStack")
+            && !self.has_paired_may_play_on_current_rule()
+        {
             let condition =
                 self.static_conditions(&mut p, "unclaimed parameter `Continuous.CheckSVar`")?;
             if p.first_key().is_some() {
@@ -5924,42 +5959,20 @@ impl Tx<'_> {
     /// `Modifier::MayCastWithAltCost` (`CR 118.9`, `CR 601.3e`).
     fn may_cast_with_alt_cost(
         &mut self,
-        mut p: Params,
+        p: Params,
         effect_zone: Option<&'static str>,
     ) -> Option<()> {
+        self.may_cast_with_alt_cost_with_desc(p, effect_zone, None)
+    }
+
+    fn may_cast_with_alt_cost_with_desc(
+        &mut self,
+        mut p: Params,
+        effect_zone: Option<&'static str>,
+        static_desc: Option<&str>,
+    ) -> Option<()> {
         p.take("MayPlay");
-        let price = self.take_alt_cast_price(&mut p)?;
-        let who = match p.take("MayPlayPlayer").as_deref() {
-            None | Some("You") => "PlayerRel::You",
-            Some("Player") => "PlayerRel::EachPlayer",
-            Some("Opponent") => "PlayerRel::EachOpponent",
-            Some(other) => {
-                return self.deny(format!("`Continuous.MayPlayPlayer$ {other}`"));
-            }
-        };
-        let once_per_turn = match p.take("MayPlayLimit").as_deref() {
-            None => false,
-            Some("1") => true,
-            Some(other) => {
-                return self.deny(format!("`Continuous.MayPlayLimit$ {other}`"));
-            }
-        };
-        let with_flash = match p.take("MayPlayWithFlash").as_deref() {
-            None | Some("False") => false,
-            Some("True") => true,
-            Some(other) => {
-                return self.deny(format!("`Continuous.MayPlayWithFlash$ {other}`"));
-            }
-        };
-        let dont_grant_zone = match p.take("MayPlayDontGrantZonePermissions").as_deref() {
-            None | Some("False") => false,
-            Some("True") => true,
-            Some(other) => {
-                return self.deny(format!(
-                    "`Continuous.MayPlayDontGrantZonePermissions$ {other}`"
-                ));
-            }
-        };
+        let opts = self.take_zone_play_options(&mut p, static_desc)?;
         let Some(affected) = p.take("Affected") else {
             return self.deny("`MayPlay` static with no `Affected$`".into());
         };
@@ -5979,8 +5992,8 @@ impl Tx<'_> {
         let Some(zone_plan) = plan_alt_cast_zones(
             &raw_zones,
             &affected,
-            dont_grant_zone,
-            who,
+            opts.dont_grant_zone,
+            opts.who,
             effect_zone,
             has_linked_exile_producer,
         ) else {
@@ -5988,14 +6001,43 @@ impl Tx<'_> {
                 "static ability reaching `AffectedZone$ {raw_zones}`"
             ));
         };
-        let (card_filter, max_mv_expr, allow_lands) =
-            self.parse_alt_cast_affected(&affected, who, dont_grant_zone, &zone_plan)?;
+        if opts.mana_spending != "ZonePlayManaSpending::Exact" && !zone_plan.grant_zone_permission {
+            return self.deny("mana color/type wash without zone permission".to_string());
+        }
+        let vas_cmc = match &opts.valid_after_stack {
+            Some(super::zone_grants::ValidAfterStackClause::CmcLe(rhs)) => Some(rhs.as_str()),
+            _ => None,
+        };
+        let (mut card_filter, max_mv_expr, allow_lands) = self.parse_alt_cast_affected_ext(
+            &affected,
+            opts.who,
+            opts.dont_grant_zone,
+            &zone_plan,
+            vas_cmc,
+        )?;
+        if matches!(
+            opts.valid_after_stack,
+            Some(super::zone_grants::ValidAfterStackClause::NonCreature)
+        ) {
+            if !allow_lands {
+                return self
+                    .deny("`Continuous.ValidAfterStack$ Spell.nonCreature` without lands".into());
+            }
+            card_filter = super::protection52::conjoin_filter_expr(
+                &card_filter,
+                "Filter::Not(&Filter::CREATURE)",
+            );
+        }
         if allow_lands
-            && (price.starts_with("AltCastPrice::NormalPlus(")
-                || (once_per_turn && price != "AltCastPrice::Normal"))
+            && (opts.price.starts_with("AltCastPrice::NormalPlus(")
+                || (opts.once_per_turn
+                    && opts.price != "AltCastPrice::Normal"
+                    && opts.replace_gy.is_none()))
         {
             return self.deny("`MayPlayLimit$` combined with land-play permission".into());
         }
+        let rider =
+            self.resolve_zone_play_rider(opts.replace_gy.as_deref(), allow_lands, zone_plan.kind)?;
         let condition =
             self.static_conditions(&mut p, "unclaimed parameter `Continuous.CheckSVar`")?;
         if let Some(key) = p.first_key() {
@@ -6005,10 +6047,8 @@ impl Tx<'_> {
             None => StaticEffectZone::Battlefield,
             Some(z) => StaticEffectZone::Explicit(z),
         };
-        let modifier = format!(
-            "Modifier::MayCastWithAltCost {{ who: {who}, zones: {}, grant_zone_permission: {}, allow_lands: {allow_lands}, with_flash: {with_flash}, max_mana_value: {max_mv_expr}, once_per_turn: {once_per_turn}, price: {price} }}",
-            zone_plan.zones_expr, zone_plan.grant_zone_permission
-        );
+        let modifier =
+            format_zone_play_modifier(&opts, &zone_plan, allow_lands, &max_mv_expr, &rider);
         if zone_plan.zones_expr == "AltCastZones::LinkedExile" {
             for ability in &mut self.body.abilities {
                 if ability.contains("ReplacementRule::ExileInsteadOfGraveyard") {
@@ -6025,7 +6065,97 @@ impl Tx<'_> {
         Some(())
     }
 
-    fn take_alt_cast_price(&mut self, p: &mut Params) -> Option<String> {
+    fn take_zone_play_options(
+        &mut self,
+        p: &mut Params,
+        static_desc: Option<&str>,
+    ) -> Option<ZonePlayParsedOpts> {
+        let price = self.take_alt_cast_price(p)?;
+        let who = match p.take("MayPlayPlayer").as_deref() {
+            None | Some("You") => "PlayerRel::You",
+            Some("Player") => "PlayerRel::EachPlayer",
+            Some("Opponent") => "PlayerRel::EachOpponent",
+            Some(other) => {
+                self.note(format!("`Continuous.MayPlayPlayer$ {other}`"));
+                return None;
+            }
+        };
+        let once_per_turn = match p.take("MayPlayLimit").as_deref() {
+            None => false,
+            Some("1") => true,
+            Some(other) => {
+                self.note(format!("`Continuous.MayPlayLimit$ {other}`"));
+                return None;
+            }
+        };
+        let with_flash = match p.take("MayPlayWithFlash").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(other) => {
+                self.note(format!("`Continuous.MayPlayWithFlash$ {other}`"));
+                return None;
+            }
+        };
+        let dont_grant_zone = match p.take("MayPlayDontGrantZonePermissions").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(other) => {
+                self.note(format!(
+                    "`Continuous.MayPlayDontGrantZonePermissions$ {other}`"
+                ));
+                return None;
+            }
+        };
+        let valid_after_stack = if let Some(raw) = p.take("ValidAfterStack") {
+            let Some(clause) = Self::parse_valid_after_stack_clause(&raw) else {
+                self.note(format!("`Continuous.ValidAfterStack$ {raw}`"));
+                return None;
+            };
+            Some(clause)
+        } else {
+            None
+        };
+        let mana_spending = self.take_zone_play_mana_spending(p, static_desc)?;
+        let replace_gy = p.take("ReplaceGraveyard");
+        Some(ZonePlayParsedOpts {
+            price,
+            who,
+            once_per_turn,
+            with_flash,
+            dont_grant_zone,
+            valid_after_stack,
+            mana_spending,
+            replace_gy,
+        })
+    }
+
+    fn resolve_zone_play_rider(
+        &mut self,
+        replace_gy: Option<&str>,
+        allow_lands: bool,
+        kind: AltCastZoneKind,
+    ) -> Option<String> {
+        let paired_rider = self.claim_paired_zone_play_rider();
+        match (replace_gy, paired_rider) {
+            (None, None) => Some("ZonePlayCastRider::None".to_string()),
+            (Some("Exile"), None) if !allow_lands && kind == AltCastZoneKind::GraveyardGrant => {
+                Some("ZonePlayCastRider::ExileInsteadOfGraveyard".to_string())
+            }
+            (Some(other), _) => self.deny(format!("`Continuous.ReplaceGraveyard$ {other}`")),
+            (None, Some(r)) => {
+                let valid_for_lands =
+                    matches!(r.as_str(), "ZonePlayCastRider::GrantLeaveExileReplacement")
+                        || r.starts_with("ZonePlayCastRider::GrantDeathExileAndGainLife(");
+                if allow_lands && !valid_for_lands {
+                    return self
+                        .deny("finality/exile rider combined with land-play permission".into());
+                }
+                Some(r)
+            }
+        }
+    }
+
+    pub(super) fn take_alt_cast_price(&mut self, p: &mut Params) -> Option<String> {
         let raw_alt = p.take("MayPlayAltManaCost");
         let raw_free = p.take("MayPlayWithoutManaCost");
         let raw_raise = p.take("RaiseCost");
@@ -6091,16 +6221,18 @@ impl Tx<'_> {
         Some(crate::body::cost_literal(&mana, &parts))
     }
 
-    fn parse_alt_cast_affected(
+    fn parse_alt_cast_affected_ext(
         &mut self,
         affected: &str,
         who: &str,
         dont_grant_zone: bool,
         plan: &AltCastZonePlan,
+        vas_cmc: Option<&str>,
     ) -> Option<(String, String, bool)> {
         let mut cleaned_alts = Vec::new();
         let mut shared_cmc: Option<Option<String>> = None;
         let mut all_allow_lands = plan.grant_zone_permission;
+        let mut any_land_alt = false;
         for raw_alt in affected.split(',') {
             let Some((cleaned, alt_cmc, saw_nonland)) =
                 clean_alt_cast_alt(raw_alt, who, dont_grant_zone, plan)
@@ -6110,14 +6242,26 @@ impl Tx<'_> {
             if saw_nonland {
                 all_allow_lands = false;
             }
+            let base_is_land = raw_alt.trim().split('.').next() == Some("Land");
+            if base_is_land {
+                any_land_alt = true;
+            }
+            let effective_cmc = if base_is_land && alt_cmc.is_none() && vas_cmc.is_some() {
+                vas_cmc.map(str::to_string)
+            } else {
+                alt_cmc
+            };
             match &shared_cmc {
-                None => shared_cmc = Some(alt_cmc),
-                Some(prev) if *prev == alt_cmc => {}
+                None => shared_cmc = Some(effective_cmc),
+                Some(prev) if *prev == effective_cmc => {}
                 Some(_) => {
                     return self.deny(format!("`MayPlay` `Affected$ {affected}`"));
                 }
             }
             cleaned_alts.push(cleaned);
+        }
+        if any_land_alt && plan.grant_zone_permission {
+            all_allow_lands = true;
         }
         let max_mv_expr = match shared_cmc.flatten() {
             None => "None".to_string(),
@@ -6912,8 +7056,11 @@ fn granted_damage_prevention_modifiers(trimmed: &str) -> Option<&'static [&'stat
     })
 }
 
-fn static_phase_condition(phases: &str) -> Option<&'static str> {
+pub(super) fn static_phase_condition(phases: &str) -> Option<&'static str> {
     Some(match phases.trim() {
+        "Main1,Main2" | "Main1, Main2" => {
+            "Condition::Any(&[Condition::DuringStep(StepKind::FirstMain), Condition::DuringStep(StepKind::PostcombatMain)])"
+        }
         "BeginCombat->EndCombat" => "Condition::DuringCombat",
         "BeginCombat->Declare Attackers" => {
             "Condition::Any(&[Condition::DuringStep(StepKind::CombatBegin), Condition::DuringStep(StepKind::DeclareAttackers)])"
@@ -7089,6 +7236,7 @@ enum AltCastZoneKind {
     HandOnly,
     GraveyardGrant,
     ExileCounter,
+    ExiledByYou,
     LinkedExile { requires_imprinted: bool },
 }
 
@@ -7096,6 +7244,48 @@ struct AltCastZonePlan {
     zones_expr: String,
     grant_zone_permission: bool,
     kind: AltCastZoneKind,
+}
+
+struct ZonePlayParsedOpts {
+    price: String,
+    who: &'static str,
+    once_per_turn: bool,
+    with_flash: bool,
+    dont_grant_zone: bool,
+    valid_after_stack: Option<super::zone_grants::ValidAfterStackClause>,
+    mana_spending: &'static str,
+    replace_gy: Option<String>,
+}
+
+fn format_zone_play_modifier(
+    opts: &ZonePlayParsedOpts,
+    zone_plan: &AltCastZonePlan,
+    allow_lands: bool,
+    max_mv_expr: &str,
+    rider: &str,
+) -> String {
+    if opts.mana_spending == "ZonePlayManaSpending::Exact" && rider == "ZonePlayCastRider::None" {
+        format!(
+            "Modifier::MayCastWithAltCost {{ who: {}, zones: {}, grant_zone_permission: {}, allow_lands: {allow_lands}, with_flash: {}, max_mana_value: {max_mv_expr}, once_per_turn: {}, price: {} }}",
+            opts.who,
+            zone_plan.zones_expr,
+            zone_plan.grant_zone_permission,
+            opts.with_flash,
+            opts.once_per_turn,
+            opts.price
+        )
+    } else {
+        format!(
+            "Modifier::ZonePlayGrant(ZonePlayGrant {{ who: {}, zones: {}, grant_zone_permission: {}, allow_lands: {allow_lands}, with_flash: {}, max_mana_value: {max_mv_expr}, once_per_turn: {}, price: {}, mana_spending: {}, rider: {rider}, your_turn_only: false, as_sorcery_only: false, mana_cost_must_contain: None }})",
+            opts.who,
+            zone_plan.zones_expr,
+            zone_plan.grant_zone_permission,
+            opts.with_flash,
+            opts.once_per_turn,
+            opts.price,
+            opts.mana_spending
+        )
+    }
 }
 
 fn is_forbidden_alt_cast_atom(atom: &str) -> bool {
@@ -7113,9 +7303,89 @@ fn is_forbidden_alt_cast_atom(atom: &str) -> bool {
             | "ThisTurnEntered"
             | "ExiledWithEffectSource"
             | "ExiledWith"
-            | "ExiledByYou"
             | "foretold"
     ) || atom.starts_with("ControlledBy")
+}
+
+#[derive(Default)]
+#[allow(clippy::struct_excessive_bools)]
+struct AltCastQualState<'a> {
+    saw_you_owner_or_ctrl: bool,
+    saw_opp_owner: bool,
+    saw_exiled_with: bool,
+    saw_exiled_by: bool,
+    saw_imprinted: bool,
+    saw_counter: bool,
+    alt_cmc: Option<String>,
+    kept: Vec<&'a str>,
+}
+
+fn push_alt_cast_atom<'a>(
+    atom: &'a str,
+    who: &str,
+    dont_grant_zone: bool,
+    plan_kind: AltCastZoneKind,
+    st: &mut AltCastQualState<'a>,
+) -> Option<()> {
+    let is_hand_only = plan_kind == AltCastZoneKind::HandOnly;
+    let is_gy_grant = plan_kind == AltCastZoneKind::GraveyardGrant;
+    let is_exile_counter = plan_kind == AltCastZoneKind::ExileCounter;
+    let is_exiled_by_you = plan_kind == AltCastZoneKind::ExiledByYou;
+    let is_linked_exile = matches!(plan_kind, AltCastZoneKind::LinkedExile { .. });
+    match atom {
+        "ExiledWithSource" if is_linked_exile => st.saw_exiled_with = true,
+        "IsImprinted" if is_linked_exile => st.saw_imprinted = true,
+        "ExiledByYou" if is_exiled_by_you => st.saw_exiled_by = true,
+        "surveilledThisTurn" if who == "PlayerRel::You" && is_gy_grant => {
+            st.saw_you_owner_or_ctrl = true;
+            st.kept.extend(["surveilledThisTurn", "YouOwn"]);
+        }
+        "ExiledWithSource"
+        | "IsImprinted"
+        | "ExiledByYou"
+        | "surveilledThisTurn"
+        | "!surveilledThisTurn" => return None,
+        "YouCtrl" if who == "PlayerRel::You" => {
+            st.saw_you_owner_or_ctrl = true;
+            if is_gy_grant {
+                st.kept.push("YouOwn");
+            }
+        }
+        "YouOwn" if who == "PlayerRel::You" => {
+            st.saw_you_owner_or_ctrl = true;
+            if !is_hand_only {
+                st.kept.push(atom);
+            }
+        }
+        "OppOwn" if who == "PlayerRel::You" => {
+            if (is_hand_only && !dont_grant_zone) || is_gy_grant {
+                return None;
+            }
+            st.saw_opp_owner = true;
+            st.kept.push(atom);
+        }
+        "YouDontOwn" if who == "PlayerRel::You" => {
+            if (is_hand_only && !dont_grant_zone) || is_gy_grant || is_exile_counter {
+                return None;
+            }
+            st.kept.push(atom);
+        }
+        a if a.contains("Ctrl") || a.contains("Own") => return None,
+        a if a.starts_with("cmcLE") => {
+            let rhs = a.strip_prefix("cmcLE").unwrap_or_default();
+            if rhs.is_empty() || st.alt_cmc.is_some() {
+                return None;
+            }
+            st.alt_cmc = Some(rhs.to_string());
+        }
+        other => {
+            if other.starts_with("counters_GE") {
+                st.saw_counter = true;
+            }
+            st.kept.push(other);
+        }
+    }
+    Some(())
 }
 
 fn clean_alt_cast_alt(
@@ -7136,91 +7406,37 @@ fn clean_alt_cast_alt(
     {
         return None;
     }
-    let is_hand_only = plan.kind == AltCastZoneKind::HandOnly;
-    let is_gy_grant = plan.kind == AltCastZoneKind::GraveyardGrant;
-    let is_exile_counter = plan.kind == AltCastZoneKind::ExileCounter;
-    let linked_requires_imprinted = match plan.kind {
-        AltCastZoneKind::LinkedExile { requires_imprinted } => Some(requires_imprinted),
-        AltCastZoneKind::Generic
-        | AltCastZoneKind::HandOnly
-        | AltCastZoneKind::GraveyardGrant
-        | AltCastZoneKind::ExileCounter => None,
-    };
-    let is_linked_exile = linked_requires_imprinted.is_some();
-    let mut saw_you_owner_or_ctrl = false;
     let mut saw_nonland = base != "Card";
-    let mut saw_exiled_with = false;
-    let mut saw_imprinted = false;
-    let mut saw_counter = false;
-    let mut alt_cmc: Option<String> = None;
-    let mut kept = Vec::new();
-    for atom in qual.split('+').map(str::trim).filter(|a| !a.is_empty()) {
-        if is_forbidden_alt_cast_atom(atom) {
+    let mut st = AltCastQualState::default();
+    for raw_atom in qual.split('+').map(str::trim).filter(|a| !a.is_empty()) {
+        if is_forbidden_alt_cast_atom(raw_atom) {
             return None;
         }
-        match atom {
-            "ExiledWithSource" if is_linked_exile => saw_exiled_with = true,
-            "IsImprinted" if is_linked_exile => saw_imprinted = true,
+        match raw_atom {
+            "inZoneGraveyard" | "inZoneHand" | "inZoneExile" => {}
             "nonLand" => saw_nonland = true,
-            "surveilledThisTurn" if who == "PlayerRel::You" && is_gy_grant => {
-                saw_you_owner_or_ctrl = true;
-                kept.push("surveilledThisTurn");
-                kept.push("YouOwn");
-            }
-            "ExiledWithSource" | "IsImprinted" | "surveilledThisTurn" | "!surveilledThisTurn" => {
-                return None;
-            }
-            "YouCtrl" if who == "PlayerRel::You" => {
-                saw_you_owner_or_ctrl = true;
-                if is_gy_grant {
-                    kept.push("YouOwn");
-                }
-            }
-            "YouOwn" if who == "PlayerRel::You" => {
-                saw_you_owner_or_ctrl = true;
-                if !is_hand_only {
-                    kept.push(atom);
-                }
-            }
-            "OppOwn" | "YouDontOwn" if who == "PlayerRel::You" => {
-                if (is_hand_only && !dont_grant_zone) || is_gy_grant || is_exile_counter {
-                    return None;
-                }
-                kept.push(atom);
-            }
-            a if a.contains("Ctrl") || a.contains("Own") => return None,
-            a if a.starts_with("cmcLE") => {
-                let rhs = a.strip_prefix("cmcLE").unwrap_or_default();
-                if rhs.is_empty() || alt_cmc.is_some() {
-                    return None;
-                }
-                alt_cmc = Some(rhs.to_string());
-            }
-            other => {
-                if other.starts_with("counters_GE") {
-                    saw_counter = true;
-                }
-                kept.push(other);
-            }
+            atom => push_alt_cast_atom(atom, who, dont_grant_zone, plan.kind, &mut st)?,
         }
     }
-    if let Some(requires_imprinted) = linked_requires_imprinted
-        && (!saw_exiled_with || (requires_imprinted && !saw_imprinted))
+    if let AltCastZoneKind::LinkedExile { requires_imprinted } = plan.kind
+        && (!st.saw_exiled_with || (requires_imprinted && !st.saw_imprinted))
     {
         return None;
     }
-    if (is_hand_only && !dont_grant_zone && !saw_you_owner_or_ctrl)
-        || (is_gy_grant && !saw_you_owner_or_ctrl)
-        || (is_exile_counter && (!saw_you_owner_or_ctrl || !saw_counter))
+    if (plan.kind == AltCastZoneKind::HandOnly && !dont_grant_zone && !st.saw_you_owner_or_ctrl)
+        || (plan.kind == AltCastZoneKind::GraveyardGrant && !st.saw_you_owner_or_ctrl)
+        || (plan.kind == AltCastZoneKind::ExileCounter
+            && ((!st.saw_you_owner_or_ctrl && !st.saw_opp_owner) || !st.saw_counter))
+        || (plan.kind == AltCastZoneKind::ExiledByYou && !st.saw_exiled_by)
     {
         return None;
     }
-    let cleaned = if kept.is_empty() {
+    let cleaned = if st.kept.is_empty() {
         base.to_string()
     } else {
-        format!("{base}.{}", kept.join("+"))
+        format!("{base}.{}", st.kept.join("+"))
     };
-    Some((cleaned, alt_cmc, saw_nonland))
+    Some((cleaned, st.alt_cmc, saw_nonland))
 }
 
 fn plan_exile_alt_cast_zone(
@@ -7253,12 +7469,30 @@ fn plan_exile_alt_cast_zone(
             },
         });
     }
-    let all_owned_counter = affected.split(',').all(|alt| {
-        let mut has_you_own = false;
+    let all_exiled_by_you = affected.split(',').all(|alt| {
+        let mut has_exiled_by = false;
+        for a in alt.split(['.', '+']).map(str::trim) {
+            if a == "ExiledByYou" {
+                has_exiled_by = true;
+            } else if matches!(a, "ExiledWithSource" | "ExiledWith" | "IsImprinted") {
+                return false;
+            }
+        }
+        has_exiled_by
+    });
+    if all_exiled_by_you {
+        return Some(AltCastZonePlan {
+            zones_expr: "AltCastZones::ExiledByYou".to_string(),
+            grant_zone_permission: true,
+            kind: AltCastZoneKind::ExiledByYou,
+        });
+    }
+    let all_counter = affected.split(',').all(|alt| {
+        let mut has_owner = false;
         let mut has_counter = false;
         for a in alt.split(['.', '+']).map(str::trim) {
-            if a == "YouOwn" {
-                has_you_own = true;
+            if matches!(a, "YouOwn" | "OppOwn") {
+                has_owner = true;
             } else if a.starts_with("counters_GE") {
                 has_counter = true;
             } else if matches!(
@@ -7268,9 +7502,9 @@ fn plan_exile_alt_cast_zone(
                 return false;
             }
         }
-        has_you_own && has_counter
+        has_owner && has_counter
     });
-    all_owned_counter.then(|| AltCastZonePlan {
+    all_counter.then(|| AltCastZonePlan {
         zones_expr: "AltCastZones::Zones(&[ZoneRef::Exile])".to_string(),
         grant_zone_permission: true,
         kind: AltCastZoneKind::ExileCounter,

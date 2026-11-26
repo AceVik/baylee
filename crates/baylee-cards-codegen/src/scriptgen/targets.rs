@@ -1276,6 +1276,8 @@ impl Tx<'_> {
                 "Filter::OwnedByYou".to_string()
             }
             "YouDontOwn" => "Filter::Not(&Filter::OwnedByYou)".to_string(),
+            "OppOwn" => "Filter::OwnedBy(PlayerRel::EachOpponent)".to_string(),
+            "ExiledByYou" if card_zone => "Filter::ExiledByYou".to_string(),
             "Other" | "StrictlyOther" => "Filter::Another".to_string(),
             "Self" | "StrictlySelf" => "Filter::This".to_string(),
             "attacking" => "Filter::Attacking".to_string(),
@@ -1433,6 +1435,15 @@ impl Tx<'_> {
             "!withRampage" => "Filter::Not(&Filter::HasRampage)".to_string(),
             "ThisTurnEntered" if !card_zone => "Filter::EnteredThisTurn".to_string(),
             "!ThisTurnEntered" if !card_zone => "Filter::Not(&Filter::EnteredThisTurn)".to_string(),
+            "ThisTurnEntered" if card_zone => {
+                "Filter::EnteredCurrentZoneThisTurn(None)".to_string()
+            }
+            "!ThisTurnEntered" if card_zone => {
+                "Filter::Not(&Filter::EnteredCurrentZoneThisTurn(None))".to_string()
+            }
+            atom if entered_current_zone_from_filter(atom).is_some() => {
+                entered_current_zone_from_filter(atom).expect("checked")
+            }
             "PutIntoGraveyardThisTurn" if card_zone => {
                 "Filter::PutIntoGraveyardThisTurn".to_string()
             }
@@ -3085,4 +3096,28 @@ fn oracle_scopes_combat_target_to_you(lower_oracle: &str, phrase: &str) -> bool 
         .matches(&format!("{phrase} you control"))
         .count();
     total > 0 && total == yours
+}
+
+fn entered_current_zone_from_filter(atom: &str) -> Option<String> {
+    let (negated, rest) = if let Some(r) = atom.strip_prefix('!') {
+        (true, r)
+    } else {
+        (false, atom)
+    };
+    let zone = match rest.strip_prefix("ThisTurnEnteredFrom_")? {
+        "Battlefield" => "ZoneRef::Battlefield",
+        "Graveyard" => "ZoneRef::Graveyard",
+        "Library" => "ZoneRef::Library",
+        "Exile" => "ZoneRef::Exile",
+        "Hand" => "ZoneRef::Hand",
+        "Stack" => "ZoneRef::Stack",
+        "Command" => "ZoneRef::Command",
+        _ => return None,
+    };
+    let inner = format!("Filter::EnteredCurrentZoneThisTurn(Some({zone}))");
+    Some(if negated {
+        format!("Filter::Not(&{inner})")
+    } else {
+        inner
+    })
 }
