@@ -22,6 +22,16 @@ impl Tx<'_> {
             || trigger.starts_with("Trigger::DealsCombatDamageToPlayerOrPlaneswalker(")
     }
 
+    /// Whether `trigger` is a `DamageDone` player-target trigger binding `event_player`
+    /// to the damaged player (`PlayerRel::DamagedPlayer`).
+    pub(super) fn wave28b_trigger_binds_damage_player(trigger: &str) -> bool {
+        trigger.starts_with("Trigger::DealsDamageToPlayer {")
+            || trigger.starts_with("Trigger::DealsCombatDamageToPlayer(")
+            || trigger.starts_with("Trigger::DealsCombatDamageToOpponent(")
+            || trigger.starts_with("Trigger::DealsDamageToOpponent(")
+            || trigger.starts_with("Trigger::DealsCombatDamageToYou(")
+    }
+
     /// Whether a `DamageDone`/`DamageDealtOnce` `ValidSource$` names the
     /// attached permanent (`EnchantedBy`/`EquippedBy`/`AttachedBy`).
     pub(super) fn wave28b_is_attached_damage_source(source: &str) -> bool {

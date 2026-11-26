@@ -13664,8 +13664,59 @@ impl Tx<'_> {
         strip_remembered_filter: Option<&str>,
         allow_chosen_card_cleanup: bool,
     ) -> Option<Vec<String>> {
+        let (out, _) = self.compile_wave8_scoped_chain_inner(
+            start_svar,
+            scope,
+            strip_remembered_filter,
+            allow_chosen_card_cleanup,
+            false,
+        )?;
+        Some(out)
+    }
+
+    /// Compiles `ChooseCard.then`, stopping before any trailing step that no
+    /// longer references `ChosenCard` or `Remembered` so independent spell
+    /// effects run after `ChooseCard` instead of inside its per-choice `then`.
+    fn compile_chosen_object_chain_with_tail(
+        &mut self,
+        start_svar: &str,
+    ) -> Option<(Vec<String>, Option<String>)> {
+        self.compile_wave8_scoped_chain_inner(
+            start_svar,
+            Wave8Scope::ChosenObject,
+            None,
+            true,
+            true,
+        )
+    }
+
+    fn step_references_chosen_object(&self, body: &str) -> bool {
+        if body.contains("ChosenCard") || body.contains("Remembered") {
+            return true;
+        }
+        let Some((_, sp)) = Params::parse(body) else {
+            return false;
+        };
+        sp.entries.iter().any(|(k, v)| {
+            k != "SubAbility"
+                && self
+                    .svars
+                    .get(v.trim())
+                    .is_some_and(|sv| sv.contains("ChosenCard") || sv.contains("Remembered"))
+        })
+    }
+
+    fn compile_wave8_scoped_chain_inner(
+        &mut self,
+        start_svar: &str,
+        scope: Wave8Scope,
+        strip_remembered_filter: Option<&str>,
+        allow_chosen_card_cleanup: bool,
+        split_unchosen_tail: bool,
+    ) -> Option<(Vec<String>, Option<String>)> {
         let mut out = Vec::new();
         let mut cursor = Some(start_svar.trim().to_string());
+        let mut trailing_sub = None;
         let mut steps = 0usize;
         while let Some(name) = cursor.take() {
             steps += 1;
@@ -13673,11 +13724,17 @@ impl Tx<'_> {
                 return self.deny("a cyclic scoped `SubAbility$` chain".to_string());
             }
             if self.is_wave8_cleanup_svar(&name, allow_chosen_card_cleanup) {
+                trailing_sub = self.strip_chosen_card_cleanup_tail(Some(name));
                 break;
             }
             let Some(body) = self.svars.get(&name).cloned() else {
                 return self.deny(format!("`SubAbility$ {name}` names no SVar"));
             };
+            if split_unchosen_tail && !out.is_empty() && !self.step_references_chosen_object(&body)
+            {
+                trailing_sub = Some(name);
+                break;
+            }
             let (mut effects, next) = self.compile_wave8_scoped_step(
                 &body,
                 scope,
@@ -13690,7 +13747,7 @@ impl Tx<'_> {
         if out.is_empty() {
             return self.deny("an empty scoped sub-ability chain".to_string());
         }
-        Some(out)
+        Some((out, trailing_sub))
     }
 
     pub(super) fn strip_matching_remembered_guard(
@@ -15170,14 +15227,13 @@ impl Tx<'_> {
             ));
         }
 
-        let then_effects =
-            self.compile_wave8_scoped_chain(sub_name, Wave8Scope::ChosenObject, None, true)?;
+        let (then_effects, trailing_sub) = self.compile_chosen_object_chain_with_tail(sub_name)?;
         Some(ChooseCardFollowup {
             movement: "ChooseMove::None".to_string(),
             not_chosen_movement: "ChooseMove::None".to_string(),
             then_effects,
             for_unchosen: Vec::new(),
-            trailing_sub: None,
+            trailing_sub,
         })
     }
 
@@ -16589,7 +16645,9 @@ impl Tx<'_> {
                 Some("TargetSpec::SpellOrAbility(&Filter::WithSingleTarget)".to_string())
             }
             "Activated.singleTarget" if any_source => {
-                Some("TargetSpec::ActivatedAbility(&Filter::WithSingleTarget)".to_string())
+                let expr = "Filter::And(&[Filter::ActivatedAbilityFrom(&Filter::Any), Filter::WithSingleTarget])";
+                let name = self.body.filter_static("TARGET", expr);
+                Some(format!("TargetSpec::AbilityOnStack(&{name})"))
             }
             "Instant.singleTarget,Sorcery.singleTarget"
             | "Sorcery.singleTarget,Instant.singleTarget"
@@ -16634,8 +16692,7 @@ impl Tx<'_> {
         let target_spec = target?;
         let is_stack_target = target_spec.starts_with("TargetSpec::Spell(")
             || target_spec.starts_with("TargetSpec::SpellOrAbility(")
-            || target_spec.starts_with("TargetSpec::AbilityOnStack(")
-            || target_spec.starts_with("TargetSpec::ActivatedAbility(");
+            || target_spec.starts_with("TargetSpec::AbilityOnStack(");
         if !is_stack_target {
             return None;
         }
@@ -16656,7 +16713,9 @@ impl Tx<'_> {
             Some(_) => return None,
         };
         if optional && magnet.is_none() && !change_single {
-            return Some(vec!["Effect::ChooseNewTargets".to_string()]);
+            return Some(vec![
+                "Effect::MayDo { effects: &[Effect::ChooseNewTargets] }".to_string(),
+            ]);
         }
         if !optional && single_target_stack {
             return match magnet.as_deref() {

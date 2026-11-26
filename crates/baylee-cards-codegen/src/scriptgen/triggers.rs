@@ -2563,9 +2563,16 @@ impl Tx<'_> {
         // optional too, so it is not read there; `validate` holds such a card
         // to its printed may.
         let prose_effect = p.peek("TriggerDescription").and_then(|d| {
-            d.to_ascii_lowercase()
-                .split_once(", ")
-                .map(|(_, effect)| effect.to_string())
+            let lower = d.to_ascii_lowercase();
+            let (_, mut effect) = lower.split_once(", ")?;
+            if effect.starts_with("if ")
+                && let Some((cond_part, rest)) = effect.split_once(", ")
+                && !cond_part.contains('.')
+                && rest.starts_with("you may ")
+            {
+                effect = rest;
+            }
+            Some(effect.to_string())
         });
         let oracle_has_you_may =
             self.oracle.is_empty() || self.oracle.to_ascii_lowercase().contains("you may");
@@ -2865,7 +2872,16 @@ impl Tx<'_> {
         let mut may = match (decider.as_deref(), optional_flag) {
             (None, Some(false)) => false,
             (None, None) => prose_may,
-            (None, Some(true)) | (Some("You"), None | Some(true)) => true,
+            (None, Some(true)) => true,
+            (Some("You"), None | Some(true)) => {
+                if !self.oracle.is_empty() && !self.oracle.to_ascii_lowercase().contains("may") {
+                    return self.deny(
+                        "`OptionalDecider$ You` on a trigger whose `Oracle:` has no `may`"
+                            .to_string(),
+                    );
+                }
+                true
+            }
             (Some("You"), Some(false)) => {
                 return self
                     .deny("conflicting `OptionalDecider$ You` and `Optional$ No`".to_string());
@@ -2986,6 +3002,7 @@ impl Tx<'_> {
         self.is_etb_self_trigger = trigger == "Trigger::ETB";
         self.trigger_blocks_creature = trigger.starts_with("Trigger::BlocksCreature(");
         self.damage_trigger_binds_source = Self::wave28b_trigger_binds_damage_source(&trigger);
+        self.damage_trigger_binds_player = Self::wave28b_trigger_binds_damage_player(&trigger);
         self.damage_trigger_is_combat = trigger.contains("CombatDamage");
         self.cost_sacrifices_self = matches!(
             &price,
@@ -3132,6 +3149,7 @@ impl Tx<'_> {
                 self.is_etb_self_trigger = false;
                 self.trigger_blocks_creature = false;
                 self.damage_trigger_binds_source = false;
+                self.damage_trigger_binds_player = false;
                 self.damage_trigger_source_is_attached = false;
                 self.damage_trigger_is_combat = false;
                 self.cost_sacrifices_self = false;
@@ -3151,6 +3169,7 @@ impl Tx<'_> {
         self.is_etb_self_trigger = false;
         self.trigger_blocks_creature = false;
         self.damage_trigger_binds_source = false;
+        self.damage_trigger_binds_player = false;
         self.damage_trigger_source_is_attached = false;
         self.damage_trigger_is_combat = false;
         self.cost_sacrifices_self = false;
@@ -4269,11 +4288,15 @@ impl Tx<'_> {
         let saved_delayed = std::mem::replace(&mut self.in_delayed, true);
         let saved_mode = std::mem::replace(&mut self.trigger_mode, inner_trigger_mode);
         let saved_self = std::mem::replace(&mut self.trigger_is_self, false);
+        let saved_dmg_src = std::mem::replace(&mut self.damage_trigger_binds_source, false);
+        let saved_dmg_player = std::mem::replace(&mut self.damage_trigger_binds_player, false);
         let saved_block = self.block_line.take();
         let read = self.chain(body, &mut inner);
         self.in_delayed = saved_delayed;
         self.trigger_mode = saved_mode;
         self.trigger_is_self = saved_self;
+        self.damage_trigger_binds_source = saved_dmg_src;
+        self.damage_trigger_binds_player = saved_dmg_player;
         self.block_line = saved_block;
         read?;
         if inner.second_target.is_some() {

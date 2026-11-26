@@ -6055,3 +6055,193 @@ fn destroy_with_a_name_twin_condition_is_checked_only_on_resolution() {
         "Count$Valid Creature.sharesNameWith Targeted"
     )));
 }
+
+#[test]
+fn retarget_and_damage_target_reader_fixes() {
+    let mut rich_cats = cats();
+    rich_cats.spell.push("Arcane".into());
+    rich_cats.normalize();
+    let read_rich = |text: &str| {
+        let parsed = parse(text);
+        transcode(&parsed, &rich_cats, None).unwrap_or_else(|| {
+            panic!(
+                "should be read in full, refused: {:?}",
+                refusal_reason(&parsed, &rich_cats, None)
+            )
+        })
+    };
+    // 1. Reroute: Activated.singleTarget lowers to AbilityOnStack + ActivatedAbilityFrom & WithSingleTarget.
+    let reroute = read(
+        "Name:Reroute\nManaCost:1 R\nTypes:Instant\n\
+         A:SP$ ChangeTargets | TargetType$ Activated.singleTarget | ValidTgts$ Card | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw | Defined$ You | NumCards$ 1\n\
+         Oracle:Change the target of target activated ability with a single target.\\nDraw a card.",
+    );
+    assert!(
+        reroute.abilities[0].contains("TargetSpec::AbilityOnStack(&TARGET1)")
+            && reroute
+                .statics
+                .contains("Filter::ActivatedAbilityFrom(&Filter::Any)")
+            && reroute.statics.contains("Filter::WithSingleTarget")
+            && !reroute.abilities[0].contains("ActivatedAbility(")
+            && reroute.abilities[0].contains("Effect::ChangeTarget { to: &Filter::Any }")
+            && reroute.abilities[0].contains("Effect::draw(1)"),
+        "{}\n{}",
+        reroute.abilities[0],
+        reroute.statics
+    );
+
+    // 2. Redirect & Sideswipe: Optional$ True ChangeTargets wraps ChooseNewTargets in MayDo.
+    let redirect = read(
+        "Name:Redirect\nManaCost:U U\nTypes:Instant\n\
+         A:SP$ ChangeTargets | TargetType$ Spell | Optional$ True | ValidTgts$ Card\n\
+         Oracle:You may choose new targets for target spell.",
+    );
+    assert!(
+        redirect.abilities[0].contains("Effect::MayDo { effects: &[Effect::ChooseNewTargets] }")
+            && redirect.abilities[0].contains("TargetSpec::Spell(&Filter::Any)"),
+        "{}",
+        redirect.abilities[0]
+    );
+    let sideswipe = read_rich(
+        "Name:Sideswipe\nManaCost:1 R\nTypes:Instant\n\
+         A:SP$ ChangeTargets | TargetType$ Spell | Optional$ True | ValidTgts$ Card.Arcane\n\
+         Oracle:You may change any targets of target Arcane spell.",
+    );
+    assert!(
+        sideswipe.abilities[0].contains("Effect::MayDo { effects: &[Effect::ChooseNewTargets] }"),
+        "{}",
+        sideswipe.abilities[0]
+    );
+
+    // 3. Sword of War and Peace & Furnace Scamp: DealsCombatDamageToPlayer binds DamagedPlayer.
+    let sword = read(
+        "Name:Sword of War and Peace\nManaCost:3\nTypes:Artifact Equipment\nK:Equip:2\n\
+         T:Mode$ DamageDone | ValidSource$ Creature.EquippedBy | ValidTarget$ Player | CombatDamage$ True | Execute$ TrigDamage | TriggerZones$ Battlefield\n\
+         SVar:TrigDamage:DB$ DealDamage | Defined$ TriggeredTarget | NumDmg$ X | SubAbility$ DBGain\n\
+         SVar:X:TriggeredTarget$CardsInHand\n\
+         SVar:DBGain:DB$ GainLife | Defined$ You | LifeAmount$ Y\n\
+         SVar:Y:Count$CardsInYourHand",
+    );
+    assert!(
+        sword.abilities[1].contains(
+            "Effect::DealDamage { amount: Amount::HandSize(PlayerRel::DamagedPlayer), target: TargetSpec::Player(PlayerRel::DamagedPlayer) }"
+        ) && !sword.abilities[1].contains("TargetSpec::EventObject"),
+        "{}",
+        sword.abilities[1]
+    );
+
+    let scamp = read(
+        "Name:Furnace Scamp\nManaCost:R\nTypes:Creature Phyrexian Beast\nPT:1/1\n\
+         T:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Player | CombatDamage$ True | OptionalDecider$ You | Execute$ TrigDamage | TriggerZones$ Battlefield\n\
+         SVar:TrigDamage:AB$ DealDamage | Cost$ Sac<1/CARDNAME> | Defined$ TriggeredTarget | NumDmg$ 3",
+    );
+    assert!(
+        scamp.abilities[0].contains(
+            "Effect::DealDamage { amount: Amount::Fixed(3), target: TargetSpec::Player(PlayerRel::DamagedPlayer) }"
+        ) && !scamp.abilities[0].contains("TargetSpec::EventObject"),
+        "{}",
+        scamp.abilities[0]
+    );
+}
+
+#[test]
+fn temporal_firestorm_taborax_durkwood_and_trigger_optionality_fixes() {
+    let mut rich_cats = cats();
+    rich_cats.creature.push("Cleric".into());
+    rich_cats.normalize();
+    let read_rich = |text: &str| {
+        let parsed = parse(text);
+        transcode(&parsed, &rich_cats, None).unwrap_or_else(|| {
+            panic!(
+                "should be read in full, refused: {:?}",
+                refusal_reason(&parsed, &rich_cats, None)
+            )
+        })
+    };
+    // 4. Temporal Firestorm: DamageAll must trail ChooseCard, never sit inside ChooseCard.then.
+    let firestorm = read(
+        "Name:Temporal Firestorm\nManaCost:3 R R\nTypes:Sorcery\nK:Kicker:1 W:1 U\n\
+         A:SP$ ChooseCard | Choices$ Creature.YouCtrl,Planeswalker.YouCtrl | Amount$ X | MinAmount$ 0 | SubAbility$ DBPhase\n\
+         SVar:DBPhase:DB$ Phases | Defined$ ChosenCard | SubAbility$ DBDamageAll\n\
+         SVar:DBDamageAll:DB$ DamageAll | NumDmg$ 5 | ValidCards$ Creature,Planeswalker\n\
+         SVar:X:Count$TimesKicked",
+    );
+    let ab = &firestorm.abilities[0];
+    assert!(
+        ab.contains("then: &[Effect::PhaseOut { target: Some(TargetSpec::EventObject) }]")
+            && ab.contains("Effect::DealDamageEach { amount: Amount::Fixed(5),")
+            && ab.find("Effect::PhaseOut").unwrap() < ab.find("Effect::DealDamageEach").unwrap(),
+        "{ab}"
+    );
+
+    // 5. Taborax, Hope's Demise: IfCondition(Cleric) wraps MayDo(Draw + LoseLife), not vice versa.
+    let taborax = read_rich(
+        "Name:Taborax, Hope's Demise\nManaCost:2 B\nTypes:Legendary Creature Demon Cleric\nPT:2/2\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Creature.!token+Other+YouCtrl | TriggerZones$ Battlefield | Execute$ TrigPutCounter\n\
+         SVar:TrigPutCounter:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1 | SubAbility$ DBLoseLife\n\
+         SVar:DBLoseLife:DB$ LoseLife | Defined$ You | LifeAmount$ 1 | UnlessCost$ Draw<1/You> | UnlessSwitched$ True | UnlessPayer$ You | ConditionDefined$ TriggeredCardLKICopy | ConditionPresent$ Creature.Cleric | ConditionCompare$ EQ1",
+    );
+    let tab_ab = &taborax.abilities[0];
+    assert!(
+        tab_ab.contains("Effect::IfCondition")
+            && tab_ab.contains(
+                "Effect::MayDo { effects: &[Effect::draw(1), Effect::LoseLife { amount: Amount::Fixed(1), target: PlayerRel::You }] }"
+            )
+            && tab_ab.find("Effect::IfCondition").unwrap() < tab_ab.find("Effect::MayDo").unwrap(),
+        "{tab_ab}"
+    );
+
+    // 6. Durkwood Tracker: Targeted$CardPower to Self with Oracle bite-back lowers to DamageEqualToPower;
+    //    mismatch without Oracle confirmation is refused.
+    let durkwood = read(
+        "Name:Durkwood Tracker\nManaCost:4 G\nTypes:Creature Giant\nPT:4/3\n\
+         A:AB$ DealDamage | Cost$ 1 G T | IsPresent$ Card.Self | PresentZone$ Battlefield | ValidTgts$ Creature.attacking | NumDmg$ X | SubAbility$ DBDamage\n\
+         SVar:DBDamage:DB$ DealDamage | Defined$ Self | NumDmg$ Y\n\
+         SVar:X:Count$CardPower\nSVar:Y:Targeted$CardPower\n\
+         Oracle:{1}{G}, {T}: If Durkwood Tracker is on the battlefield, it deals damage equal to its power to target attacking creature. That creature deals damage equal to its power to Durkwood Tracker.",
+    );
+    assert!(
+        durkwood.abilities[0].contains(
+            "Effect::DamageEqualToPower { dealer: TargetSlot::First, to: TargetSlot::This }"
+        ),
+        "{}",
+        durkwood.abilities[0]
+    );
+    assert!(refused(
+        "Name:BadSelfPowerDmg\nManaCost:4 G\nTypes:Creature Giant\nPT:4/3\n\
+         A:AB$ DealDamage | Cost$ 1 G T | ValidTgts$ Creature | NumDmg$ Y | Defined$ Self\n\
+         SVar:Y:Targeted$CardPower\n\
+         Oracle:{1}{G}, {T}: BadSelfPowerDmg deals damage to itself equal to target creature's power."
+    ));
+
+    // 7. Bloodhall Ooze: intervening-if followed by "you may" in TriggerDescription wraps in MayDo.
+    let ooze = read(
+        "Name:Bloodhall Ooze\nManaCost:R\nTypes:Creature Ooze\nPT:1/1\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | IsPresent$ Permanent.Black+YouCtrl | Execute$ TrigPutCounter | \
+         TriggerDescription$ At the beginning of your upkeep, if you control a black permanent, you may put a +1/+1 counter on CARDNAME.\n\
+         SVar:TrigPutCounter:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1\n\
+         Oracle:At the beginning of your upkeep, if you control a black permanent, you may put a +1/+1 counter on Bloodhall Ooze.",
+    );
+    assert!(
+        ooze.abilities[0].contains(
+            "Effect::MayDo { effects: &[Effect::AddCounter { kind: CounterKind::P1P1, amount: Amount::Fixed(1) }] }"
+        ),
+        "{}",
+        ooze.abilities[0]
+    );
+
+    // 8. Rikala / Timeless Witness: OptionalDecider$ You when Oracle lacks "may" is refused.
+    for bad in [
+        "Name:Rikala, Homarid King\nManaCost:1 G U\nTypes:Legendary Creature Lobster Noble\nPT:0/4\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | OptionalDecider$ You | Execute$ TrigPut\n\
+         SVar:TrigPut:DB$ PutCounter | Defined$ Self | CounterType$ TIDE | CounterNum$ 1\n\
+         Oracle:At the beginning of your upkeep, put a tide counter on Rikala.",
+        "Name:Timeless Witness\nManaCost:2 G G\nTypes:Creature Human Shaman\nPT:2/1\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigRet | OptionalDecider$ You\n\
+         SVar:TrigRet:DB$ ChangeZone | Origin$ Graveyard | Destination$ Hand | ValidTgts$ Card.YouCtrl\n\
+         Oracle:When Timeless Witness enters, return target card from your graveyard to your hand.",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
+}

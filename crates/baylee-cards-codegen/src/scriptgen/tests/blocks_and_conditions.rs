@@ -2022,3 +2022,121 @@ fn wave22d_computed_pt_and_static_refusals() {
         assert!(refused(bad), "must refuse:\n{bad}");
     }
 }
+
+#[test]
+fn cant_block_by_defender_ctrl() {
+    let hazy = read(
+        "Name:Hazy Homunculus\nManaCost:1 U\nTypes:Creature Homunculus Illusion\nPT:1/1\n\
+         S:Mode$ CantBlockBy | ValidAttacker$ Card.Self | IsPresent$ Land.DefenderCtrl+untapped | \
+         Description$ CARDNAME can't be blocked as long as defending player controls an untapped land.\n\
+         Oracle:Hazy Homunculus can't be blocked as long as defending player controls an untapped land.",
+    );
+    assert!(
+        hazy.abilities[0]
+            .contains("Condition::Not(&Condition::SomeDefendingPlayerControlsNone(&TARGET1))")
+            && hazy.statics.contains("Filter::LAND")
+            && hazy.statics.contains("Filter::Untapped"),
+        "{}\n{}",
+        hazy.abilities[0],
+        hazy.statics
+    );
+
+    let beebles = read(
+        "Name:Bubbling Beebles\nManaCost:4 U\nTypes:Creature Beeble\nPT:3/3\n\
+         S:Mode$ CantBlockBy | ValidAttacker$ Card.Self | IsPresent$ Enchantment.DefenderCtrl",
+    );
+    assert!(
+        beebles.abilities[0].contains(
+            "Condition::Not(&Condition::SomeDefendingPlayerControlsNone(&Filter::ENCHANTMENT))"
+        ),
+        "{}",
+        beebles.abilities[0]
+    );
+
+    let tangle = read(
+        "Name:Tanglewalker\nManaCost:2 G\nTypes:Creature Dryad\nPT:2/2\n\
+         S:Mode$ CantBlockBy | ValidAttacker$ Creature.YouCtrl | IsPresent$ Artifact.DefenderCtrl+Land",
+    );
+    assert!(
+        tangle.abilities[0].contains("Filter::YOUR_CREATURE")
+            && tangle.abilities[0].contains("Modifier::AddKeyword(KeywordSet::UNBLOCKABLE)")
+            && tangle.abilities[0].contains("SomeDefendingPlayerControlsNone("),
+        "{}",
+        tangle.abilities[0]
+    );
+
+    let arctic = read(
+        "Name:Arctic Foxes\nManaCost:1 W\nTypes:Creature Fox\nPT:1/1\n\
+         S:Mode$ CantBlockBy | ValidAttacker$ Card.Self | ValidBlocker$ Creature.powerGE2 | \
+         IsPresent$ Land.Snow+DefenderCtrl",
+    );
+    assert!(
+        arctic.abilities[0].contains("Modifier::CantBeBlockedBy(&BLOCKER2)")
+            && arctic.abilities[0].contains("SomeDefendingPlayerControlsNone("),
+        "{}",
+        arctic.abilities[0]
+    );
+
+    for bad in [
+        "Name:BadAyeshaCount\nManaCost:2 W U\nTypes:Legendary Creature Human\nPT:2/4\n\
+         S:Mode$ CantBlockBy | ValidAttacker$ Card.Self | IsPresent$ Artifact.DefenderCtrl | PresentCompare$ GE3",
+        "Name:BadPartialDefenderCtrl\nManaCost:1 U\nTypes:Creature\nPT:1/1\n\
+         S:Mode$ CantBlockBy | ValidAttacker$ Card.Self | IsPresent$ Artifact.DefenderCtrl,Land",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
+}
+
+#[test]
+fn nonartifact_mana_value_animation() {
+    let mut rich_cats = cats();
+    rich_cats.enchantment.push("Aura".into());
+    rich_cats.normalize();
+    let read_rich = |text: &str| {
+        let parsed = parse(text);
+        transcode(&parsed, &rich_cats, None).unwrap_or_else(|| {
+            panic!(
+                "should be read in full, refused: {:?}",
+                refusal_reason(&parsed, &rich_cats, None)
+            )
+        })
+    };
+    let opalescence = read_rich(
+        "Name:Opalescence\nManaCost:2 W W\nTypes:Enchantment\n\
+         S:Mode$ Continuous | Affected$ Enchantment.nonAura+Other | SetPower$ AffectedX | \
+         SetToughness$ AffectedX | AddType$ Creature\n\
+         SVar:AffectedX:Count$CardManaCost",
+    );
+    assert!(
+        opalescence.abilities[0].contains("Modifier::CreatureWithManaValuePT")
+            && !opalescence.abilities[0].contains("AnimateNoncreatureArtifact"),
+        "{}",
+        opalescence.abilities[0]
+    );
+
+    let starfield = read_rich(
+        "Name:Starfield of Nyx\nManaCost:4 W\nTypes:Enchantment\n\
+         S:Mode$ Continuous | IsPresent$ Enchantment.YouCtrl | PresentCompare$ GE5 | \
+         Affected$ Enchantment.YouCtrl+nonAura+Other | SetPower$ AffectedX | SetToughness$ AffectedX | \
+         AddType$ Creature\n\
+         SVar:AffectedX:Count$CardManaCost",
+    );
+    assert!(
+        starfield.abilities[0].contains("Modifier::CreatureWithManaValuePT")
+            && starfield.abilities[0].contains("Condition::ControlCount("),
+        "{}",
+        starfield.abilities[0]
+    );
+
+    let karn = read(
+        "Name:KarnAnimate\nManaCost:4\nTypes:Artifact\n\
+         S:Mode$ Continuous | Affected$ Artifact.nonCreature+YouCtrl | SetPower$ AffectedX | \
+         SetToughness$ AffectedX | AddType$ Creature\n\
+         SVar:AffectedX:Count$CardManaCost",
+    );
+    assert!(
+        karn.abilities[0].contains("Modifier::AnimateNoncreatureArtifact"),
+        "{}",
+        karn.abilities[0]
+    );
+}

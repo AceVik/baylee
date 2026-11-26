@@ -550,6 +550,8 @@ struct Tx<'a> {
     cost_discards_single_for_cost: bool,
     /// Whether the active damage trigger binds `event_object` to the damage source.
     damage_trigger_binds_source: bool,
+    /// Whether the active damage trigger binds `event_player` to the damaged player.
+    damage_trigger_binds_player: bool,
     /// Whether the active damage trigger's `ValidSource$` is the attached permanent.
     damage_trigger_source_is_attached: bool,
     /// Whether the active damage trigger is a combat-damage trigger.
@@ -749,6 +751,7 @@ impl<'a> Tx<'a> {
             cost_sacrifices_other: false,
             cost_discards_single_for_cost: false,
             damage_trigger_binds_source: false,
+            damage_trigger_binds_player: false,
             damage_trigger_source_is_attached: false,
             damage_trigger_is_combat: false,
             in_discard_hand_may: false,
