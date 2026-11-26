@@ -1960,6 +1960,9 @@ impl Tx<'_> {
                 }
                 (Some("Battlefield"), Some("Exile")) => {
                     p.take("IsCurse");
+                    if p.peek("UseAllOriginZones") == Some("True") {
+                        p.take("UseAllOriginZones");
+                    }
                     let valid = p.take("ChangeType")?;
                     let expr = if let Some((ctrl_rel, stripped)) =
                         self.extract_battlefield_ctrl_atom(&valid, targets_a_player)
@@ -2143,9 +2146,10 @@ impl Tx<'_> {
         if !matches!(p.take("RandomOrder").as_deref(), None | Some("True")) {
             return None;
         }
-        // The reference's "from every zone listed" rather than one of them:
-        // what two origins mean on a card.
-        if hand && graveyard {
+        // The reference's "from every zone listed" rather than one of them,
+        // or Forge's redundant `UseAllOriginZones$ True` on single-origin
+        // graveyard-to-library shuffles (*Finale of Revelation*).
+        if graveyard && (hand || p.peek("UseAllOriginZones") == Some("True")) {
             p.take("UseAllOriginZones");
         }
         p.take("IsCurse");
@@ -5386,7 +5390,7 @@ impl Tx<'_> {
         Some(out)
     }
 
-    fn consume_remembered_exile_play_effect(
+    pub(super) fn consume_remembered_exile_play_effect(
         &mut self,
         eff_name: &str,
         allow_you_own: bool,
@@ -5462,7 +5466,7 @@ impl Tx<'_> {
     /// optional leading `Cleanup | ClearRemembered$ True` step, as on
     /// *Party Thrasher* and *Feldon, Ronom Excavator*) granting play/cast
     /// permission on `ChosenCard`.
-    fn consume_chosen_card_exile_play_effect(
+    pub(super) fn consume_chosen_card_exile_play_effect(
         &mut self,
         start_name: &str,
         allow_you_own: bool,
@@ -6009,7 +6013,7 @@ impl Tx<'_> {
     /// `Origin$ Exile`, `Destination$ Battlefield`, nothing else), which
     /// lowers to `Effect::ReturnLinkedToBattlefield`, and no sentence names
     /// "cards exiled with" this source some other way.
-    fn linked_exile_readers_only_return(&self) -> bool {
+    pub(super) fn linked_exile_readers_only_return(&self) -> bool {
         if self.oracle.to_ascii_lowercase().contains("exiled with ") {
             return false;
         }
@@ -6052,7 +6056,18 @@ impl Tx<'_> {
         {
             return Some(fx);
         }
-        let origin = p.take("Origin")?;
+        let origin = if let Some(origin) = p.take("Origin") {
+            origin
+        } else if !targets_here
+            && self.trigger_changes_zone_to_graveyard
+            && p.peek("Destination") == Some("Battlefield")
+            && p.peek("Defined")
+                .is_some_and(|d| self.is_event_object_defined(d))
+        {
+            "Graveyard".to_string()
+        } else {
+            return None;
+        };
         let destination = p.take("Destination")?;
         if destination == "Battlefield" && (p.has("AttachedTo") || p.has("AttachedToPlayer")) {
             return self.wave27b_change_zone_attached(p, &origin, target, targets_here);
@@ -6504,7 +6519,10 @@ impl Tx<'_> {
             && destination == "Library"
             && p.peek("DestinationAlternative") == Some("Library")
             && p.peek("LibraryPositionAlternative") == Some("-1")
-            && p.peek("AlternativeDecider") == Some("TargetedOwner")
+            && matches!(
+                p.peek("AlternativeDecider"),
+                Some("TargetedOwner" | "ThisTargetedOwner")
+            )
             && matches!(p.peek("LibraryPosition"), None | Some("0"))
             && !p.has("Shuffle")
         {
@@ -6653,9 +6671,13 @@ impl Tx<'_> {
             ("Battlefield", "Library", true)
                 if !p.has("DestinationAlternative")
                     && !p.has("Shuffle")
-                    && matches!(p.take("LibraryPosition").as_deref(), None | Some("0")) =>
+                    && matches!(p.peek("LibraryPosition"), None | Some("0" | "-1")) =>
             {
-                vec!["Effect::PutSourceOnTopOfLibrary".to_string()]
+                if p.take("LibraryPosition").as_deref() == Some("-1") {
+                    vec!["Effect::PutSourceOnBottomOfLibrary".to_string()]
+                } else {
+                    vec!["Effect::PutSourceOnTopOfLibrary".to_string()]
+                }
             }
             ("Battlefield", "Library", false)
                 if (target.starts_with("TargetSpec::Object(")
@@ -9632,6 +9654,9 @@ impl Tx<'_> {
         p.take("IsCurse");
         match (origin, destination) {
             ("Battlefield", "Hand") => {
+                Some(vec!["Effect::bounce(TargetSpec::EventObject)".to_string()])
+            }
+            ("Stack", "Hand") if self.trigger_mode.as_deref() == Some("SpellCast") => {
                 Some(vec!["Effect::bounce(TargetSpec::EventObject)".to_string()])
             }
             ("Battlefield", "Exile") => {

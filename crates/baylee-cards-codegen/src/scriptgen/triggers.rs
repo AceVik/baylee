@@ -3108,10 +3108,13 @@ impl Tx<'_> {
             self.trigger_is_self = trigger_is_self;
             self.is_etb_self_trigger = trigger == "Trigger::ETB";
             self.trigger_self_etb_kicked = trigger_self_etb_kicked;
+            self.trigger_changes_zone_to_graveyard =
+                trigger.starts_with("Trigger::Dies(") || trigger == "Trigger::DiesThis";
             let parsed = self.read_charm_modes(&choices);
             self.trigger_is_self = false;
             self.is_etb_self_trigger = false;
             self.trigger_self_etb_kicked = false;
+            self.trigger_changes_zone_to_graveyard = false;
             self.damage_trigger_source_is_attached = false;
             let parsed = parsed?;
             if parsed.len() < 2 || (!restriction.is_empty() && parsed.len() > 64) {
@@ -3129,6 +3132,8 @@ impl Tx<'_> {
         self.trigger_is_self = trigger_is_self;
         self.is_etb_self_trigger = trigger == "Trigger::ETB";
         self.trigger_self_etb_kicked = trigger_self_etb_kicked;
+        self.trigger_changes_zone_to_graveyard =
+            trigger.starts_with("Trigger::Dies(") || trigger == "Trigger::DiesThis";
         self.trigger_blocks_creature = trigger.starts_with("Trigger::BlocksCreature(");
         self.damage_trigger_binds_source = Self::wave28b_trigger_binds_damage_source(&trigger);
         self.damage_trigger_is_combat = trigger.contains("CombatDamage");
@@ -3276,6 +3281,7 @@ impl Tx<'_> {
                 self.trigger_is_self = false;
                 self.is_etb_self_trigger = false;
                 self.trigger_self_etb_kicked = false;
+                self.trigger_changes_zone_to_graveyard = false;
                 self.trigger_blocks_creature = false;
                 self.damage_trigger_binds_source = false;
                 self.damage_trigger_source_is_attached = false;
@@ -3296,6 +3302,7 @@ impl Tx<'_> {
         self.trigger_is_self = false;
         self.is_etb_self_trigger = false;
         self.trigger_self_etb_kicked = false;
+        self.trigger_changes_zone_to_graveyard = false;
         self.trigger_blocks_creature = false;
         self.damage_trigger_binds_source = false;
         self.damage_trigger_source_is_attached = false;
@@ -4418,11 +4425,13 @@ impl Tx<'_> {
         let saved_delayed = std::mem::replace(&mut self.in_delayed, true);
         let saved_mode = std::mem::replace(&mut self.trigger_mode, inner_trigger_mode);
         let saved_self = std::mem::replace(&mut self.trigger_is_self, false);
+        let saved_dies = std::mem::replace(&mut self.trigger_changes_zone_to_graveyard, false);
         let saved_block = self.block_line.take();
         let read = self.chain(body, &mut inner);
         self.in_delayed = saved_delayed;
         self.trigger_mode = saved_mode;
         self.trigger_is_self = saved_self;
+        self.trigger_changes_zone_to_graveyard = saved_dies;
         self.block_line = saved_block;
         read?;
         if inner.second_target.is_some() {

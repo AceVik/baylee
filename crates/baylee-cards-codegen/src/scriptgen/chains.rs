@@ -449,6 +449,33 @@ impl Tx<'_> {
             chain.effects.extend(effects);
             return Some(());
         }
+        if api == "TargetOnly"
+            && !second_target_here
+            && sub.is_some()
+            && self.try_target_same_name_zone_all_chain(&mut p, targets_here, &mut sub, chain)
+        {
+            return self.chain_sub_ability(sub, chain);
+        }
+        if api == "ChangeZone"
+            && targets_here
+            && !second_target_here
+            && sub.is_some()
+            && p.peek("Origin") == Some("Battlefield")
+            && p.peek("Destination") == Some("Exile")
+            && self.sub_is_api(sub.as_deref(), "ChangeZoneAll")
+        {
+            let saved_p = p.clone();
+            let saved_sub = sub.clone();
+            let saved_unclaimed = self.unclaimed.borrow().clone();
+            let saved_statics_len = self.body.statics.len();
+            if self.try_exile_and_purge_hand_same_name(&mut p, &mut sub, chain) {
+                return self.chain_sub_ability(sub, chain);
+            }
+            p = saved_p;
+            sub = saved_sub;
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
+            self.body.statics.truncate(saved_statics_len);
+        }
         if api == "DestroyAll"
             && p.peek("ValidCards") == Some("Permanent.!TriggeredCard+sharesNameWith TriggeredCard")
             && let Some(effects) = self.wave18b_try_eye_of_singularity_etb_other(&p, sub.as_deref())
@@ -3750,7 +3777,10 @@ impl Tx<'_> {
                     || (self.has_x
                         && (api == "PutCounter"
                             || (api == "RepeatEach"
-                                && p.peek("DefinedCards") == Some("Targeted")))))
+                                && p.peek("DefinedCards") == Some("Targeted"))
+                            || (api == "ChangeZone"
+                                && p.peek("Origin") == Some("Graveyard")
+                                && matches!(p.peek("Destination"), Some("Hand" | "Exile"))))))
                     && p.peek("TargetMin") == Some("0")
                     && let Some(max) = p.peek("TargetMax")
                     && self.svars.get(max.trim()).map(|s| s.trim()) == Some("Count$xPaid")
@@ -9417,6 +9447,39 @@ impl Tx<'_> {
             && flags.targets_here
             && flags.single_target
             && p.peek("Origin") == Some("Graveyard")
+            && p.peek("Destination") == Some("Exile")
+            && self.sub_is_api(sub.as_deref(), "Token")
+            && let Some(effs) = self.try_exile_gy_token_counter_chain(p, sub, target)
+        {
+            return Some(effs);
+        }
+        if api == "ChangeZone"
+            && !flags.targets_here
+            && p.peek("Origin") == Some("Library")
+            && p.peek("Destination") == Some("Battlefield")
+            && p.peek("NoShuffle") == Some("True")
+            && sub.is_some()
+            && let Some(effs) = self.try_search_library_conditional_repeat_shuffle(
+                p,
+                sub,
+                target,
+                flags.targets_here,
+            )
+        {
+            return Some(effs);
+        }
+        if api == "ChangeZoneAll"
+            && !flags.targets_here
+            && p.peek("Destination") == Some("Exile")
+            && sub.is_some()
+            && let Some(effs) = self.try_change_zone_all_remembered_exile_play(p, sub)
+        {
+            return Some(effs);
+        }
+        if api == "ChangeZone"
+            && flags.targets_here
+            && flags.single_target
+            && p.peek("Origin") == Some("Graveyard")
             && matches!(
                 p.peek("Destination"),
                 Some("Hand" | "Battlefield" | "Library" | "Exile")
@@ -11262,5 +11325,701 @@ impl Tx<'_> {
         Some(format!(
             "Effect::FlipCoinsDamageTailsRepeatUntilBothHeads {{ damage: Amount::Fixed({dmg_amt}) }}"
         ))
+
+    fn only_linked_exile_all_returns(&self) -> bool {
+        if self.oracle.to_ascii_lowercase().contains("exiled with ") {
+            return false;
+        }
+        let mut readers = 0usize;
+        for body in self.svars.values() {
+            if !body.contains("ExiledWith") {
+                continue;
+            }
+            readers += 1;
+            let Some((api, mut rp)) = Params::parse(body) else {
+                return false;
+            };
+            rp.drop_prose();
+            if api != "ChangeZoneAll"
+                || rp.take("ChangeType").as_deref() != Some("Card.ExiledWithSource")
+                || rp.take("Origin").as_deref() != Some("Exile")
+                || rp.take("Destination").as_deref() != Some("Battlefield")
+                || !rp.exhausted()
+            {
+                return false;
+            }
+        }
+        readers > 0
+    }
+
+    /// Lowers `TargetOnly -> ChangeZoneAll` same-name sweep spells and triggers
+    /// (*Sever the Bloodline*, *Echoing Truth*, *Legions to Ashes*, *Detention Sphere*,
+    /// *Echoing Return*, *Rat King, Verminister*) using `Effect::RememberTargetsThen`
+    /// and `Filter::SharesNameWithRemembered`.
+    #[allow(clippy::too_many_lines)]
+    fn try_target_same_name_zone_all_chain(
+        &mut self,
+        p: &mut Params,
+        targets_here: bool,
+        sub: &mut Option<String>,
+        chain: &mut Chain,
+    ) -> bool {
+        if !targets_here
+            || chain.target_exact.is_some()
+            || chain.target_range.is_some()
+            || chain.target_is_x
+            || chain.target_up_to_x
+            || chain.target_constraint.is_some()
+            || chain.target_up_to.is_some_and(|n| n > 1)
+            || p.has("Optional")
+        {
+            return false;
+        }
+        let Some(target) = chain.target.as_deref() else {
+            return false;
+        };
+        let saved_p = p.clone();
+        p.take("IsCurse");
+        if !p.exhausted() {
+            *p = saved_p;
+            return false;
+        }
+        let Some(sub_name) = sub.as_deref().map(str::trim) else {
+            *p = saved_p;
+            return false;
+        };
+        let Some(sub_body) = self.svars.get(sub_name).cloned() else {
+            *p = saved_p;
+            return false;
+        };
+        let Some((s_api, mut cp)) = Params::parse(&sub_body) else {
+            *p = saved_p;
+            return false;
+        };
+        cp.drop_prose();
+        if s_api != "ChangeZoneAll"
+            || cp.has("ValidTgts")
+            || cp.has("Condition")
+            || cp.has("ConditionDefined")
+            || cp.has("ConditionPresent")
+            || cp.has("ConditionCheckSVar")
+            || cp.has("UnlessCost")
+            || cp.has("AtEOT")
+            || cp.has("RememberChanged")
+            || cp.has("UseAllOriginZones")
+        {
+            *p = saved_p;
+            return false;
+        }
+        cp.take("IsCurse");
+        let Some(origin) = cp.take("Origin") else {
+            *p = saved_p;
+            return false;
+        };
+        let Some(dest) = cp.take("Destination") else {
+            *p = saved_p;
+            return false;
+        };
+        let defined = cp.take("Defined");
+        let tapped = match cp.take("Tapped").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => {
+                *p = saved_p;
+                return false;
+            }
+        };
+        let Some(change_type) = cp.take("ChangeType") else {
+            *p = saved_p;
+            return false;
+        };
+        let next_sub = cp.take("SubAbility");
+        if !cp.exhausted() {
+            *p = saved_p;
+            return false;
+        }
+        let Some((first_alt, rest_alt)) = change_type.split_once(',') else {
+            *p = saved_p;
+            return false;
+        };
+        if !matches!(first_alt.trim(), "TargetedCard.Self" | "Targeted.Self")
+            || rest_alt.contains(',')
+        {
+            *p = saved_p;
+            return false;
+        }
+        let Some((base, attrs)) = rest_alt.trim().split_once('.') else {
+            *p = saved_p;
+            return false;
+        };
+        let base = base.trim();
+        if !matches!(base, "Permanent" | "Creature" | "Card" | "Targeted") {
+            *p = saved_p;
+            return false;
+        }
+        let is_card_zone = origin == "Graveyard";
+        let mut saw_same_name = false;
+        let mut saw_ctrl_tgt = false;
+        let mut kept_atoms: Vec<&str> = Vec::new();
+        for atom in attrs.split('+').map(str::trim).filter(|a| !a.is_empty()) {
+            match atom {
+                "sharesNameWith TargetedCard" | "sharesNameWith Targeted" | "sameName" => {
+                    saw_same_name = true;
+                }
+                "NotDefinedTargeted" | "!IsTargeted" => {}
+                "ControlledBy TargetedController" => saw_ctrl_tgt = true,
+                "YouOwn" if is_card_zone && defined.as_deref() == Some("You") => {}
+                other if !other.contains("Targeted") && !other.contains("Remembered") => {
+                    kept_atoms.push(other);
+                }
+                _ => {
+                    *p = saved_p;
+                    return false;
+                }
+            }
+        }
+        if !saw_same_name {
+            *p = saved_p;
+            return false;
+        }
+        let normalized_base = if base == "Targeted" {
+            if is_card_zone { "Card" } else { "Permanent" }
+        } else {
+            base
+        };
+        let mut clauses: Vec<String> = Vec::new();
+        if !matches!(normalized_base, "Card" | "Permanent") || !kept_atoms.is_empty() {
+            let valid_str = if kept_atoms.is_empty() {
+                normalized_base.to_string()
+            } else {
+                format!("{normalized_base}.{}", kept_atoms.join("+"))
+            };
+            let Some(expr) = self.filter_expr_in_zone(&valid_str, is_card_zone) else {
+                *p = saved_p;
+                return false;
+            };
+            if expr != "Filter::Any" {
+                clauses.push(expr);
+            }
+        }
+        if saw_ctrl_tgt {
+            clauses.push("Filter::ControlledBy(PlayerRel::ControllerOfTarget)".to_string());
+        }
+        clauses.push("Filter::SharesNameWithRemembered".to_string());
+        let second_expr = if clauses.len() == 1 {
+            clauses.pop().expect("len 1")
+        } else {
+            format!("Filter::And(&[{}])", clauses.join(", "))
+        };
+        let full_expr = format!("Filter::Or(&[Filter::IsRemembered, {second_expr}])");
+        let effect = match (origin.as_str(), dest.as_str()) {
+            ("Battlefield", "Exile")
+                if defined.is_none() && !tapped && target.starts_with("TargetSpec::Object(") =>
+            {
+                let linked = if self.linked_exile_readers_only_return()
+                    || self.only_linked_exile_all_returns()
+                {
+                    true
+                } else if !self.has_linked_exile_reader() {
+                    false
+                } else {
+                    *p = saved_p;
+                    return false;
+                };
+                let name = self.body.filter_static("SAME_NAME", &full_expr);
+                format!("Effect::ExileAll {{ filter: &{name}, linked: {linked} }}")
+            }
+            ("Battlefield", "Hand")
+                if defined.is_none()
+                    && !tapped
+                    && !saw_ctrl_tgt
+                    && target.starts_with("TargetSpec::Object(") =>
+            {
+                let name = self.body.filter_static("SAME_NAME", &full_expr);
+                format!("Effect::ReturnAllToHand {{ filter: &{name}, opponents_only: false }}")
+            }
+            ("Graveyard", "Hand")
+                if matches!(defined.as_deref(), Some("You"))
+                    && !tapped
+                    && !saw_ctrl_tgt
+                    && target.starts_with("TargetSpec::CardInGraveyard(") =>
+            {
+                let name = self.body.filter_static("SAME_NAME", &full_expr);
+                format!("Effect::GraveyardAllToHand {{ filter: &{name} }}")
+            }
+            ("Graveyard", "Battlefield")
+                if matches!(defined.as_deref(), Some("You"))
+                    && !saw_ctrl_tgt
+                    && target.starts_with("TargetSpec::CardInGraveyard(") =>
+            {
+                let name = self.body.filter_static("SAME_NAME", &full_expr);
+                format!(
+                    "Effect::ChooseCardEx {{ chooser: PlayerRel::You,                      zone: ChooseZone::Graveyard(PlayerRel::You), filter: &{name}, min: 0,                      max: Amount::Fixed(0), reveal_chosen: false, movement: ChooseMove::None,                      not_chosen_movement: ChooseMove::Battlefield {{ tapped: {tapped} }},                      then: &[], for_unchosen: &[] }}"
+                )
+            }
+            _ => {
+                *p = saved_p;
+                return false;
+            }
+        };
+        *sub = next_sub;
+        chain.effects.push(format!(
+            "Effect::RememberTargetsThen {{ then: &[{effect}] }}"
+        ));
+        true
+    }
+
+    /// Lowers "Exile target creature. If that creature was a <Subtype>, its controller reveals
+    /// their hand and exiles all cards from it with the same name as that creature"
+    /// (*Hour of Glory*) via `Effect::RememberTargetsThen` + `Condition::CapturedMatches`.
+    fn try_exile_and_purge_hand_same_name(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        chain: &mut Chain,
+    ) -> bool {
+        if chain.target_exact.is_some()
+            || chain.target_range.is_some()
+            || chain.target_is_x
+            || chain.target_up_to_x
+            || chain.target_constraint.is_some()
+            || chain.target_up_to.is_some_and(|n| n > 1)
+            || p.has("Optional")
+            || p.has("RememberChanged")
+        {
+            return false;
+        }
+        let Some(target) = chain.target.as_deref() else {
+            return false;
+        };
+        if !target.starts_with("TargetSpec::Object(") || self.has_linked_exile_reader() {
+            return false;
+        }
+        let Some(sub_name) = sub.as_deref().map(str::trim) else {
+            return false;
+        };
+        let Some(sub_body) = self.svars.get(sub_name).cloned() else {
+            return false;
+        };
+        let Some((s_api, mut cp)) = Params::parse(&sub_body) else {
+            return false;
+        };
+        cp.drop_prose();
+        if s_api != "ChangeZoneAll"
+            || cp.take("Origin").as_deref() != Some("Hand")
+            || cp.take("Destination").as_deref() != Some("Exile")
+            || cp.take("ConditionDefined").as_deref() != Some("Targeted")
+            || cp.take("Defined").as_deref() != Some("TargetedController")
+            || !matches!(
+                cp.take("ChangeType").as_deref(),
+                Some("TargetedCard.sameName" | "Targeted.sameName")
+            )
+            || cp.has("ConditionCheckSVar")
+            || cp.has("UnlessCost")
+            || cp.has("AtEOT")
+        {
+            return false;
+        }
+        let Some(present) = cp.take("ConditionPresent") else {
+            return false;
+        };
+        let next_sub = cp.take("SubAbility");
+        if !cp.exhausted() {
+            return false;
+        }
+        let Some(cond_expr) = self.filter_expr(present.trim()) else {
+            return false;
+        };
+        let mut p_clone = p.clone();
+        let Some(first_effs) = self.effect_of_with_prior(
+            "ChangeZone",
+            &mut p_clone,
+            Some(target),
+            LineFlags {
+                targets_here: true,
+                targets_a_player: false,
+                single_target: true,
+                prior_target_used: false,
+            },
+        ) else {
+            return false;
+        };
+        if !p_clone.exhausted() || first_effs.len() != 1 {
+            return false;
+        }
+        let cond_filter = self.body.filter_static("COND", &cond_expr);
+        *p = p_clone;
+        *sub = next_sub;
+        let purge = "Effect::RevealHand { who: PlayerRel::ControllerOfTarget }, ".to_string()
+            + "Effect::ChooseCardEx { chooser: PlayerRel::You, "
+            + "zone: ChooseZone::Hand(PlayerRel::ControllerOfTarget), "
+            + "filter: &Filter::SharesNameWithRemembered, min: 0, max: Amount::Fixed(0), "
+            + "reveal_chosen: false, movement: ChooseMove::None, "
+            + "not_chosen_movement: ChooseMove::Exile, then: &[], for_unchosen: &[] }";
+        chain.effects.push(format!(
+            "Effect::RememberTargetsThen {{ then: &[Effect::IfTargetMatchesElse {{ filter: &{cond_filter}, then: &[{}, {purge}], otherwise: &[{}] }}] }}",
+            first_effs[0], first_effs[0]
+        ));
+        true
+    }
+
+    /// Lowers `ChangeZoneAll | RememberChanged$ True` followed by either:
+    /// - `DB$ Effect` (`MayPlay$ True`) granting cast/play permission on all exiled
+    ///   cards (*Heartless Conscription*), or
+    /// - `DB$ ChooseCard(ChoiceZone$ Exile) -> DB$ Effect` granting permission on one
+    ///   chosen nonland card (*Author of Shadows*).
+    fn try_change_zone_all_remembered_exile_play(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+    ) -> Option<Vec<String>> {
+        let mut probe = p.clone();
+        if probe.take("RememberChanged").as_deref() != Some("True") {
+            return None;
+        }
+        if let Some(forget) = probe.take("ForgetOtherRemembered")
+            && forget != "True"
+        {
+            return None;
+        }
+        let origin = probe.peek("Origin").map(str::to_string);
+        let sub_name = sub.as_deref()?.trim().to_string();
+        let sub_body = self.svars.get(&sub_name)?.clone();
+        let (s_api, mut sp) = Params::parse(&sub_body)?;
+        sp.drop_prose();
+
+        if s_api == "Effect" && sp.peek("Duration") == Some("Permanent") {
+            let (perm_spec, trailing) =
+                self.consume_remembered_exile_play_effect(&sub_name, false, "exile-all")?;
+            let first = self.effect_of_with_prior(
+                "ChangeZoneAll",
+                &mut probe,
+                None,
+                LineFlags {
+                    targets_here: false,
+                    targets_a_player: false,
+                    single_target: false,
+                    prior_target_used: false,
+                },
+            )?;
+            if !probe.exhausted() || first.len() != 1 || !first[0].starts_with("Effect::ExileAll") {
+                return None;
+            }
+            let perm = perm_spec.to_expr();
+            *p = probe;
+            self.wave24a_take_optional_cleanup(trailing, sub)?;
+            return Some(vec![format!(
+                "Effect::CaptureAffected {{ first: &[{}], then: &[Effect::GrantRememberedExilePermission {{                  filter: &Filter::Any, permission: {perm} }}] }}",
+                first[0]
+            )]);
+        }
+
+        if s_api == "ChooseCard" && origin.as_deref() == Some("Graveyard") {
+            return self.try_exile_gy_all_choose_one_exile_play(p, &mut probe, &mut sp, sub);
+        }
+
+        None
+    }
+
+    /// Lowers `ChangeZoneAll(Graveyard -> Exile | RememberChanged$ True)` ->
+    /// `ChooseCard(ChoiceZone$ Exile, IsRemembered)` -> `DB$ Effect(MayPlay)`
+    /// (*Author of Shadows*).
+    fn try_exile_gy_all_choose_one_exile_play(
+        &mut self,
+        p: &mut Params,
+        probe: &mut Params,
+        sp: &mut Params,
+        sub: &mut Option<String>,
+    ) -> Option<Vec<String>> {
+        if sp.take("Defined").as_deref() != Some("You")
+            || sp.take("ChoiceZone").as_deref() != Some("Exile")
+            || sp.take("Mandatory").as_deref() != Some("True")
+            || sp.has("Amount")
+            || sp.has("RememberChosen")
+        {
+            return None;
+        }
+        sp.take("ChoiceTitle");
+        let choices_raw = sp.take("Choices")?;
+        let eff_name = sp.take("SubAbility")?;
+        if !sp.exhausted() {
+            return None;
+        }
+        let (perm_spec, trailing) = self.consume_chosen_card_exile_play_effect(&eff_name, false)?;
+        let mut kept_atoms: Vec<&str> = Vec::new();
+        let mut saw_rem = false;
+        let (base, rest) = choices_raw.trim().split_once('.')?;
+        if base.trim() != "Card" {
+            kept_atoms.push(base.trim());
+        }
+        for atom in rest.split('+').map(str::trim).filter(|a| !a.is_empty()) {
+            if atom == "IsRemembered" {
+                saw_rem = true;
+            } else {
+                kept_atoms.push(atom);
+            }
+        }
+        if !saw_rem {
+            return None;
+        }
+        let filter_ref = if kept_atoms.is_empty() {
+            "&Filter::Any".to_string()
+        } else {
+            let valid = if kept_atoms[0] == base.trim() {
+                if kept_atoms.len() == 1 {
+                    kept_atoms[0].to_string()
+                } else {
+                    format!("{}.{}", kept_atoms[0], kept_atoms[1..].join("+"))
+                }
+            } else {
+                format!("Card.{}", kept_atoms.join("+"))
+            };
+            let expr = self.filter_expr_in_zone(&valid, true)?;
+            format!("&{}", self.body.filter_static("CHOOSE_EXILED", &expr))
+        };
+        let first = self.effect_of_with_prior(
+            "ChangeZoneAll",
+            probe,
+            None,
+            LineFlags {
+                targets_here: false,
+                targets_a_player: false,
+                single_target: false,
+                prior_target_used: false,
+            },
+        )?;
+        if !probe.exhausted()
+            || first.len() != 1
+            || !first[0].starts_with("Effect::ExileGraveyard")
+            || self.has_linked_exile_reader()
+        {
+            return None;
+        }
+        let perm = perm_spec.to_expr();
+        *p = probe.clone();
+        self.wave24a_take_optional_cleanup(trailing, sub)?;
+        Some(vec![format!(
+            "Effect::CaptureAffected {{ first: &[{}], then: &[Effect::ChooseCardEx {{              chooser: PlayerRel::You, zone: ChooseZone::Remembered, filter: {filter_ref},              min: 1, max: Amount::Fixed(1), reveal_chosen: false, movement: ChooseMove::None,              not_chosen_movement: ChooseMove::None, then: &[Effect::ExileWithPermission {{              target: TargetSpec::EventObject, until: None, permission: {perm} }}],              for_unchosen: &[] }}] }}",
+            first[0]
+        )])
+    }
+
+    /// Lowers `ChangeZone(Graveyard->Exile | RememberChanged$ True)` followed by
+    /// `Token(ConditionDefined$ Remembered, ImprintTokens$ True)` and optional
+    /// `PutCounter(Defined$ Imprinted, ConditionDefined$ Remembered)` (*Summoner's Sending*).
+    fn try_exile_gy_token_counter_chain(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        let mut probe = p.clone();
+        if probe.take("RememberChanged").as_deref() != Some("True") {
+            return None;
+        }
+        if let Some(forget) = probe.take("ForgetOtherRemembered")
+            && forget != "True"
+        {
+            return None;
+        }
+        let first = self.effect_of_with_prior(
+            "ChangeZone",
+            &mut probe,
+            target,
+            LineFlags {
+                targets_here: true,
+                targets_a_player: false,
+                single_target: true,
+                prior_target_used: false,
+            },
+        )?;
+        if !probe.exhausted() || first.len() != 1 {
+            return None;
+        }
+        let tok_name = sub.as_deref()?.trim().to_string();
+        let tok_body = self.svars.get(&tok_name)?.clone();
+        let (t_api, mut tp) = Params::parse(&tok_body)?;
+        tp.drop_prose();
+        if t_api != "Token"
+            || tp.take("ConditionDefined").as_deref() != Some("Remembered")
+            || tp.take("ImprintTokens").as_deref() != Some("True")
+        {
+            return None;
+        }
+        let tok_cond_raw = tp.take("ConditionPresent")?;
+        let tok_cmp = tp.take("ConditionCompare");
+        if !matches!(tok_cmp.as_deref(), None | Some("GE1" | "EQ1" | "GT0")) {
+            return None;
+        }
+        let cnt_name = tp.take("SubAbility")?;
+        let plain_tok_effs = self.token_effect(&mut tp, target, false)?;
+        if !tp.exhausted() || plain_tok_effs.len() != 1 {
+            return None;
+        }
+
+        let cnt_body = self.svars.get(cnt_name.trim())?.clone();
+        let (c_api, mut cp) = Params::parse(&cnt_body)?;
+        cp.drop_prose();
+        if c_api != "PutCounter"
+            || cp.take("Defined").as_deref() != Some("Imprinted")
+            || cp.take("ConditionDefined").as_deref() != Some("Remembered")
+            || !matches!(
+                cp.take("ConditionCompare").as_deref(),
+                None | Some("GE1" | "EQ1" | "GT0")
+            )
+        {
+            return None;
+        }
+        let cnt_cond_raw = cp.take("ConditionPresent")?;
+        let code = cp.take("CounterType")?;
+        let kind = super::counter_kind(&code)?;
+        let cnt_amt = self.amount_or_count_ext(cp.take("CounterNum").as_deref().unwrap_or("1"))?;
+        let trailing = cp.take("SubAbility");
+        if !cp.exhausted() {
+            return None;
+        }
+        let tok_cond_expr = self.filter_expr_in_zone(tok_cond_raw.trim(), true)?;
+        let tok_cond_filter = self.body.filter_static("CAPTURED", &tok_cond_expr);
+        let cnt_cond_expr = self.filter_expr_in_zone(cnt_cond_raw.trim(), true)?;
+        let cnt_cond_filter = self.body.filter_static("CAPTURED", &cnt_cond_expr);
+
+        let tok_expr = plain_tok_effs[0]
+            .strip_prefix("Effect::CreateToken { token: ")
+            .and_then(|s| s.strip_suffix(" }"))?;
+        let with_counters_eff = format!(
+            "Effect::CreateTokenThenCounters {{ token: {tok_expr}, kind: {kind}, amount: {cnt_amt} }}"
+        );
+        if let Some(ref cname) = trailing
+            && let Some(cbody) = self.svars.get(cname.trim())
+            && let Some((c_api, mut ccp)) = Params::parse(cbody)
+            && c_api == "Cleanup"
+            && ccp.take("ClearRemembered").as_deref() == Some("True")
+        {
+            ccp.drop_prose();
+            if ccp.peek("ClearImprinted") == Some("True") {
+                ccp.take("ClearImprinted");
+            }
+            let after = ccp.take("SubAbility");
+            if !ccp.exhausted() {
+                return None;
+            }
+            *sub = after;
+        } else {
+            self.wave24a_take_optional_cleanup(trailing, sub)?;
+        }
+        *p = probe;
+        Some(vec![format!(
+            "Effect::CaptureAffected {{ first: &[{}], then: &[Effect::IfCondition {{              condition: Condition::CapturedMatches(&{tok_cond_filter}),              then: &[Effect::IfCondition {{              condition: Condition::CapturedMatches(&{cnt_cond_filter}),              then: &[{with_counters_eff}], otherwise: &[{}] }}],              otherwise: &[] }}] }}",
+            first[0], plain_tok_effs[0]
+        )])
+    }
+
+    /// Lowers "search your library ... don't shuffle, then if <cond>, you may repeat
+    /// this process once; if you searched your library this way, shuffle" (*Claim Jumper*)
+    /// using `Effect::SearchLibraryBeforeShuffle` + `Effect::ShuffleLibrary`.
+    fn try_search_library_conditional_repeat_shuffle(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        target: Option<&str>,
+        targets_here: bool,
+    ) -> Option<Vec<String>> {
+        let mut p1 = p.clone();
+        if p1.take("NoShuffle").as_deref() != Some("True")
+            || p1.take("RememberChanged").as_deref() != Some("True")
+        {
+            return None;
+        }
+        if let Some(forget) = p1.take("ForgetOtherRemembered")
+            && forget != "True"
+        {
+            return None;
+        }
+        let s2_name = sub.as_deref()?.trim().to_string();
+        let s2_body = self.svars.get(&s2_name)?.clone();
+        let (s2_api, mut p2) = Params::parse(&s2_body)?;
+        p2.drop_prose();
+        if s2_api != "ChangeZone"
+            || p2.peek("Origin") != Some("Library")
+            || p2.peek("Destination") != Some("Battlefield")
+            || p2.take("NoShuffle").as_deref() != Some("True")
+            || p2.take("RememberChanged").as_deref() != Some("True")
+            || p2.take("Optional").as_deref() != Some("True")
+        {
+            return None;
+        }
+        let cond_var = p2.take("ConditionCheckSVar")?;
+        let cond_cmp = p2
+            .take("ConditionSVarCompare")
+            .unwrap_or_else(|| "GE1".to_string());
+        let cond = self
+            .svar_condition(&cond_var, &cond_cmp)
+            .or_else(|| self.extra_svar_condition_clause(&cond_var, &cond_cmp))
+            .or_else(|| self.wave7_svar_condition(&cond_var, &cond_cmp))?;
+        let s3_name = p2.take("SubAbility")?;
+
+        let s3_body = self.svars.get(s3_name.trim())?.clone();
+        let (s3_api, mut p3) = Params::parse(&s3_body)?;
+        p3.drop_prose();
+        if s3_api != "Shuffle"
+            || p3.take("Defined").as_deref() != Some("You")
+            || p3.take("ConditionDefined").as_deref() != Some("Remembered")
+            || p3.take("ConditionPresent").as_deref() != Some("Card")
+            || !matches!(
+                p3.take("ConditionCompare").as_deref(),
+                None | Some("GE1" | "GT0")
+            )
+        {
+            return None;
+        }
+        let trailing = p3.take("SubAbility");
+        if !p3.exhausted() {
+            return None;
+        }
+
+        let p1_constrained = p1
+            .peek("ChangeType")
+            .is_some_and(|ct| !matches!(ct.trim(), "Card" | "Card.YouOwn"));
+        if !p1.has("Optional") && !p1_constrained {
+            return None;
+        }
+        p1.entries.push(("Shuffle".to_string(), "True".to_string()));
+        if !p1.has("Optional") && p1_constrained {
+            p1.entries
+                .push(("Optional".to_string(), "True".to_string()));
+        }
+        let mut e1 = self.change_zone_with_prior(&mut p1, target, targets_here, false, false)?;
+        if !p1.exhausted() || e1.len() != 1 || !e1[0].starts_with("Effect::SearchLibrary {") {
+            return None;
+        }
+        e1[0] = e1[0].replacen(
+            "Effect::SearchLibrary {",
+            "Effect::SearchLibraryBeforeShuffle {",
+            1,
+        );
+
+        p2.entries.push(("Shuffle".to_string(), "True".to_string()));
+        p2.entries
+            .push(("Optional".to_string(), "True".to_string()));
+        let mut e2 = self.change_zone_with_prior(&mut p2, target, false, false, false)?;
+        if !p2.exhausted() || e2.len() != 1 || !e2[0].starts_with("Effect::SearchLibrary {") {
+            return None;
+        }
+        e2[0] = e2[0].replacen(
+            "Effect::SearchLibrary {",
+            "Effect::SearchLibraryBeforeShuffle {",
+            1,
+        );
+
+        *p = p1;
+        self.wave24a_take_optional_cleanup(trailing, sub)?;
+        Some(vec![
+            e1[0].clone(),
+            format!(
+                "Effect::IfCondition {{ condition: {cond}, then: &[Effect::MayDo {{ effects: &[{}] }}], otherwise: &[] }}",
+                e2[0]
+            ),
+            "Effect::ShuffleLibrary { who: PlayerRel::You }".to_string(),
+        ])
     }
 }
