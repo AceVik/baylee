@@ -3,8 +3,6 @@
 
 use crate::common;
 
-use std::fmt::Write as _;
-
 use baylee_protocol::v1::{self, Envelope};
 use common::{Gateway, Socket, http, json_field, next_msg, send};
 
@@ -237,7 +235,7 @@ async fn exit_status_does_not_overtake_an_attached_engines_final_messages() {
     exited(&mut owner, &id).await;
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
     assert!(listed(&gw, &token, &id));
-    let mut encoded = Vec::new();
+    let mut written = Vec::new();
     for (seq, bytes) in [
         b"{\"type\":\"header\"}\n".as_slice(),
         b"{\"type\":\"end\"}\n".as_slice(),
@@ -249,7 +247,7 @@ async fn exit_status_does_not_overtake_an_attached_engines_final_messages() {
         let mut gzip = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
         gzip.write_all(bytes).unwrap();
         let data = gzip.finish().unwrap();
-        encoded.extend_from_slice(&data);
+        written.extend_from_slice(bytes);
         send(
             &mut engine,
             &Envelope {
@@ -281,17 +279,26 @@ async fn exit_status_does_not_overtake_an_attached_engines_final_messages() {
     );
     gone(&gw, &token, &id).await;
     // Record writes are asynchronous, but must retain every byte and ending
-    // after the control status has overtaken the engine's final stream.
+    // after the control status has overtaken the engine's final stream. A
+    // finished record may be compacted into one piece, so the bytes are
+    // compared unpacked.
     tokio::time::timeout(common::WAIT_BUDGET, async {
         while gw.scalar(&format!("SELECT count(*) FROM game_record WHERE game_id='{id}' AND complete AND end_reason='test ending'")) != 1 {
             tokio::time::sleep(std::time::Duration::from_millis(10)).await;
         }
     }).await.unwrap();
-    let expected = encoded.iter().fold(String::new(), |mut s, byte| {
-        write!(s, "{byte:02x}").unwrap();
-        s
-    });
-    assert_eq!(gw.text(&format!("SELECT encode(string_agg(data, ''::bytea ORDER BY seq),'hex') FROM game_record_chunk WHERE game_id='{id}'")), expected);
+    let stored = gw.text(&format!("SELECT encode(string_agg(data, ''::bytea ORDER BY seq),'hex') FROM game_record_chunk WHERE game_id='{id}'"));
+    let packed = (0..stored.len())
+        .step_by(2)
+        .map(|at| u8::from_str_radix(&stored[at..at + 2], 16).unwrap())
+        .collect::<Vec<u8>>();
+    let mut unpacked = Vec::new();
+    std::io::Read::read_to_end(
+        &mut flate2::read::MultiGzDecoder::new(&packed[..]),
+        &mut unpacked,
+    )
+    .unwrap();
+    assert_eq!(unpacked, written);
     let _ = engine.close(None).await;
     owner.close(None).await.unwrap();
 }

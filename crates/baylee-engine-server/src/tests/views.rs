@@ -520,6 +520,7 @@ fn assert_responsive_during_pump(runner: &mut EngineRunner) {
             msg: Some(v1::envelope::Msg::FlushRecord(v1::FlushRecord {
                 game_id: "g1".to_string(),
                 nonce: 99,
+                hold: false,
             })),
         },
         &[],

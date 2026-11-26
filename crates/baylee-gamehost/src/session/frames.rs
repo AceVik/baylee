@@ -143,6 +143,23 @@ impl<D: baylee_engine::engine::LoopDetection, R: crate::session::SessionRegistry
         }
     }
 
+    /// After a resume, what each seat that answers over a socket had earned
+    /// by what it was told: the printings of every log line it may read and
+    /// of its table now. A live seat earns them as frames go out, and a
+    /// resume sends no frame. A printing it was shown only in a view long
+    /// gone is earned again the next time it is shown; one it never could
+    /// see stays unearned.
+    pub(super) fn earn_what_was_told(&mut self) {
+        for seat in self.human_seats() {
+            let view = self.seat_view(seat);
+            let told = LogTail {
+                from: 0,
+                entries: self.log.told(seat, 0, self.log.len()),
+            };
+            self.reveal(seat, view.prints().chain(told.prints()));
+        }
+    }
+
     /// Marks every printing a seat was shown, by its view or its log; true
     /// when any was new.
     fn reveal(

@@ -48,7 +48,11 @@ impl<
     /// wait.
     ///
     /// Moves nothing in the game: no pump, no clock, no frame to a seat.
-    pub(super) fn flush_record(&mut self, nonce: u64) -> Vec<Envelope> {
+    ///
+    /// With `hold` the gateway is stopping: once answered, the game is held
+    /// (its `held` flag) and nothing moves it any more.
+    pub(super) fn flush_record(&mut self, nonce: u64, hold: bool) -> Vec<Envelope> {
+        self.held |= hold;
         let mut out: Vec<_> = self.capture_pending_record().into_iter().collect();
         out.push(Envelope {
             msg: Some(v1::envelope::Msg::RecordFlushed(v1::RecordFlushed {
@@ -81,6 +85,9 @@ impl<
     /// first move after the curtain rises finds the header overdue.
     #[must_use]
     pub fn record_deadline(&self) -> Option<u64> {
+        if self.held {
+            return None;
+        }
         if self.ended || self.curtain.is_some() {
             return None;
         }

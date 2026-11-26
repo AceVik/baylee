@@ -86,6 +86,32 @@ trait Store {
         &mut self,
         result: central_api::challenges::Completion,
     ) -> impl Future<Output = Result<(), String>> + Send;
+    /// Keeps a finished record as one piece ([`baylee_db::records::compact`]).
+    /// A store that keeps pieces as they came has nothing to do.
+    fn compact(&mut self) -> impl Future<Output = Result<(), String>> + Send {
+        async { Ok(()) }
+    }
+}
+
+/// The most a finished record may unpack to and still be compacted; a
+/// larger one stays in its pieces.
+const MAX_COMPACTED_BYTES: u64 = 256 * 1024 * 1024;
+
+/// One gzip member of the record the stored members `packed` make, or why
+/// not.
+fn recompressed(packed: &[u8]) -> Result<Vec<u8>, String> {
+    use std::io::{Read as _, Write as _};
+    let mut record = Vec::new();
+    flate2::read::MultiGzDecoder::new(packed)
+        .take(MAX_COMPACTED_BYTES + 1)
+        .read_to_end(&mut record)
+        .map_err(|e| e.to_string())?;
+    if record.len() as u64 > MAX_COMPACTED_BYTES {
+        return Err("too large to compact".into());
+    }
+    let mut gz = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+    gz.write_all(&record).map_err(|e| e.to_string())?;
+    gz.finish().map_err(|e| e.to_string())
 }
 
 /// The gateway's database.
@@ -129,6 +155,25 @@ impl Store for Database {
             .map(|_| ())
             .map_err(|e| e.to_string())
     }
+
+    async fn compact(&mut self) -> Result<(), String> {
+        let Some((packed, pieces)) = baylee_db::records::stored_pieces(&self.db, &self.game_id)
+            .await
+            .map_err(|e| e.to_string())?
+        else {
+            return Ok(());
+        };
+        if pieces < 2 {
+            return Ok(());
+        }
+        let data = tokio::task::spawn_blocking(move || recompressed(&packed))
+            .await
+            .map_err(|e| e.to_string())??;
+        baylee_db::records::compact(&self.db, &self.game_id, pieces, data)
+            .await
+            .map(|_| ())
+            .map_err(|e| e.to_string())
+    }
 }
 
 /// Writes what `rx` hands over, in order, until the sink is gone.
@@ -138,23 +183,39 @@ impl Store for Database {
 /// load, the database belongs to them (a pool of two in the e2e tests was
 /// enough for this write to hold up a seat's sign-in). A flush answered
 /// before any piece resolves without starting the record: there is none.
+///
+/// A write that fails is tried again, waiting [`RETRY_FIRST`] and doubling
+/// to [`RETRY_MAX`], for up to [`RETRY_FOR`]: a database that restarts is
+/// back within seconds, and a game resumed after a restart is only as whole
+/// as its stored record (`docs/proposals/games-survive-restarts.md`). Every
+/// write is idempotent (`baylee_db::records`), so a write that went through
+/// but whose answer was lost is not written twice. Only past that time does
+/// the writer stop, as it did at the first failure before.
 async fn write(game_id: String, mut rx: mpsc::UnboundedReceiver<Entry>, mut store: impl Store) {
     let mut opened = false;
     while let Some(entry) = rx.recv().await {
         match entry {
             Entry::Piece(piece) => {
                 if !opened {
-                    if let Err(e) = store.open().await {
-                        tracing::error!(game_id, "starting the game's record: {e}");
-                        return;
+                    let mut patience = Patience::new();
+                    while let Err(e) = store.open().await {
+                        if !patience.again(&game_id, &e).await {
+                            tracing::error!(game_id, "starting the game's record: {e}");
+                            return;
+                        }
                     }
+                    patience.done(&game_id);
                     opened = true;
                 }
                 let seq = piece.seq;
-                if let Err(e) = store.append(piece).await {
-                    tracing::error!(game_id, seq, "storing the game's record: {e}");
-                    return;
+                let mut patience = Patience::new();
+                while let Err(e) = store.append(piece.clone()).await {
+                    if !patience.again(&game_id, &e).await {
+                        tracing::error!(game_id, seq, "storing the game's record: {e}");
+                        return;
+                    }
                 }
+                patience.done(&game_id);
             }
             // Nobody waiting any more (the report gave up) is fine.
             Entry::Flushed(done) => {
@@ -162,18 +223,85 @@ async fn write(game_id: String, mut rx: mpsc::UnboundedReceiver<Entry>, mut stor
             }
             // A game that stored nothing has no row to note it on.
             Entry::Ended(ending) => {
-                if opened && let Err(e) = store.finish(ending).await {
-                    tracing::error!(game_id, "noting how the game ended: {e}");
-                    return;
+                if !opened {
+                    continue;
+                }
+                let mut patience = Patience::new();
+                while let Err(e) = store.finish(ending.clone()).await {
+                    if !patience.again(&game_id, &e).await {
+                        tracing::error!(game_id, "noting how the game ended: {e}");
+                        return;
+                    }
+                }
+                patience.done(&game_id);
+                // The game is over: its pieces become one, which is kept
+                // for good. A record left in pieces reads the same.
+                if let Err(e) = store.compact().await {
+                    tracing::warn!(game_id, "keeping the finished record in its pieces: {e}");
                 }
             }
             Entry::Challenge(result, done) => {
-                if let Err(error) = store.challenge(result).await {
-                    tracing::error!(game_id, "storing challenge outcome: {error}");
-                    return;
+                let mut patience = Patience::new();
+                while let Err(error) = store.challenge(result.clone()).await {
+                    if !patience.again(&game_id, &error).await {
+                        tracing::error!(game_id, "storing challenge outcome: {error}");
+                        return;
+                    }
                 }
+                patience.done(&game_id);
                 let _ = done.send(());
             }
+        }
+    }
+}
+
+/// The first wait after a failed write.
+const RETRY_FIRST: std::time::Duration = std::time::Duration::from_millis(250);
+/// The longest wait between two tries of one write.
+const RETRY_MAX: std::time::Duration = std::time::Duration::from_secs(10);
+/// How long one write is tried before the writer gives the record up.
+const RETRY_FOR: std::time::Duration = std::time::Duration::from_mins(15);
+
+/// One write's tries: how long to wait before the next, and whether the
+/// game's record has been said to be failing, which is said once a write
+/// and not once a try.
+struct Patience {
+    since: tokio::time::Instant,
+    wait: std::time::Duration,
+    failed: bool,
+}
+
+impl Patience {
+    fn new() -> Self {
+        Self {
+            since: tokio::time::Instant::now(),
+            wait: RETRY_FIRST,
+            failed: false,
+        }
+    }
+
+    /// The write failed with `error`: waits and says to try again, or says
+    /// to give up once [`RETRY_FOR`] has passed.
+    async fn again(&mut self, game_id: &str, error: &str) -> bool {
+        if self.since.elapsed() + self.wait > RETRY_FOR {
+            return false;
+        }
+        if !self.failed {
+            self.failed = true;
+            tracing::warn!(
+                game_id,
+                "writing the game's record failed; trying again: {error}"
+            );
+        }
+        tokio::time::sleep(self.wait).await;
+        self.wait = (self.wait * 2).min(RETRY_MAX);
+        true
+    }
+
+    /// The write went through, after `again` said to try once at least.
+    fn done(&self, game_id: &str) {
+        if self.failed {
+            tracing::info!(game_id, "the game's record is written again");
         }
     }
 }
@@ -294,6 +422,85 @@ pub struct Flushes {
     last: AtomicU64,
     /// Each open ask: the game it was sent to, and who waits for it.
     waiting: Mutex<HashMap<u64, (String, oneshot::Sender<()>)>>,
+}
+
+/// How long a stopping gateway waits for the running games' records.
+pub(crate) const FLUSH_ON_STOP: std::time::Duration = std::time::Duration::from_secs(5);
+
+/// Every running game's engine is asked for its record as it stands
+/// (`FlushRecord`, #323), and this waits until each answer is stored, for
+/// `within` at most: what a gateway that is told to stop does before it
+/// stops, so that a game resumed after the restart misses nothing
+/// (`docs/proposals/games-survive-restarts.md`). Not asked: a Tower engine,
+/// which keeps its record with the Tower's authority and ends its duel on
+/// any other frame, and a ranked duel's protected engines, which move only
+/// by their certified journal. How many games answered in time.
+pub(crate) async fn flush_all(state: &crate::Shared, within: std::time::Duration) -> usize {
+    let engines: Vec<(String, crate::lobby::EngineLink)> = {
+        let lobby = state.lobby.lock();
+        lobby
+            .running()
+            .filter(|game| !crate::report::flushes_nothing(game))
+            .filter(|game| game.ranked.is_none_or(|binding| binding.replica.is_none()))
+            .filter_map(|game| game.engine.clone().map(|engine| (game.id.clone(), engine)))
+            .collect()
+    };
+    let flushes = &state.record_flushes;
+    let mut asked = Vec::new();
+    for (game_id, engine) in engines {
+        let (ask, stored) = flushes.ask(&game_id);
+        let flush = v1::Envelope {
+            msg: Some(v1::envelope::Msg::FlushRecord(v1::FlushRecord {
+                game_id,
+                nonce: ask.nonce,
+                hold: true,
+            })),
+        };
+        if engine.send(flush).is_ok() {
+            asked.push((ask, stored));
+        }
+    }
+    let deadline = tokio::time::Instant::now() + within;
+    let mut answered = 0;
+    for (_ask, stored) in asked {
+        if matches!(tokio::time::timeout_at(deadline, stored).await, Ok(Ok(()))) {
+            answered += 1;
+        }
+    }
+    answered
+}
+
+/// On `SIGTERM` (a deploy, a reboot, `systemctl restart`) or Ctrl-C: the
+/// running games' records are stored ([`flush_all`]), and then the process
+/// ends, as the signal would have ended it. Before this a stop ended the
+/// gateway at once and whatever an engine had not yet sent was lost.
+pub(crate) fn flush_on_stop(state: crate::Shared) {
+    tokio::spawn(async move {
+        stopped().await;
+        let answered = flush_all(&state, FLUSH_ON_STOP).await;
+        tracing::info!(answered, "stopping: the running games' records are stored");
+        std::process::exit(0);
+    });
+}
+
+/// Resolves when the process is told to stop.
+async fn stopped() {
+    #[cfg(unix)]
+    {
+        use tokio::signal::unix::{SignalKind, signal};
+        let Ok(mut terminate) = signal(SignalKind::terminate()) else {
+            let _ = tokio::signal::ctrl_c().await;
+            return;
+        };
+        tokio::select! {
+            _ = terminate.recv() => {}
+            _ = tokio::signal::ctrl_c() => {}
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = tokio::signal::ctrl_c().await;
+    }
 }
 
 impl Flushes {

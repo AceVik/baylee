@@ -295,9 +295,12 @@ fn pump_slice_streams_incremental_views_without_premature_questions_and_matches_
 
 /// A table whose frames nobody reads is the table that sends them, answer
 /// for answer: the same questions, the same views to every seat, the same
-/// hash and the same record. Only the frames stop.
+/// hash and the same record. Only the frames stop, and with them what each
+/// record line notes of how far the log was sent (`sealed`), which only a
+/// resumed table reads.
 #[test]
 fn discarding_the_frames_changes_nothing_but_the_frames() {
+    use crate::record::Line;
     let table = || {
         let mut session = Session::new_recorded(&test_preset(), "test").expect("session builds");
         session.take_over(PlayerId::new(1));
@@ -329,7 +332,25 @@ fn discarding_the_frames_changes_nothing_but_the_frames() {
         sent.pump_slice(1);
     }
     assert!(frames > 0, "the other table sent frames");
-    assert_eq!(sent.take_record(), discarded.take_record());
+    let unsealed = |record: &[u8]| -> Vec<Line> {
+        crate::record::tests::lines(record)
+            .into_iter()
+            .map(|mut line| {
+                if let Line::Input { sealed, .. }
+                | Line::Chair { sealed, .. }
+                | Line::Connection { sealed, .. }
+                | Line::Setting { sealed, .. } = &mut line
+                {
+                    *sealed = None;
+                }
+                line
+            })
+            .collect()
+    };
+    assert_eq!(
+        unsealed(&sent.take_record()),
+        unsealed(&discarded.take_record())
+    );
 }
 
 /// Whatever a table's sockets are sent, read by readers as a client reads it,

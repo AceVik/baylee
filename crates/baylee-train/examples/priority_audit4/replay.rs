@@ -116,7 +116,10 @@ pub fn audit(bytes: &[u8], seat: u8) -> Result<Value> {
                 }
             }
             Line::Header { .. } | Line::End { .. } => anyhow::bail!("unexpected nested Header/End"),
-            Line::Chair { .. } | Line::DeclaredMind { .. } => {}
+            Line::Chair { .. }
+            | Line::Connection { .. }
+            | Line::Setting { .. }
+            | Line::DeclaredMind { .. } => {}
         }
     }
     anyhow::ensure!(

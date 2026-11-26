@@ -10,6 +10,7 @@ mod native_pack;
 mod participation;
 mod projection;
 mod record;
+mod resume;
 mod spectators;
 mod variants;
 mod views;
@@ -75,6 +76,7 @@ fn setup_accounts<D: LoopDetection>(
                 seat_names: vec!["You".to_string(), "House".to_string()],
                 seat_guests: Vec::new(),
                 seat_accounts: accounts,
+                ..Default::default()
             })),
         },
         &[],

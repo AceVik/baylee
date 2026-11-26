@@ -1,5 +1,5 @@
 use super::{MAX_DECLARATIONS, SeatKind, Session, seat_byte};
-use crate::record::{ChairChange, Mind};
+use crate::record::{ChairChange, ConnectionChange, Mind};
 use baylee_ai::HeuristicAgent;
 use baylee_core::ids::{ObjectId, PlayerId, SeatSet};
 use baylee_core::preset::{AIProfile, AiHandSharePolicy, HandSharingRule};
@@ -64,7 +64,14 @@ impl<D: baylee_engine::engine::LoopDetection, R: crate::session::SessionRegistry
     /// Writes down a change of who answers `seat`.
     fn chair_changed(&mut self, seat: PlayerId, change: ChairChange) {
         if let Some(record) = self.record.as_mut() {
-            record.chair(seat, change);
+            record.chair(seat, change, self.log.sealed());
+        }
+    }
+
+    /// Writes down what happened to `seat`'s connection.
+    fn connection_changed(&mut self, seat: PlayerId, change: ConnectionChange) {
+        if let Some(record) = self.record.as_mut() {
+            record.connection(seat, change, self.log.sealed());
         }
     }
 
@@ -337,6 +344,7 @@ impl<D: baylee_engine::engine::LoopDetection, R: crate::session::SessionRegistry
             player: seat,
             wait_secs,
         });
+        self.connection_changed(seat, ConnectionChange::Lost { wait_secs });
         let until = wait_secs.map(|secs| self.now_ms.saturating_add(u64::from(secs) * 1_000));
         self.lost.retain(|(s, _)| *s != seat);
         self.lost.push((seat, until));
@@ -382,6 +390,7 @@ impl<D: baylee_engine::engine::LoopDetection, R: crate::session::SessionRegistry
     pub fn connection_back(&mut self, seat: PlayerId) {
         self.lost.retain(|(s, _)| *s != seat);
         self.log.note(LogEvent::Returned { player: seat });
+        self.connection_changed(seat, ConnectionChange::Back);
     }
 
     /// The house concedes for a player who is not coming back: one who left
@@ -571,6 +580,10 @@ impl<D: baylee_engine::engine::LoopDetection, R: crate::session::SessionRegistry
                         .insert((seat.get(), asker.get()), self.engine.state().turn.number);
                 }
             }
+        }
+        // Taken, so a resumed session takes it again at this point.
+        if let Some(record) = self.record.as_mut() {
+            record.setting(seat, setting, self.log.sealed());
         }
         let changed: Vec<PlayerId> = self
             .human_seats()

@@ -132,6 +132,7 @@ pub(super) async fn run_engine_socket(
                             .as_ref()
                             .expect("reserved identity")
                             .to_metadata(),
+                        ..Default::default()
                     })),
                 },
             ))

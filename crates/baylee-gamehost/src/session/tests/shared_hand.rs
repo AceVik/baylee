@@ -590,3 +590,45 @@ fn a_snapshot_reaches_the_teammate_alone_and_once_only_refuses_for_good() {
         "a spectator is shown no snapshot"
     );
 }
+
+/// A team table that restarts keeps what its seats said about their hands
+/// (`Line::Setting`): a hand shown for good stays shown, a snapshot shown
+/// once stays the snapshot, a request stays asked, and a hand nobody showed
+/// stays hidden. Hand sharing is said beside the engine, so only the record
+/// line brings it back after a server restart.
+#[test]
+fn a_resumed_team_table_shows_the_hands_it_showed() {
+    let preset = teamed_preset([Some(1), Some(1), Some(2), Some(2)]);
+    let mut live =
+        Session::new_recorded(&preset, crate::record::this_build()).expect("a four-seat game");
+    live.tell_time(1_000);
+    live.pump();
+    for seat in 0..4 {
+        live.act(PlayerId::new(seat), PlayerAction::MulliganKeep)
+            .expect("a keep");
+    }
+    show_to(&mut live, 0, &[1]).expect("a teammate is shown a hand");
+    live.seat_setting(PlayerId::new(3), SeatSetting::ShareHandOnce(seats(&[2])))
+        .expect("a teammate is shown a hand once");
+    ask(&mut live, 1, 0).expect("asked back");
+    ask(&mut live, 2, 3).expect("asked");
+    play_to_turn(&mut live, 2);
+    let record = live.take_record();
+
+    let resumed = Session::resume_recorded(&record).expect("the record resumes");
+    for seat in 0..4 {
+        let seat = PlayerId::new(seat);
+        let (before, after) = (seat_view(&live, seat), seat_view(&resumed, seat));
+        assert_eq!(
+            after.shared_hands, before.shared_hands,
+            "seat {seat:?} is shown the hands it was shown"
+        );
+        assert_eq!(after.hand_shared_with, before.hand_shared_with);
+        assert_eq!(after.hand_requests, before.hand_requests);
+        assert_eq!(after.hand_requested, before.hand_requested);
+    }
+    assert!(
+        hands_shown(&seat_view(&resumed, PlayerId::new(1))).contains(&PlayerId::new(0)),
+        "the hand shown for good is still shown"
+    );
+}

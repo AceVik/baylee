@@ -189,7 +189,11 @@ fn play(index: usize, table: &Table, name: &str, profile: AIProfile) -> Game {
                 });
             }
             Line::End { winners: w, .. } => winners = w,
-            Line::Header { .. } | Line::Chair { .. } | Line::DeclaredMind { .. } => {}
+            Line::Header { .. }
+            | Line::Chair { .. }
+            | Line::Connection { .. }
+            | Line::Setting { .. }
+            | Line::DeclaredMind { .. } => {}
         }
     }
     Game {

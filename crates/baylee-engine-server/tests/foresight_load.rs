@@ -239,6 +239,7 @@ where
             seat_guests: Vec::new(),
             // The house's chair, and the seat this test plays as a person's.
             seat_accounts: vec![false, true],
+            ..Default::default()
         })),
     };
     let attached = Envelope {
