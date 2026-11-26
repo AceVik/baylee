@@ -320,6 +320,16 @@ fn licid_become_aura_lifecycle_split_second_cleanup_sba_and_clone() {
 
 #[test]
 fn lose_all_abilities_later_timestamp_wipes_grant_enchant() {
+    static LICID_BECOME: &[Effect] = &[Effect::BecomeAura {
+        target: TargetSpec::Object(&Filter::CREATURE),
+        enchant: TargetSpec::Object(&Filter::CREATURE),
+        lose_this_ability: true,
+        revert_cost: Some(ManaCost::parse("{W}")),
+    }];
+    static LICID_AB: &[AbilityDef] = &[free(
+        LICID_BECOME,
+        Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
+    )];
     let aura_like = plain_creature(C0, "Aura Target", "{1}", 1, 1);
     let mut engine = bench(102, vec![aura_like], [Seat::with(&[C0]), Seat::default()]);
     to_main(&mut engine, me());
@@ -362,6 +372,54 @@ fn lose_all_abilities_later_timestamp_wipes_grant_enchant() {
         crate::aura_bindings::restriction(engine.state(), engine.state().object(id).unwrap())
             .is_none(),
         "Later LoseAllAbilities removes earlier Layer 6 GrantEnchant"
+    );
+
+    // Part B: CR 704.5m — a Licid transformed into an Aura via BecomeAura whose
+    // Layer 6 GrantEnchant is stripped by a later LoseAllAbilities is binned by SBAs.
+    let licid = card(
+        C1,
+        creature_face("Stripped Licid", "{1}{W}", 1, 1),
+        KeywordSet::EMPTY,
+        LICID_AB,
+    );
+    let host = plain_creature(C2, "Host Bear", "{1}{G}", 2, 2);
+    let mut e2 = bench(
+        1021,
+        vec![licid, host],
+        [Seat::with(&[C1, C2]), Seat::default()],
+    );
+    to_main(&mut e2, me());
+    let l_id = the(&e2, ZoneLocation::Battlefield, C1);
+    let h_id = the(&e2, ZoneLocation::Battlefield, C2);
+
+    activate(&mut e2, me(), l_id, 0);
+    aim_objects(&mut e2, me(), vec![h_id]);
+    settle(&mut e2, me());
+    assert_eq!(e2.state().object(l_id).unwrap().attached_to, Some(h_id));
+
+    let l_filter = EffectFilter::object(e2.state(), l_id);
+    let ts_strip = e2.state.next_timestamp();
+    e2.state.effects.register(ContinuousEffect {
+        id: EffectId::new(0),
+        source: None,
+        controller: me(),
+        origin: EffectOrigin::Resolution,
+        layer: Layer::Ability,
+        timestamp: ts_strip,
+        duration: Duration::Indefinitely,
+        filter: l_filter,
+        modifier: Modifier::LoseAllAbilities,
+    });
+    e2.state.refresh_characteristics();
+    let _ = crate::sba::run(&mut e2.state, &e2.lookup);
+    assert_eq!(
+        e2.state().object(l_id).unwrap().zone,
+        Zone::Graveyard,
+        "CR 704.5m: Licid-Aura whose GrantEnchant was stripped by later LoseAllAbilities goes to graveyard"
+    );
+    assert!(
+        e2.state().endable_effect_groups.is_empty(),
+        "Endable effect group pruned when stripped Licid-Aura goes to graveyard"
     );
 }
 
@@ -1226,6 +1284,21 @@ fn move_all_attachments_moves_legal_and_leaves_illegal_behind() {
 
 #[test]
 fn attach_chosen_then_gates_followup_on_actual_host_change() {
+    static GRANT_INDESTRUCTIBLE_TO_ATTACHED_EQUIP: &[Effect] = &[Effect::ModifyEvent {
+        modifier: Modifier::AddKeyword(KeywordSet::INDESTRUCTIBLE),
+        duration: Duration::UntilEndOfTurn,
+    }];
+    static TRIGGER_ATTACH_CHOSEN_THEN: &[Effect] = &[Effect::AttachChosenThen {
+        filter: &Filter::HasSubtype(artifact::EQUIPMENT),
+        to: TargetSpec::EventObject,
+        max: Amount::Fixed(1),
+        optional: true,
+        then_if_attached: GRANT_INDESTRUCTIBLE_TO_ATTACHED_EQUIP,
+    }];
+    static ETB_SCYTHE_WATCHER: &[AbilityDef] = &[triggered!(
+        Trigger::EntersBattlefield(&Filter::CREATURE),
+        TRIGGER_ATTACH_CHOSEN_THEN
+    )];
     static EQUIP_BUFF: &[AbilityDef] = &[static_ability!(
         Filter::AttachedToBySource,
         Modifier::ModifyPT(2, 0)
@@ -1313,6 +1386,52 @@ fn attach_chosen_then_gates_followup_on_actual_host_change() {
         engine.state().zones.list(ZoneLocation::Hand(me())).len(),
         hand_before + 1,
         "CR 701.3b: choosing an Equipment already attached to the host does NOT trigger then_if_attached"
+    );
+
+    // 4) Inside a triggered ability (where res.subject.event_identity is pre-populated
+    //    with the triggering creature), AttachChosenThen attaches to that creature AND
+    //    rebinds event_identity to the newly attached Equipment for then_if_attached.
+    let watcher = card(
+        C3,
+        face("Scythe Watcher", "{1}", TypeSet::ENCHANTMENT),
+        KeywordSet::EMPTY,
+        ETB_SCYTHE_WATCHER,
+    );
+    let mut e2 = bench(
+        1112,
+        vec![watcher, bear, sword],
+        [Seat::with(&[C3, C2]).holding(&[C1]), Seat::default()],
+    );
+    to_main(&mut e2, me());
+    let b2 = the(&e2, ZoneLocation::Hand(me()), C1);
+    let s2 = the(&e2, ZoneLocation::Battlefield, C2);
+    float_mana(&mut e2, me(), ManaColor::Green, 2);
+    cast_card(&mut e2, me(), b2);
+    walk_until(&mut e2, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    e2.apply(me(), PlayerAction::ChooseObjects { objects: vec![s2] })
+        .expect("attach sword to entering bear");
+    settle(&mut e2, me());
+
+    assert_eq!(e2.state().object(s2).unwrap().attached_to, Some(b2));
+    assert!(
+        e2.state()
+            .object(s2)
+            .unwrap()
+            .characteristics()
+            .keywords
+            .contains(KeywordSet::INDESTRUCTIBLE),
+        "then_if_attached EventObject must resolve to newly attached Equipment, not old triggering creature"
+    );
+    assert!(
+        !e2.state()
+            .object(b2)
+            .unwrap()
+            .characteristics()
+            .keywords
+            .contains(KeywordSet::INDESTRUCTIBLE),
+        "Triggering creature must NOT receive effect meant for newly attached Equipment"
     );
 }
 

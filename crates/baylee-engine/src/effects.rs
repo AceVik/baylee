@@ -2632,7 +2632,7 @@ mod tests {
         // Layer::Ability (+3 locking -> 70) and ten cost/permission modifiers on
         // Layer::Text (+10 rules-only -> 194).
         // Animate/Attach lane adds GrantEnchant, LoseAbility, GrantBloodthirst,
-        // GrantSunburst (Layer::Ability) and SetName (Layer::Type): +5 locking -> 84.
+        // GrantSunburst (Layer::Ability) and SetName (Layer::Text): +5 locking -> 84.
         assert_eq!((locking, all.len() - locking), (84, 199));
     }
 

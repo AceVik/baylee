@@ -679,13 +679,14 @@ fn attachment_sbas(
         // Animate Dead's two enchant abilities name a card in a graveyard and
         // then the one creature it returned; player-only Auras cannot stay on
         // a permanent either (CR 303.4c).
-        if is_aura
-            && let Some(
-                bound @ (crate::aura_bindings::EnchantRestriction::GraveyardCard(..)
-                | crate::aura_bindings::EnchantRestriction::ReturnedBy(_)
-                | crate::aura_bindings::EnchantRestriction::Player(_)
-                | crate::aura_bindings::EnchantRestriction::PlayerOrPermanent { .. }),
-            ) = crate::aura_bindings::restriction_with(state, obj, lookup)
+        let aura_restriction =
+            is_aura.then(|| crate::aura_bindings::restriction_with(state, obj, lookup));
+        if let Some(Some(
+            bound @ (crate::aura_bindings::EnchantRestriction::GraveyardCard(..)
+            | crate::aura_bindings::EnchantRestriction::ReturnedBy(_)
+            | crate::aura_bindings::EnchantRestriction::Player(_)
+            | crate::aura_bindings::EnchantRestriction::PlayerOrPermanent { .. }),
+        )) = aura_restriction
         {
             let legal = obj
                 .attached_to
@@ -699,19 +700,39 @@ fn attachment_sbas(
         // (destroyed, exiled, bounced, or never set) is an illegal
         // attachment. And it has to be a permanent this attachment may hold
         // on to, which is the other half of "illegal".
-        let restriction = is_aura
-            .then(|| {
-                let Some(crate::aura_bindings::EnchantRestriction::Permanent(filter, context)) =
-                    crate::aura_bindings::restriction_with(state, obj, lookup)
-                else {
-                    return None;
-                };
-                Some((filter, context))
-            })
-            .flatten();
         let controller = obj.controller;
+        let aura_lost_abilities =
+            obj.characteristics().abilities_lost.is_some() || obj.characteristics().rules_text_lost;
         let host_ok = obj.attached_to.is_some_and(|host| {
             state.object(host).is_some_and(|h| {
+                let aura_permits_host = match aura_restriction {
+                    None => true,
+                    Some(Some(
+                        crate::aura_bindings::EnchantRestriction::Permanent(filter, context)
+                        | crate::aura_bindings::EnchantRestriction::PlayerOrPermanent {
+                            filter,
+                            context,
+                            ..
+                        },
+                    )) => crate::eval::matches_with_context(filter, state, h, controller, context),
+                    Some(Some(crate::aura_bindings::EnchantRestriction::ReturnedBy(source))) => {
+                        h.characteristics().types.contains(T::CREATURE)
+                            && state.reanimated_auras.iter().any(|binding| {
+                                binding.aura == source
+                                    && binding.returned.is_some_and(|reference| {
+                                        reference.object == h.id && reference.version == h.version
+                                    })
+                            })
+                    }
+                    Some(Some(
+                        crate::aura_bindings::EnchantRestriction::Player(_)
+                        | crate::aura_bindings::EnchantRestriction::GraveyardCard(..),
+                    )) => false,
+                    // CR 303.4c / CR 704.5m: an Aura whose enchant ability was
+                    // stripped (e.g. later-timestamp LoseAllAbilities removing
+                    // GrantEnchant) cannot legally enchant any permanent.
+                    Some(None) => !aura_lost_abilities,
+                };
                 h.zone == crate::zone::Zone::Battlefield
                     && h.kind == ObjectKind::Permanent
                     // CR 303.4d: an Aura can't enchant an Aura it is
@@ -727,9 +748,7 @@ fn attachment_sbas(
                     // (printed or Layer 6 granted) names. `you` is the Aura's
                     // controller, so "enchant creature you control" is read
                     // from the side that controls the Aura rather than the host.
-                    && restriction.is_none_or(|(filter, context)| {
-                        crate::eval::matches_with_context(filter, state, h, controller, context)
-                    })
+                    && aura_permits_host
                     // CR 702.16c/d: and not one whose protection this
                     // attachment has the quality of. An Aura falls off, an
                     // Equipment stays on the battlefield unattached.

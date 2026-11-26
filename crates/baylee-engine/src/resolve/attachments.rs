@@ -451,19 +451,19 @@ pub(super) fn resume_move_all_attachments(
         return;
     }
     let you = res.controller;
-    let to_move: Vec<ObjectId> = state
+    // Evaluate attachment legality simultaneously against the unmutated board
+    // before moving any attachment (CR 701.3b, Glamer Spinners).
+    let legal: Vec<ObjectId> = state
         .battlefield_seen()
         .filter(|&id| {
             state.object(id).is_some_and(|o| {
                 o.attached_to == Some(from.object)
                     && super::matches_in_resolution(attachments, state, o, you, res, Some(you))
-            })
+            }) && can_attach_object(state, id, new_host)
         })
         .collect();
-    for att in to_move {
-        if can_attach_object(state, att, new_host) {
-            state.attach(att, new_host);
-        }
+    for att in legal {
+        state.attach(att, new_host);
     }
 }
 
@@ -491,9 +491,12 @@ pub(super) fn attach_ltb_attachments(
         TargetSpec::EventObject => {
             subjects::event(state, res).is_some_and(|r| subjects::on_battlefield(state, r))
         }
-        _ => state
-            .object(of_id)
-            .is_some_and(|o| o.zone == Zone::Battlefield && !o.status.contains(Status::PHASED_OUT)),
+        TargetSpec::Object(_) if res.targeted => {
+            subjects::target(state, res, of_id).is_some_and(|r| subjects::on_battlefield(state, r))
+        }
+        _ => subjects::target(state, res, of_id)
+            .or_else(|| state.source_identity(of_id))
+            .is_some_and(|r| subjects::on_battlefield(state, r)),
     };
     let candidates: Vec<ObjectId> = if of_still_on_battlefield {
         state
@@ -632,7 +635,13 @@ pub(super) fn resume_attach_chosen_then(
         }
     }
     if !moved.is_empty() {
-        res.event_object = Some(moved[0].object);
+        let first = moved[0];
+        let power = state
+            .source_object(first)
+            .and_then(|o| o.characteristics().power)
+            .unwrap_or(0);
+        res.event_object = Some(first.object);
+        res.subject.set_event_identity(Some((first, power)));
         res.subject.found = moved.into_iter().collect();
         if !then_if_attached.is_empty() {
             let next = res.pc + 1;
