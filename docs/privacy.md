@@ -723,9 +723,10 @@ only waits while one runs (`/run/baylee-backup/run.lock`).
   than the live database's schema (after a deploy whose migration went
   wrong) keeps the live database it replaces, renamed
   `<name>_before_restore_<time>`, in the same PostgreSQL on the server, so
-  that it can be put back. It holds everything the live database held,
-  accounts deleted since the snapshot included, **until the operator
-  discards it** (`baylee-backup restore discard-previous`); nothing removes
+  that it can be put back. It holds everything the live database held at
+  the restore, so an account deleted after the restore stays in it,
+  **until the operator discards it**
+  (`baylee-backup restore discard-previous`); nothing removes
   it by itself and there is no upper bound, but the program warns every day
   once one is older than 7 days. It is in no backup.
 
