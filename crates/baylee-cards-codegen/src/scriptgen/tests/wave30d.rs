@@ -101,10 +101,6 @@ fn wave30d_keeps_unsound_refusal_boundaries_strict() {
         // keyword CARDNAME "must be blocked if able" (not Lure MustBeBlockedByAllAble).
         "Name:LureCheckShape\nManaCost:2 G\nTypes:Creature\nPT:3/3\n\
          K:CARDNAME must be blocked if able.",
-        // OppOwn in graveyard/exile count (2HG teammate semantics).
-        "Name:UmbrisShape\nManaCost:3 U B\nTypes:Creature\nPT:1/1\n\
-         S:Mode$ Continuous | Affected$ Card.Self | AddPower$ X | AddToughness$ X\n\
-         SVar:X:Count$ValidExile Card.OppOwn",
         // RememberObjects$ Valid with non-prevent ReplaceWith must stay refused.
         "Name:BadValidEffect\nManaCost:2 G\nTypes:Instant\n\
          A:SP$ Effect | ReplacementEffects$ R\n\

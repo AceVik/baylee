@@ -3107,7 +3107,9 @@ impl Tx<'_> {
         let prev_trigger_mode = self.trigger_mode.take();
         let prev_block_line = self.block_line.take();
         let prev_on_a_spell = std::mem::replace(&mut self.on_a_spell, false);
+        let prev_in_granted_trigger = std::mem::replace(&mut self.in_granted_trigger, true);
         let ok = self.triggered(&line);
+        self.in_granted_trigger = prev_in_granted_trigger;
         self.on_a_spell = prev_on_a_spell;
         self.trigger_mode = prev_trigger_mode;
         if ok.is_none()

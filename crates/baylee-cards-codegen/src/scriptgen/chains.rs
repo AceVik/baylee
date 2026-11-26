@@ -504,6 +504,10 @@ impl Tx<'_> {
                 chain.moves_library = true;
                 return Some(());
             }
+            if let Some(eff) = self.try_mana_clash_chain(&p, sub.as_deref(), targets_here, chain) {
+                chain.effects.push(eff);
+                return Some(());
+            }
             return self.repeat_process_chain(p, sub.as_deref(), chain);
         }
         if api == "Vote" {
@@ -10976,5 +10980,111 @@ impl Tx<'_> {
             return None;
         }
         Some(out)
+    }
+
+    /// `Mana Clash`: `Repeat | ValidTgts$ Opponent | RepeatCheckSVar$ V |
+    /// RepeatSVarCompare$ GT0 | RepeatSubAbility$ Reset` -> Reset (`StoreSVar` 0)
+    /// -> `RepeatEach` (`TargetedAndYou`) -> `FlipCoin` (`Flipper$ Remembered |
+    /// NoCall$ True | RememberResult$ True | TailsSubAbility$ Inc`) -> `DamageAll`
+    /// (`ValidPlayers$ FlippedTails | NumDmg$ N`) -> Cleanup (`ClearCoinFlips$
+    /// True`) -> `Effect::FlipCoinsDamageTailsRepeatUntilBothHeads`.
+    fn try_mana_clash_chain(
+        &self,
+        p: &Params,
+        sub: Option<&str>,
+        targets_here: bool,
+        chain: &Chain,
+    ) -> Option<String> {
+        if sub.is_some()
+            || !targets_here
+            || chain.target.as_deref() != Some("TargetSpec::AnyOpponent")
+            || !chain.effects.is_empty()
+            || chain.second_target.is_some()
+            || chain.target_is_x
+            || chain.target_up_to_x
+            || chain.target_up_to.is_some()
+            || chain.target_exact.is_some()
+        {
+            return None;
+        }
+        let mut rp = p.clone();
+        let var = rp.take("RepeatCheckSVar")?;
+        if rp.take("RepeatSVarCompare").as_deref() != Some("GT0") {
+            return None;
+        }
+        let reset_name = rp.take("RepeatSubAbility")?;
+        if !rp.exhausted() {
+            return None;
+        }
+        if !matches!(
+            self.svars
+                .get(var.trim())
+                .map(String::as_str)
+                .map(str::trim),
+            Some("Number$0" | "Number$ 0")
+        ) {
+            return None;
+        }
+        let parse_sub = |name: &str, expected_api: &str| -> Option<Params> {
+            let (api, mut sp) = Params::parse(self.svars.get(name.trim())?)?;
+            sp.drop_prose();
+            (api == expected_api).then_some(sp)
+        };
+        let mut reset = parse_sub(&reset_name, "StoreSVar")?;
+        if reset.take("SVar").as_deref() != Some(var.trim())
+            || reset.take("Type").as_deref() != Some("Number")
+            || reset.take("Expression").as_deref() != Some("0")
+        {
+            return None;
+        }
+        let repeat_each_name = reset.take("SubAbility")?;
+        if !reset.exhausted() {
+            return None;
+        }
+        let mut repeat_each = parse_sub(&repeat_each_name, "RepeatEach")?;
+        if repeat_each.take("RepeatPlayers").as_deref() != Some("TargetedAndYou") {
+            return None;
+        }
+        let flip_name = repeat_each.take("RepeatSubAbility")?;
+        let dmg_name = repeat_each.take("SubAbility")?;
+        if !repeat_each.exhausted() {
+            return None;
+        }
+        let mut flip = parse_sub(&flip_name, "FlipCoin")?;
+        if flip.take("Flipper").as_deref() != Some("Remembered")
+            || flip.take("NoCall").as_deref() != Some("True")
+            || flip.take("RememberResult").as_deref() != Some("True")
+        {
+            return None;
+        }
+        let tails_name = flip.take("TailsSubAbility")?;
+        if !flip.exhausted() {
+            return None;
+        }
+        let mut tails = parse_sub(&tails_name, "StoreSVar")?;
+        if tails.take("SVar").as_deref() != Some(var.trim())
+            || tails.take("Type").as_deref() != Some("CountSVar")
+            || tails.take("Expression").as_deref() != Some(&format!("{}/Plus.1", var.trim()))
+            || !tails.exhausted()
+        {
+            return None;
+        }
+        let mut dmg = parse_sub(&dmg_name, "DamageAll")?;
+        if dmg.take("ValidPlayers").as_deref() != Some("FlippedTails") {
+            return None;
+        }
+        let raw_dmg = dmg.take("NumDmg")?;
+        let dmg_amt = self.plain_num(&raw_dmg)?;
+        let cleanup_name = dmg.take("SubAbility")?;
+        if !dmg.exhausted() {
+            return None;
+        }
+        let mut cleanup = parse_sub(&cleanup_name, "Cleanup")?;
+        if cleanup.take("ClearCoinFlips").as_deref() != Some("True") || !cleanup.exhausted() {
+            return None;
+        }
+        Some(format!(
+            "Effect::FlipCoinsDamageTailsRepeatUntilBothHeads {{ damage: Amount::Fixed({dmg_amt}) }}"
+        ))
     }
 }

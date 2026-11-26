@@ -454,13 +454,45 @@ impl Tx<'_> {
             if valid.is_empty()
                 || valid.contains(['$', '/'])
                 || has_forbidden_zone_count_atom(valid)
-                || valid.contains("OppOwn")
                 || valid.contains("OppCtrl")
                 || valid.contains("YouCtrl")
             {
                 return None;
             }
-            let expr = self.filter_expr_in_zone(valid, true)?;
+            let expr = if valid.contains("OppOwn") {
+                if valid.contains(',') || valid.contains("YouOwn") || valid.contains("YouDontOwn") {
+                    return None;
+                }
+                let (base, rest) = valid.split_once('.')?;
+                if base.contains("OppOwn") {
+                    return None;
+                }
+                let mut saw_opp = false;
+                let mut kept = Vec::new();
+                for atom in rest.split('+').map(str::trim).filter(|a| !a.is_empty()) {
+                    if atom == "OppOwn" {
+                        saw_opp = true;
+                    } else {
+                        kept.push(atom);
+                    }
+                }
+                if !saw_opp {
+                    return None;
+                }
+                let cleaned = if kept.is_empty() {
+                    base.to_string()
+                } else {
+                    format!("{base}.{}", kept.join("+"))
+                };
+                let inner = self.filter_expr_in_zone(&cleaned, true)?;
+                if inner == "Filter::Any" {
+                    "Filter::OwnedBy(PlayerRel::EachOpponent)".to_string()
+                } else {
+                    format!("Filter::And(&[{inner}, Filter::OwnedBy(PlayerRel::EachOpponent)])")
+                }
+            } else {
+                self.filter_expr_in_zone(valid, true)?
+            };
             let filter_ref = if simple_const_filter(&expr) || expr == "Filter::OwnedByYou" {
                 format!("&{expr}")
             } else {
