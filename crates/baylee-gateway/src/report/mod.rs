@@ -913,7 +913,7 @@ async fn gateway_record(
 /// Whether `game`'s engine is one a flush must not be asked of: a Tower
 /// engine's control link carries its seat's frames and the close, and it
 /// ends the duel on anything else.
-fn flushes_nothing(game: &crate::lobby::LobbyGame) -> bool {
+pub(crate) fn flushes_nothing(game: &crate::lobby::LobbyGame) -> bool {
     game.execution
         .as_ref()
         .is_some_and(|identity| identity.variant == baylee_protocol::execution::Variant::Tower)

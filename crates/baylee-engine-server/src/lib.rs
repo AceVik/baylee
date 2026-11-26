@@ -77,12 +77,14 @@ pub const RECORD_CHUNK_BYTES: usize = 32 * 1024;
 /// How long, in milliseconds of wall time, record that has gathered may wait
 /// for [`RECORD_CHUNK_BYTES`] before it is sent anyway (#323): so a game that
 /// is lost with its engine, or reported on after that, has its record in the
-/// gateway's store up to half a minute before. Counted from when the bytes
+/// gateway's store up to two seconds before, which is also as far back as a
+/// game resumed after a crash goes (`docs/proposals/games-survive-restarts.md`;
+/// it was 30 s until then). Counted from when the bytes
 /// waiting began to wait ([`EngineRunner::record_deadline`]), not from the
 /// last piece, so a quiet game sends no piece per action. A bug report
 /// filed at a game that goes on does not wait for it: it asks for the record
 /// there and then ([`v1::FlushRecord`]).
-pub const RECORD_FLUSH_MS: u64 = 30_000;
+pub const RECORD_FLUSH_MS: u64 = 2_000;
 
 /// The most answers the house gives alone, once every seat that answers over
 /// a socket has left, before the game is closed with no winners

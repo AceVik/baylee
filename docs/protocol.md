@@ -2616,13 +2616,22 @@ turns 13 and 16):
   or from before the ask) costs the report the wait and never the report:
   it goes with the record as stored until then. A flush moves nothing in the
   game: no pump, no clock, no frame to a seat.
-- **Time passes.** Record that has waited `RECORD_FLUSH_MS` (30 s of wall
-  time, `crates/baylee-engine-server/src/lib.rs`) goes without being asked,
-  counted from when those bytes began to wait rather than from the last
-  piece, so a quiet game sends no piece per action. It keeps a game lost with
-  its engine, or reported on after it ended that way, at most half a minute
-  short. Not while the curtain is down: loading seats have the database to
-  themselves, and the first move after it rises finds the header overdue.
+- **Time passes.** Record that has waited `RECORD_FLUSH_MS` (2 s of wall
+  time, `crates/baylee-engine-server/src/lib.rs`; 30 s until 26.11.2026) goes
+  without being asked, counted from when those bytes began to wait rather
+  than from the last piece, so a quiet game sends no piece per action. It
+  keeps a game lost with its engine, or reported on after it ended that way,
+  at most two seconds short, and a game resumed after a crash
+  (`docs/proposals/games-survive-restarts.md`) as far back. Not while the
+  curtain is down: loading seats have the database to themselves, and the
+  first move after it rises finds the header overdue.
+- **The gateway stops.** A gateway told to stop (`SIGTERM`, Ctrl-C) asks
+  every running game's engine for its record as above and waits, five
+  seconds at most (`record::FLUSH_ON_STOP`), until each answer is stored,
+  then exits cleanly; a Tower engine and a ranked duel's protected engines
+  are not asked. A write the database fails meanwhile is tried again for up
+  to 15 minutes before a game's record is given up (`record.rs`,
+  `RETRY_FOR`).
 
 Where a piece breaks changes nothing else: the pieces are gzip members of
 their own, and the record they make is the same bytes with or without

@@ -121,6 +121,7 @@ Each step lands on its own, through the gate:
 
 1. Resume reproduces every seat's table (the record annotations above). Done.
 2. The record is durable: short flush bound, retrying writer, flush on stop.
+   Done: 2 s bound, 15 minutes of retries, a stop waits up to 5 s.
 3. Running games and rooms in PostgreSQL; the gateway loads them and orders
    resuming engines; the engine's resume mode.
 4. Protocol per game; retained engine builds; the engine-link compatibility

@@ -1304,3 +1304,57 @@ fn gzip_of(bytes: &[u8]) -> Vec<u8> {
     out.write_all(bytes).unwrap();
     out.finish().unwrap()
 }
+
+/// The record of a game that goes on, as the store holds it, unpacked.
+fn stored_record(gw: &Gateway, game: &str) -> Vec<u8> {
+    let packed = gw.text(&format!(
+        "SELECT coalesce(encode(string_agg(data, ''::bytea ORDER BY seq), 'base64'), '') \
+         FROM game_record_chunk WHERE game_id = '{game}'"
+    ));
+    let gz = base64::engine::general_purpose::STANDARD
+        .decode(packed.split_whitespace().collect::<String>())
+        .expect("base64");
+    let mut record = Vec::new();
+    flate2::read::MultiGzDecoder::new(&gz[..])
+        .read_to_end(&mut record)
+        .expect("one gzip stream");
+    record
+}
+
+/// A gateway told to stop (`SIGTERM`: a deploy, a reboot, a restart) asks
+/// every running game's engine for its record and stops once it is stored,
+/// so the record reaches the last answer although the engine's own bound
+/// (two seconds) has not passed: a game resumed after the restart misses
+/// nothing (`docs/proposals/games-survive-restarts.md`). Before, the stop
+/// ended the gateway at once and the answer was lost.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_stopped_gateway_stores_the_running_games_records_first() {
+    let mut gw = spawn_gateway_with("stop-flushes", &[]);
+    let port = gw.port;
+    let (agent, probe) = common::attach_agent_probed(&gw).await;
+    let token = login(port, "stig", "StigStopper");
+    let (game, mut ws, asked) = a_game_that_goes_on(port, &token).await;
+    let before = probe.hash.borrow().expect("the game is built");
+    let answer = timeout_answer(&asked).expect("the seat's question has a plain answer");
+    say(&mut ws, &answer).await;
+    let after = tokio::time::timeout(common::WAIT_BUDGET, async {
+        loop {
+            if let Some(now) = *probe.hash.borrow()
+                && now != before
+            {
+                return now;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .expect("the engine took the answer");
+
+    assert!(gw.stop(), "a stopped gateway exits cleanly");
+    assert_eq!(
+        replays_to(&stored_record(&gw, &game)),
+        after,
+        "the stored record reaches the last answer"
+    );
+    agent.abort();
+}

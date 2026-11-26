@@ -73,7 +73,9 @@ impl Store for Broken {
     }
 }
 
-#[tokio::test]
+/// A store that never takes the write is tried for [`RETRY_FOR`] and then
+/// given up: nothing after it is acknowledged or stored.
+#[tokio::test(start_paused = true)]
 async fn a_storage_failure_never_acknowledges_a_flush_or_stores_the_score() {
     let log = Log::default();
     let mut sink = Sink::writing("g1", Broken(Slow(log.clone())));
@@ -241,4 +243,78 @@ fn an_ask_is_answered_by_its_own_game_once() {
         "an ask whose report stopped waiting"
     );
     assert_eq!(flushes.open(), 0, "nothing left behind");
+}
+
+/// A store that fails its first few writes, as a database does while it
+/// restarts.
+struct Flaky {
+    store: Slow,
+    failures: u32,
+}
+
+impl Flaky {
+    fn fail(&mut self) -> Result<(), String> {
+        if self.failures == 0 {
+            return Ok(());
+        }
+        self.failures -= 1;
+        Err("the database is restarting".into())
+    }
+}
+
+impl Store for Flaky {
+    async fn open(&mut self) -> Result<(), String> {
+        self.fail()?;
+        self.store.open().await
+    }
+    async fn append(&mut self, piece: v1::GameRecordChunk) -> Result<(), String> {
+        self.fail()?;
+        self.store.append(piece).await
+    }
+    async fn finish(&mut self, ending: Ending) -> Result<(), String> {
+        self.fail()?;
+        self.store.finish(ending).await
+    }
+    async fn challenge(
+        &mut self,
+        result: central_api::challenges::Completion,
+    ) -> Result<(), String> {
+        self.fail()?;
+        self.store.challenge(result).await
+    }
+}
+
+/// A database that restarts loses the game no piece of its record: each
+/// failed write is tried again until it goes through, in order, once each,
+/// and a flush behind them resolves once they are stored. A game resumed
+/// after the restart needs every one of them.
+#[tokio::test(start_paused = true)]
+async fn a_record_outlives_a_database_that_restarts() {
+    let log = Log::default();
+    let mut sink = Sink::writing(
+        "g1",
+        Flaky {
+            store: Slow(log.clone()),
+            failures: 7,
+        },
+    );
+    sink.take(piece("g1", 0, 10));
+    sink.take(piece("g1", 1, 10));
+    let mut last = piece("g1", 2, 10);
+    last.last = true;
+    sink.take(last);
+    sink.ended(Ending {
+        winners: vec![1],
+        turn: Some(4),
+        reason: "won".into(),
+    });
+    let (done, flushed) = oneshot::channel();
+    sink.flushed(done);
+    flushed
+        .await
+        .expect("the flush resolves once the pieces are in");
+    assert_eq!(
+        log.said(),
+        ["open", "piece 0", "piece 1", "piece 2", "ended [1]"]
+    );
 }
