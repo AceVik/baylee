@@ -313,6 +313,7 @@ pub(crate) fn address_of(press: super::front::FrontPress, state: &LobbyState) ->
         FrontPress::OpenCentralRegister => web_address(&central_register_url()),
         FrontPress::OpenChangelog => web_address(CHANGELOG_URL),
         FrontPress::OpenExternal(link) => web_address(link.url()),
+        FrontPress::OpenGiving(platform) => web_address(platform.address()),
         FrontPress::OpenImpressum => super::front::impressum_link(state).map(|(url, _)| url),
         _ => None,
     }

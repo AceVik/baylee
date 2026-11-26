@@ -9901,6 +9901,63 @@ CommunityWebsiteAbout = The central website for your Baylee account, downloads, 
 # The website card's button.
 CommunityWebsiteOpen = Open baylee.app in browser
 
+# The front door's donation button, top left (docs/legal.md "Donations").
+DonateButton = Support Baylee
+# The donation button's line under its bar: the month covered.
+# Arguments: have, goal
+DonateCovered = { $have } of { $goal } a month
+# The donation sheet's title.
+DonateTitle = Keep Baylee in development
+# The donation sheet's lead.
+DonateLead = Baylee is free and stays free: no paywall, no paid features, no ads. It is built in spare time, and it still costs money every month. If you like it, you can help carry that.
+# The monthly goal's caption.
+DonateGoalTitle = The monthly goal
+# The goal, in words.
+# Arguments: amount
+DonateGoalAmount = about { $amount } a month
+# How much of the goal is covered.
+# Arguments: percent
+DonatePercent = { $percent } % covered
+# How many support Baylee regularly.
+# Arguments: count
+DonateSupporters = Supporters: { $count }.
+# Platforms without a figure yet.
+# Arguments: platforms
+DonateMissing = Not counted yet: { $platforms }.
+# No recurring donation yet.
+DonateFirst = No recurring donation yet. Yours would be the first.
+# No figure from any platform (or Central unreachable).
+DonateNoFigures = The platforms have not told us a figure yet.
+# The costs' caption.
+DonateCostsTitle = What it pays for
+# A month's cost: AI assistants.
+DonateCostAi = AI assistants
+# A month's cost: servers.
+DonateCostServers = Servers
+# A month's cost: fees.
+DonateCostFees = Fees
+# A month's cost: pictures, video and music.
+DonateCostArt = Pictures, video and music
+# A month's cost: development tools.
+DonateCostTools = Development tools
+# The ways' caption.
+DonateWaysTitle = Three ways to give
+# The ways' lead.
+DonateWaysLead = All three lead to the developer of Baylee, AceVik, who pays these costs. Pick the one you like.
+# GitHub Sponsors, in one line.
+DonateGitHubLead = Monthly or once, with your GitHub account.
+# Liberapay, in one line.
+DonateLiberapayLead = A recurring donation, by card or PayPal. Liberapay is run by a non-profit.
+# Ko-fi, in one line.
+DonateKofiLead = A one-time tip, without an account, by card or PayPal.
+# A way's button.
+# Arguments: platform
+DonateOpen = Open { $platform }
+# What a donation buys, and that it is no tax-deductible gift.
+DonateNothing = A donation buys nothing, on purpose: no feature, no advantage in a game, no earlier access, no badge and no name on a list. It is a gift to a private person and not tax-deductible.
+# Where the money goes through.
+DonatePrivacy = Payment happens on the platform you choose. Baylee takes no payment and learns nothing about who gave.
+
 # The gateway list when no community gateway is saved.
 GatewayNoneSaved = No community gateways saved yet
 

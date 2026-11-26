@@ -144,6 +144,8 @@ pub struct LobbyState {
     pub(crate) website_code: Option<source::Code>,
     /// Which community QR dialog is open over the front door.
     pub(crate) community_dialog: Option<front::CommunityKind>,
+    /// The donation figures, and whether the donation sheet is up.
+    pub(crate) giving: front::donate::Giving,
     /// Whether the chosen gateway mirrors card art, as its `/auth/config`
     /// said. Used only while signed in there (`systems::art_follows_the_session`).
     pub(crate) art_cache: bool,
@@ -574,6 +576,7 @@ impl LobbyState {
             whatsapp_code: None,
             website_code: None,
             community_dialog: None,
+            giving: front::donate::Giving::default(),
             art_cache: false,
             submitted_decks_epoch: None,
             #[cfg(not(target_arch = "wasm32"))]

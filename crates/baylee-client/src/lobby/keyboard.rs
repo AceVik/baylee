@@ -135,6 +135,13 @@ pub(super) fn keyboard(
         }
         return;
     }
+    if state.giving.open {
+        keys.clear();
+        if codes.just_pressed(KeyCode::Escape) {
+            state.giving.open = false;
+        }
+        return;
+    }
     if state.confirmation.is_some() {
         keys.clear();
         if codes.just_pressed(KeyCode::Escape) {
