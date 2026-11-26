@@ -6185,6 +6185,11 @@ fn clone_choices_and_copy_self_refuse_unsupported_variants() {
          SVar:TrigReveal:DB$ PeekAndReveal | NoPeek$ True | SubAbility$ DBClone\n\
          SVar:DBClone:DB$ Clone | ConditionDefined$ Remembered | ConditionPresent$ Creature | Defined$ TopOfLibrary | CloneTarget$ Self | Duration$ UntilEndOfTurn"
     ));
+    assert!(refused(
+        "Name:BadSecondTargetCloneChoices\nManaCost:2 U G\nTypes:Sorcery\n\
+         A:SP$ Pump | ValidTgts$ Creature | NumAtt$ 1 | SubAbility$ DBClone\n\
+         SVar:DBClone:DB$ Clone | ValidTgts$ Creature | CloneTarget$ ParentTarget | Choices$ Creature | Duration$ UntilEndOfTurn"
+    ));
 }
 
 #[test]
@@ -6252,6 +6257,7 @@ fn play_graveyard_self_trigger_opponent_exile_chandra_ablaze_and_counter_exile_p
     assert!(
         transcendent.abilities[0].contains("Effect::CaptureAffected")
             && transcendent.abilities[0].contains("Effect::CounterTargetSpellToExile")
+            && transcendent.abilities[0].contains("Effect::ForEachRemembered")
             && transcendent.abilities[0].contains("Effect::Play")
             && transcendent.abilities[0].contains("PlaySource::Subject(TargetSpec::EventObject)")
             && transcendent.abilities[0].contains("PlayCostMode::WithoutPayingManaCost"),
@@ -6274,5 +6280,18 @@ fn play_graveyard_self_trigger_opponent_exile_chandra_ablaze_and_counter_exile_p
          SVar:TrigCounter:DB$ Counter | TargetType$ Spell | ValidTgts$ Card | RememberCountered$ True | Destination$ Graveyard | SubAbility$ DBPlay\n\
          SVar:DBPlay:DB$ Play | Valid$ Card.nonLand+IsRemembered | ValidSA$ Spell | ValidZone$ Exile | WithoutManaCost$ True | SubAbility$ DBCleanup\n\
          SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True"
+    ));
+    assert!(refused(
+        "Name:BadGraveyardTriggerFlagLeak\nManaCost:2 B R\nTypes:Creature Wizard\nPT:3/3\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Wizard.Other+YouCtrl | TriggerZones$ Graveyard | Execute$ TrigPlayGy | OptionalDecider$ You\n\
+         SVar:TrigPlayGy:DB$ Play | Optional$ True\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigPlayBf\n\
+         SVar:TrigPlayBf:DB$ Play | Optional$ True"
+    ));
+    assert!(refused(
+        "Name:BadDelayedGraveyardPlay\nManaCost:2 B R\nTypes:Creature Wizard\nPT:3/3\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self | TriggerZones$ Graveyard | Execute$ TrigDelay\n\
+         SVar:TrigDelay:DB$ DelayedTrigger | Mode$ Phase | Phase$ End of Turn | Execute$ DBPlay\n\
+         SVar:DBPlay:DB$ Play | Optional$ True"
     ));
 }

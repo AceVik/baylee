@@ -3150,6 +3150,7 @@ impl Tx<'_> {
             self.trigger_mode = saved_trigger_mode;
         }
         self.trigger_is_self = false;
+        self.in_graveyard_trigger = false;
         self.is_etb_self_trigger = false;
         self.trigger_blocks_creature = false;
         self.damage_trigger_binds_source = false;
@@ -4271,11 +4272,13 @@ impl Tx<'_> {
         let saved_delayed = std::mem::replace(&mut self.in_delayed, true);
         let saved_mode = std::mem::replace(&mut self.trigger_mode, inner_trigger_mode);
         let saved_self = std::mem::replace(&mut self.trigger_is_self, false);
+        let saved_gy_trigger = std::mem::replace(&mut self.in_graveyard_trigger, false);
         let saved_block = self.block_line.take();
         let read = self.chain(body, &mut inner);
         self.in_delayed = saved_delayed;
         self.trigger_mode = saved_mode;
         self.trigger_is_self = saved_self;
+        self.in_graveyard_trigger = saved_gy_trigger;
         self.block_line = saved_block;
         read?;
         if inner.second_target.is_some() {

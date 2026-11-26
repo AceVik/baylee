@@ -76,18 +76,16 @@ impl Tx<'_> {
             t.starts_with("TargetSpec::Object(") || t.starts_with("TargetSpec::CardInGraveyard(")
         });
         let clone_target = p.take("CloneTarget");
-        let (subject, original_is_second) = if second_target_here {
-            if clone_target.as_deref() != Some("ParentTarget") {
-                return None;
-            }
-            ("TargetSlot::First", true)
-        } else if clone_target.as_deref() == Some("Targeted") && obj_target.is_some() {
-            ("TargetSlot::First", false)
+        if second_target_here {
+            return None;
+        }
+        let subject = if clone_target.as_deref() == Some("Targeted") && obj_target.is_some() {
+            "TargetSlot::First"
         } else if matches!(clone_target.as_deref(), None | Some("Self")) {
             if !self.on_a_spell && obj_target.is_none() {
-                ("TargetSlot::This", false)
+                "TargetSlot::This"
             } else if self.on_a_spell && obj_target.is_some() {
-                ("TargetSlot::First", false)
+                "TargetSlot::First"
             } else {
                 return None;
             }
@@ -100,7 +98,7 @@ impl Tx<'_> {
              filter: &{filter_name}, min: {min}, max: Amount::Fixed(1), reveal_chosen: false, \
              movement: ChooseMove::None, not_chosen_movement: ChooseMove::None, \
              then: &[Effect::BecomeCopy {{ subject: {subject}, subject_filter: None, \
-             original: TargetSpec::EventObject, original_is_second_target: {original_is_second}, \
+             original: TargetSpec::EventObject, original_is_second_target: false, \
              until_eot: {until_eot}, mods: &[{}] }}], for_unchosen: &[] }}",
             mods.join(", ")
         )])
@@ -174,7 +172,7 @@ impl Tx<'_> {
     /// Lower `Counter | TargetType$ Spell | RememberCountered$ True | Destination$ Exile`
     /// followed by `Play | Valid$ Card.[nonLand+]IsRemembered | ValidZone$ Exile |
     /// WithoutManaCost$ True | Optional$ True` (*Transcendent Dragon*) into
-    /// `Effect::CaptureAffected { first: &[CounterTargetSpellToExile], then: &[Play] }`.
+    /// `Effect::CaptureAffected { first: &[CounterTargetSpellToExile], then: &[ForEachRemembered(Play)] }`.
     pub(super) fn counter_to_exile_play_chain(
         &mut self,
         p: &mut Params,
@@ -230,7 +228,13 @@ impl Tx<'_> {
             "&Filter::Any"
         };
         Some(vec![format!(
-            "Effect::CaptureAffected {{              first: &[Effect::CounterTargetSpellToExile],              then: &[Effect::Play {{ source: PlaySource::Subject(TargetSpec::EventObject),              filter: {filter_ref}, controller: PlayerRel::You, count: PlayCount::One,              cost: PlayCostMode::WithoutPayingManaCost, cast_only: true, copy: false,              exile_instead_of_graveyard: false, optional: true }}] }}"
+            "Effect::CaptureAffected {{ \
+             first: &[Effect::CounterTargetSpellToExile], \
+             then: &[Effect::ForEachRemembered {{ filter: &Filter::Any, effects: &[ \
+             Effect::Play {{ source: PlaySource::Subject(TargetSpec::EventObject), \
+             filter: {filter_ref}, controller: PlayerRel::You, count: PlayCount::One, \
+             cost: PlayCostMode::WithoutPayingManaCost, cast_only: true, copy: false, \
+             exile_instead_of_graveyard: false, optional: true }}] }}] }}"
         )])
     }
 }
