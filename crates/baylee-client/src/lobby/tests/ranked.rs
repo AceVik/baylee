@@ -105,59 +105,50 @@ fn public_rows_keep_entities_and_scroll_region_on_a_same_page_refresh() {
     assert_eq!(list(&mut app), scroller);
 }
 
+/// The Play screen's ranked tile unfolds nothing in the lobby: it opens the
+/// Ranked page, where the desk stands beside the public ladder, and Back
+/// returns to Play.
 #[test]
-fn the_ranked_card_expands_in_play_and_the_public_ladder_has_only_spectator_controls() {
-    use super::{press, press_target, stocked, tap_control};
+fn the_ranked_tile_opens_a_page_with_the_desk_beside_the_public_ladder() {
+    use super::{press_target, stocked, tap_control};
     use crate::lobby::{orders, play::PlayPress};
 
     let mut app = headless();
     sized(&mut app, 1440.0);
     stocked(&mut app);
     settle(&mut app);
-    let open = Press::Ranked(Action::ToggleQueue);
-    let board = Press::Ranked(Action::Open);
+    let open = Press::Ranked(Action::Open);
     let create = Press::Play(PlayPress::CreateTable);
-    let card = press_target(&mut app, open);
-    let tables = press_target(&mut app, create);
+    let tile = press_target(&mut app, open);
     assert_eq!(
-        app.world().get::<Stop>(card),
+        app.world().get::<Stop>(tile),
         Some(&Stop::new(orders::PLAY.name, "ranked"))
     );
-    let hidden_link = press_target(&mut app, board);
-    assert!(app.world().get::<Stop>(hidden_link).is_none());
+    let lobby = presses(&mut app);
+    assert!(lobby.contains(&create));
+    assert!(
+        !lobby.iter().any(|p| matches!(
+            p,
+            Press::Ranked(Action::QueueFormat(_) | Action::Join | Action::ToggleDecks)
+        )),
+        "the queue stands on the Ranked page, not in the tile: {lobby:?}"
+    );
     let mut artwork = app.world_mut().query::<&crate::challenge_art::Scene>();
     assert!(
         artwork
             .iter(app.world())
             .any(|scene| matches!(scene, crate::challenge_art::Scene::Ranked))
     );
-
-    press(&mut app, open);
-    settle(&mut app);
-    assert_eq!(app.world().resource::<LobbyState>().hub, Hub::Play);
-    assert_eq!(press_target(&mut app, open), card);
-    assert_eq!(press_target(&mut app, create), tables);
-    // A gateway-only account may inspect the public leaderboard. Central is
-    // required before the search button can be used.
-    assert!(!presses(&mut app).contains(&Press::Ranked(Action::Join)));
-    let link = press_target(&mut app, board);
-    assert_eq!(
-        app.world().get::<Stop>(link),
-        Some(&Stop::new(orders::PLAY.name, "ranked-board"))
-    );
-    tap_control(&mut app, "open standings", |p| *p == board);
+    tap_control(&mut app, "open the Ranked page", |p| *p == open);
     assert_eq!(app.world().resource::<LobbyState>().hub, Hub::Ranked);
     let actions = presses(&mut app);
-    assert!(!actions.contains(&open));
+    // A gateway-only account reads the ladder; the search needs Central.
     assert!(!actions.contains(&Press::Ranked(Action::Join)));
+    assert!(actions.contains(&Press::Ranked(Action::Refresh)));
     tap_control(&mut app, "return to Play", |p| {
         *p == Press::Ranked(Action::Back)
     });
     assert_eq!(app.world().resource::<LobbyState>().hub, Hub::Play);
-    let link = press_target(&mut app, board);
-    assert!(app.world().get::<Stop>(link).is_some());
-    press(&mut app, open);
-    settle(&mut app);
-    let hidden_link = press_target(&mut app, board);
-    assert!(app.world().get::<Stop>(hidden_link).is_none());
+    let tile = press_target(&mut app, open);
+    assert_eq!(app.world().get::<Stop>(tile).map(|stop| stop.id), Some("ranked"));
 }

@@ -390,7 +390,7 @@ pub(crate) fn poll(
         }
         return;
     }
-    let desk_open = closed && super::inline::preview_visible(state);
+    let desk_open = closed && state.hub == crate::lobby::Hub::Ranked;
     preview::poll(&mut state.ranked_net, desk_open);
     let live = socket.as_deref().filter(|_| {
         !closed

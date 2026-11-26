@@ -41,6 +41,8 @@ pub const ACCENT: Color = palette::ACCENT;
 pub const INK_ON_LIGHT: Color = Color::srgb(0.06, 0.05, 0.04);
 /// The favourite star, and the one gold face: Return to your game.
 pub const GOLD: Color = palette::ACTIVE;
+/// A rise: rating won, a step up. [`DANGER`] says the fall beside it.
+pub const GAIN: Color = palette::HEAL;
 /// The second place of a ranking: a cool silver beside [`GOLD`].
 pub const SILVER: Color = Color::srgb(0.78, 0.82, 0.88);
 /// The third place of a ranking: a warm bronze beside [`GOLD`].

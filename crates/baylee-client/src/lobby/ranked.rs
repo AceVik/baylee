@@ -22,12 +22,19 @@ mod receipt;
 #[cfg(feature = "dev-control")]
 pub(crate) mod visual_fixture;
 pub(super) use draw::draw;
-type OwnRank = (api::Rank, u8, Option<i32>);
+/// The account's standing in a format: its rank, placement games, Elo and
+/// season record (wins, losses, draws), as far as Central has said them.
+type OwnRank = (api::Rank, u8, Option<i32>, Option<(u32, u32, u32)>);
 
 pub(crate) const ORDER: TabOrder = TabOrder {
     name: "ranked",
     stops: &[
         "back",
+        "rank-format",
+        "deck",
+        "deck-choice",
+        "preview",
+        "queue",
         "format",
         "track",
         "league",
@@ -62,7 +69,6 @@ const LEAGUES: [League; 12] = [
 pub(crate) enum Action {
     Open,
     Back,
-    ToggleQueue,
     QueueFormat(Format),
     Format(Format),
     Track(Track),
@@ -85,8 +91,6 @@ pub(crate) enum Action {
 pub(crate) struct Ui {
     format: Format,
     queue_format: Format,
-    // An outstanding reservation is visible upon returning on another device.
-    expanded: Option<bool>,
     track: Track,
     league: League,
     division: Option<u8>,
@@ -110,7 +114,6 @@ impl Default for Ui {
         Self {
             format: Format::Standard,
             queue_format: Format::Standard,
-            expanded: None,
             track: Track::Player,
             league: League::Champion,
             division: None,
@@ -222,6 +225,9 @@ pub(super) fn refresh(state: &mut LobbyState) {
     native::board(state, request);
 }
 pub(super) fn escape(state: &mut ResMut<LobbyState>) {
+    if inline::escape(state.bypass_change_detection()) {
+        return;
+    }
     if state.ranked.show_leagues {
         let ui = &mut state.bypass_change_detection().ranked;
         ui.show_leagues = false;
@@ -243,6 +249,9 @@ fn open(cx: Cx<'_, '_, '_, '_, '_>) {
     cx.state.lobby.park_caret();
     cx.state.ranked.reset_pages();
     refresh(cx.state);
+    // The page's desk reads the account's decks and its queue entry as it
+    // opens, as the Play tile's desk did when it unfolded.
+    inline::opened(cx.state, cx.mailbox);
 }
 
 pub(super) fn press(action: Action, cx: Cx<'_, '_, '_, '_, '_>) {
@@ -250,8 +259,11 @@ pub(super) fn press(action: Action, cx: Cx<'_, '_, '_, '_, '_>) {
         open(cx);
         return;
     }
-    if cx.state.hub != Hub::Ranked {
+    if inline::owns(action) {
         inline::press(action, cx);
+        return;
+    }
+    if cx.state.hub != Hub::Ranked {
         return;
     }
     if action == Action::Back {
@@ -263,6 +275,8 @@ pub(super) fn press(action: Action, cx: Cx<'_, '_, '_, '_, '_>) {
     let state = cx.state.bypass_change_detection();
     if action == Action::Refresh {
         refresh(state);
+        inline::refresh(state);
+        state.ranked.revision = state.ranked.revision.wrapping_add(1);
         return;
     }
     let ui = &mut state.ranked;
@@ -320,8 +334,7 @@ pub(super) fn press(action: Action, cx: Cx<'_, '_, '_, '_, '_>) {
     state.ranked.revision = state.ranked.revision.wrapping_add(1);
 }
 
-pub(super) use inline::preview_visible;
-pub(super) use inline::{entry, escape_queue};
+pub(in crate::lobby) use inline::TileCaption;
 
 fn join(state: &mut LobbyState) {
     if !state.has_central_account() || state.lobby.awaiting().is_some() || state.ranked_net.busy {

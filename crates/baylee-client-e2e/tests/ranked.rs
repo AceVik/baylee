@@ -244,28 +244,22 @@ fn capture(client: &mut Client, name: &str) -> Result<()> {
 
 fn narrow_queue_remains_playable(client: &mut Client) -> Result<()> {
     client.resize(Viewport::NARROW)?;
-    let opened = client.wait_until("compact inline controls", |s| {
-        s.is_at(Viewport::NARROW) && presented(s, "Ranglistenspiel")
+    let opened = client.wait_until("the desk stacked over the ladder", |s| {
+        s.is_at(Viewport::NARROW) && s.control("Ranked(Join)").is_some()
     })?;
-    let table = opened.locate(&press("Play(CreateTable)"))?;
-    anyhow::ensure!(
-        opened.window().contains(&table, 1.0),
-        "tables are outside the compact window"
-    );
-    capture(client, "ranked-play-narrow")?;
-    // Scroll the activity rail exactly as a player would until the action can
-    // actually be clicked. The table pane must stay stationary underneath.
-    let (x, y) = opened.locate(&press("Ranked(ToggleQueue)"))?.centre();
+    capture(client, "ranked-page-narrow")?;
+    // A narrow window scrolls the whole page; the desk stands first, so its
+    // search is reached by scrolling the page as a player would, if at all.
+    let (x, y) = opened.locate(&press("Ranked(Back)"))?.centre();
     for _ in 0..15 {
         if presented(&client.screen()?, "Gegner suchen") {
             break;
         }
-        client.scroll(at(x, y), 1.0)?;
+        client.scroll(at(x, y + 120.0), 1.0)?;
     }
-    let scrolled = client.wait_until("search reachable by scrolling the compact rail", |s| {
+    client.wait_until("search reachable on the narrow page", |s| {
         presented(s, "Gegner suchen")
     })?;
-    anyhow::ensure!(scrolled.locate(&press("Play(CreateTable)"))? == table);
     client.click(press("Ranked(Join)"))?;
     client.wait_until("compact queue confirmation", |s| {
         s.shows("Gegner für Highlander wird gesucht")
@@ -341,7 +335,7 @@ fn ranked_public_board_filters_and_scrolls_without_an_account() {
 
 #[test]
 #[ignore = "opens a passive client window: cargo dev e2e"]
-fn ranked_play_card_searches_and_cancels_beside_other_modes_and_tables() {
+fn ranked_page_searches_and_cancels_beside_the_public_ladder() {
     let fixture = PublicLadder::new();
     let launch = Launch::new()
         .viewport(Viewport::LAPTOP)
@@ -367,20 +361,22 @@ fn ranked_play_card_searches_and_cancels_beside_other_modes_and_tables() {
                 && !s.flag("/account/entrance_active")
                 && !s.flag("/account/journey_active")
         })?;
-        let opener = "Ranked(ToggleQueue)";
-        let table = "Play(CreateTable)";
+        let opener = "Ranked(Open)";
         let card = lobby.locate(&press(opener))?;
-        let original_table = lobby.locate(&press(table))?;
-        anyhow::ensure!(lobby.window().contains(&card, 1.0) && card.right() < original_table.x);
+        let tables = lobby.locate(&press("Play(CreateTable)"))?;
+        anyhow::ensure!(lobby.window().contains(&card, 1.0) && card.right() < tables.x);
+        anyhow::ensure!(
+            lobby.control("Ranked(Join)").is_none(),
+            "the queue stands on the Ranked page, not in the lobby"
+        );
         capture(client, "ranked-play-lobby")?;
         client.click(press(opener))?;
-        let open = client.wait_until("inline format and deck choice", |s| {
-            s.control("Ranked(QueueFormat(Standard))").is_some() && s.shows("Morgenrot")
+        let page = client.wait_until("the desk beside the public ladder", |s| {
+            s.control("Ranked(QueueFormat(Standard))").is_some()
+                && s.shows("Morgenrot")
+                && s.shows("Mistral-01")
         })?;
-        anyhow::ensure!(
-            open.locate(&press(table))? == original_table,
-            "table moved on expanding"
-        );
+        let ladder = page.locate(&press("Ranked(Refresh)"))?;
         client.click(press("Ranked(ToggleDecks)"))?;
         client.click(text("Waldwache"))?;
         client.wait_until("chosen deck", |s| {
@@ -390,27 +386,24 @@ fn ranked_play_card_searches_and_cancels_beside_other_modes_and_tables() {
         client.wait_until("only the Highlander deck is offered", |s| {
             s.shows("Sternenmeer")
         })?;
-        capture(client, "ranked-play-expanded")?;
+        capture(client, "ranked-page")?;
         client.click(press("Ranked(Join)"))?;
-        let waiting = client.wait_until("the waiting queue within Play", |s| {
-            s.shows("Gegner für Highlander wird gesucht") && s.shows("Abendrunde")
+        let waiting = client.wait_until("the waiting queue beside the ladder", |s| {
+            s.shows("Gegner für Highlander wird gesucht") && s.shows("Mistral-01")
         })?;
         anyhow::ensure!(
-            waiting.locate(&press(table))? == original_table,
-            "table moved while searching"
+            waiting.locate(&press("Ranked(Refresh)"))? == ladder,
+            "the ladder moved while the desk searched"
         );
-        capture(client, "ranked-play-waiting")?;
+        capture(client, "ranked-page-waiting")?;
         client.click(press("Ranked(Cancel)"))?;
         client.wait_until("back in the same format after cancelling", |s| {
             s.shows("Sternenmeer") && s.control("Ranked(Join)").is_some()
         })?;
-        client.click(press("Ranked(Open)"))?;
-        client.wait_until("optional public standings", |s| s.shows("Mistral-01"))?;
         client.click(press("Ranked(Format(Commander))"))?;
-        client.click(press("Ranked(Back)"))?;
         client.wait_until(
             "separate matchmaking format survives leaderboard filtering",
-            |s| s.shows("Sternenmeer") && s.shows("Abendrunde"),
+            |s| s.shows("Sternenmeer"),
         )?;
         narrow_queue_remains_playable(client)?;
         client.click(press("Ranked(QueueFormat(Commander))"))?;
@@ -424,6 +417,10 @@ fn ranked_play_card_searches_and_cancels_beside_other_modes_and_tables() {
             presented(s, "Commander · Deck · Platin IV")
         })?;
         capture(client, "ranked-league-fixture")?;
+        client.click(press("Ranked(Back)"))?;
+        client.wait_until("Play again, the tile saying the result", |s| {
+            s.shows("Abendrunde") && s.control("Ranked(Open)").is_some()
+        })?;
         Ok(())
     });
 }

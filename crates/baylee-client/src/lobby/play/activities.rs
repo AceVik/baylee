@@ -19,33 +19,29 @@ pub(super) fn leaderboards(commands: &mut Commands, parent: Entity, kit: Kit) {
     commands.entity(parent).add_child(link);
 }
 
+/// The ranked mode's tile: it opens the Ranked page, where the queue and the
+/// ladder stand, and says in its line how the queue stands meanwhile.
 #[cfg(not(target_arch = "wasm32"))]
 pub(super) fn ranked(commands: &mut Commands, parent: Entity, kit: Kit) {
-    let arrow = commands
-        .spawn((
-            Text::new(glyph::CHEVRON_DOWN.to_string()),
-            crate::hud::icon_tf(kit.fonts, kit.m.small * 0.8),
-            TextColor(tokens::ACCENT),
-            Pickable::IGNORE,
-        ))
-        .id();
-    let (card, caption) = tile(
+    let (_, caption) = tile(
         commands,
         parent,
         kit,
         Tile {
             stop: "ranked",
-            trailing: &[arrow],
+            trailing: &[],
             title: Phrase::RankedTitle.text(kit.lang()),
             description: Phrase::RankedModeEntry.text(kit.lang()),
             scene: Scene::Ranked,
             icon: glyph::TROPHY,
-            action: Press::Ranked(super::super::ranked::Action::ToggleQueue),
+            action: Press::Ranked(super::super::ranked::Action::Open),
             live: Live::Yes,
             accent: tokens::ACCENT,
         },
     );
-    super::super::ranked::entry(commands, card, caption, arrow, kit);
+    commands
+        .entity(caption)
+        .insert(super::super::ranked::TileCaption);
 }
 
 pub(super) fn draw(commands: &mut Commands, parent: Entity, state: &LobbyState, kit: Kit) {

@@ -89,7 +89,8 @@ pub(in crate::lobby) fn draw(
     );
     let page = page_root(commands, root, kit, compact);
     let formats = masthead(commands, page, kit);
-    let board = board_panel(commands, page, kit, metrics, compact, scrolled);
+    let band = desk_and_board(commands, page, kit, compact);
+    let board = board_panel(commands, band, kit, metrics, compact, scrolled);
     commands.entity(page).insert(Page {
         metrics: kit.m,
         formats,
@@ -183,6 +184,52 @@ fn masthead(commands: &mut Commands, page: Entity, kit: Kit) -> Entity {
     formats
 }
 
+/// The page's body: the account's desk (its standing and the queue) beside
+/// the public ladder on a wide window, above it on a narrow one. The desk
+/// keeps one width whatever it says, so the ladder beside it never moves.
+fn desk_and_board(commands: &mut Commands, page: Entity, kit: Kit, compact: bool) -> Entity {
+    let band = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                flex_grow: if compact { 0.0 } else { 1.0 },
+                flex_shrink: if compact { 0.0 } else { 1.0 },
+                min_height: px(0),
+                flex_direction: if compact {
+                    FlexDirection::Column
+                } else {
+                    FlexDirection::Row
+                },
+                column_gap: kit.m.space(2),
+                row_gap: kit.m.space(2),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(page).add_child(band);
+    let desk = surfaces::panel(
+        commands,
+        kit,
+        if compact { percent(100) } else { kit.m.px(400.0) },
+    );
+    commands
+        .entity(desk)
+        .entry::<Node>()
+        .and_modify(move |mut n| {
+            n.flex_shrink = 0.0;
+            n.min_height = px(0);
+            n.row_gap = kit.m.space(2);
+            if !compact {
+                n.overflow = Overflow::scroll_y();
+            }
+        });
+    commands.entity(desk).insert(Pickable::default());
+    commands.entity(band).add_child(desk);
+    super::inline::desk(commands, desk, kit);
+    band
+}
+
 fn board_panel(
     commands: &mut Commands,
     content: Entity,
@@ -208,6 +255,9 @@ fn board_panel(
                 n.flex_shrink = 0.0;
                 n.height = Val::Vh(66.0);
                 n.min_height = kit.m.px(320.0);
+            } else {
+                // Beside the desk, the ladder takes the rest of the line.
+                n.flex_basis = px(0);
             }
         });
     commands.entity(content).add_child(board);
@@ -442,15 +492,37 @@ fn paint_board(
         .is_some_and(|(r, o, n)| r.as_slice() == entries && *o == offset && *n == notice)
     {
         commands.entity(board.list).despawn_children();
-        if let Some(msg) = notice {
-            label(
+        match notice {
+            // Rows on their way: skeleton rows at the rows' pitch.
+            Some(Phrase::ChallengeLoading) => {
+                let rows = crate::shellkit::states::skeleton(commands, kit, 6);
+                commands.entity(board.list).add_child(rows);
+            }
+            // Nobody placed in this group yet: the empty state in the
+            // list's middle, under a cup.
+            Some(Phrase::RankedBoardEmpty) => {
+                let empty = crate::shellkit::states::empty(
+                    commands,
+                    kit,
+                    glyph::TROPHY,
+                    Phrase::RankedBoardEmpty.text(lang),
+                    None,
+                );
+                commands.entity(empty).entry::<Node>().and_modify(|mut n| {
+                    n.flex_grow = 1.0;
+                    n.justify_content = JustifyContent::Center;
+                });
+                commands.entity(board.list).add_child(empty);
+            }
+            Some(msg) => label(
                 commands,
                 board.list,
                 kit,
                 msg.text(lang),
                 kit.m.text,
                 tokens::MUTED,
-            );
+            ),
+            None => {}
         }
         for (i, row) in entries.iter().enumerate() {
             board_row(commands, board.list, kit, row, offset + i + 1, i);
@@ -504,6 +576,10 @@ fn paint_pager(commands: &mut Commands, container: Entity, kit: Kit, pager: &Pag
     commands.entity(container).add_child(season_button);
     let grow = parts::grow(commands);
     commands.entity(container).add_child(grow);
+    // A single page turns nowhere: no arrows to read and refuse.
+    if !pager.previous && !pager.next {
+        return;
+    }
     for (i, (on, forward, icon, txt)) in [
         (
             pager.previous,

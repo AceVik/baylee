@@ -226,6 +226,40 @@ pub(super) fn marked_line(
     row
 }
 
+/// A thin bar `share` (0..=1) full, `width` wide: a badge's way to its next
+/// tier, a newcomer's placement games. Drawn once; it never animates its
+/// width, so nothing beside it moves.
+pub(super) fn meter(commands: &mut Commands, kit: Kit, share: f32, width: Val, ink: Color) -> Entity {
+    let track = commands
+        .spawn((
+            Node {
+                width,
+                height: kit.m.px(4.0),
+                flex_shrink: 0.0,
+                border_radius: BorderRadius::all(kit.m.px(2.0)),
+                overflow: Overflow::clip(),
+                ..default()
+            },
+            BackgroundColor(tokens::CONTROL),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let fill = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0 * share.clamp(0.0, 1.0)),
+                height: Val::Percent(100.0),
+                border_radius: BorderRadius::all(kit.m.px(2.0)),
+                ..default()
+            },
+            BackgroundColor(ink),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(track).add_child(fill);
+    track
+}
+
 /// The medal of a ranking's first three places: gold, silver, bronze.
 pub(super) fn medal(place: usize) -> Option<Color> {
     match place {

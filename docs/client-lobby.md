@@ -3,13 +3,23 @@
 ## Ranked play
 
 The illustrated Ranked activity sits beside the table list, with Tower, Daily
-and Weekly. Expanding the arena tile reveals the format, the deck selector
-and the matchmaking controls in place. A Central account can queue for a duel,
-check its status and cancel from that tile. Opening or folding the tile never
-enters or leaves the queue.
+and Weekly. Its tile unfolds nothing in place: it opens the Ranked page, and
+its line under the title says how the queue stands (searching, a host found,
+the last result) or, idle, the account's rank and Elo in the queue's format.
+The page stands the account's desk beside the public ladder on a wide window
+(above it on a narrow one, the whole page scrolling): the standing (rank
+badge, Elo, the season's record, a bar of the ten placement games while
+unranked), the format, the deck selector, the search and its result card. A
+Central account can queue for a duel, check its status and cancel there; the
+desk keeps one width whatever it says, so the ladder beside it never moves.
+Opening or leaving the page never enters or leaves the queue. Without a legal
+deck in the format, the desk shows an empty state that leads to the deck
+library.
 
-The optional Leaderboards action opens the same public seasonal ladder as
-the front door. Guests can read it immediately. Its format filter is independent
+The ladder is the same public seasonal ladder the front door opens; its first
+three places wear gold, silver and bronze medals, an empty group shows the
+shell kit's empty state, and the pager offers its arrows only when there is a
+second page. Guests can read it immediately. Its format filter is independent
 of the format selected for play. Standard, Highlander and Commander each
 have separate player and deck standings. The league menu offers the
 divisions that exist in that league. The season button also lists past seasons.
@@ -39,8 +49,8 @@ Central. Accept continues that assignment. Decline releases the reservation.
 Long games renew their own admission while the original seat remains open.
 
 On macOS the passive window tests selected by `cargo dev e2e ranked_`
-exercise the public board against loopback data and drive the inline queue
-in the native lobby. The latter uses a synthetic account and queue replies
+exercise the public board against loopback data and drive the queue on the
+Ranked page, opened from the native lobby's tile. The latter uses a synthetic account and queue replies
 through an explicit development fixture. The gateway integration test covers
 the separate network path through Central and the assigned game host.
 
@@ -157,33 +167,37 @@ Its registered Tab order reaches task/ranking composites with arrow keys and
 activates controls with Enter/Space. Confirmation traps Tab on Cancel/Confirm.
 
 Both pages stand on the shell kit's panels (`challenges/draw/layout.rs`: a
-section is `surfaces::panel`, a block inside it an inset on the control
-ground, a group has a small-capitals caption, body copy is body size, a number
-stands in a stat cell). The calendar reads, in order: the page's head with
-Refresh; an attempt left open on a task that is no current card; the Daily and
-the Weekly as two equal cards (landscape, kind, name, tactician goal, closing
-time, one primary, gold when an attempt of it is open); the two expeditions as
-two equal cards behind them (secondary, gold only for a run begun); the
-permanent badges; the archive as one list. A narrow window stacks each pair.
-State lines (first read, failure, pending result, no task) stand on mist
-plates, never bare on the painting, and a minute's re-read shows none.
+section is `surfaces::panel`, a block inside it an inset on the control ground,
+a group has a small-capitals caption, body copy is body size, a number stands
+in a stat cell). The calendar reads, in order: the page's head with Refresh; an
+attempt left open on a task that is no current card; the Daily and the Weekly
+as two equal cards (landscape, kind, name, tactician goal, closing time and
+what is left of it, one primary, gold when an attempt of it is open); the two
+expeditions as two equal cards behind them (secondary, gold only for a run
+begun); the permanent badges; the archive as one list. A narrow window stacks
+each pair. State lines (first read, failure, pending result, no task) stand on
+mist plates, never bare on the painting, and a minute's re-read shows none.
 
 A task's page leads with Back. Its card reads as a player decides: landscape,
-kind and state, name, instructions, the goal with the opening and closing
-times, "Your progress" as three stat cells, then Play (or gold Resume) with
+kind and state, name, instructions, the goal with the opening and closing times
+and a countdown (rewritten once a minute, never by a rebuild), "Your progress"
+as three stat cells, each behind its glyph, then Play (or gold Resume) with
 Hint beside it and Abandon at the row's far end, the confirmation or a seen
 hint directly under them, consent beside its switch, and the supplied deck and
 the scoring rules folded at the foot. The rankings stand beside it (under it
-below the Wide frame) as one table: rank, player, turns, failures, active
-time, the player's own row tinted. The Tab order follows that reading order. Choosing a badge shows its five tiers, exact requirements
-and earned status. Five original procedural motifs gain bezels, laurels, gems
-and crowns through Bronze → Obsidian. Together with three retained Tower motifs
-and three current Echoes motifs, sixty-six shared material slots bound the
-cache. Motion reads the GPU clock, respects reduced motion and ambient-effects
-settings, and does not rebuild the UI or upload uniforms on idle frames.
-Motion reduction remains adjustable before gateway admission, stored locally
-by the existing preferences store. Opaque reading surfaces and scrolling over
-both controls and empty space support the minimum desktop and enlarged text.
+below the Wide frame) as one table: rank (the first three behind gold, silver
+and bronze medals, as on the ranked ladder), player, turns, failures, active
+time, the player's own row tinted; with no score yet the shell kit's empty
+state stands in its middle. The Tab order follows that reading order. Choosing
+a badge shows its five tiers, exact requirements and earned status. Five
+original procedural motifs gain bezels, laurels, gems and crowns through Bronze
+→ Obsidian. Together with three retained Tower motifs and three current Echoes
+motifs, sixty-six shared material slots bound the cache. Motion reads the GPU
+clock, respects reduced motion and ambient-effects settings, and does not
+rebuild the UI or upload uniforms on idle frames. Motion reduction remains
+adjustable before gateway admission, stored locally by the existing preferences
+store. Opaque reading surfaces and scrolling over both controls and empty space
+support the minimum desktop and enlarged text.
 
 The compact Connection control opens connection selection or its diagnostic
 popover; connection details do not occupy the home. Multiplayer leads to the

@@ -31,8 +31,8 @@ pub(super) fn keyboard(
     // into fields of their own.
     holds: Option<Res<crate::shellkit::KitHolds>>,
     // Which stop has the ring: the history sheet's arrows are its stop's.
-    (mut focus, stops): (
-        ResMut<bevy::input_focus::InputFocus>,
+    (focus, stops): (
+        Res<bevy::input_focus::InputFocus>,
         Query<(Entity, &crate::shellkit::focus::Stop)>,
     ),
 ) {
@@ -366,36 +366,6 @@ pub(super) fn keyboard(
     // the innermost one and nothing behind it hears the key (`KEYBOARD.md`
     // §2.5); a room is never left by Esc.
     if matches!(state.lobby.screen(), Screen::Table) && shell_layer_keys(&codes, &mut state) {
-        keys.clear();
-        return;
-    }
-    #[cfg(not(target_arch = "wasm32"))]
-    if codes.just_pressed(KeyCode::Escape)
-        && super::ranked::preview_visible(&state)
-        && focus
-            .get()
-            .and_then(|e| stops.get(e).ok())
-            .is_some_and(|(_, stop)| {
-                stop.table == super::orders::PLAY.name
-                    && matches!(
-                        stop.id,
-                        "ranked"
-                            | "rank-format"
-                            | "deck"
-                            | "deck-choice"
-                            | "preview"
-                            | "queue"
-                            | "ranked-board"
-                    )
-            })
-    {
-        let target = super::ranked::escape_queue(state.bypass_change_detection());
-        if let Some((entity, _)) = stops
-            .iter()
-            .find(|(_, s)| s.table == super::orders::PLAY.name && s.id == target)
-        {
-            focus.set(entity, bevy::input_focus::FocusCause::Navigated);
-        }
         keys.clear();
         return;
     }

@@ -123,7 +123,7 @@ pub(super) fn draw(commands: &mut Commands, parent: Entity, kit: Kit, look: &Loo
         Press::Ranked(Action::Preview),
     );
     if !look.busy {
-        orders::stop(commands, button, &orders::PLAY, "preview");
+        orders::stop(commands, button, &super::ORDER, "preview");
     }
     commands.entity(parent).add_child(button);
 }
