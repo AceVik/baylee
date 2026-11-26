@@ -54,13 +54,26 @@ Every AI kind joins, each as its own account:
 | Kind | Mind | Where it runs | Cost |
 | --- | --- | --- | --- |
 | Language models | `baylee-seat` with an API or CLI mind (`docs/llm-seat.md`): DeepSeek through its API; Claude Code, Codex and Antigravity through their CLIs, signed in on the live server | seat agent on the live server, its own Unix user | tokens; the owner's subscriptions and DeepSeek key |
-| House AI | `HeuristicAgent`, every level including `seer` | inside both ranked engines, frozen and deterministic like the Tower's house opponent (`docs/house-ai.md`) | CPU only |
+| House AI, fair levels | `baylee-seat` with its house mind, an ordinary socket player like the language models | seat agent | CPU only |
+| House AI, `seer` | `HeuristicAgent` with `Sight::Peeking`, a seat inside the engine | the engine server | CPU only |
 | Baylee AI | the trained net (`docs/trained-ai.md`) behind `baylee-seat`; that mind is planned, not built | seat agent | to be measured: whether the live server's CPU runs it fast enough is not established |
 
-Fable does not play (too expensive). `seer` is labelled for what it does:
-"Seher (unfair): sieht deine Hand und deine nächsten drei Karten". It can only
-run in-engine, because the seat bridge never receives hidden cards and refuses
-the level (`docs/house-ai.md` §"Fair by default, and the one level that peeks").
+Every AI but `seer` is therefore a remote seat that plays from its view, and
+ranked needs no engine change for it. Fable does not play (too expensive).
+`seer` is labelled for what it does: "Seher (unfair): sieht deine Hand und
+deine nächsten drei Karten". It can only run in-engine, because the seat bridge
+never receives hidden cards and refuses the level (`docs/house-ai.md` §"Fair by
+default, and the one level that peeks").
+
+**Which ranked path runs.** Central pairs two hosts of different registered
+owners for a replicated match and falls back to a single host when it finds no
+independent pair (Central `docs/ranked.md`). With one server and one owner,
+every ranked game today runs single-host: the engine server's own driver keeps
+the clocks, the reconnect window and the forfeit
+(`crates/baylee-engine-server/src/driver/timing.rs`, `connections.rs`). The
+in-engine pieces of this design (`seer`, the stand-in, freezing) are built for
+that path first. The replicated path keeps today's rules until they are carried
+over as Central authority rulings (§"Disconnects and rage quits").
 
 **Names** are the honest model name and level, for example
 "Claude Haiku · Hoch", "Haus-KI · Expert", with the provider's icon and an AI
@@ -189,11 +202,15 @@ quit is time.
   pool stable"). Whether these cases go through the same balances or are
   accepted as a small drain is to be decided with the league lab.
 
-Today's ranked engines never play on by themselves when a socket is missing
-(`docs/protocol.md` §"Engine control for a protected ranked assignment"). Freeze,
-resume, stand-in takeover and claiming the win are therefore new authority
-rulings that Central orders and both engines reproduce, like today's clock
-rulings.
+Where this is built: on the single-host path, which every game runs today
+(§"Which ranked path runs"), the engine server's driver already holds the
+reconnect window and the forfeit, and casual games already have a house
+stand-in (`Session::stand_in`, `hand_back`). The pause, stand-in, slow pacing
+and claim go there, and Central settles the result with the new scoring.
+Replicated engines never play on by themselves when a socket is missing
+(`docs/protocol.md` §"Engine control for a protected ranked assignment"); there
+the same rules become new Central authority rulings that both engines
+reproduce, like today's clock rulings, in a later stage.
 
 ## Decks
 
@@ -250,8 +267,8 @@ the rules, like every player report.
 - **Budget.** Each subscription gets a daily cap for the server's AIs, so the
   owner's development keeps enough quota. DeepSeek uses the spend book's day
   and month caps (`caps.day_usd`, `caps.month_usd`).
-- A ranked game runs on two engines; AI-against-AI games double that load too.
-  The carousel cap bounds it.
+- Every AI-against-AI game is one more engine process (two on the replicated
+  path). The carousel cap bounds it.
 
 ## Prerequisites and open checks
 
@@ -276,22 +293,49 @@ the rules, like every player report.
 
 | Area | Work |
 | --- | --- |
-| Central (separate repository) | AI account kind, admin switch, concurrent games for AI accounts, fill-in after the countdown, carousel cap, freeze, resume, stand-in and claim rulings, leaver ledger, half stakes |
-| Gateway and engine server | in-engine house seats in ranked (frozen like Tower's), freeze and resume on the starting build, stand-in takeover, keeping old engine builds |
-| `baylee-seat` and the seat agent | ranked admission and presence for AI accounts, several games per account, the speed measurement |
+| Central (separate repository) | AI accounts flagged by an admin, admin switch, several games at once for AI accounts, fill-in after the countdown, carousel cap, half stakes and the half loss, leaver ledger, the frozen-game state; later the replicated-path rulings |
+| Gateway and engine server | `seer` as an in-engine ranked seat, the single-host pause, stand-in, slow pacing and claim, freeze and resume on the starting build, keeping old engine builds |
+| `baylee-seat` and the seat agent | a ranked runner that signs in as an AI account, takes its assignments and plays them (admission, deck, presence, renewal), several games per account, the speed measurement |
 | Client | countdown and "Nur Menschen", AI badges and icons, house-fallback and stand-in notices, frozen-game resume or concede, AI profiles, deck chronicle, "Bezwinger" list, public-replay checkbox |
 | Feedback service | "KI-Meldungen" column and weekly pre-sort |
 | Docs | `docs/privacy.md`, the terms, `docs/client-lobby.md` §"Ranked play", `docs/protocol.md` |
 
-## Order
+## Stages
 
-1. **Measure** every candidate profile offline (speed, cost, fallback rate),
-   and Baylee AI's speed on the live server's CPU.
-2. **AI accounts and calibration**: accounts, badges, admin switch, in-engine
-   house seats, AI-against-AI ranked.
-3. **Fill-in** for people: countdown, "Nur Menschen", freeze and stand-in rules,
-   leaver ledger.
-4. **Profiles and replays**: public opt-in, "Bezwinger", deck chronicle,
+Each stage lands on its own: Baylee through `cargo dev land` from the thread's
+own clone, Central only through a pull request with its own required checks
+(Central `AGENTS.md`). Model and effort per lane follow the owner's split:
+Central and the engine server at Opus xhigh (one engine agent at a time),
+seat bridge, gateway and client at Opus high, tests and mechanical rebases at
+Sonnet medium.
+
+0. **Ground.** The concept on `main`. Bump Baylee's `central-api` pin to
+   Central's current `main` as a step of its own.
+1. **First slice, no tokens.** One fair house account ("Haus-KI · Expert")
+   fills a lonely search on the local stack, end to end.
+   - Central: a design note under its three-pass security method first.
+     Default: ordinary accounts that an admin flags as AI (kind, profile,
+     enabled, how many games at once); the seat agent signs in as them. Then
+     the flag, the admin switch, fill-in on the 60th second unless the ticket
+     says "Nur Menschen", several games per AI account, and the profile's AI
+     field. The choice of AI is one swappable policy, since the owner has
+     not settled it.
+   - Seat bridge: the ranked runner with the house mind.
+   - Client: countdown and "Nur Menschen" on the search card, the AI badge on
+     the result card, the table, the ladder row and the profile.
+2. **Language models.** The measurement (profiles, game count and caps
+   agreed with the owner first, since it spends his subscriptions and
+   DeepSeek budget), the speed check, the language-model accounts on the same
+   runner, the house-fallback notice, a deck check per format before the
+   roster relies on any deck, the Leih-Deck pool, calibration and the
+   carousel cap.
+3. **Disconnects** on the single-host path: pause, slow stand-in, claim,
+   freeze against an AI, the three-hour freeze, old engine builds kept;
+   Central's half stakes, half loss, daily forgiveness and leaver ledger;
+   the client's notices and the resume-or-concede choice.
+4. **`seer`** as an in-engine ranked seat.
+5. **Profiles and replays**: public opt-in, "Bezwinger", deck chronicle,
    reasoning after the game.
-5. **Tower and bug-report column.**
-6. Later: the deck optimiser, Baylee AI's deckbuilding.
+6. **Tower runs, the "KI-Meldungen" column, privacy and terms.**
+7. Later: the replicated-path rulings, the deck optimiser, Baylee AI's
+   deckbuilding.
