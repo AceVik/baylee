@@ -152,13 +152,18 @@ fn plan(phase: Phase, lang: Lang) -> String {
 
 pub(super) fn draw(cmd: &mut Commands, parent: Entity, kit: Kit, b: &Book, door: u8) {
     let lang = kit.lang();
-    label(
+    // The door as a gold badge, its star the calendar's own.
+    let badge = crate::lobby::parts::badge_with(
         cmd,
-        parent,
         kit,
+        crate::lobby::parts::STAR,
         &Phrase::AdventDoor.fill(lang, &[&door.to_string()]),
         tokens::GOLD,
     );
+    cmd.entity(badge).entry::<Node>().and_modify(|mut n| {
+        n.align_self = AlignSelf::FlexStart;
+    });
+    cmd.entity(parent).add_child(badge);
     match b.door(door).map(|d| d.state) {
         Some(api::DoorState::Solved | api::DoorState::Claimed) => {
             if b.puzzle
@@ -205,17 +210,19 @@ pub(super) fn draw(cmd: &mut Commands, parent: Entity, kit: Kit, b: &Book, door:
     let Ok(pos) = challenge.puzzle.position(&challenge.line) else {
         return;
     };
-    label(
+    let goal = crate::lobby::parts::marked_line(
         cmd,
-        parent,
         kit,
+        crate::hud::glyph::BULLSEYE,
         match challenge.puzzle.goal {
             Goal::Survive => Phrase::AdventSurvive,
             Goal::Defeat => Phrase::AdventDefeat,
         }
         .text(lang),
+        kit.m.head,
         tokens::INK,
     );
+    cmd.entity(parent).add_child(goal);
     battlefield(cmd, parent, kit, &pos.board);
     timeline(cmd, parent, kit, &challenge.puzzle, pos.step);
     decisions(cmd, parent, kit, challenge, &pos, b.inventory_page);
@@ -249,7 +256,20 @@ fn battlefield(cmd: &mut Commands, parent: Entity, kit: Kit, board: &api::puzzle
             lang,
             &[side(side_id).text(lang), &board.life[s].to_string()],
         );
-        label(cmd, col, kit, &head, tokens::ACCENT);
+        // Each side's life behind a heart, as the table's plates say it.
+        let life = crate::lobby::parts::marked_line(
+            cmd,
+            kit,
+            crate::hud::glyph::HEART,
+            &head,
+            kit.m.text,
+            if side_id == Side::You {
+                tokens::ACCENT
+            } else {
+                tokens::DANGER
+            },
+        );
+        cmd.entity(col).add_child(life);
         for (i, piece) in board.units[s].iter().enumerate().filter(|(_, c)| c.alive) {
             let mut words = vec![format!(
                 "{}  {}/{}",
@@ -269,7 +289,14 @@ fn battlefield(cmd: &mut Commands, parent: Entity, kit: Kit, board: &api::puzzle
             if piece.damage > 0 {
                 words.push(Phrase::AdventDamage.fill(lang, &[&piece.damage.to_string()]));
             }
-            label(cmd, col, kit, &words.join(" · "), tokens::INK);
+            let unit = crate::lobby::parts::glyph_line(
+                cmd,
+                kit,
+                crate::hud::glyph::SHIELD,
+                &words.join(" · "),
+                tokens::INK,
+            );
+            cmd.entity(col).add_child(unit);
         }
     }
     if !board.hand.is_empty() {
@@ -398,13 +425,15 @@ fn utilities(cmd: &mut Commands, parent: Entity, kit: Kit, challenge: &super::Ch
     cmd.entity(parent).add_child(utility);
     for n in 1..=2 {
         if let Some(t) = &challenge.hints[usize::from(n - 1)] {
-            label(
+            // A seen hint stands behind the bulb its button wore.
+            let hint = crate::lobby::parts::glyph_line(
                 cmd,
-                parent,
                 kit,
+                '\u{f0eb}',
                 if lang == Lang::De { &t.de } else { &t.en },
-                tokens::MUTED,
+                tokens::GOLD,
             );
+            cmd.entity(parent).add_child(hint);
         } else {
             tile_action(
                 cmd,

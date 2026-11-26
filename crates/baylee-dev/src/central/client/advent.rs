@@ -153,18 +153,8 @@ impl Visit<'_> {
     fn compare_lobby(&mut self) -> Result<()> {
         self.keyboard_open()?;
         self.press(CAL, "close", 0)?;
+        // The ranked tile opens the Ranked page, its desk beside the ladder.
         self.press("play", "ranked", 0)?;
-        if std::env::var("BAYLEE_CENTRAL_RANK_COLLECTION_UI").as_deref() == Ok("1") {
-            // The result receipt places the leaderboard below this rail's fold.
-            let card = self.button("play", "ranked", 0)?;
-            self.dev.post(
-                "pointer",
-                &json!({"x":card["x"].as_f64().unwrap()+16.,
-                "y":card["y"].as_f64().unwrap()+16.}),
-            )?;
-            self.dev.post("scroll", &json!({"y":-7}))?;
-        }
-        self.press("play", "ranked-board", 0)?;
         self.button("ranked", "back", 0)?;
         self.capture("09-ranked-reference")?;
         if std::env::var("BAYLEE_CENTRAL_ADVENT_UI_DE").as_deref() == Ok("1") {

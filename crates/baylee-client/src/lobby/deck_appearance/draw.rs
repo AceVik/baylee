@@ -211,7 +211,16 @@ pub(super) fn contents(c: &mut Commands, body: Entity, foot: Entity, kit: Kit, p
         return;
     };
     let kind = p.kind.unwrap_or(Kind::Sleeve);
-    line(c, body, kit, &d.name);
+    // The deck the look is for, as a heading behind the library's glyph.
+    let deck = crate::lobby::parts::marked_line(
+        c,
+        kit,
+        crate::hud::glyph::LIBRARY,
+        &d.name,
+        kit.m.head,
+        tokens::INK,
+    );
+    c.entity(body).add_child(deck);
     if matches!(p.origin, Some(Origin::Editor(_))) {
         let tabs = c
             .spawn(Node {
@@ -248,17 +257,20 @@ pub(super) fn contents(c: &mut Commands, body: Entity, foot: Entity, kit: Kit, p
         designs(c, body, kit, p, b, kind);
     }
     if worker::slot(d.look, kind) == p.selected {
-        line(
+        // Saved says so with a green tick; the deck's look as it stands, muted.
+        let said = crate::lobby::parts::glyph_line(
             c,
-            foot,
             kit,
+            crate::hud::glyph::CHECK,
             if p.saved {
                 Phrase::DeckAppearanceSaved
             } else {
                 Phrase::DeckAppearanceCurrent
             }
             .text(lang),
+            if p.saved { tokens::GAIN } else { tokens::MUTED },
         );
+        c.entity(foot).add_child(said);
     } else {
         button(
             c,
@@ -285,7 +297,14 @@ fn designs(c: &mut Commands, body: Entity, kit: Kit, p: &Page, b: &Book, kind: K
     );
     let items: Vec<_> = b.inventory().iter().filter(|r| r.kind == kind).collect();
     if items.is_empty() {
-        line(c, body, kit, Phrase::DeckAppearanceNoItems.text(lang));
+        let empty = crate::shellkit::states::empty(
+            c,
+            kit,
+            crate::lobby::parts::STAR,
+            Phrase::DeckAppearanceNoItems.text(lang),
+            None,
+        );
+        c.entity(body).add_child(empty);
     }
     for (idx, item) in items
         .iter()

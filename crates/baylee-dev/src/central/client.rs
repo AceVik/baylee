@@ -289,7 +289,10 @@ fn scenario(
     run_dir: &Path,
     seasonal: bool,
 ) -> Result<()> {
-    let deadline = Instant::now() + Duration::from_secs(45);
+    // A debug client decodes the whole score before its window stands: on
+    // a machine busy with other builds that took about 100 s (25.11.2026),
+    // so the harness gets three minutes, and an exited client ends it at once.
+    let deadline = Instant::now() + Duration::from_secs(180);
     while devctl.get("health", Duration::from_secs(2)).is_err() {
         ensure!(
             !client.exited() && Instant::now() < deadline,

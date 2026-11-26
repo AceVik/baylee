@@ -369,6 +369,23 @@ fn section_tabs(commands: &mut Commands, kit: Kit, released: bool, in_gallery: b
     })
 }
 
+/// The glyph before an action's words: the kit's way to say at a glance
+/// what a button does (a gift to open, a bulb for a hint, arrows to turn).
+fn icon(action: Action) -> Option<char> {
+    match action {
+        Action::Claim => Some('\u{f06b}'),
+        Action::Deck => Some(crate::hud::glyph::LIBRARY),
+        Action::Submit => Some(crate::hud::glyph::CHECK),
+        Action::Reset => Some('\u{f2ea}'),
+        Action::Hint(_) => Some('\u{f0eb}'),
+        Action::Retry => Some(crate::hud::glyph::REFRESH),
+        Action::Prev => Some(crate::hud::glyph::ARROW_LEFT),
+        Action::Next => Some(crate::hud::glyph::ARROW_RIGHT),
+        Action::Choose(_) => Some(crate::hud::glyph::ENERGY),
+        _ => None,
+    }
+}
+
 pub(super) fn button(
     commands: &mut Commands,
     kit: Kit,
@@ -377,20 +394,19 @@ pub(super) fn button(
     stop: &'static str,
     index: u8,
 ) -> Entity {
-    controls::button(
-        commands,
-        kit,
-        words,
-        match action {
-            Action::Claim | Action::Deck => Weight::Gold,
-            Action::Submit => Weight::Primary,
-            Action::Reset | Action::Hint(_) => Weight::Ghost,
-            _ => Weight::Secondary,
-        },
-        Live::Yes,
-        None,
-        (action, Stop::item(ORDER.name, stop, index)),
-    )
+    let weight = match action {
+        Action::Claim | Action::Deck => Weight::Gold,
+        Action::Submit => Weight::Primary,
+        Action::Reset | Action::Hint(_) => Weight::Ghost,
+        _ => Weight::Secondary,
+    };
+    let press = (action, Stop::item(ORDER.name, stop, index));
+    match icon(action) {
+        Some(glyph) => {
+            controls::button_with_icon(commands, kit, glyph, words, weight, Live::Yes, None, press)
+        }
+        None => controls::button(commands, kit, words, weight, Live::Yes, None, press),
+    }
 }
 pub(super) fn label(commands: &mut Commands, parent: Entity, kit: Kit, text: &str, color: Color) {
     let e = commands
@@ -429,43 +445,45 @@ pub(super) fn gallery(commands: &mut Commands, parent: Entity, kit: Kit, book: &
         tokens::GOLD,
     );
     if book.inventory.is_empty() {
-        label(
-            commands,
-            parent,
-            kit,
-            if book.inventory_loaded {
-                Phrase::AdventEmpty
-            } else {
-                Phrase::AdventLoading
-            }
-            .text(lang),
-            tokens::MUTED,
-        );
+        if book.inventory_loaded {
+            // Nothing earned yet: the kit's empty state, under the star.
+            let empty = crate::shellkit::states::empty(
+                commands,
+                kit,
+                crate::lobby::parts::STAR,
+                Phrase::AdventEmpty.text(lang),
+                None,
+            );
+            commands.entity(parent).add_child(empty);
+        } else {
+            let rows = crate::shellkit::states::skeleton(commands, kit, 3);
+            commands.entity(parent).add_child(rows);
+        }
         return;
     }
     let page = book.inventory_page.min((book.inventory.len() - 1) / 6);
+    // Six to a page as three equal tiles a row: each item's picture where it
+    // is already at hand, else its kind's glyph, its name, kind and source.
+    let grid = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                flex_wrap: FlexWrap::Wrap,
+                column_gap: kit.m.px(10.),
+                row_gap: kit.m.px(10.),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(parent).add_child(grid);
     for (i, item) in book.inventory.iter().skip(page * 6).take(6).enumerate() {
-        let kind = kind_phrase(item.kind).text(lang);
-        let meta = collection::source_label(item.source, lang)
-            .map_or_else(|| kind.to_owned(), |source| format!("{kind} · {source}"));
-        let row = surfaces::list_row(
-            commands,
-            kit,
-            collection::title(item, lang),
-            &meta,
-            &[],
-            (
-                Action::Item(item.id),
-                Stop::item(ORDER.name, "item", i as u8),
-            ),
-        );
-        commands
-            .entity(row)
-            .insert(crate::ambience::Feel::tinting_to(
-                Color::NONE,
-                tokens::HOVER,
-            ));
-        commands.entity(parent).add_child(row);
+        let tile = item_tile(commands, kit, book, item);
+        commands.entity(tile).insert((
+            Action::Item(item.id),
+            Stop::item(ORDER.name, "item", i as u8),
+        ));
+        commands.entity(grid).add_child(tile);
     }
     pages(
         commands,
@@ -606,7 +624,15 @@ pub(super) fn pages(commands: &mut Commands, parent: Entity, kit: Kit, page: usi
         .id();
     commands.entity(parent).add_child(group);
     if page > 0 {
-        tile_action(commands, group, kit, "‹", Action::Prev, "prev", 0);
+        tile_action(
+            commands,
+            group,
+            kit,
+            Phrase::ChallengePrevious.text(kit.lang()),
+            Action::Prev,
+            "prev",
+            0,
+        );
     }
     label(
         commands,
@@ -616,6 +642,128 @@ pub(super) fn pages(commands: &mut Commands, parent: Entity, kit: Kit, page: usi
         tokens::MUTED,
     );
     if page + 1 < count {
-        tile_action(commands, group, kit, "›", Action::Next, "next", 0);
+        tile_action(
+            commands,
+            group,
+            kit,
+            Phrase::ChallengeNext.text(kit.lang()),
+            Action::Next,
+            "next",
+            0,
+        );
     }
+}
+
+/// The glyph a kind of reward wears where its picture is not at hand: the
+/// layered sleeve, the square mat.
+fn kind_glyph(kind: api::Kind) -> char {
+    match kind {
+        api::Kind::Sleeve => crate::hud::glyph::LIBRARY,
+        api::Kind::Playmat => '\u{f0c8}',
+    }
+}
+
+/// One owned reward as a tile of the collection: its picture (or its kind's
+/// glyph on a plate of the same size, so the grid never moves when the
+/// picture comes), its name, and its kind and source.
+fn item_tile(
+    commands: &mut Commands,
+    kit: Kit,
+    book: &Book,
+    item: &api::collection::Item,
+) -> Entity {
+    let lang = kit.lang();
+    let tile = commands
+        .spawn((
+            Node {
+                width: percent(32),
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                row_gap: kit.m.px(6.),
+                padding: UiRect::all(kit.m.px(10.)),
+                border: UiRect::all(px(1)),
+                border_radius: BorderRadius::all(px(tokens::RADIUS_CONTROL)),
+                ..default()
+            },
+            BackgroundColor(tokens::CONTROL.with_alpha(0.45)),
+            BorderColor::all(tokens::GOLD.with_alpha(0.35)),
+            crate::ambience::Feel::tinting_to(tokens::CONTROL.with_alpha(0.45), tokens::HOVER),
+            Pickable::default(),
+        ))
+        .id();
+    let art = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                height: kit.m.px(120.),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border_radius: BorderRadius::all(px(tokens::RADIUS_CONTROL)),
+                overflow: Overflow::clip(),
+                ..default()
+            },
+            BackgroundColor(tokens::PANEL),
+            Pickable::IGNORE,
+        ))
+        .id();
+    if let Some(image) = book.image(item.id) {
+        let picture = commands
+            .spawn((
+                Node {
+                    height: percent(100),
+                    max_width: percent(100),
+                    aspect_ratio: Some(
+                        f32::from(item.asset.width) / f32::from(item.asset.height.max(1)),
+                    ),
+                    ..default()
+                },
+                crate::event_cosmetics::CosmeticPreview::new(
+                    image.clone(),
+                    item.kind,
+                    item.asset.tier,
+                ),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(art).add_child(picture);
+    } else {
+        let mark = commands
+            .spawn((
+                Text::new(kind_glyph(item.kind).to_string()),
+                crate::hud::icon_tf(kit.fonts, kit.m.h1),
+                TextColor(tokens::GOLD.with_alpha(0.7)),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(art).add_child(mark);
+    }
+    let name = commands
+        .spawn((
+            Text::new(collection::title(item, lang)),
+            crate::hud::tf_bold(kit.fonts, kit.m.text),
+            TextColor(tokens::INK),
+            TextLayout::justify(Justify::Center),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let kind = crate::lobby::parts::badge(
+        commands,
+        kit,
+        kind_phrase(item.kind).text(lang),
+        tokens::GOLD,
+    );
+    commands.entity(tile).add_children(&[art, name, kind]);
+    if let Some(source) = collection::source_label(item.source, lang) {
+        let from = commands
+            .spawn((
+                Text::new(source),
+                crate::hud::tf(kit.fonts, kit.m.small),
+                TextColor(tokens::MUTED),
+                TextLayout::justify(Justify::Center),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(tile).add_child(from);
+    }
+    tile
 }
