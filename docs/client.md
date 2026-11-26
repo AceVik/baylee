@@ -10689,13 +10689,8 @@ the chat window design). The renderer never builds a frame or an HTTP body.
   `L` open the panel on Log; the bubble on the last chat tab; `Esc` never
   closes it. Shut, new chat lines peek above the strip for 10 s and fade.
   In the lobby the same window docks bottom-left (default 560 × 38 % of the
-  height, 320–520), minimises to its tab row or hides to the chat pill. While
-  the friends drawer is open (owner, 25.11.2026: one social column, contacts
-  above, the chat under them) it stands at the drawer's foot instead
-  (`drawer::chat_docks`): the drawer's width, 44 % of the window high (at
-  least 260), off the right edge by what the drawer has not slid in yet so
-  that both move as one, with the drawer's list ending 8 points above it and
-  its resize corner put away (`resize::put_the_corner_away`). Its top-right corner resizes it upward and right;
+  height, 320–520), beside the friends drawer, minimises to its tab row or
+  hides to the chat pill. Its top-right corner resizes it upward and right;
   the chosen size is saved per device and clamped to the available window. It grows from its corner and shrinks back before the pill
   takes its place (`window::Pop`, `hud::motion`'s curve); a line more is
   appended rather than the list redrawn, and a row newer than the list

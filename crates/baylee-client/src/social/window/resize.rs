@@ -194,34 +194,3 @@ pub(super) fn cursor(
 
 #[cfg(test)]
 mod tests;
-
-/// A chat docked at the drawer's foot takes the drawer's width and its own
-/// share of the height, so its resize corner is put away while it is
-/// docked (and comes back when it floats again).
-pub(super) fn put_the_corner_away(
-    ui: Res<ChatUi>,
-    phase: Option<Res<State<DuelPhase>>>,
-    lobby: Option<Res<crate::lobby::LobbyState>>,
-    mut handles: Query<(&ResizeHandle, &mut Visibility)>,
-) {
-    if handles.is_empty() {
-        return;
-    }
-    let at_table = phase.is_some_and(|p| *p.get() != DuelPhase::Closed);
-    let seated = lobby.is_some_and(|l| {
-        matches!(
-            l.lobby.screen(),
-            baylee_client_core::lobby::Screen::Seated(_)
-        )
-    });
-    let docked = crate::social::drawer::chat_docks(&ui, at_table || seated);
-    for (ResizeHandle(frame), mut seen) in &mut handles {
-        if *frame == Frame::Lobby {
-            seen.set_if_neq(if docked {
-                Visibility::Hidden
-            } else {
-                Visibility::Inherited
-            });
-        }
-    }
-}
