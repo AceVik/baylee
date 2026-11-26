@@ -34,7 +34,7 @@ mod source;
 mod tests;
 
 pub use deck::Frozen;
-pub use game::{Match, MatchOptions, MatchReport, Receipt, play_match};
+pub use game::{Match, MatchOptions, MatchReport, Receipt, play_match, play_through};
 pub use link::{LinkOptions, RankedLink, socket_url};
 pub use player::{AI_NAME_PREFIX, Credentials, PASSWORD_SESSION_AGE, Player, SignIn, labelled};
 pub use source::{Assignments, Queue};

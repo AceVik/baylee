@@ -95,3 +95,37 @@ fn an_ai_account_is_labelled_by_centrals_prefix_or_its_minds() {
     assert!(!labelled("KI-", Disclosure::House), "a prefix with no name");
     assert!(!labelled("Alice", Disclosure::House));
 }
+
+#[test]
+fn a_password_comes_from_the_store_entry_for_centrals_host_or_from_a_file() {
+    use baylee_client_core::llmseat::keys::{KeyEntry, KeyStore as _, MemoryKeys};
+    let central = "http://127.0.0.1:28794";
+    let endpoint = baylee_account::Endpoint::development(central).unwrap();
+    let keys = Arc::new(MemoryKeys::default());
+    let kept = KeyEntry::new("KI_HAUS_EXPERT", central).unwrap();
+    keys.set(&kept, "TEST-synthetic-password-0123").unwrap();
+    let stored = Credentials::from_store(
+        endpoint.clone(),
+        "ki_haus".into(),
+        "KI_HAUS_EXPERT".into(),
+        keys.clone(),
+    );
+    assert_eq!(&*stored.password().unwrap(), "TEST-synthetic-password-0123");
+    let missing = Credentials::from_store(endpoint.clone(), "ki_haus".into(), "OTHER".into(), keys);
+    let why = missing.password().unwrap_err().to_string();
+    assert!(why.contains("--key-env OTHER"), "{why}");
+    assert!(!why.contains("TEST-synthetic"), "{why}");
+
+    let dir = std::env::temp_dir().join(format!("baylee-ranked-{}", uuid::Uuid::now_v7()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("password");
+    std::fs::write(&file, "TEST-from-a-file\n").unwrap();
+    let from_file = Credentials::from_file(endpoint.clone(), "ki_haus".into(), file.clone());
+    assert_eq!(&*from_file.password().unwrap(), "TEST-from-a-file");
+    std::fs::write(&file, "\n").unwrap();
+    assert!(
+        from_file.password().is_err(),
+        "an empty file is no password"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}

@@ -1464,7 +1464,12 @@ baylee-seat ranked --username <AI account> --deck <its deck id>
   for AI accounts replaces it with standing deck offers and a read of the
   account's live matches, several at once (baylee-central
   `docs/ai-players.md` §4: an AI account may not join the queue); that is
-  one more source, and nothing else changes.
+  one more source. Three places still read the account's one queue
+  entry and must learn to name the match instead when it lands: whether a
+  match is over (`RankedLink::gone`), its receipt (`game::settled`), and
+  the native client's own seat and renewal calls in `baylee-account`
+  (`play_ranked`, `renew_ranked_replica`), which check the assignment
+  against the queue's status.
 - **A match.** The relay takes the match-bound admission for the account
   (`POST /auth/ranked/login` at the host), hands the host the frozen deck
   (`POST /ranked/{match}/play`, asked again with the same admission while

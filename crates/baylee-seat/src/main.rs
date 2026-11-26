@@ -33,12 +33,13 @@
 //!
 //! ```text
 //! baylee-seat ranked --username <AI account> --deck <its deck id>
+//!     (--password-file <path> | --password-key <name>)
 //!     [--central live|http://127.0.0.1:<port>] [--level expert]
 //!     [--accept-host <origin>]… [--games <n>]
 //! ```
 //!
-//! Plays Ranked as an AI account, its password read from the variable
-//! `--password-env` names or the credential store (`ranked_cli`,
+//! Plays Ranked as an AI account, its password read from a file only its
+//! service can read or from the credential store (`ranked_cli`,
 //! `docs/llm-seat.md` §"The ranked runner").
 
 // Looks cards up, so this program holds the pool (`baylee-cards-pool`).

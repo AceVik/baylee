@@ -4,6 +4,7 @@
 
 use super::{Frozen, LinkOptions, Pilot, Player, RankedLink};
 use crate::bridge::{self, PlayOptions, Played};
+use crate::link::Table;
 use crate::seat::{BridgeConfig, Labelled, SeatCore};
 use crate::transcript::Transcript;
 use anyhow::Context as _;
@@ -102,14 +103,37 @@ pub async fn play_match(
     options: &MatchOptions,
 ) -> anyhow::Result<MatchReport> {
     let match_id = game.assignment.match_id;
-    let deck = game.deck;
     let mut link = RankedLink::new(
         player.clone(),
         game.key,
         game.assignment,
-        Arc::clone(&deck),
+        Arc::clone(&game.deck),
         options.link.clone(),
     );
+    let (played, receipt) =
+        play_through(player, &mut link, match_id, &game.deck, pilot, options).await?;
+    Ok(MatchReport {
+        match_id,
+        played,
+        receipt,
+        renewals: link.renewals(),
+    })
+}
+
+/// [`play_match`] through any `link` to the match's table (a test's, which
+/// cuts the socket once): the seat played to its end, then Central's
+/// receipt for `match_id`.
+///
+/// # Errors
+/// As [`play_match`].
+pub async fn play_through<L: Table>(
+    player: &Player,
+    link: &mut L,
+    match_id: Id,
+    deck: &Frozen,
+    pilot: &Pilot,
+    options: &MatchOptions,
+) -> anyhow::Result<(Played, Option<Receipt>)> {
     let mind = (pilot.make)();
     let config = BridgeConfig {
         think: pilot.think,
@@ -130,18 +154,11 @@ pub async fn play_match(
         }
         None => Transcript::none(),
     };
-    let played = bridge::play(&mut link, core, mind, &mut transcript, &options.play).await?;
+    let played = bridge::play(link, core, mind, &mut transcript, &options.play).await?;
     transcript.write_value(&serde_json::json!({ "summary": played.stats }));
     transcript.flush();
-    let renewals = link.renewals();
-    drop(link);
     let receipt = settled(player, match_id, options.settle).await;
-    Ok(MatchReport {
-        match_id,
-        played,
-        receipt,
-        renewals,
-    })
+    Ok((played, receipt))
 }
 
 /// Central's receipt for `match_id`, read from the account's queue until it

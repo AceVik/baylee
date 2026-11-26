@@ -125,6 +125,12 @@ impl Credentials {
         })
     }
 
+    /// The password as the source gives it (a test reads it back).
+    #[cfg(test)]
+    pub(super) fn password(&self) -> anyhow::Result<Zeroizing<String>> {
+        (self.password)()
+    }
+
     /// The Central the account signs in to.
     #[must_use]
     pub const fn endpoint(&self) -> &Endpoint {
