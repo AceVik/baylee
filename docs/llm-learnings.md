@@ -6,6 +6,17 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-11-26 — Wave 18 public-view combat/owner filters (`OwnedBy`, `AttackingYouOrYourPlaneswalker`)
+
+- **Combat defender & owner filters are public-view readable**: `PublicObject.owner`
+  and `CombatView.attackers` carry enough state to evaluate `Filter::OwnedBy`,
+  `Filter::AttackingYouOrYourPlaneswalker`, and `Filter::DefendingPlayerIsYou`
+  in both `baylee-client` targeting and `baylee-ai`, returning `None` only when
+  a defending planeswalker left the battlefield mid-combat or a battle protector
+  would be needed.
+- **`Gang Up` (`PowerAtMostAmount(X)`) belongs in `EXPECTED_BLIND`**: like other
+  unannounced-X spells, its legal targets depend on chosen X (`EXPECTED_BLIND: 28`).
+
 ## 2026-11-26 — Wave 17 targeting preflight, `FaceDef` schema pins, and trailer hygiene
 
 - **Client targeting must match every view-readable `Filter` before merging card waves**:

@@ -457,20 +457,14 @@ impl HeuristicAgent {
                 let source = view.object(this?)?;
                 Some(source.attached_player() == Some(object.controller))
             }
-            Filter::ControlledBy(rel) => match rel {
-                PlayerRel::You => Some(object.controller == view.seat),
-                PlayerRel::Opponent | PlayerRel::EachOpponent => {
-                    Some(self.hostile(object.controller, view.seat))
-                }
-                PlayerRel::ActivePlayer => Some(object.controller == view.active),
-                PlayerRel::EachPlayer => Some(true),
-                PlayerRel::EachOtherPlayer => Some(object.controller != view.seat),
-                PlayerRel::EnchantedPlayer => {
-                    let source = view.object(this?)?;
-                    Some(source.attached_player() == Some(object.controller))
-                }
-                _ => None,
-            },
+            Filter::ControlledBy(rel) => player_rel_for_seat(self, view, object.controller, *rel, this),
+            Filter::OwnedBy(rel) => player_rel_for_seat(self, view, object.owner, *rel, this),
+            Filter::AttackingYouOrYourPlaneswalker => {
+                attacking_you_or_planeswalker(view, object.id, you, false)
+            }
+            Filter::DefendingPlayerIsYou => {
+                attacking_you_or_planeswalker(view, object.id, you, true)
+            }
             Filter::PairedWithSource => {
                 let source = view.object(this?)?;
                 Some(source.paired_with() == Some(object.id))
@@ -558,7 +552,6 @@ impl HeuristicAgent {
             | Filter::ControlledByPlayerWhoChoseMode(_)
             | Filter::CreatedBySource
             | Filter::AttachedHostOfRemembered
-            | Filter::OwnedBy(_)
             | Filter::AttackedThisTurn
             | Filter::ControlledSinceTurnBegan
             | Filter::SharesSubtypeWithCommander
@@ -620,8 +613,6 @@ impl HeuristicAgent {
         | Filter::NotRemembered
         | Filter::SharesCardTypeWithRemembered
         | Filter::SharesNameWithRemembered
-        | Filter::AttackingYouOrYourPlaneswalker
-        | Filter::DefendingPlayerIsYou
         | Filter::SharesCardTypeWithReference
         | Filter::CastForBlitz
         | Filter::FirstMatchingSpellThisTurn(_) => None,
@@ -1595,6 +1586,51 @@ pub(crate) fn public_token_identity(object: &PublicObject) -> Option<bool> {
         (None, Some(_)) => Some(false),
         (None, None) => None,
     }
+}
+
+fn player_rel_for_seat(
+    agent: &HeuristicAgent,
+    view: &PlayerView,
+    seat: baylee_core::ids::PlayerId,
+    rel: PlayerRel,
+    this: Option<ObjectId>,
+) -> Option<bool> {
+    match rel {
+        PlayerRel::You => Some(seat == view.seat),
+        PlayerRel::Opponent | PlayerRel::EachOpponent => Some(agent.hostile(seat, view.seat)),
+        PlayerRel::ActivePlayer => Some(seat == view.active),
+        PlayerRel::EachPlayer => Some(true),
+        PlayerRel::EachOtherPlayer => Some(seat != view.seat),
+        PlayerRel::EnchantedPlayer => {
+            let source = view.object(this?)?;
+            Some(source.attached_player() == Some(seat))
+        }
+        _ => None,
+    }
+}
+
+fn attacking_you_or_planeswalker(
+    view: &PlayerView,
+    creature: ObjectId,
+    you: baylee_core::ids::PlayerId,
+    allow_battle_unknown: bool,
+) -> Option<bool> {
+    let mut unknown = false;
+    for attacker in view.combat.attackers.iter().filter(|a| a.creature == creature) {
+        match attacker.defending {
+            baylee_core::ids::Defender::Player(p) if p == you => return Some(true),
+            baylee_core::ids::Defender::Planeswalker(pw) => {
+                match view.battlefield.iter().find(|o| o.id == pw) {
+                    Some(o) if o.controller == you => return Some(true),
+                    Some(_) => {}
+                    None => unknown = true,
+                }
+            }
+            baylee_core::ids::Defender::Battle(_) if allow_battle_unknown => unknown = true,
+            _ => {}
+        }
+    }
+    (!unknown).then_some(false)
 }
 
 #[cfg(test)]

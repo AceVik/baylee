@@ -86,7 +86,7 @@ fn the_census_tells_a_filter_it_can_read_from_one_it_cannot() {
 /// `CastFromZone`), unannounced X (`CmcAtMostX`, `CmcExactlyX`,
 /// `PowerAtMostAmount(X)`), stack ability source/kind (`ActivatedAbilityFrom`),
 /// or wire-untranslated counters (`CountersAtLeast`).
-const EXPECTED_BLIND: [&str; 27] = [
+const EXPECTED_BLIND: [&str; 28] = [
     "Avenging Arrow",
     "Bind",
     "Blue Sun's Twilight",
@@ -98,6 +98,7 @@ const EXPECTED_BLIND: [&str; 27] = [
     "Executioner's Swing",
     "Fatal Blow",
     "Fire and Brimstone",
+    "Gang Up",
     "Glyph of Delusion",
     "Interdict",
     "Kaervek's Purge",

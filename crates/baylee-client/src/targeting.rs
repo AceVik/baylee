@@ -677,7 +677,6 @@ fn matches_at(
         | Filter::ControlledByPlayerWhoChoseMode(_)
         | Filter::CreatedBySource
         | Filter::AttachedHostOfRemembered
-        | Filter::OwnedBy(_)
         // Which creatures attacked, and since when a controller has held a
         // permanent, are history of the same kind.
         | Filter::AttackedThisTurn
@@ -759,10 +758,8 @@ fn matches_at(
         | Filter::NotRemembered
         | Filter::SharesCardTypeWithRemembered
         | Filter::SharesNameWithRemembered
-        // Combat defending target, reference card type, blitz origin, and turn cast counts
-        // are engine/resolution context not readable from PlayerView alone.
-        | Filter::AttackingYouOrYourPlaneswalker
-        | Filter::DefendingPlayerIsYou
+        // Reference card type, blitz origin, and turn cast counts are
+        // engine/resolution context not readable from PlayerView alone.
         | Filter::SharesCardTypeWithReference
         | Filter::CastForBlitz
         | Filter::FirstMatchingSpellThisTurn(_)
@@ -813,16 +810,10 @@ fn matches_at(
             let target = eval_amount_at(view, amt, depth + 1)?;
             object.toughness.is_some_and(|t| i32::from(t) == target)
         }
-        Filter::ControlledBy(rel) => match rel {
-            baylee_cards_dsl::PlayerRel::You => object.controller == you(view),
-            baylee_cards_dsl::PlayerRel::Opponent | baylee_cards_dsl::PlayerRel::EachOpponent => {
-                duel_opponent(view, object, you(view))?
-            }
-            baylee_cards_dsl::PlayerRel::ActivePlayer => object.controller == view.active,
-            baylee_cards_dsl::PlayerRel::EachPlayer => true,
-            baylee_cards_dsl::PlayerRel::EachOtherPlayer => object.controller != you(view),
-            _ => return None,
-        },
+        Filter::ControlledBy(rel) => player_rel_matches(view, object.controller, *rel)?,
+        Filter::OwnedBy(rel) => player_rel_matches(view, object.owner, *rel)?,
+        Filter::AttackingYouOrYourPlaneswalker => attacking_you_or_planeswalker(view, object.id, false)?,
+        Filter::DefendingPlayerIsYou => attacking_you_or_planeswalker(view, object.id, true)?,
         Filter::FaceDown => object.status.contains(baylee_view::ObjectStatus::FACE_DOWN),
         Filter::WarpedInExile => object.warped,
         Filter::Suspected => object.suspected,
@@ -919,6 +910,52 @@ fn targets_you_control_matching(
 /// Public seat identities determine opposition only in a two-player game.
 fn duel_opponent(view: &PlayerView, object: &PublicObject, player: PlayerId) -> Option<bool> {
     (view.seats.len() == 2).then_some(object.controller != player)
+}
+
+fn player_rel_matches(
+    view: &PlayerView,
+    seat: PlayerId,
+    rel: baylee_cards_dsl::PlayerRel,
+) -> Option<bool> {
+    match rel {
+        baylee_cards_dsl::PlayerRel::You => Some(seat == you(view)),
+        baylee_cards_dsl::PlayerRel::Opponent | baylee_cards_dsl::PlayerRel::EachOpponent => {
+            (view.seats.len() == 2).then_some(seat != you(view))
+        }
+        baylee_cards_dsl::PlayerRel::ActivePlayer => Some(seat == view.active),
+        baylee_cards_dsl::PlayerRel::EachPlayer => Some(true),
+        baylee_cards_dsl::PlayerRel::EachOtherPlayer => Some(seat != you(view)),
+        _ => None,
+    }
+}
+
+/// Whether `creature` is attacking `you(view)` or a planeswalker `you(view)` controls.
+///
+/// If a targeted planeswalker departed mid-combat (missing from `view.battlefield`) or the
+/// attacker defends a battle (whose protector is not directly tracked on `PublicObject`),
+/// return `None` rather than guessing `last_known_controller` / battle protector.
+fn attacking_you_or_planeswalker(
+    view: &PlayerView,
+    creature: baylee_core::ids::ObjectId,
+    allow_battle_unknown: bool,
+) -> Option<bool> {
+    let me = you(view);
+    let mut unknown = false;
+    for attacker in view.combat.attackers.iter().filter(|a| a.creature == creature) {
+        match attacker.defending {
+            baylee_core::ids::Defender::Player(p) if p == me => return Some(true),
+            baylee_core::ids::Defender::Planeswalker(pw) => {
+                match view.battlefield.iter().find(|o| o.id == pw) {
+                    Some(o) if o.controller == me => return Some(true),
+                    Some(_) => {}
+                    None => unknown = true,
+                }
+            }
+            baylee_core::ids::Defender::Battle(_) if allow_battle_unknown => unknown = true,
+            _ => {}
+        }
+    }
+    (!unknown).then_some(false)
 }
 
 /// Whether `card` is a "choose one" spell whose modes at the printed price

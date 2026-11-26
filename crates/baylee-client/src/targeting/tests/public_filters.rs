@@ -571,3 +571,70 @@ fn dynamic_amount_filters_read_life_total_and_public_zone_counts() {
         in_hand("Squirming Emergence")
     ));
 }
+
+#[test]
+fn owned_by_and_combat_defending_filters_read_public_view() {
+    use baylee_core::ids::{Defender, PlayerId};
+    use baylee_view::AttackerView;
+
+    let mut stolen = printed(1, 0, "Savannah Lions", 1);
+    stolen.controller = PlayerId::new(1);
+    stolen.owner = PlayerId::new(0);
+
+    let mut op_own = printed(2, 1, "Grizzly Bears", 2);
+    op_own.controller = PlayerId::new(0);
+    op_own.owner = PlayerId::new(1);
+
+    let mut my_pw = printed(3, 0, "Jace Beleren", 3);
+    my_pw.types = TypeSet::PLANESWALKER;
+
+    let mut op_pw = printed(4, 1, "Chandra Nalaar", 5);
+    op_pw.types = TypeSet::PLANESWALKER;
+
+    let mut view = ViewBuilder::new(2)
+        .with_battlefield(0, vec![op_own.clone(), my_pw.clone()])
+        .with_battlefield(1, vec![stolen.clone(), op_pw.clone()])
+        .build();
+
+    assert_eq!(
+        matches(&view, &stolen, &Filter::OwnedBy(baylee_cards_dsl::PlayerRel::You)),
+        Some(true)
+    );
+    assert_eq!(
+        matches(&view, &op_own, &Filter::OwnedBy(baylee_cards_dsl::PlayerRel::You)),
+        Some(false)
+    );
+    assert_eq!(
+        matches(&view, &op_own, &Filter::OwnedBy(baylee_cards_dsl::PlayerRel::Opponent)),
+        Some(true)
+    );
+
+    view.combat.attackers = vec![
+        AttackerView {
+            creature: stolen.id,
+            defending: Defender::Planeswalker(my_pw.id),
+            blocked: false,
+        },
+        AttackerView {
+            creature: op_own.id,
+            defending: Defender::Planeswalker(op_pw.id),
+            blocked: false,
+        },
+    ];
+    assert_eq!(
+        matches(&view, &stolen, &Filter::AttackingYouOrYourPlaneswalker),
+        Some(true)
+    );
+    assert_eq!(
+        matches(&view, &stolen, &Filter::DefendingPlayerIsYou),
+        Some(true)
+    );
+    assert_eq!(
+        matches(&view, &op_own, &Filter::AttackingYouOrYourPlaneswalker),
+        Some(false)
+    );
+    assert_eq!(
+        matches(&view, &op_own, &Filter::DefendingPlayerIsYou),
+        Some(false)
+    );
+}
