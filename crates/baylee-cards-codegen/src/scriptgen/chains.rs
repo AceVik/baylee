@@ -1345,7 +1345,6 @@ impl Tx<'_> {
                     t.starts_with("TargetSpec::Spell(")
                         || t.starts_with("TargetSpec::AbilityOnStack(")
                         || t.starts_with("TargetSpec::SpellOrAbility(")
-                        || t.starts_with("TargetSpec::ActivatedAbility(")
                 }) {
                     p.take("TargetType");
                 }
@@ -2435,13 +2434,17 @@ impl Tx<'_> {
         // A remembered-object condition gates the payment question as well as
         // the zone change: do not ask any player to pay when no captured object
         // matches. Other lines retain their established condition/payment order.
-        let condition_outside_unless = self.capture_scope.is_some()
-            && api == "ChangeZoneAll"
-            && unless.is_some()
-            && matches!(
-                p.peek("ConditionDefined"),
-                Some("Remembered" | "RememberedLKI")
-            );
+        let condition_outside_unless = unless.is_some()
+            && ((self.capture_scope.is_some()
+                && api == "ChangeZoneAll"
+                && matches!(
+                    p.peek("ConditionDefined"),
+                    Some("Remembered" | "RememberedLKI")
+                ))
+                || (matches!(
+                    p.peek("ConditionDefined"),
+                    Some("TriggeredCardLKICopy" | "TriggeredCard")
+                ) && (p.has("ConditionPresent") || p.has("ConditionNotPresent"))));
         let mut effects = if condition_outside_unless {
             effects
         } else {
@@ -4779,7 +4782,8 @@ impl Tx<'_> {
                             if matches!(
                                 self.trigger_mode.as_deref(),
                                 Some("DamageDone" | "DamageDoneOnce")
-                            ) && target.is_none() =>
+                            ) && target.is_none()
+                                && !self.damage_trigger_binds_player =>
                         {
                             "TargetSpec::EventObject".to_string()
                         }
@@ -4898,6 +4902,21 @@ impl Tx<'_> {
                                 "Effect::EventObjectDealsDamage {{ amount: {n}, target: {to} }}"
                             )
                         }
+                    }
+                } else if to == "TargetSpec::ThisObject"
+                    && self.is_power_of(
+                        &num_dmg,
+                        &["Targeted$CardPower", "ParentTargeted$CardPower"],
+                    )
+                {
+                    if target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
+                        && single_target
+                        && self.wave29b_oracle_deals_damage_to_self()
+                    {
+                        "Effect::DamageEqualToPower { dealer: TargetSlot::First, to: TargetSlot::This }"
+                            .to_string()
+                    } else {
+                        return None;
                     }
                 } else {
                     let zero_kicked_damage = self.kicked_branch.is_some_and(|kicked| {

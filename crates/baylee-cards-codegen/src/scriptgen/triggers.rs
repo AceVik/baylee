@@ -2716,9 +2716,16 @@ impl Tx<'_> {
         // optional too, so it is not read there; `validate` holds such a card
         // to its printed may.
         let prose_effect = p.peek("TriggerDescription").and_then(|d| {
-            d.to_ascii_lowercase()
-                .split_once(", ")
-                .map(|(_, effect)| effect.to_string())
+            let lower = d.to_ascii_lowercase();
+            let (_, mut effect) = lower.split_once(", ")?;
+            if effect.starts_with("if ")
+                && let Some((cond_part, rest)) = effect.split_once(", ")
+                && !cond_part.contains('.')
+                && rest.starts_with("you may ")
+            {
+                effect = rest;
+            }
+            Some(effect.to_string())
         });
         let oracle_has_you_may =
             self.oracle.is_empty() || self.oracle.to_ascii_lowercase().contains("you may");
@@ -3022,7 +3029,16 @@ impl Tx<'_> {
         let mut may = match (decider.as_deref(), optional_flag) {
             (None, Some(false)) => false,
             (None, None) => prose_may,
-            (None, Some(true)) | (Some("You"), None | Some(true)) => true,
+            (None, Some(true)) => true,
+            (Some("You"), None | Some(true)) => {
+                if !self.oracle.is_empty() && !self.oracle.to_ascii_lowercase().contains("may") {
+                    return self.deny(
+                        "`OptionalDecider$ You` on a trigger whose `Oracle:` has no `may`"
+                            .to_string(),
+                    );
+                }
+                true
+            }
             (Some("You"), Some(false)) => {
                 return self
                     .deny("conflicting `OptionalDecider$ You` and `Optional$ No`".to_string());
@@ -3152,6 +3168,7 @@ impl Tx<'_> {
             trigger.starts_with("Trigger::Dies(") || trigger == "Trigger::DiesThis";
         self.trigger_blocks_creature = trigger.starts_with("Trigger::BlocksCreature(");
         self.damage_trigger_binds_source = Self::wave28b_trigger_binds_damage_source(&trigger);
+        self.damage_trigger_binds_player = Self::wave28b_trigger_binds_damage_player(&trigger);
         self.damage_trigger_is_combat = trigger.contains("CombatDamage");
         self.cost_sacrifices_self = matches!(
             &price,
@@ -3301,6 +3318,7 @@ impl Tx<'_> {
                 self.trigger_changes_zone_to_graveyard = false;
                 self.trigger_blocks_creature = false;
                 self.damage_trigger_binds_source = false;
+                self.damage_trigger_binds_player = false;
                 self.damage_trigger_source_is_attached = false;
                 self.damage_trigger_is_combat = false;
                 self.cost_sacrifices_self = false;
@@ -3323,6 +3341,7 @@ impl Tx<'_> {
         self.trigger_changes_zone_to_graveyard = false;
         self.trigger_blocks_creature = false;
         self.damage_trigger_binds_source = false;
+        self.damage_trigger_binds_player = false;
         self.damage_trigger_source_is_attached = false;
         self.damage_trigger_is_combat = false;
         self.cost_sacrifices_self = false;
@@ -4446,6 +4465,8 @@ impl Tx<'_> {
         let saved_dies = std::mem::replace(&mut self.trigger_changes_zone_to_graveyard, false);
 
         let saved_gy_trigger = std::mem::replace(&mut self.in_graveyard_trigger, false);
+        let saved_dmg_src = std::mem::replace(&mut self.damage_trigger_binds_source, false);
+        let saved_dmg_player = std::mem::replace(&mut self.damage_trigger_binds_player, false);
         let saved_block = self.block_line.take();
         let read = self.chain(body, &mut inner);
         self.in_delayed = saved_delayed;
@@ -4454,6 +4475,8 @@ impl Tx<'_> {
         self.trigger_changes_zone_to_graveyard = saved_dies;
 
         self.in_graveyard_trigger = saved_gy_trigger;
+        self.damage_trigger_binds_source = saved_dmg_src;
+        self.damage_trigger_binds_player = saved_dmg_player;
         self.block_line = saved_block;
         read?;
         if inner.second_target.is_some() {

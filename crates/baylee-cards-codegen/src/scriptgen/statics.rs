@@ -2118,20 +2118,14 @@ impl Tx<'_> {
         let blocker = p.take("ValidBlocker");
         // Peeked before it is taken: a clause of another value stays for
         // `condition` to read or refuse, and is never dropped as if absent.
-        if attacker == "Card.Self"
-            && blocker.is_none()
-            && zone.is_battlefield()
-            && p.peek("IsPresent") == Some("Artifact.DefenderCtrl")
-        {
-            p.take("IsPresent");
-            self.body.abilities.push(
-                "static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::UNBLOCKABLE), condition = Some(Condition::Not(&Condition::SomeDefendingPlayerControlsNone(&Filter::ARTIFACT))))"
-                    .to_string(),
-            );
-            return Some(());
-        }
-        let condition =
+        let defender_ctrl_cond = if zone.is_battlefield() {
+            self.defender_ctrl_present_condition(&mut p).ok()?
+        } else {
+            None
+        };
+        let base_cond =
             self.static_conditions(&mut p, "unclaimed parameter `CantBlockBy.CheckSVar`")?;
+        let condition = Self::merge_static_condition(defender_ctrl_cond.as_deref(), &base_cond);
         if let Some(key) = p.first_key() {
             self.note(format!("unclaimed parameter `CantBlockBy.{key}`"));
             return None;
@@ -2379,6 +2373,53 @@ impl Tx<'_> {
         Some(())
     }
 
+    /// Reads `IsPresent$ <Filter with DefenderCtrl>` on battlefield `CantBlockBy`
+    /// statics ("as long as defending player controls ..."). Refuses when
+    /// qualified by counts/zones/second clauses so `static_conditions` handles them.
+    fn defender_ctrl_present_condition(&mut self, p: &mut Params) -> Result<Option<String>, ()> {
+        let Some(valid) = p.peek("IsPresent").map(str::to_string) else {
+            return Ok(None);
+        };
+        if !valid.contains("DefenderCtrl")
+            || p.has("IsPresent2")
+            || p.has("PresentCompare")
+            || p.has("PresentZone")
+            || p.has("PresentPlayer")
+            || p.has("PresentDefined")
+        {
+            return Ok(None);
+        }
+        let mut stripped_alts = Vec::new();
+        for alt in valid.split(',').map(str::trim) {
+            let Some((base, rest)) = alt.split_once('.') else {
+                return Ok(None);
+            };
+            let mut saw_defender = false;
+            let mut kept = Vec::new();
+            for atom in rest.split('+').map(str::trim).filter(|a| !a.is_empty()) {
+                if atom == "DefenderCtrl" {
+                    saw_defender = true;
+                } else {
+                    kept.push(atom);
+                }
+            }
+            if !saw_defender {
+                return Ok(None);
+            }
+            if kept.is_empty() {
+                stripped_alts.push(base.trim().to_string());
+            } else {
+                stripped_alts.push(format!("{}.{}", base.trim(), kept.join("+")));
+            }
+        }
+        p.take("IsPresent");
+        let expr = self.filter_expr(&stripped_alts.join(",")).ok_or(())?;
+        let name = self.body.filter_static("TARGET", &expr);
+        Ok(Some(format!(
+            "Condition::Not(&Condition::SomeDefendingPlayerControlsNone(&{name}))"
+        )))
+    }
+
     /// `AddPower`/`AddToughness` (layer 7c) and `SetPower`/`SetToughness`
     /// (layer 7b) as static abilities.
     #[allow(clippy::too_many_lines)]
@@ -2396,10 +2437,15 @@ impl Tx<'_> {
             p.take("SetPower");
             p.take("SetToughness");
             p.take("AddType");
-            out.push(Self::static_expr(
-                filter,
-                "Modifier::AnimateNoncreatureArtifact",
-            ));
+            let modifier = if filter.contains("Filter::ARTIFACT")
+                || filter.contains("Filter::YOUR_ARTIFACT")
+                || filter.contains("Filter::AttachedToBySource")
+            {
+                "Modifier::AnimateNoncreatureArtifact"
+            } else {
+                "Modifier::CreatureWithManaValuePT"
+            };
+            out.push(Self::static_expr(filter, modifier));
             return Some(());
         }
         let add_p = p.take("AddPower");
