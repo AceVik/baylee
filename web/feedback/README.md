@@ -110,26 +110,29 @@ Build and test only, never shipped:
 | package | version | licence | why |
 | --- | --- | --- | --- |
 | typescript | 7.0.2 | Apache-2.0 | type checking |
-| vite | 8.3.4 | MIT | the build (rolldown, oxc, lightningcss MPL-2.0) |
-| vitest | 5.0.4 | MIT | unit and component tests |
-| jsdom | 29.1.1 | MIT | the DOM for those tests |
+| vite | 8.3.8 | MIT | the build (rolldown, oxc, lightningcss MPL-2.0) |
+| vitest | 5.1.2 | MIT | unit and component tests |
+| jsdom | 31.0.1 | MIT | the DOM for those tests |
 | @testing-library/react | 16.3.3 | MIT | component tests |
-| @testing-library/user-event | 14.6.8 | MIT | typing and clicking in them |
-| oxlint | 1.89.0 | MIT | lint |
-| @playwright/test | 1.64.1 | Apache-2.0 | end-to-end tests |
-| postgres | 3.4.9 | Unlicense | the e2e harness's schema, nothing else |
-| @types/react, @types/react-dom | 19.3.0 | MIT | types |
-| @types/node | 24.19.2 | MIT | types for the e2e harness |
+| @testing-library/user-event | 14.6.13 | MIT | typing and clicking in them |
+| oxlint | 1.95.0 | MIT | lint |
+| @playwright/test | 1.65.1 | Apache-2.0 | end-to-end tests |
+| postgres | 4.1.1 | Unlicense | the e2e harness's schema, nothing else |
+| @types/react, @types/react-dom | 19.3.3, 19.3.0 | MIT | types |
+| @types/node | 26.6.11 | MIT | types for the e2e harness, at the Node CI runs |
 
-`jsdom` stays on 29.1.1 so the build and tests support Node 22.22.1.
-On the Node 22 line, jsdom 30 and some of its dependencies require at
-least 22.22.2. The complete lockfile, including optional platform packages,
-was checked against 22.22.1, and `npm ci --engine-strict` succeeds on it.
+Node: `^22.22.2 || ^24.15.0 || >=26.0.0` (`engines`), the narrowest range
+any package in the locked tree declares: jsdom 31 and `w3c-xmlserializer`
+need at least 22.22.2 on the Node 22 line and 24.15.0 on the Node 24 line,
+which ends the hold on jsdom 29.1.1 for Node 22.22.1. CI runs Node 26 (LTS).
+Every `engines` entry in the lockfile, optional platform packages included,
+was checked against that range, and `npm ci --engine-strict` and
+`npm run check` pass on Node 22.23.5 and 26.13.1 (26.11.2026).
 
-The whole locked tree (20.10.2026): 116 MIT, 29 Apache-2.0, 12 MPL-2.0
-(lightningcss and its platform builds), 2 each of ISC, BSD-2-Clause,
-BSD-3-Clause and MIT-0, and one each of BlueOak-1.0.0, CC0-1.0 and
-Unlicense. All are compatible with AGPL-3.0; of the non-MIT ones only
+The whole locked tree (26.11.2026): 115 MIT, 29 Apache-2.0, 12 MPL-2.0
+(lightningcss and its platform builds), 2 each of ISC, BSD-2-Clause and
+BSD-3-Clause, and one each of BlueOak-1.0.0, Unlicense and 0BSD (`tslib`,
+build only). All are compatible with AGPL-3.0; of the non-MIT ones only
 `@fluent/bundle` (Apache-2.0) reaches the built page.
 
 ## Using it
