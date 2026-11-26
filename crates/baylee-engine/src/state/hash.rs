@@ -892,9 +892,10 @@ impl GameState {
                     self.object_or_departed(record.source.object),
                     record.source.version,
                 ));
-                h.usize(record.targets.len());
-                for &target in &record.targets {
-                    h.u32(position(target));
+                h.usize(record.target_snapshots.len());
+                for snap in &record.target_snapshots {
+                    h.u32(position(snap.id));
+                    hash_object_situation(h, snap, self, position);
                 }
             }
         }

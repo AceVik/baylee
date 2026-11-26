@@ -471,6 +471,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         who: baylee_cards_dsl::PlayerRel,
         spell_filter: &'static baylee_cards_dsl::Filter,
     ) -> bool {
+        if !crate::effects::source_is_present(&self.state, effect) {
+            return false;
+        }
         let player_matches =
             eval::players_for_source(who, &self.state, effect.controller, effect.source)
                 .is_some_and(|players| players.contains(&player));
@@ -892,21 +895,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     who,
                     filter,
                     cost: extra_part,
-                } if self.activated_ability_cost_reduction_matches(
-                    player,
-                    source,
-                    object,
-                    effect,
-                    filter,
-                    false,
-                    ability_index,
-                ) && eval::players_for_source(
-                    who,
-                    &self.state,
-                    effect.controller,
-                    effect.source,
-                )
-                .is_some_and(|players| players.contains(&player)) =>
+                } if self.ability_target_reduction_source_matches(
+                    player, source, object, effect, who, filter,
+                ) =>
                 {
                     parts.push(extra_part);
                 }
@@ -1220,21 +1211,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     if amount == 0
                         || full.generic_total() == 0
                         || (your_turn_only && self.state.turn.active != player)
-                        || !eval::players_for_source(
-                            who,
-                            &self.state,
-                            effect.controller,
-                            effect.source,
-                        )
-                        .is_some_and(|players| players.contains(&player))
-                        || !self.activated_ability_cost_reduction_matches(
+                        || !self.ability_target_reduction_source_matches(
                             player,
                             source,
                             object,
                             effect,
+                            who,
                             source_filter,
-                            false,
-                            ability_index,
                         )
                     {
                         continue;
@@ -1284,16 +1267,14 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                     context,
                                 )
                                 && (*target_filter == baylee_cards_dsl::Filter::Any
-                                    || rec.targets.iter().any(|&tid| {
-                                        self.state.object(tid).is_some_and(|t| {
-                                            eval::matches_with_context(
-                                                target_filter,
-                                                &self.state,
-                                                t,
-                                                effect.controller,
-                                                context,
-                                            )
-                                        })
+                                    || rec.target_snapshots.iter().any(|t| {
+                                        eval::matches_with_context(
+                                            target_filter,
+                                            &self.state,
+                                            t,
+                                            effect.controller,
+                                            context,
+                                        )
                                     }))
                         });
                     if !already_used {

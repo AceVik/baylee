@@ -164,6 +164,9 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::LoseAllAbilities
         | Modifier::ProtectionFrom(_)
         | Modifier::ProtectionFromExiledWithSourceTypes
+        | Modifier::HexproofFrom(_)
+        | Modifier::HexproofFromOwnColors
+        | Modifier::HexproofFromAbilities
         | Modifier::BecomeCopyOf(_)
         | Modifier::GrantsFlashback
         | Modifier::GrantsFlashbackCost(_)
@@ -433,9 +436,6 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::MayActivateLoyaltyAsInstant { .. }
         | Modifier::MayCastFromGraveyardTargeted { .. }
         | Modifier::CastCostIncreaseUnlessTargets { .. }
-        | Modifier::HexproofFrom(_)
-        | Modifier::HexproofFromOwnColors
-        | Modifier::HexproofFromAbilities
         | Modifier::PlayerHexproofFrom { .. }
         | Modifier::IgnoreOpponentsHexproofMatching { .. }
         | Modifier::PlotActionCostsLess { .. }
@@ -2682,9 +2682,11 @@ mod tests {
         // Wave 17c adds GrantsUnearth, GrantsScavengeManaCost, and GrantsDredge on
         // Layer::Ability (+3 locking -> 70) and ten cost/permission modifiers on
         // Layer::Text (+10 rules-only -> 194).
-        // Conditional hexproof (5) and cost-adjustment modifiers (12) are rules-only
-        // on Layer::Text (+17 rules-only -> 216).
-        assert_eq!((locking, all.len() - locking), (79, 216));
+        // Permanent conditional hexproof (HexproofFrom, HexproofFromOwnColors,
+        // HexproofFromAbilities) is Layer::Ability (+3 locking -> 82); player
+        // hexproof/ignore-hexproof (2) and cost-adjustment modifiers (12) are
+        // rules-only on Layer::Text (+14 rules-only -> 213).
+        assert_eq!((locking, all.len() - locking), (82, 213));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

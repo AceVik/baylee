@@ -3304,12 +3304,13 @@ fn hash_sensitivity_for_filters_subject_awaiting_and_tracked_turn_logs() {
     assert_ne!(h2, h1, "tag 602 must change snapshot_hash");
     assert_ne!(l2, l1, "tag 602 must change loop_signature");
 
+    let bear_snap = std::sync::Arc::new(bear_obj);
     st.per_turn.activated_abilities_this_turn.items.push(
         crate::state::per_turn::ActivatedAbilityRecord {
             activator: me(),
             source: bear_ref,
-            snapshot: std::sync::Arc::new(bear_obj),
-            targets: vec![bear],
+            snapshot: std::sync::Arc::clone(&bear_snap),
+            target_snapshots: vec![bear_snap],
         },
     );
     let h3 = st.snapshot_hash();
@@ -3336,5 +3337,574 @@ fn hash_sensitivity_for_filters_subject_awaiting_and_tracked_turn_logs() {
         ctx0.fingerprint(),
         f0,
         "tag 598 must change SubjectContext fingerprint"
+    );
+}
+
+// =========================================================================
+// 6. Review Regression Coverage (Layer 6 HexproofFrom*, Disguise untaxed,
+//    mid-turn PlayerAttackedYouLastTurn hash, RemoveCounters/MoveCounters
+//    reads, activation target LKI snapshots, AttachedPower LKI, and
+//    RaiseCostIfTargetsYouOrPermanent guaranteed player preview)
+// =========================================================================
+
+#[test]
+fn hexproof_from_layer_ability_obeys_lose_all_abilities_timestamps() {
+    static GRANT_HEX_BLACK: &[AbilityDef] = &[spell_ab(
+        &[Effect::AddTempModifier {
+            target: TargetSpec::Object(&Filter::CREATURE),
+            modifier: Modifier::HexproofFrom(&BLACK_FILTER),
+            duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+        }],
+        Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
+    )];
+    static DRESS_DOWN_ABILS: &[AbilityDef] =
+        &[static_ab(Filter::CREATURE, Modifier::LoseAllAbilities)];
+    static BLACK_PING_ABILS: &[AbilityDef] = &[spell_ab(
+        TARGET_PING,
+        Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
+    )];
+
+    let cards = vec![
+        card(
+            IDX_BEAR,
+            creature_face("Plain Bear", "{1}{G}", 2, 2),
+            KeywordSet::EMPTY,
+            &[],
+        ),
+        card(
+            IDX_BLUE_SPELL,
+            face("Grant Hex Black", "{0}", TypeSet::INSTANT),
+            KeywordSet::EMPTY,
+            GRANT_HEX_BLACK,
+        ),
+        card(
+            IDX_LOSE_HEXPROOF,
+            face("Dress Down", "{0}", TypeSet::ENCHANTMENT),
+            KeywordSet::EMPTY,
+            DRESS_DOWN_ABILS,
+        ),
+        card(
+            IDX_BLACK_SPELL,
+            face("Dark Ping", "{B}", TypeSet::INSTANT),
+            KeywordSet::EMPTY,
+            BLACK_PING_ABILS,
+        ),
+    ];
+
+    let mut engine = bench(
+        96_191,
+        cards,
+        [
+            Seat::with(&[IDX_BEAR]).holding(&[IDX_BLUE_SPELL, IDX_LOSE_HEXPROOF, IDX_BLUE_SPELL]),
+            Seat::with(&[]).holding(&[IDX_BLACK_SPELL]),
+        ],
+    );
+    to_main(&mut engine, me());
+
+    let bear = the(&engine, ZoneLocation::Battlefield, IDX_BEAR);
+    let opp_black = the(&engine, ZoneLocation::Hand(them()), IDX_BLACK_SPELL);
+    let grants = objects(&engine, ZoneLocation::Hand(me()), IDX_BLUE_SPELL);
+
+    // T1: grant HexproofFrom(Black) -> opponent's black spell is blocked.
+    engine
+        .apply(me(), PlayerAction::CastSpell { card: grants[0] })
+        .unwrap();
+    engine
+        .apply(
+            me(),
+            PlayerAction::ChooseTargets {
+                objects: vec![bear],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    settle(&mut engine, me());
+    assert!(
+        !target_options_for_spell(&engine, them(), opp_black).contains(&bear),
+        "T1 granted HexproofFrom(Black) must block opponent black spell"
+    );
+
+    // T2: Dress Down (LoseAllAbilities) enters -> strips T1 HexproofFrom(Black) in Layer 6!
+    let dress = the(&engine, ZoneLocation::Hand(me()), IDX_LOSE_HEXPROOF);
+    engine
+        .apply(me(), PlayerAction::CastSpell { card: dress })
+        .unwrap();
+    settle(&mut engine, me());
+    assert!(
+        target_options_for_spell(&engine, them(), opp_black).contains(&bear),
+        "CR 613.1f/613.7: T2 LoseAllAbilities must strip T1 granted HexproofFrom(Black)"
+    );
+
+    // T3: grant HexproofFrom(Black) AFTER T2 Dress Down -> survives in Layer 6 timestamp order!
+    engine
+        .apply(me(), PlayerAction::CastSpell { card: grants[1] })
+        .unwrap();
+    engine
+        .apply(
+            me(),
+            PlayerAction::ChooseTargets {
+                objects: vec![bear],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    settle(&mut engine, me());
+    assert!(
+        !target_options_for_spell(&engine, them(), opp_black).contains(&bear),
+        "CR 613.7: T3 granted HexproofFrom(Black) must override T2 LoseAllAbilities"
+    );
+}
+
+#[test]
+fn morph_turn_face_up_tax_applies_to_megamorph_but_not_disguise() {
+    static MORPH_TAX_ABILS: &[AbilityDef] = &[static_ab(
+        Filter::This,
+        Modifier::MorphTurnFaceUpCostsMore { amount: 2 },
+    )];
+    let cards = vec![
+        card(
+            IDX_MORPH_TAXER,
+            creature_face("Exiled Doomsayer", "{1}{W}", 1, 2),
+            KeywordSet::EMPTY,
+            MORPH_TAX_ABILS,
+        ),
+        card(
+            IDX_MORPH_CREATURE,
+            FaceDef {
+                megamorph: Some(ManaCost::parse("{1}{G}")),
+                ..creature_face("Megamorph Bear", "{2}{G}", 2, 2)
+            },
+            KeywordSet::EMPTY,
+            &[],
+        ),
+        card(
+            IDX_MANIFEST_CREATURE,
+            FaceDef {
+                disguise: Some(ManaCost::parse("{1}{G}")),
+                ..creature_face("Disguise Bear", "{2}{G}", 2, 2)
+            },
+            KeywordSet::EMPTY,
+            &[],
+        ),
+    ];
+
+    let mut engine = bench(
+        96_192,
+        cards,
+        [
+            Seat::with(&[IDX_MORPH_TAXER]).holding(&[IDX_MORPH_CREATURE, IDX_MANIFEST_CREATURE]),
+            Seat::with(&[]),
+        ],
+    );
+    to_main(&mut engine, me());
+
+    let mega_id = the(&engine, ZoneLocation::Hand(me()), IDX_MORPH_CREATURE);
+    let disg_id = the(&engine, ZoneLocation::Hand(me()), IDX_MANIFEST_CREATURE);
+    {
+        let st = engine.dev_state_mut(me()).unwrap();
+        let _ = st.move_object(
+            mega_id,
+            ZoneLocation::Battlefield,
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        );
+        st.object_mut(mega_id)
+            .unwrap()
+            .status
+            .insert(crate::object::Status::FACE_DOWN);
+        let _ = st.move_object(
+            disg_id,
+            ZoneLocation::Battlefield,
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        );
+        st.object_mut(disg_id)
+            .unwrap()
+            .status
+            .insert(crate::object::Status::FACE_DOWN);
+    }
+    // With {1}{G}: Megamorph is taxed to {3}{G} (NOT offered), Disguise is untaxed {1}{G} (OFFERED)!
+    add_mana(&mut engine, me(), ManaColor::Green, 2);
+    let (_, legal) = offer(&engine);
+    assert!(
+        !legal.abilities.contains(&(mega_id, TURN_FACE_UP)),
+        "CR 702.37b: MorphTurnFaceUpCostsMore must tax Megamorph"
+    );
+    assert!(
+        legal.abilities.contains(&(disg_id, TURN_FACE_UP)),
+        "CR 702.168: MorphTurnFaceUpCostsMore must NOT tax Disguise"
+    );
+    engine
+        .apply(
+            me(),
+            PlayerAction::ActivateAbility {
+                source: disg_id,
+                ability_index: TURN_FACE_UP,
+            },
+        )
+        .unwrap();
+    assert!(
+        !engine
+            .state()
+            .object(disg_id)
+            .unwrap()
+            .status
+            .contains(crate::object::Status::FACE_DOWN)
+    );
+}
+
+#[test]
+fn player_attacked_last_turn_only_deck_hashes_mid_turn_and_counter_effects_enable_reads() {
+    static LAST_TURN_ONLY_ABILS: &[AbilityDef] = &[act_ab(
+        "{0}",
+        &[Effect::IfCondition {
+            condition: Condition::PlayerAttackedYouLastTurn,
+            then: &[Effect::GainLife {
+                amount: Amount::Fixed(1),
+            }],
+            otherwise: &[],
+        }],
+        None,
+    )];
+    static REMOVE_TRACKED_AMT_ABILS: &[AbilityDef] = &[spell_ab(
+        &[Effect::RemoveCounters {
+            subject: RemoveCounterSubject::Source,
+            kind: None,
+            count: RemoveCounterCount::Exact(Amount::EnergyRemovedThisTurn(PlayerRel::You)),
+        }],
+        None,
+    )];
+    static MOVE_TRACKED_FILTER_ABILS: &[AbilityDef] = &[spell_ab(
+        &[Effect::MoveCounters {
+            from: MoveCounterSource::Filter(&Filter::CmcAtMostAmount(
+                &Amount::OpponentsAttackedThisTurn,
+            )),
+            to: MoveCounterDest::Source,
+            kind: None,
+            count: MoveCounterCount::All,
+        }],
+        None,
+    )];
+
+    // A: PlayerAttackedYouLastTurn-only deck must track per_turn.opponents_attacked mid-turn!
+    let mut engine = bench(
+        96_193,
+        vec![
+            card(
+                IDX_ELF_1,
+                creature_face("Haste Elf", "{G}", 2, 2),
+                KeywordSet::HASTE,
+                &[],
+            ),
+            card(
+                IDX_ENERGY_READER,
+                face("LastTurn Watcher", "{0}", TypeSet::ENCHANTMENT),
+                KeywordSet::EMPTY,
+                LAST_TURN_ONLY_ABILS,
+            ),
+        ],
+        [Seat::with(&[IDX_ELF_1, IDX_ENERGY_READER]), Seat::with(&[])],
+    );
+    to_main(&mut engine, me());
+    assert!(
+        engine.state().per_turn.opponents_attacked.tracked,
+        "PlayerAttackedYouLastTurn-only deck must enable per_turn.opponents_attacked.tracked"
+    );
+    let h_before = engine.state().snapshot_hash();
+    let l_before = engine.state().loop_signature();
+    engine.state.per_turn.opponents_attacked.items.push(
+        crate::state::per_turn::OpponentAttackedRecord {
+            attacker: me(),
+            defender: them(),
+        },
+    );
+    assert_ne!(
+        engine.state().snapshot_hash(),
+        h_before,
+        "mid-turn attack must change snapshot_hash"
+    );
+    assert_ne!(
+        engine.state().loop_signature(),
+        l_before,
+        "mid-turn attack must change loop_signature"
+    );
+
+    // B: state/reads.rs traverses Effect::RemoveCounters (amount) and Effect::MoveCounters (filter).
+    let rem_eng = bench(
+        96_194,
+        vec![card(
+            IDX_REMOVE_EXACT_2,
+            face("Energy Remove", "{0}", TypeSet::SORCERY),
+            KeywordSet::EMPTY,
+            REMOVE_TRACKED_AMT_ABILS,
+        )],
+        [
+            Seat::with(&[]).holding(&[IDX_REMOVE_EXACT_2]),
+            Seat::with(&[]),
+        ],
+    );
+    assert!(
+        rem_eng.state().per_turn.energy_removed.tracked,
+        "Effect::RemoveCounters embedding EnergyRemovedThisTurn must enable energy_removed.tracked"
+    );
+
+    let mov_card = card(
+        IDX_MOVE_FILTER_ALL,
+        face("Move Cast", "{0}", TypeSet::SORCERY),
+        KeywordSet::EMPTY,
+        MOVE_TRACKED_FILTER_ABILS,
+    );
+    let mov_eng = bench(
+        96_195,
+        vec![mov_card],
+        [
+            Seat::with(&[]).holding(&[IDX_MOVE_FILTER_ALL]),
+            Seat::with(&[]),
+        ],
+    );
+    assert!(
+        mov_eng.state().per_turn.opponents_attacked.tracked,
+        "Effect::MoveCounters filter embedding OpponentsAttackedThisTurn must enable opponents_attacked.tracked"
+    );
+}
+
+#[test]
+fn first_activated_ability_uses_target_snapshot_lki_after_first_target_dies() {
+    static HOJO_ABILS: &[AbilityDef] = &[static_ab(
+        Filter::This,
+        Modifier::FirstActivatedAbilityEachTurnCostLess {
+            who: PlayerRel::You,
+            source_filter: &Filter::Any,
+            target_filter: &Filter::YOUR_CREATURE,
+            amount: 2,
+            your_turn_only: false,
+        },
+    )];
+    static TARGETED_PUMP_ABILS: &[AbilityDef] = &[act_ab(
+        "{2}",
+        &[Effect::GainLife {
+            amount: Amount::Fixed(1),
+        }],
+        Some(TargetReq::one(TargetSpec::Object(&Filter::YOUR_CREATURE))),
+    )];
+    static SAC_ABILS: &[AbilityDef] = &[AbilityDef::Activated {
+        cost: Cost {
+            mana: ManaCost::ZERO,
+            parts: &[CostPart::Sacrifice(&Filter::YOUR_CREATURE)],
+        },
+        effects: &[],
+        targets: None,
+        second_targets: None,
+        third_targets: None,
+        timing: ActivationTiming::InstantSpeed,
+        mana_ability: false,
+        zone: ActivationZone::Battlefield,
+        limit: ActivationLimit::Unlimited,
+        x_value: ActivationX::Any,
+        cost_reduction: None,
+    }];
+
+    let cards = vec![
+        card(
+            IDX_FIRST_ACT_RED,
+            creature_face("Hojo", "{1}{U}", 1, 3),
+            KeywordSet::EMPTY,
+            HOJO_ABILS,
+        ),
+        card(
+            IDX_ACT_PINGER,
+            face("Targeted Device", "{0}", TypeSet::ARTIFACT),
+            KeywordSet::EMPTY,
+            TARGETED_PUMP_ABILS,
+        ),
+        card(
+            IDX_SAC_OUTLET,
+            face("Altar", "{0}", TypeSet::ARTIFACT),
+            KeywordSet::EMPTY,
+            SAC_ABILS,
+        ),
+        card(
+            IDX_BEAR,
+            creature_face("Target A", "{1}{G}", 2, 2),
+            KeywordSet::EMPTY,
+            &[],
+        ),
+        card(
+            IDX_BEAR_2,
+            creature_face("Target B", "{1}{G}", 2, 2),
+            KeywordSet::EMPTY,
+            &[],
+        ),
+    ];
+
+    let mut engine = bench(
+        96_196,
+        cards,
+        [
+            Seat::with(&[
+                IDX_FIRST_ACT_RED,
+                IDX_ACT_PINGER,
+                IDX_SAC_OUTLET,
+                IDX_BEAR,
+                IDX_BEAR_2,
+            ]),
+            Seat::with(&[]),
+        ],
+    );
+    to_main(&mut engine, me());
+
+    let device = the(&engine, ZoneLocation::Battlefield, IDX_ACT_PINGER);
+    let altar = the(&engine, ZoneLocation::Battlefield, IDX_SAC_OUTLET);
+    let bear_a = the(&engine, ZoneLocation::Battlefield, IDX_BEAR);
+
+    // 1st activation targeting bear_a: {2} discounted to {0}!
+    activate(&mut engine, me(), device, 0);
+    engine
+        .apply(
+            me(),
+            PlayerAction::ChooseTargets {
+                objects: vec![bear_a],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    settle(&mut engine, me());
+    assert_eq!(life(&engine, me()), 21);
+
+    // Sacrifice bear_a so it is now in the graveyard (no longer YOUR_CREATURE in live state).
+    activate(&mut engine, me(), altar, 0);
+    engine
+        .apply(
+            me(),
+            PlayerAction::ChooseObjects {
+                objects: vec![bear_a],
+            },
+        )
+        .unwrap();
+    settle(&mut engine, me());
+    assert_eq!(engine.state().object(bear_a).unwrap().zone, Zone::Graveyard);
+
+    // 2nd activation targeting bear_b MUST NOT get the discount again!
+    let (_, legal) = offer(&engine);
+    assert!(
+        !legal.abilities.contains(&(device, 0)),
+        "FirstActivatedAbilityEachTurnCostLess must remember activation-time target snapshot after target dies"
+    );
+}
+
+#[test]
+fn attached_power_uses_lki_after_equipment_leaves_and_siege_previews_guaranteed_player_tax() {
+    static SAC_EQUIP_LKI_ABILS: &[AbilityDef] = &[AbilityDef::Activated {
+        cost: Cost {
+            mana: ManaCost::ZERO,
+            parts: &[CostPart::SacrificeSelf],
+        },
+        effects: &[Effect::GainLife {
+            amount: Amount::AttachedPower,
+        }],
+        targets: None,
+        second_targets: None,
+        third_targets: None,
+        timing: ActivationTiming::InstantSpeed,
+        mana_ability: false,
+        zone: ActivationZone::Battlefield,
+        limit: ActivationLimit::Unlimited,
+        x_value: ActivationX::Any,
+        cost_reduction: None,
+    }];
+    static SIEGE_ABILS: &[AbilityDef] = &[static_ab(
+        Filter::This,
+        Modifier::RaiseCostIfTargetsYouOrPermanent {
+            who: PlayerRel::Opponent,
+            spell_filter: &Filter::Any,
+            permanent_filter: &Filter::YOUR_CREATURE,
+            extra_mana: ManaCost::parse("{2}"),
+            extra_life: 0,
+        },
+    )];
+    static FACE_BURN_ABILS: &[AbilityDef] = &[spell_ab(
+        &[Effect::DealDamage {
+            amount: Amount::Fixed(1),
+            target: TargetSpec::AnyOpponent,
+        }],
+        Some(TargetReq::one(TargetSpec::AnyOpponent)),
+    )];
+
+    let cards = vec![
+        card(
+            IDX_BIG_CREATURE,
+            creature_face("Big 4/4", "{3}{G}", 4, 4),
+            KeywordSet::EMPTY,
+            &[],
+        ),
+        card(
+            IDX_EQUIPMENT,
+            FaceDef {
+                types: TypeSet::ARTIFACT,
+                subtypes: &[artifact::EQUIPMENT],
+                ..face("LKI Sword", "{1}", TypeSet::ARTIFACT)
+            },
+            KeywordSet::EMPTY,
+            SAC_EQUIP_LKI_ABILS,
+        ),
+        card(
+            IDX_SIEGE_TAXER,
+            face("Monastery Siege", "{2}{U}", TypeSet::ENCHANTMENT),
+            KeywordSet::EMPTY,
+            SIEGE_ABILS,
+        ),
+        card(
+            IDX_RED_SPELL,
+            face("Opponent Burn", "{R}", TypeSet::INSTANT),
+            KeywordSet::EMPTY,
+            FACE_BURN_ABILS,
+        ),
+    ];
+
+    let mut engine = bench(
+        96_197,
+        cards,
+        [
+            Seat::with(&[IDX_BIG_CREATURE, IDX_EQUIPMENT, IDX_SIEGE_TAXER]),
+            Seat::with(&[]).holding(&[IDX_RED_SPELL]),
+        ],
+    );
+    to_main(&mut engine, me());
+
+    let big = the(&engine, ZoneLocation::Battlefield, IDX_BIG_CREATURE);
+    let sword = the(&engine, ZoneLocation::Battlefield, IDX_EQUIPMENT);
+    engine
+        .dev_state_mut(me())
+        .unwrap()
+        .object_mut(sword)
+        .unwrap()
+        .attached_to = Some(big);
+    engine.refresh_offer();
+
+    // Activate SacrificeSelf ability on attached Equipment -> resolves after sword is in graveyard -> gains 4 life via LKI!
+    activate(&mut engine, me(), sword, 0);
+    settle(&mut engine, me());
+    assert_eq!(engine.state().object(sword).unwrap().zone, Zone::Graveyard);
+    assert_eq!(
+        life(&engine, me()),
+        24,
+        "CR 608.2h: Amount::AttachedPower must read LKI of host (4)"
+    );
+
+    // Pass to opponent: Opponent Burn ({R}, TargetSpec::AnyOpponent) MUST target me() (Siege controller) ->
+    // preview min_mana_increase includes {2}, so with only {R} it is NOT offered in legal.castable!
+    let opp_burn = the(&engine, ZoneLocation::Hand(them()), IDX_RED_SPELL);
+    to_main(&mut engine, them());
+    add_mana(&mut engine, them(), ManaColor::Red, 1);
+    let (_, legal) = offer(&engine);
+    assert!(
+        !legal.castable.contains(&opp_burn),
+        "RaiseCostIfTargetsYouOrPermanent preview must include guaranteed player targeting tax"
+    );
+    add_mana(&mut engine, them(), ManaColor::Red, 2);
+    let (_, legal) = offer(&engine);
+    assert!(
+        legal.castable.contains(&opp_burn),
+        "Opponent Burn becomes castable once guaranteed player tax is affordable"
     );
 }

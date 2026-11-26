@@ -78,9 +78,16 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 _ => None,
             })
             .fold(0, u32::saturating_add);
-        let kw = face
-            .turn_face_up_cost()
-            .map(|(mana, parts, mega)| (mana.with_more_generic(morph_tax), parts, mega));
+        // CR 702.37b: Megamorph is a morph cost, so Exiled Doomsayer taxes
+        // both morph and megamorph, but CR 702.168 disguise is distinct and untaxed.
+        let kw = if let Some(cost) = face.disguise {
+            Some((cost, face.morph_parts, false))
+        } else if let Some(cost) = face.megamorph {
+            Some((cost.with_more_generic(morph_tax), face.morph_parts, true))
+        } else {
+            face.morph
+                .map(|cost| (cost.with_more_generic(morph_tax), face.morph_parts, false))
+        };
         // CR 701.40b–d: a manifested permanent represented by a creature card
         // with a printed mana cost may be turned face up by paying its mana
         // cost (with X = 0), or via its printed morph/disguise cost if it has one.

@@ -756,8 +756,10 @@ pub(crate) fn amount_with_version(
         }
         Amount::AttachedPower => state
             .object(this)
+            .filter(|o| o.zone == crate::zone::Zone::Battlefield)
             .and_then(|o| o.attached_to)
             .and_then(|host| state.object(host))
+            .filter(|host| host.zone == crate::zone::Zone::Battlefield)
             .and_then(|host| host.characteristics().power)
             .map_or(0, |p| u32::try_from(p.max(0)).unwrap_or(0)),
     }

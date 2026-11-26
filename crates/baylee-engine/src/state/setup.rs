@@ -470,11 +470,12 @@ impl GameState {
         self.per_turn.cards_foretold.tracked |= super::reads::card_reads_foretold_count(def);
         self.per_turn.discard_history.tracked |= super::reads::card_reads_first_discard_batch(def);
         self.per_turn.energy_removed.tracked |= super::reads::card_reads_energy_removed(def);
+        let reads_last_turn_attacked = super::reads::card_reads_last_turn_attacked(def);
         self.per_turn.opponents_attacked.tracked |=
-            super::reads::card_reads_opponents_attacked(def);
+            super::reads::card_reads_opponents_attacked(def) || reads_last_turn_attacked;
         self.per_turn.activated_abilities_this_turn.tracked |=
             super::reads::card_reads_first_activated_each_turn(def);
-        self.last_turn_attacked_players.tracked |= super::reads::card_reads_last_turn_attacked(def);
+        self.last_turn_attacked_players.tracked |= reads_last_turn_attacked;
         let base = self.card_base(def, entry.card);
         let card = CardRef {
             index: entry.card,
@@ -603,11 +604,12 @@ impl GameState {
         self.per_turn.cards_foretold.tracked |= super::reads::card_reads_foretold_count(def);
         self.per_turn.discard_history.tracked |= super::reads::card_reads_first_discard_batch(def);
         self.per_turn.energy_removed.tracked |= super::reads::card_reads_energy_removed(def);
+        let reads_last_turn_attacked = super::reads::card_reads_last_turn_attacked(def);
         self.per_turn.opponents_attacked.tracked |=
-            super::reads::card_reads_opponents_attacked(def);
+            super::reads::card_reads_opponents_attacked(def) || reads_last_turn_attacked;
         self.per_turn.activated_abilities_this_turn.tracked |=
             super::reads::card_reads_first_activated_each_turn(def);
-        self.last_turn_attacked_players.tracked |= super::reads::card_reads_last_turn_attacked(def);
+        self.last_turn_attacked_players.tracked |= reads_last_turn_attacked;
         Ok(PrintedCard {
             base: self.card_base(def, index),
             cda: printed_pt_cda(def),

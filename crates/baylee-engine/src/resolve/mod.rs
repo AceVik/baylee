@@ -827,6 +827,14 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .damage_source(res.source, source_version(state, res))
             .and_then(|source| source.characteristics().power)
             .map_or(0, |power| power.max(0) as u32),
+        Amount::AttachedPower => eval::attached_for_ability(
+            state,
+            res.source,
+            source_version(state, res),
+            source_attachment_lki(state, res.on_stack),
+        )
+        .and_then(|host| host.characteristics().power)
+        .map_or(0, |power| u32::try_from(power.max(0)).unwrap_or(0)),
         Amount::EventPower => {
             let Some(source) = res.event_object else {
                 return 0;

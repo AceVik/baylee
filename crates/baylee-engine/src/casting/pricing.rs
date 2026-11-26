@@ -2654,6 +2654,137 @@ fn face_matches_target_filter(
     }
 }
 
+/// Evaluates whether a previewed spell cast can (`achievable`) or must
+/// (`guaranteed`) choose at least one target counted by `count_matching` across
+/// its object and player target pools.
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+fn face_matches_preview_predicate(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    def: &'static baylee_cards_dsl::CardDef,
+    face_idx: usize,
+    kind: PreviewCastKind,
+    count_matching: &dyn Fn(&[ObjectId], &[PlayerId]) -> usize,
+) -> (bool, bool) {
+    let eval_clause_group =
+        |f_idx: usize, clauses: &[baylee_cards_dsl::TargetReq]| -> (bool, bool) {
+            let wall_only = crate::eval::target_domain::wall_requirements(clauses.iter().copied());
+            let mut any_achievable = false;
+            let mut any_guaranteed = false;
+            for &req in clauses {
+                let ClauseTargets {
+                    min,
+                    max,
+                    objects,
+                    players,
+                } = clause_preview_targets(state, player, card, def, f_idx, req, wall_only);
+                let total = objects.len() + players.len();
+                if total < usize::from(req.min) || min > max || max == 0 {
+                    continue;
+                }
+                let matching = count_matching(&objects, &players);
+                if matching > 0 {
+                    any_achievable = true;
+                }
+                let min_usize = usize::try_from(min).unwrap_or(usize::MAX);
+                if min_usize > 0 && total.saturating_sub(matching) < min_usize {
+                    any_guaranteed = true;
+                }
+            }
+            (any_achievable, any_guaranteed)
+        };
+    match kind {
+        PreviewCastKind::Bestow => eval_clause_group(face_idx, &[super::BESTOW_TARGET_REQ]),
+        PreviewCastKind::Mutate => eval_clause_group(face_idx, &[super::MUTATE_TARGET_REQ]),
+        PreviewCastKind::Face | PreviewCastKind::Kicked | PreviewCastKind::Fused => {
+            let face_range = if kind == PreviewCastKind::Fused {
+                0..def.faces.len().min(2)
+            } else {
+                face_idx..face_idx + 1
+            };
+            let mut any_ach = false;
+            let mut any_guar = false;
+            for f in face_range {
+                let Some(face_def) = def.faces.get(f) else {
+                    continue;
+                };
+                if let Some((first, second, third)) =
+                    def.abilities_for_face(f).iter().find_map(|a| match a {
+                        baylee_cards_dsl::AbilityDef::Spell {
+                            targets,
+                            second_targets,
+                            third_targets,
+                            ..
+                        } => Some((*targets, *second_targets, *third_targets)),
+                        _ => None,
+                    })
+                {
+                    let eff_first = if kind == PreviewCastKind::Kicked {
+                        face_def.kicked_targets.or(first)
+                    } else {
+                        first
+                    };
+                    let mut clauses: smallvec::SmallVec<[baylee_cards_dsl::TargetReq; 3]> =
+                        smallvec::SmallVec::new();
+                    clauses.extend(eff_first);
+                    clauses.extend(second);
+                    clauses.extend(third);
+                    let (a, g) = eval_clause_group(f, &clauses);
+                    any_ach |= a;
+                    any_guar |= g;
+                } else if let Some((modes, ..)) = def
+                    .abilities_for_face(f)
+                    .iter()
+                    .find_map(baylee_cards_dsl::AbilityDef::modal_spell)
+                {
+                    let mut m_ach = false;
+                    let mut any_mode = false;
+                    let mut all_guar = true;
+                    for mode in modes {
+                        let w =
+                            crate::eval::target_domain::walls(mode.targets, mode.second_targets);
+                        if !super::requirement_is_reachable_for(
+                            mode.targets,
+                            state,
+                            player,
+                            card,
+                            Some((def, f)),
+                            w,
+                        ) || !super::requirement_is_reachable_for(
+                            mode.second_targets,
+                            state,
+                            player,
+                            card,
+                            Some((def, f)),
+                            w,
+                        ) {
+                            continue;
+                        }
+                        any_mode = true;
+                        let mut clauses: smallvec::SmallVec<[baylee_cards_dsl::TargetReq; 2]> =
+                            smallvec::SmallVec::new();
+                        clauses.extend(mode.targets);
+                        clauses.extend(mode.second_targets);
+                        let (a, g) = eval_clause_group(f, &clauses);
+                        m_ach |= a;
+                        all_guar &= g;
+                    }
+                    any_ach |= m_ach;
+                    any_guar |= any_mode && all_guar;
+                } else if kind == PreviewCastKind::Kicked
+                    && let Some(req) = face_def.kicked_targets
+                {
+                    let (a, g) = eval_clause_group(f, &[req]);
+                    any_ach |= a;
+                    any_guar |= g;
+                }
+            }
+            (any_ach, any_guar)
+        }
+    }
+}
+
 /// Computes preview dynamic cost bounds (`DistinctTargets`, `XPaid`, and
 /// `ReduceCostIfTargets`) for `card`'s `face` before targets or `X` are
 /// selected.
@@ -2893,152 +3024,38 @@ pub(crate) fn preview_cast_metric_bounds_for(
                 raw = form.project(&raw);
             }
             let spell = projected_spell(state, player, &raw);
-            let eval_clause_group = |f_idx: usize,
-                                     clauses: &[baylee_cards_dsl::TargetReq],
-                                     check: baylee_cards_dsl::TargetCostCheck,
-                                     ctx: crate::text_changes::RuleContext|
-             -> (bool, bool) {
-                let wall_only =
-                    crate::eval::target_domain::wall_requirements(clauses.iter().copied());
-                let mut any_achievable = false;
-                let mut any_guaranteed = false;
-                for &req in clauses {
-                    let ClauseTargets {
-                        min,
-                        max,
-                        objects,
-                        players,
-                    } = clause_preview_targets(state, player, card, def, f_idx, req, wall_only);
-                    let total = objects.len() + players.len();
-                    if total < usize::from(req.min) || min > max || max == 0 {
-                        continue;
-                    }
-                    let mut matching = objects
-                        .iter()
-                        .filter(|&&id| target_object_satisfies_check(state, id, player, check, ctx))
-                        .count();
-                    if let baylee_cards_dsl::TargetCostCheck::TargetControllerGraveyardAtLeast(
-                        min_gy,
-                    ) = check
-                    {
-                        let min_len = usize::try_from(min_gy).unwrap_or(usize::MAX);
-                        matching += players
-                            .iter()
-                            .filter(|p| {
-                                state.zones.list(ZoneLocation::Graveyard(**p)).len() >= min_len
-                            })
-                            .count();
-                    }
-                    if matching > 0 {
-                        any_achievable = true;
-                    }
-                    let min_usize = usize::try_from(min).unwrap_or(usize::MAX);
-                    if min_usize > 0 && total.saturating_sub(matching) < min_usize {
-                        any_guaranteed = true;
-                    }
-                }
-                (any_achievable, any_guaranteed)
-            };
             let check_preview_clauses = |check: baylee_cards_dsl::TargetCostCheck,
                                          ctx: crate::text_changes::RuleContext|
              -> (bool, bool) {
-                match kind {
-                    PreviewCastKind::Bestow => {
-                        eval_clause_group(face_idx, &[super::BESTOW_TARGET_REQ], check, ctx)
-                    }
-                    PreviewCastKind::Mutate => {
-                        eval_clause_group(face_idx, &[super::MUTATE_TARGET_REQ], check, ctx)
-                    }
-                    PreviewCastKind::Face | PreviewCastKind::Kicked | PreviewCastKind::Fused => {
-                        let face_range = if kind == PreviewCastKind::Fused {
-                            0..def.faces.len().min(2)
-                        } else {
-                            face_idx..face_idx + 1
-                        };
-                        let mut any_ach = false;
-                        let mut any_guar = false;
-                        for f in face_range {
-                            let Some(face_def) = def.faces.get(f) else {
-                                continue;
-                            };
-                            if let Some((first, second, third)) =
-                                def.abilities_for_face(f).iter().find_map(|a| match a {
-                                    baylee_cards_dsl::AbilityDef::Spell {
-                                        targets,
-                                        second_targets,
-                                        third_targets,
-                                        ..
-                                    } => Some((*targets, *second_targets, *third_targets)),
-                                    _ => None,
-                                })
-                            {
-                                let eff_first = if kind == PreviewCastKind::Kicked {
-                                    face_def.kicked_targets.or(first)
-                                } else {
-                                    first
-                                };
-                                let mut clauses: smallvec::SmallVec<
-                                    [baylee_cards_dsl::TargetReq; 3],
-                                > = smallvec::SmallVec::new();
-                                clauses.extend(eff_first);
-                                clauses.extend(second);
-                                clauses.extend(third);
-                                let (a, g) = eval_clause_group(f, &clauses, check, ctx);
-                                any_ach |= a;
-                                any_guar |= g;
-                            } else if let Some((modes, ..)) = def
-                                .abilities_for_face(f)
+                face_matches_preview_predicate(
+                    state,
+                    player,
+                    card,
+                    def,
+                    face_idx,
+                    kind,
+                    &|objects, players| {
+                        let mut matching = objects
+                            .iter()
+                            .filter(|&&id| {
+                                target_object_satisfies_check(state, id, player, check, ctx)
+                            })
+                            .count();
+                        if let baylee_cards_dsl::TargetCostCheck::TargetControllerGraveyardAtLeast(
+                            min_gy,
+                        ) = check
+                        {
+                            let min_len = usize::try_from(min_gy).unwrap_or(usize::MAX);
+                            matching += players
                                 .iter()
-                                .find_map(baylee_cards_dsl::AbilityDef::modal_spell)
-                            {
-                                let mut m_ach = false;
-                                let mut any_mode = false;
-                                let mut all_guar = true;
-                                for mode in modes {
-                                    let w = crate::eval::target_domain::walls(
-                                        mode.targets,
-                                        mode.second_targets,
-                                    );
-                                    if !super::requirement_is_reachable_for(
-                                        mode.targets,
-                                        state,
-                                        player,
-                                        card,
-                                        Some((def, f)),
-                                        w,
-                                    ) || !super::requirement_is_reachable_for(
-                                        mode.second_targets,
-                                        state,
-                                        player,
-                                        card,
-                                        Some((def, f)),
-                                        w,
-                                    ) {
-                                        continue;
-                                    }
-                                    any_mode = true;
-                                    let mut clauses: smallvec::SmallVec<
-                                        [baylee_cards_dsl::TargetReq; 2],
-                                    > = smallvec::SmallVec::new();
-                                    clauses.extend(mode.targets);
-                                    clauses.extend(mode.second_targets);
-                                    let (a, g) = eval_clause_group(f, &clauses, check, ctx);
-                                    m_ach |= a;
-                                    all_guar &= g;
-                                }
-                                any_ach |= m_ach;
-                                any_guar |= any_mode && all_guar;
-                            } else if kind == PreviewCastKind::Kicked
-                                && let Some(req) = face_def.kicked_targets
-                            {
-                                let (a, g) = eval_clause_group(f, &[req], check, ctx);
-                                any_ach |= a;
-                                any_guar |= g;
-                            }
+                                .filter(|p| {
+                                    state.zones.list(ZoneLocation::Graveyard(**p)).len() >= min_len
+                                })
+                                .count();
                         }
-                        (any_ach, any_guar)
-                    }
-                }
+                        matching
+                    },
+                )
             };
             for effect in state.effects.iter() {
                 let baylee_cards_dsl::Modifier::ReduceCostIfTargetsCheck {
@@ -3338,22 +3355,33 @@ pub(crate) fn preview_cast_metric_bounds_for(
                     ) {
                         continue;
                     }
-                    let probe_rule = TargetConditionalRule {
-                        controller: effect.controller,
-                        context,
-                        target_filter: permanent_filter,
-                        reduction: ManaCost::ZERO,
-                    };
-                    let (_, perm_guar) = face_matches_target_filter(
+                    let (_, target_guar) = face_matches_preview_predicate(
                         state,
                         player,
                         card,
                         def,
                         face_idx,
                         kind,
-                        &probe_rule,
+                        &|objects, players| {
+                            let matching_objs = objects
+                                .iter()
+                                .filter(|&&id| {
+                                    state.object(id).is_some_and(|o| {
+                                        crate::eval::matches_with_context(
+                                            permanent_filter,
+                                            state,
+                                            o,
+                                            effect.controller,
+                                            context,
+                                        )
+                                    })
+                                })
+                                .count();
+                            let matching_player = usize::from(players.contains(&effect.controller));
+                            matching_objs + matching_player
+                        },
                     );
-                    if perm_guar {
+                    if target_guar {
                         out.min_mana_increase = out.min_mana_increase.combine(&extra_mana);
                         out.min_life_increase = out.min_life_increase.saturating_add(extra_life);
                     }

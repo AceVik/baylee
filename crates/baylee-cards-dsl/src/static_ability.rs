@@ -2451,6 +2451,9 @@ impl Modifier {
             // ability-adding effect, and so is granting a trigger.
             | Self::ProtectionFrom(_)
             | Self::ProtectionFromExiledWithSourceTypes
+            | Self::HexproofFrom(_)
+            | Self::HexproofFromOwnColors
+            | Self::HexproofFromAbilities
             | Self::GrantTriggered { .. }
             | Self::GrantTriggeredUpToOne { .. }
             | Self::GrantTriggeredDefinition(_) => Layer::Ability,
@@ -2671,9 +2674,6 @@ impl Modifier {
             | Self::MayActivateLoyaltyAsInstant { .. }
             | Self::MayCastFromGraveyardTargeted { .. }
             | Self::CastCostIncreaseUnlessTargets { .. }
-            | Self::HexproofFrom(_)
-            | Self::HexproofFromOwnColors
-            | Self::HexproofFromAbilities
             | Self::PlayerHexproofFrom { .. }
             | Self::IgnoreOpponentsHexproofMatching { .. }
             | Self::PlotActionCostsLess { .. }
@@ -3426,6 +3426,9 @@ mod tests {
             (Modifier::CantActivateArtifacts, Layer::Ability),
             // The two that moved. Layer 6 by CR 613.1f, not layer 3.
             (Modifier::ProtectionFrom(&Filter::CREATURE), Layer::Ability),
+            (Modifier::HexproofFrom(&Filter::INSTANT), Layer::Ability),
+            (Modifier::HexproofFromOwnColors, Layer::Ability),
+            (Modifier::HexproofFromAbilities, Layer::Ability),
             (
                 Modifier::GrantTriggered {
                     trigger: crate::ability::Trigger::ETB,
@@ -3913,9 +3916,6 @@ mod tests {
                 filter: &Filter::YOUR_CREATURE,
                 generic: 8,
             },
-            Modifier::HexproofFrom(&Filter::INSTANT),
-            Modifier::HexproofFromOwnColors,
-            Modifier::HexproofFromAbilities,
             Modifier::PlayerHexproofFrom {
                 who: crate::PlayerRel::You,
                 from: &Filter::INSTANT,

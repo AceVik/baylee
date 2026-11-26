@@ -1672,6 +1672,37 @@ fn effects_match(
             Effect::ForEachRemembered { filter, .. } => {
                 filter_matches(filter, cond_pred, amt_pred, 0)
             }
+            Effect::RemoveCounters { subject, count, .. } => {
+                let subj = match subject {
+                    baylee_cards_dsl::RemoveCounterSubject::Choice(filter)
+                    | baylee_cards_dsl::RemoveCounterSubject::Filter(filter) => {
+                        filter_matches(filter, cond_pred, amt_pred, 0)
+                    }
+                    _ => false,
+                };
+                let cnt = match count {
+                    baylee_cards_dsl::RemoveCounterCount::Exact(amt)
+                    | baylee_cards_dsl::RemoveCounterCount::UpTo(amt) => {
+                        amt_matches(amt, cond_pred, amt_pred, 0)
+                    }
+                    baylee_cards_dsl::RemoveCounterCount::AnyNumber
+                    | baylee_cards_dsl::RemoveCounterCount::All => false,
+                };
+                subj || cnt
+            }
+            Effect::MoveCounters { from, to, .. } => {
+                let from_m = matches!(
+                    from,
+                    baylee_cards_dsl::MoveCounterSource::Filter(filter)
+                        if filter_matches(filter, cond_pred, amt_pred, 0)
+                );
+                let to_m = matches!(
+                    to,
+                    baylee_cards_dsl::MoveCounterDest::DistributeAmong(filter)
+                        if filter_matches(filter, cond_pred, amt_pred, 0)
+                );
+                from_m || to_m
+            }
             _ => false,
         };
     });

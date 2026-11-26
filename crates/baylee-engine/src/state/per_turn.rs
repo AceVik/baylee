@@ -461,14 +461,25 @@ pub struct ActivatedAbilityRecord {
     pub source: baylee_core::ids::DamageSourceRef,
     /// Frozen snapshot of the source permanent when activated.
     pub snapshot: std::sync::Arc<crate::object::GameObject>,
-    /// Object targets chosen for the activation.
-    pub targets: Vec<ObjectId>,
+    /// Activation-time frozen snapshots of object targets chosen across all
+    /// target slots (`targets`, `second_targets`, `third_targets`).
+    pub target_snapshots: Vec<std::sync::Arc<crate::object::GameObject>>,
 }
 
 impl std::hash::Hash for ActivatedAbilityRecord {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        (603_u16, self.activator, self.source, &self.targets).hash(state);
+        (
+            603_u16,
+            self.activator,
+            self.source,
+            self.target_snapshots.len(),
+        )
+            .hash(state);
         super::hash::sacrifice_snapshot_digest(&self.snapshot).hash(state);
+        for snap in &self.target_snapshots {
+            snap.id.hash(state);
+            super::hash::sacrifice_snapshot_digest(snap).hash(state);
+        }
     }
 }
 
