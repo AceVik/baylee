@@ -4752,6 +4752,38 @@ searchable, Enter runs the highlighted one, focus goes back to its opener.
 `/state.shell` reports the focus, the stack, the overlay, the resolver's
 count and the actions it fired; `/key` takes a `"char"` to play a layout.
 
+### One glass for every container
+
+Owner, 26.11.2026: the client stood in three looks (the sign-in card's
+glass, the leather the lobby's big panels borrowed from the hand HUD, and
+flat panels); every container now wears the sign-in card's ("dieses
+Glas-Ding"), and only the Tower keeps its gilded frames. `shellkit::glass` is
+the one place it is decided: smoked blue glass in three stops lit from the
+head (`glass::ground`) and a cut-glass rim, warm on its upper edge, cool on
+its sides, a shade darker at its foot (`glass::rim`); `glass::pane` is both
+over a transparent fill (a second quad would darken it) with the card's
+shadow. The material comes in three densities of the same hues
+(`every_density_is_one_glass`):
+
+- **Clear** (α .60 / .54 / .64): over the front door's vista, the sign-in
+  card and its small dialogs.
+- **Reading** (α .93 / .90 / .93): every panel, sheet, dialog and window over
+  the lobby's painting or a scrim: the activity tiles, the tables, the
+  hero, the recent games, decks, room, builder, replays, settings, the Daily
+  and Weekly and Tower expedition panels, the chat window, the contacts
+  drawer, the chat's sheets. Measured, not chosen: `muted` and the chat's
+  soft ink keep 4.5 : 1 over the tavern fire blended in linear light at
+  every stop (`the_reading_glass_keeps_quiet_ink_over_the_fire`).
+- **Solid** (α .985 / .98 / .985): menus, popovers, the header's popovers,
+  the donation sheet, where the glass stands over words with nothing
+  dimming them.
+
+A surface whose `BackgroundColor` is animated (a hover's `Feel`: tiles,
+rows, pills, toasts) keeps a flat fill, since the gradient lies over the
+fill and would hide its hover; a card inside a pane stays a flat inset, not
+glass on glass. A dialog keeps its own accent rim where it has one (the
+donation sheet's rose, the memorial's brass).
+
 ### The shell's header and strips
 
 Every signed-in lobby screen and the builder use the shell's shared header
@@ -10869,22 +10901,35 @@ the chat window design). The renderer never builds a frame or an HTTP body.
   card stands beside the row, never over the next one. It is never
   pickable, any press puts it away, and nothing is written once it stands.
   Names are plain text on one line, cut at 28 characters.
-- **The window's glass.** The lobby chat window's ground is a gradient of
-  the panel's blue, denser at its head than at its foot
-  (`rows::window_ground`, α .93 to .90): glass over the painting, where the
-  flat ground before it was a slab. The alphas are measured, not chosen:
-  the window's quiet ink keeps 4.5 : 1 over the tavern's fire blended in
-  linear light at both ends (`window::tests`). The field a line is written
-  in is opaque, so nothing behind the window reads through the words being
+- **The window's glass.** The lobby chat window, the contacts drawer and
+  the chat's sheets wear the client's one glass in its reading density
+  (§"One glass for every container"): glass over the painting, where the
+  flat ground before it was a slab. The field a line is written in is
+  opaque, so nothing behind the window reads through the words being
   typed.
+- **The window moves** (owner, 26.11.2026: "es soll bitte auch
+  dragable/moveable sein"). In the lobby the player drags the window by
+  its head's free band (a tab or a tool is a press, never a grip; the
+  pointer is an open hand there and a closed one while it moves). The
+  place is the window's lower-left corner in unscaled interface pixels
+  (`social::window::place`, `ClientSettings::chat_window_at`), kept per
+  device beside its size and written once when the drag ends; the
+  default, and a window dropped within 10 px of the foot, docks on the
+  window's foot with only its upper corners round, and anywhere else all
+  four are. Every frame holds the whole window inside the screen, less the
+  contacts drawer's room, so a place kept from a larger screen or a window
+  grown by its corner is moved in, never cut. Minimised, the head docks on
+  the foot at the same left; at a table the window keeps its place by the
+  log and does not move.
 - **Framed as the shell's windows are** (owner, 19.11.2026: "Das Layout von
   Kontakte, Chat und Profil passt nicht zum Layout der anderen Fenster und
   Dialoge"). The chat's surfaces take their frame from `shellkit`, not from
   numbers of their own:
-  - *Rim and rules.* `rows::GLASS_EDGE` is `tokens::SHEET_EDGE` (a sheet's
-    rim) and `rows::GLASS_RULE` is `tokens::BORDER` (the hairline under a
-    sheet's head and over its foot). A menu, a dropdown and a person's card
-    wear `tokens::POPOVER_EDGE`.
+  - *Rim and rules.* Every chat surface, menu, dropdown and person's card
+    wears the glass's rim (`glass::rim`); `rows::GLASS_EDGE`
+    (`tokens::SHEET_EDGE`) edges the pills and the light rules inside, and
+    `rows::GLASS_RULE` is `tokens::BORDER` (the hairline under a sheet's
+    head and over its foot).
   - *Radii.* `RADIUS_PANEL` (14) for the lobby window's upper corners (it is
     docked on the window's foot, so the lower ones are square; at a table it
     keeps the log strip's), for every menu and for the card; `RADIUS_CONTROL`
@@ -10910,10 +10955,11 @@ the chat window design). The renderer never builds a frame or an HTTP body.
     hit wrapper); a row of them shares the width through
     `surfaces::dialog_button_row`. Under a pointer the wrapper is let down
     to its face, so a request's row keeps its height.
-  - *Grounds.* Menus stand on `surfaces::menu_ground`, the card on
-    `surfaces::popover_ground`, opaque as the kit's are. **The window and
-    the drawer keep their glass** (`rows::window_ground`): it is the one
-    deliberate difference, measured and held by a test.
+  - *Grounds.* Menus and the card stand on the solid glass, as the kit's
+    menus and popovers do; the window, the drawer and the chat's sheets on
+    the reading glass, as every other panel does (§"One glass for every
+    container"). The Tower's panel at a table keeps its own ground under
+    its gilded rim.
   - *Sizes.* `social::zoom::Shell` holds the kit's `ShellMetrics` for the
     chat (the lobby's window and text step; at a table the default step on
     1920 × 1080, since `UiScale` grows the chat there), and its factor is

@@ -70,9 +70,6 @@ pub(super) fn panel(commands: &mut Commands, env: &Env, holders: &mut retained::
         1.0
     };
     let panel = super::panel(commands, kit, grow, None);
-    commands
-        .entity(panel)
-        .insert((crate::lobby::dock::Dock(6), surfaces::elevation_card()));
     holders.toolbar = Some(holder(
         commands,
         panel,

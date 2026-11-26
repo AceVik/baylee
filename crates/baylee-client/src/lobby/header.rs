@@ -137,8 +137,11 @@ pub(crate) fn spawn_popover_nipple(commands: &mut Commands) -> Entity {
                 border_radius: BorderRadius::top_left(px_fixed(2.0)),
                 ..default()
             },
-            BackgroundColor(tokens::OPAQUE),
-            BorderColor::all(tokens::POPOVER_EDGE),
+            // The nub stands on the popover's head: the glass's first tint.
+            BackgroundColor(
+                crate::shellkit::glass::tints(crate::shellkit::glass::Density::Solid)[0],
+            ),
+            BorderColor::all(crate::shellkit::glass::rim().top),
             UiTransform {
                 rotation: Rot2::radians(std::f32::consts::FRAC_PI_4),
                 ..default()
@@ -858,8 +861,9 @@ fn gateway_popover(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Ent
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
                 ..default()
             },
-            BackgroundColor(tokens::OPAQUE),
-            BorderColor::all(tokens::POPOVER_EDGE),
+            BackgroundColor(Color::NONE),
+            crate::shellkit::glass::ground(crate::shellkit::glass::Density::Solid),
+            crate::shellkit::glass::rim(),
             surfaces::popover_shadow(),
             GlobalZIndex(tokens::z::POPOVER),
             Press::Shared(SharedPress::PickerNothing),
@@ -1005,8 +1009,9 @@ fn language_popover(commands: &mut Commands, state: &LobbyState, kit: Kit) -> En
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
                 ..default()
             },
-            BackgroundColor(tokens::OPAQUE),
-            BorderColor::all(tokens::POPOVER_EDGE),
+            BackgroundColor(Color::NONE),
+            crate::shellkit::glass::ground(crate::shellkit::glass::Density::Solid),
+            crate::shellkit::glass::rim(),
             surfaces::popover_shadow(),
             GlobalZIndex(tokens::z::POPOVER),
             Press::Shared(SharedPress::PickerNothing),
@@ -1184,8 +1189,9 @@ fn popover(commands: &mut Commands, state: &LobbyState, kit: Kit, menu: HeaderMe
                         border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
                         ..default()
                     },
-                    BackgroundColor(tokens::OPAQUE),
-                    BorderColor::all(tokens::POPOVER_EDGE),
+                    BackgroundColor(Color::NONE),
+                    crate::shellkit::glass::ground(crate::shellkit::glass::Density::Solid),
+                    crate::shellkit::glass::rim(),
                     surfaces::popover_shadow(),
                     GlobalZIndex(tokens::z::POPOVER),
                     Press::Shared(SharedPress::PickerNothing),

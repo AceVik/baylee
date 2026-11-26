@@ -1397,8 +1397,8 @@ fn sync_drawer(
                 },
                 UiTransform::from_translation(Val2::px(WIDTH * zoom.0, 0.0)),
                 BackgroundColor(Color::NONE),
-                super::rows::window_ground(),
-                BorderColor::all(super::rows::GLASS_EDGE),
+                crate::shellkit::glass::ground(crate::shellkit::glass::Density::Reading),
+                crate::shellkit::glass::rim(),
                 BoxShadow(vec![
                     ShadowStyle {
                         color: Color::srgba(0.0, 0.0, 0.0, 0.44),
@@ -2465,9 +2465,9 @@ fn sync_context_menu(
                 translation: Val2::px(0.0, -4.0),
                 ..default()
             },
-            BackgroundColor(tokens::OPAQUE),
-            surfaces::menu_ground(),
-            BorderColor::all(tokens::POPOVER_EDGE),
+            BackgroundColor(Color::NONE),
+            crate::shellkit::glass::ground(crate::shellkit::glass::Density::Solid),
+            crate::shellkit::glass::rim(),
             crate::shellkit::surfaces::elevation_popover(),
             crate::shellkit::sheen::Sheen,
             super::window::stacked(60),

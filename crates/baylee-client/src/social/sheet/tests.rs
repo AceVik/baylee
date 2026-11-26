@@ -117,7 +117,7 @@ fn sheet_uses_single_layer_glass_and_preserves_scroll_across_rebuilds() {
     assert_eq!(
         app.world().get::<BackgroundColor>(card).unwrap().0,
         Color::NONE,
-        "Sheet card must not double-composite BackgroundColor under dialog_glass()"
+        "Sheet card must not double-composite BackgroundColor under its glass"
     );
     assert!(
         app.world()

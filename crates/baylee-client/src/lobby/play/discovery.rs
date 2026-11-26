@@ -24,9 +24,7 @@ fn panel(commands: &mut Commands, parent: Entity, kit: Kit) -> Entity {
                 border_radius: BorderRadius::all(px(14)),
                 ..default()
             },
-            BackgroundColor(tokens::PANEL),
-            BorderColor::all(tokens::BORDER),
-            surfaces::elevation_card(),
+            crate::shellkit::glass::pane(crate::shellkit::glass::Density::Reading),
             Pickable::IGNORE,
         ))
         .id();

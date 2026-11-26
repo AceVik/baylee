@@ -286,9 +286,7 @@ fn nav_holder(commands: &mut Commands, kit: Kit, side: bool, scroll: f32) -> (En
                 overflow: Overflow::clip(),
                 ..default()
             },
-            BackgroundColor(tokens::PANEL),
-            BorderColor::all(tokens::BORDER),
-            surfaces::elevation_card(),
+            crate::shellkit::glass::pane(crate::shellkit::glass::Density::Reading),
         ))
         .id();
     let list = commands
@@ -426,9 +424,7 @@ fn section_panel(
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
                 ..default()
             },
-            BackgroundColor(tokens::PANEL),
-            BorderColor::all(tokens::BORDER),
-            surfaces::elevation_card(),
+            crate::shellkit::glass::pane(crate::shellkit::glass::Density::Reading),
         ))
         .id();
     let query = state.settings_query();

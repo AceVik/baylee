@@ -117,9 +117,7 @@ pub(super) fn draw(
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
                 ..default()
             },
-            BackgroundColor(tokens::PANEL),
-            BorderColor::all(tokens::BORDER),
-            surfaces::elevation_panel(),
+            crate::shellkit::glass::pane(crate::shellkit::glass::Density::Reading),
         ))
         .id();
     commands.entity(body).add_child(title);
@@ -313,10 +311,7 @@ pub(super) fn draw(
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
                 ..default()
             },
-            BackgroundColor(tokens::PANEL),
-            BorderColor::all(tokens::BORDER),
-            surfaces::elevation_card(),
-            super::dock::Dock(3),
+            crate::shellkit::glass::pane(crate::shellkit::glass::Density::Reading),
         ))
         .id();
     commands.entity(columns).add_child(rail);

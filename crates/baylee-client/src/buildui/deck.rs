@@ -51,9 +51,6 @@ pub(super) fn panel(commands: &mut Commands, env: &Env, holders: &mut retained::
         1.0
     };
     let panel = super::panel(commands, kit, grow, None);
-    commands
-        .entity(panel)
-        .insert((crate::lobby::dock::Dock(5), surfaces::elevation_card()));
     holders.deck_head = Some(holder(
         commands,
         panel,
@@ -111,7 +108,6 @@ pub(super) fn rail_panel(
         0.0,
         Some(kit.m.scaled(260.0).clamp(220.0, 300.0)),
     );
-    commands.entity(panel).insert(surfaces::elevation_card());
     holders.rail = Some(holder(
         commands,
         panel,

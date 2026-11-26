@@ -1105,7 +1105,6 @@ mod clicks;
 mod confirm;
 pub(crate) mod decks;
 pub(crate) mod decksave;
-pub(crate) mod dock;
 pub(crate) mod echoes;
 mod editing;
 mod end_screen;

@@ -169,9 +169,7 @@ pub(crate) fn panel(commands: &mut Commands, metrics: Metrics, width: Val, grow:
                 border: UiRect::all(px(1)),
                 ..default()
             },
-            BackgroundColor(palette::SANCTUARY_PANEL),
-            BorderColor::all(palette::DOCK_EDGE.with_alpha(0.4)),
-            crate::shellkit::surfaces::elevation_card(),
+            crate::shellkit::glass::pane(crate::shellkit::glass::Density::Reading),
             Pickable::IGNORE,
         ))
         .id()
