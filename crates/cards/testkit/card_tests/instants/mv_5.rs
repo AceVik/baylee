@@ -270,6 +270,7 @@ fn cast_in_mode(engine: &mut Engine<RegistryLookup>, spell: CardIndex, mode: usi
 }
 mod annihilate;
 mod astral_confrontation;
+mod beacon_of_destruction;
 mod beast_attack;
 mod blessed_light;
 mod breath_of_malfegor;

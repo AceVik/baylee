@@ -142,6 +142,7 @@ mod hedron_rover;
 mod hematite_golem;
 mod iron_heart_chimera;
 mod juggernaut;
+mod junk_golem;
 mod lead_belly_chimera;
 mod lodestone_myr;
 mod machine_man_model_x_51;

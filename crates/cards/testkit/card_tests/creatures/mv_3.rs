@@ -3,8 +3,13 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod anurid_brushhopper;
+mod anurid_swarmsnapper;
+mod dwarven_recruiter;
 mod inspiring_overseer;
+mod shieldmage_advocate;
 mod starnheim_aspirant;
+mod tundra_kavu;
 
 mod abbey_matron;
 mod academy_researchers;

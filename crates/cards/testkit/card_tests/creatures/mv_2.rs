@@ -3,9 +3,15 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod beacon_of_destiny;
 mod knight_of_the_white_orchid;
 mod loyal_warhound;
+mod mad_dog;
+mod minotaur_explorer;
+mod pit_keeper;
 mod serra_avenger;
+mod skirk_alarmist;
+mod veteran_brawlers;
 
 mod abyssal_gatekeeper;
 mod acidic_sliver;

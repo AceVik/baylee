@@ -5,6 +5,7 @@ use super::*;
 
 mod blessed_wind;
 mod crush_of_wurms;
+mod denying_wind;
 mod dragonstorm;
 mod plague_wind;
 mod volley_of_boulders;
