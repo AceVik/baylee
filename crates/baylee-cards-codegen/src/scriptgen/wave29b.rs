@@ -702,7 +702,7 @@ impl Tx<'_> {
         ))
     }
 
-    fn wave29b_left_zone_this_turn_amount(
+    pub(super) fn wave29b_left_zone_this_turn_amount(
         &mut self,
         valid_raw: &str,
         battlefield: bool,
