@@ -4952,7 +4952,10 @@ impl Tx<'_> {
         }
         if let Some(var) = p.take("CheckSVar") {
             let cmp = p.take("SVarCompare").unwrap_or_else(|| "GE1".to_string());
-            let Some(clause) = self.reduce_cost_svar_condition(&var, &cmp) else {
+            let Some(clause) = self
+                .reduce_cost_svar_condition(&var, &cmp)
+                .or_else(|| self.cost_adjust_svar_condition(&var, &cmp))
+            else {
                 return self.deny("unclaimed parameter `ReduceCost.CheckSVar`".to_string());
             };
             clauses.push(clause);
@@ -4960,7 +4963,10 @@ impl Tx<'_> {
                 let cmp2 = p
                     .take("SecondSVarCompare")
                     .unwrap_or_else(|| "GE1".to_string());
-                let Some(clause2) = self.reduce_cost_svar_condition(&var2, &cmp2) else {
+                let Some(clause2) = self
+                    .reduce_cost_svar_condition(&var2, &cmp2)
+                    .or_else(|| self.cost_adjust_svar_condition(&var2, &cmp2))
+                else {
                     return self.deny("unclaimed parameter `ReduceCost.CheckSVar`".to_string());
                 };
                 clauses.push(clause2);
@@ -4971,6 +4977,54 @@ impl Tx<'_> {
             [one] => format!(", condition = Some({one})"),
             many => format!(", condition = Some(Condition::All(&[{}]))", many.join(", ")),
         })
+    }
+
+    /// `CheckSVar$` + `SVarCompare$` clauses specific to `ReduceCost`/`RaiseCost`
+    /// (`Count$Void.*`, `Count$Left(Battlefield|Graveyard)ThisTurn`, and non-subtype
+    /// `PlayerCountPropertyYou$SacrificedThisTurn <Valid>`). Kept outside
+    /// `reduce_cost_svar_condition` so `Mode$ Continuous` preserves its existing
+    /// `BadSacCardType` refusal boundary.
+    fn cost_adjust_svar_condition(&mut self, var: &str, cmp: &str) -> Option<String> {
+        let trimmed = var.trim();
+        let def = if trimmed.starts_with("Count$") || trimmed.starts_with("PlayerCount") {
+            trimmed.to_string()
+        } else {
+            self.svars.get(trimmed)?.trim().to_string()
+        };
+        let def = def.trim();
+        if let Some(cond) = Self::wave16a_void_condition(def, cmp) {
+            return Some(cond);
+        }
+        let bound = super::count_bound(cmp)?;
+        if let Some(valid) = def.strip_prefix("PlayerCountPropertyYou$SacrificedThisTurn ") {
+            let valid = valid.trim();
+            if self.cats.const_path(valid).is_none()
+                && !has_relative_turn_atom(valid)
+                && let Some(amt) = self.wave16a_sacrificed_this_turn_amount(valid)
+                && amt.contains("who: PlayerRel::You")
+            {
+                return format_amount_bound(&amt, bound);
+            }
+            return None;
+        }
+        let (valid, battlefield) =
+            if let Some(valid) = def.strip_prefix("Count$LeftBattlefieldThisTurn ") {
+                (valid.trim(), true)
+            } else {
+                let valid = def.strip_prefix("Count$LeftGraveyardThisTurn ")?;
+                (valid.trim(), false)
+            };
+        if super::wave16a::has_unmodelled_turn_atom(valid, false)
+            || has_relative_turn_atom(valid)
+            || (!battlefield
+                && valid
+                    .split(',')
+                    .any(|alt| alt.split(['.', '+']).any(|a| a.trim().ends_with("Ctrl"))))
+        {
+            return None;
+        }
+        let amt = self.wave29b_left_zone_this_turn_amount(valid, battlefield)?;
+        format_amount_bound(&amt, bound)
     }
 
     fn reduce_cost_svar_condition(&mut self, var: &str, cmp: &str) -> Option<String> {
@@ -7240,6 +7294,24 @@ pub(super) fn parse_wave14_color(raw: &str) -> Option<&'static str> {
         "Red" => "Red",
         "Green" => "Green",
         _ => return None,
+    })
+}
+
+fn has_relative_turn_atom(valid: &str) -> bool {
+    valid.split(',').any(|alt| {
+        alt.split(['.', '+']).any(|a| {
+            matches!(
+                a.trim(),
+                "Self"
+                    | "StrictlySelf"
+                    | "Other"
+                    | "StrictlyOther"
+                    | "EnchantedBy"
+                    | "EquippedBy"
+                    | "AttachedBy"
+                    | "Attached"
+            )
+        })
     })
 }
 

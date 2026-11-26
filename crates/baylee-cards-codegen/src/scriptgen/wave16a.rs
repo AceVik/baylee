@@ -144,7 +144,7 @@ fn strip_uniform_atom(valid: &str, target_atom: &str, reject_other_scopes: bool)
     (!out.is_empty()).then(|| out.join(","))
 }
 
-fn has_unmodelled_turn_atom(valid: &str, allow_token_created: bool) -> bool {
+pub(super) fn has_unmodelled_turn_atom(valid: &str, allow_token_created: bool) -> bool {
     valid.contains(['$', '/', ';'])
         || valid.split(',').any(|alt| {
             let (base, atoms) = split_valid_alt(alt);
@@ -442,7 +442,10 @@ impl Tx<'_> {
         ))
     }
 
-    fn wave16a_sacrificed_this_turn_amount(&mut self, valid_raw: &str) -> Option<String> {
+    pub(super) fn wave16a_sacrificed_this_turn_amount(
+        &mut self,
+        valid_raw: &str,
+    ) -> Option<String> {
         if valid_raw.is_empty() || has_unmodelled_turn_atom(valid_raw, false) {
             return None;
         }
@@ -465,7 +468,7 @@ impl Tx<'_> {
         ))
     }
 
-    fn wave16a_void_condition(raw: &str, cmp: &str) -> Option<String> {
+    pub(super) fn wave16a_void_condition(raw: &str, cmp: &str) -> Option<String> {
         let inverted = match raw.trim() {
             "Count$Void.1.0" | "Count$Void" => false,
             "Count$Void.0.1" => true,

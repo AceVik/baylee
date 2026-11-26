@@ -3058,6 +3058,92 @@ fn mana_clash_and_myriad_pools_and_umbris_exile_opp_own() {
          S:Mode$ Continuous | AffectedDefined$ Self | AddPower$ X | AddToughness$ X\n\
          SVar:X:Count$ValidExile Card.OppOwn+YouOwn",
     ] {
+        assert!(refused(bad), \"must refuse:\n{bad}\");
+    }
+}
+
+#[test]
+fn reduce_cost_check_svar_turn_history_and_refusals() {
+    // Count Nefaria shape (using catalog subtype): PlayerCountPropertyYou$SacrificedThisTurn Permanent.
+    let nefaria = read(
+        "Name:Count Nefaria\nManaCost:6 B\nTypes:Legendary Creature Wizard\nPT:6/6\nS:Mode$ ReduceCost | ValidCard$ Card.Self | EffectZone$ All | Type$ Spell | Amount$ 3 | CheckSVar$ X\nK:Flying\nSVar:X:PlayerCountPropertyYou$SacrificedThisTurn Permanent",
+    );
+    assert!(
+        nefaria.abilities.iter().any(|a| {
+            a.contains("Modifier::SpellsCostLess(3)")
+                && a.contains("zone = ZoneRef::Stack")
+                && a.contains("Amount::PermanentsSacrificedThisTurn { who: PlayerRel::You, filter: &Filter::Any }")
+        }),
+        "{:?}",
+        nefaria.abilities
+    );
+
+    // Suspicious Detonation: PlayerCountPropertyYou$SacrificedThisTurn Artifact.
+    let detonation = read(
+        "Name:Suspicious Detonation\nManaCost:4 R\nTypes:Sorcery\nS:Mode$ ReduceCost | ValidCard$ Card.Self | CheckSVar$ X | Type$ Spell | Amount$ 3 | EffectZone$ All\nSVar:X:PlayerCountPropertyYou$SacrificedThisTurn Artifact\nR:Event$ Counter | ValidCard$ Card.Self | ValidSA$ Spell | Layer$ CantHappen\nA:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 4",
+    );
+    assert!(
+        detonation.abilities.iter().any(|a| {
+            a.contains("Modifier::SpellsCostLess(3)")
+                && a.contains("Amount::PermanentsSacrificedThisTurn { who: PlayerRel::You, filter: &Filter::ARTIFACT }")
+        }),
+        "{:?}",
+        detonation.abilities
+    );
+
+    // Tale of Momo: Count$LeftBattlefieldThisTurn Creature.YouCtrl.
+    let momo = read(
+        "Name:Tale of Momo\nManaCost:2 W\nTypes:Sorcery\nS:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ 2 | EffectZone$ All | CheckSVar$ X\nA:SP$ ChangeZone | Optional$ True | Origin$ Library | OriginAlternative$ Graveyard | Destination$ Hand | ChangeType$ Creature.Wizard+YouOwn | ChangeNum$ 1 | ShuffleNonMandatory$ True\nSVar:X:Count$LeftBattlefieldThisTurn Creature.YouCtrl",
+    );
+    assert!(
+        momo.abilities.iter().any(|a| {
+            a.contains("Modifier::SpellsCostLess(2)")
+                && a.contains("Amount::LeftZoneThisTurn { filter: &Filter::CREATURE, from: ZoneRef::Battlefield, owner_or_ctrl: PlayerRel::You }")
+        }),
+        "{:?}",
+        momo.abilities
+    );
+
+    // Wilt in the Heat: Count$LeftGraveyardThisTurn Card.YouOwn.
+    let wilt = read(
+        "Name:Wilt in the Heat\nManaCost:2 R W\nTypes:Instant\nS:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ 2 | EffectZone$ All | CheckSVar$ X\nA:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 5 | ReplaceDyingDefined$ Targeted\nSVar:X:Count$LeftGraveyardThisTurn Card.YouOwn",
+    );
+    assert!(
+        wilt.abilities.iter().any(|a| {
+            a.contains("Modifier::SpellsCostLess(2)")
+                && a.contains("Amount::LeftZoneThisTurn { filter: &Filter::Any, from: ZoneRef::Graveyard, owner_or_ctrl: PlayerRel::You }")
+        }),
+        "{:?}",
+        wilt.abilities
+    );
+
+    // Void CheckSVar on ReduceCost (`Count$Void.1.0`).
+    let void_reduce = read(
+        "Name:VoidBolt\nManaCost:2 B\nTypes:Sorcery\nS:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ 2 | EffectZone$ All | CheckSVar$ X\nA:SP$ LoseLife | ValidTgts$ Opponent | LifeAmount$ 2\nSVar:X:Count$Void.1.0",
+    );
+    assert!(
+        void_reduce.abilities.iter().any(|a| {
+            a.contains("Modifier::SpellsCostLess(2)")
+                && a.contains("Amount::LeftZoneThisTurn { filter: &Filter::NONLAND, from: ZoneRef::Battlefield, owner_or_ctrl: PlayerRel::EachPlayer }")
+                && a.contains("Condition::SpellWarpedThisTurn(None)")
+        }),
+        "{:?}",
+        void_reduce.abilities
+    );
+
+    // Refusal boundaries: relative atoms, Graveyard Ctrl scope, Continuous SacrificedThisTurn Artifact,
+    // and Wave 20 DSL-gated static/keyword items stay refused.
+    for bad in [
+        "Name:BadLeftOther\nManaCost:2 W\nTypes:Sorcery\nS:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ 2 | EffectZone$ All | CheckSVar$ X\nA:SP$ Draw | NumCards$ 1\nSVar:X:Count$LeftBattlefieldThisTurn Creature.Other+YouCtrl",
+        "Name:BadGyCtrl\nManaCost:2 R W\nTypes:Instant\nS:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ 2 | EffectZone$ All | CheckSVar$ X\nA:SP$ Draw | NumCards$ 1\nSVar:X:Count$LeftGraveyardThisTurn Card.YouCtrl",
+        "Name:BadSacOpp\nManaCost:4 R\nTypes:Sorcery\nS:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ 2 | EffectZone$ All | CheckSVar$ X\nA:SP$ Draw | NumCards$ 1\nSVar:X:PlayerCountPropertyYou$SacrificedThisTurn Artifact.OppCtrl",
+        "Name:BadSacSelf\nManaCost:4 R\nTypes:Sorcery\nS:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ 2 | EffectZone$ All | CheckSVar$ X\nA:SP$ Draw | NumCards$ 1\nSVar:X:PlayerCountPropertyYou$SacrificedThisTurn Permanent.Self",
+        "Name:BadContinuousArtifactSac\nManaCost:1 R\nTypes:Enchantment\nS:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Flying | CheckSVar$ X | SVarCompare$ GE1\nSVar:X:PlayerCountPropertyYou$SacrificedThisTurn Artifact",
+        "Name:GhostlyPrison\nManaCost:2 W\nTypes:Enchantment\nS:Mode$ CantAttackUnless | ValidCard$ Creature | Target$ You | Cost$ 2",
+        "Name:SeedbornMuse\nManaCost:3 G G\nTypes:Creature\nPT:2/4\nS:Mode$ UntapOtherPlayer | ValidCard$ Permanent.YouCtrl",
+        "Name:Telepathy\nManaCost:U\nTypes:Enchantment\nS:Mode$ Continuous | AffectedZone$ Hand | Affected$ Card.OppOwn | MayLookAt$ Player",
+        "Name:CanopyStalker\nManaCost:3 G\nTypes:Creature\nPT:4/2\nK:CARDNAME must be blocked if able.",
+    ] {
         assert!(refused(bad), "must refuse:\n{bad}");
     }
 }
