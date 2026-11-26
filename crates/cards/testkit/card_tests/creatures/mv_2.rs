@@ -3,10 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-mod knight_of_the_white_orchid;
-mod loyal_warhound;
-mod serra_avenger;
-
 mod abyssal_gatekeeper;
 mod acidic_sliver;
 mod acridian;
@@ -194,6 +190,7 @@ mod keeper_of_the_mind;
 mod king_suleiman;
 mod kiora_s_follower;
 mod kjeldoran_guard;
+mod knight_of_the_white_orchid;
 mod kobold_drill_sergeant;
 mod kobold_overlord;
 mod kobold_taskmaster;
@@ -212,6 +209,7 @@ mod lord_of_atlantis;
 mod lotleth_troll;
 mod lotus_cobra;
 mod loxodon_peacekeeper;
+mod loyal_warhound;
 mod lurking_nightstalker;
 mod magus_of_the_unseen;
 mod malevolent_hermit;
@@ -311,6 +309,7 @@ mod sea_eagle;
 mod sea_scryer;
 mod seeker_of_skybreak;
 mod selesnya_evangel;
+mod serra_avenger;
 mod seton_s_scout;
 mod shaman_en_kor;
 mod shimmering_barrier;
@@ -331,6 +330,7 @@ mod skyshooter;
 mod skyshroud_condor;
 mod skyshroud_elf;
 mod skyshroud_falcon;
+mod skyshroud_war_beast;
 mod slobad_goblin_tinkerer;
 mod sneaky_homunculus;
 mod soldevi_adnate;

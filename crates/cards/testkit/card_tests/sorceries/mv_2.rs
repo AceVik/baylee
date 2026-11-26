@@ -22,6 +22,7 @@ mod demonic_tutor;
 mod desperate_research;
 mod diabolic_intent;
 mod diabolic_vision;
+mod disorder;
 mod disturbed_burial;
 mod do_or_die;
 mod drain_life;

@@ -347,6 +347,7 @@ mod rishadan_footpad;
 mod roc_of_kher_ridges;
 mod root_greevil;
 mod root_spider;
+mod rooting_kavu;
 mod rootwater_matriarch;
 mod rukh_egg;
 mod rummaging_wizard;

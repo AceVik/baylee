@@ -61,6 +61,7 @@ mod elvish_mystic;
 mod elvish_pioneer;
 mod elvish_scout;
 mod elvish_scrapper;
+mod faerie_squadron;
 mod fire_bowman;
 mod flailing_soldier;
 mod flamekin_harbinger;

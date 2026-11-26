@@ -3,9 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-mod inspiring_overseer;
-mod starnheim_aspirant;
-
 mod abbey_matron;
 mod academy_researchers;
 mod adarkar_unicorn;
@@ -232,6 +229,7 @@ mod hypnotic_specter;
 mod ignoble_soldier;
 mod illusionary_presence;
 mod infected_vermin;
+mod inspiring_overseer;
 mod jamuraan_lion;
 mod jolrael_s_centaur;
 mod juniper_order_advocate;
@@ -458,6 +456,7 @@ mod smokespew_invoker;
 mod snow_hound;
 mod soldevi_heretic;
 mod soltari_champion;
+mod soltari_visionary;
 mod soratami_rainshaper;
 mod sorceress_queen;
 mod soul_charmer;
@@ -477,6 +476,7 @@ mod squirrel_mob;
 mod stalking_assassin;
 mod standing_troops;
 mod starke_of_rath;
+mod starnheim_aspirant;
 mod stern_judge;
 mod stern_marshal;
 mod storm_shaman;
