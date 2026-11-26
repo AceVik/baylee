@@ -6,6 +6,7 @@ mod animation_rules;
 mod archon_kismet;
 mod attachments;
 mod blocks_and_conditions;
+mod choices_players;
 mod costs_and_refusals;
 mod costs_hexproof_counters;
 mod counters;

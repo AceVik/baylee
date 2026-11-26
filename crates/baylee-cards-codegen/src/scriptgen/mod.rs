@@ -44,6 +44,7 @@ mod archon_kismet;
 mod atoms;
 mod attachments;
 mod chains;
+mod choices_players;
 mod constants;
 mod cost_modifiers;
 mod counters;
@@ -739,6 +740,16 @@ struct Tx<'a> {
     /// True while parsing an activated ability's `Cost$` whose `{X}` is
     /// defined by `SVar:X:Imprinted$CardManaCost` on `ChooseZone::LinkedExile`.
     pub(super) allow_defined_cost_x: bool,
+    /// True while lowering sub-abilities inside `ChoosePlayerEx::then` (`ChosenPlayer` scope).
+    in_chosen_player: bool,
+    /// True while lowering follow-up arms after `SecretChooseNumbers` (`RememberHighest$ True`).
+    in_secret_remembered_player: bool,
+    /// True while lowering `SecretNumberGuess` arms (`RememberedPlayer` -> `PlayerRel::Chosen`).
+    in_secret_guesser_ctx: bool,
+    /// Active Join forces accumulator `SVar` name while lowering post-`RepeatEach` steps.
+    join_forces_acc_var: Option<String>,
+    /// Active `(min, max)` bounds while lowering `ChooseNumberAtRandom::then` (`Count$Random.<lo>.<hi>`).
+    random_number_range: Option<(String, String)>,
     /// Named `SetChosenMode$ True` ETB choices in prompt order (`0..n`).
     etb_chosen_modes: Vec<String>,
     /// Named `NotedFor<Name>` tags for `ETBReplacement:Other` `EachPlayerChooseMode` (`0..n`).
@@ -766,11 +777,14 @@ impl<'a> Tx<'a> {
     /// the resolving effect chain (`Effect::ChooseCreatureType`).
     pub(super) fn has_chosen_creature_type(&self) -> bool {
         self.in_chosen_creature_type
-            || self
-                .body
-                .enter_modifiers
-                .iter()
-                .any(|m| m == "EnterModifier::ChooseSubtype")
+            || self.body.enter_modifiers.iter().any(|m| {
+                matches!(
+                    m.as_str(),
+                    "EnterModifier::ChooseSubtype"
+                        | "EnterModifier::OpponentChoosesCreatureType"
+                        | "EnterModifier::NoteMostPrevalentCreatureTypeInOpponentLibrary"
+                )
+            })
     }
 
     pub(super) fn has_chosen_basic_land_type(&self) -> bool {
@@ -782,15 +796,9 @@ impl<'a> Tx<'a> {
         })
     }
 
-    pub(super) fn new(
-        script: &'a CardScript,
-        cats: &'a SubtypeCatalogs,
-        tokens: Option<&'a TokenLookup>,
-    ) -> Self {
-        let mut single_kickers = 0usize;
-        let mut multi_or_dual = false;
-        let mut hex_act = 0usize;
-        let mut hex_trig = 0usize;
+    fn scan_script_flags(script: &CardScript) -> (bool, bool, bool, bool, bool, bool, bool, bool) {
+        let (mut single_kickers, mut multi_or_dual, mut hex_act, mut hex_trig) =
+            (0usize, false, 0usize, 0usize);
         for kw in &script.keywords {
             if kw.starts_with("Hexproof:Activated") {
                 hex_act += 1;
@@ -807,6 +815,36 @@ impl<'a> Tx<'a> {
                 multi_or_dual = true;
             }
         }
+        (
+            !multi_or_dual && single_kickers == 1,
+            hex_act == 1 && hex_trig == 1,
+            Self::wave29b_script_has_x_kicker(script),
+            script.keywords.iter().any(|k| k.trim() == "Flash"),
+            script.keywords.iter().any(|kw| kw == "Delve"),
+            script
+                .rules
+                .iter()
+                .any(|(k, s)| *k == 'S' && s.contains("NamedCard")),
+            script.alternate_mode.as_deref() == Some("Split"),
+            script.alternate_mode.as_deref() == Some("DoubleFaced"),
+        )
+    }
+
+    pub(super) fn new(
+        script: &'a CardScript,
+        cats: &'a SubtypeCatalogs,
+        tokens: Option<&'a TokenLookup>,
+    ) -> Self {
+        let (
+            has_single_kicker,
+            has_hexproof_from_abilities_pair,
+            has_x_kicker,
+            has_flash,
+            has_delve,
+            has_named_card_static,
+            is_split_front,
+            is_double_faced_front,
+        ) = Self::scan_script_flags(script);
         Self {
             svars: &script.svars,
             script_name: &script.script_name,
@@ -827,10 +865,7 @@ impl<'a> Tx<'a> {
             has_resolution_chosen_number: false,
             has_resolution_chosen_color: false,
             has_resolution_chosen_name: false,
-            has_named_card_static: script
-                .rules
-                .iter()
-                .any(|(k, s)| *k == 'S' && s.contains("NamedCard")),
+            has_named_card_static,
             cost_sacrifices_self: false,
             cost_sacrifices_other: false,
             cost_discards_single_for_cost: false,
@@ -851,12 +886,12 @@ impl<'a> Tx<'a> {
             cost_sacrifices_all: false,
             cost_sacrifices_x: false,
             cost_returns_self: false,
-            has_x_kicker: Self::wave29b_script_has_x_kicker(script),
+            has_x_kicker,
             in_chain_resolution: false,
             has_x_mana_cost: script.has_x_mana_cost,
-            has_flash: script.keywords.iter().any(|k| k.trim() == "Flash"),
-            has_single_kicker: !multi_or_dual && single_kickers == 1,
-            has_delve: script.keywords.iter().any(|kw| kw == "Delve"),
+            has_flash,
+            has_single_kicker,
+            has_delve,
             dual_kicker_remap: None,
             trigger_is_self: false,
             trigger_changes_zone_to_graveyard: false,
@@ -875,9 +910,9 @@ impl<'a> Tx<'a> {
             in_graveyard_activation: false,
             in_hand_activation: false,
             in_forecast_activation: false,
-            is_split_front: script.alternate_mode.as_deref() == Some("Split"),
+            is_split_front,
             room_door: None,
-            is_double_faced_front: script.alternate_mode.as_deref() == Some("DoubleFaced"),
+            is_double_faced_front,
             pt: script.pt.as_deref(),
             backup_grants: BTreeMap::new(),
             class_next_level: 2,
@@ -893,9 +928,14 @@ impl<'a> Tx<'a> {
             wave30a_allow_clear_imprinted: false,
             is_dies_self_trigger: false,
             allow_defined_cost_x: false,
+            in_chosen_player: false,
+            in_secret_remembered_player: false,
+            in_secret_guesser_ctx: false,
+            join_forces_acc_var: None,
+            random_number_range: None,
             etb_chosen_modes: Vec::new(),
             etb_player_chosen_modes: Vec::new(),
-            has_hexproof_from_abilities_pair: hex_act == 1 && hex_trig == 1,
+            has_hexproof_from_abilities_pair,
             commander_tax_pair: cost_modifiers::CommanderTaxLifePair::default(),
             melded_face: None,
             body: CardBody::default(),
@@ -989,7 +1029,9 @@ impl<'a> Tx<'a> {
                 return Some(format!("Amount::Fixed({value})"));
             }
         }
-        amount(raw, self.svars, self.has_x).or_else(|| self.wave16a_amount_num(raw))
+        amount(raw, self.svars, self.has_x)
+            .or_else(|| self.choices_amount_num(raw))
+            .or_else(|| self.wave16a_amount_num(raw))
     }
 
     /// [`plain_number`], resolving a non-zero `Count$Kicked.<A>.<B>` `SVar` when

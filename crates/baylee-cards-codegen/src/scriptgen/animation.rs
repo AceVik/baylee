@@ -650,7 +650,17 @@ impl Tx<'_> {
         *p = saved_p;
         *self.unclaimed.borrow_mut() = saved_unclaimed;
         self.body.statics.truncate(saved_statics_len);
-        if allow_general_static {
+        let combat_tax_only = p
+            .peek("staticAbilities")
+            .or_else(|| p.peek("StaticAbilities"))
+            .is_some_and(|raw| {
+                raw.split(',').all(|s| {
+                    self.svars.get(s.trim()).is_some_and(|b| {
+                        b.contains("CantAttackUnless") || b.contains("CantBlockUnless")
+                    })
+                })
+            });
+        if allow_general_static || combat_tax_only {
             let name = p
                 .take("staticAbilities")
                 .or_else(|| p.take("StaticAbilities"))?;

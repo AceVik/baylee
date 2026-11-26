@@ -80,15 +80,7 @@ impl Tx<'_> {
             };
         p.drop_prose();
         chain.could_add_mana |= api == "Mana";
-        chain.moves_library |= matches!(
-            api.as_str(),
-            "Draw" | "Mill" | "Surveil" | "DigUntil" | "PeekAndReveal" | "Clash"
-        ) || (api == "Play" && p.peek("ValidZone") == Some("Library"))
-            || (matches!(api.as_str(), "ChangeZone" | "ChangeZoneAll")
-                && (p
-                    .peek("Origin")
-                    .is_some_and(|zones| zones.split(',').any(|zone| zone == "Library"))
-                    != (p.peek("Destination") == Some("Library"))));
+        chain.moves_library |= Self::line_moves_library(&api, &p);
         if api == "UntapAll"
             && p.peek("RememberUntapped") == Some("True")
             && chain.target.is_none()
@@ -352,11 +344,40 @@ impl Tx<'_> {
             chain.effects.extend(effects);
             return Some(());
         }
-        if api == "ChooseNumber"
-            && let Some(()) =
-                self.wave16c_choose_number_chain(&mut p, &mut sub, targets_here, chain)
-        {
-            return Some(());
+        if api == "ChooseNumber" {
+            let saved_p = p.clone();
+            let saved_sub = sub.clone();
+            let saved_effects_len = chain.effects.len();
+            let saved_target = chain.target.clone();
+            let saved_second = chain.second_target.clone();
+            let saved_unclaimed = self.unclaimed.borrow().clone();
+            let saved_statics_len = self.body.statics.len();
+            if self
+                .wave16c_choose_number_chain(&mut p, &mut sub, targets_here, chain)
+                .is_some()
+            {
+                return Some(());
+            }
+            p.clone_from(&saved_p);
+            sub.clone_from(&saved_sub);
+            chain.effects.truncate(saved_effects_len);
+            chain.target.clone_from(&saved_target);
+            chain.second_target.clone_from(&saved_second);
+            self.unclaimed.borrow_mut().clone_from(&saved_unclaimed);
+            self.body.statics.truncate(saved_statics_len);
+            if self
+                .choices_choose_number_chain(&mut p, &mut sub, targets_here, chain)
+                .is_some()
+            {
+                return self.chain_sub_ability(sub, chain);
+            }
+            p.clone_from(&saved_p);
+            sub.clone_from(&saved_sub);
+            chain.effects.truncate(saved_effects_len);
+            chain.target.clone_from(&saved_target);
+            chain.second_target.clone_from(&saved_second);
+            self.unclaimed.borrow_mut().clone_from(&saved_unclaimed);
+            self.body.statics.truncate(saved_statics_len);
         }
         if api == "ChooseColor" {
             return self.choose_color_chain(p, sub.as_deref(), chain);
@@ -383,15 +404,28 @@ impl Tx<'_> {
                 chain.effects.extend(effects);
                 return self.chain_sub_ability(sub, chain);
             }
-            p = saved_p;
-            sub = saved_sub;
+            p.clone_from(&saved_p);
+            sub.clone_from(&saved_sub);
             chain.effects.truncate(saved_effects_len);
-            chain.target = saved_target;
-            chain.second_target = saved_second;
-            *self.unclaimed.borrow_mut() = saved_unclaimed;
+            chain.target.clone_from(&saved_target);
+            chain.second_target.clone_from(&saved_second);
+            self.unclaimed.borrow_mut().clone_from(&saved_unclaimed);
+            self.body.statics.truncate(saved_statics_len);
+            if let Some(effects) =
+                self.wave16c_choose_player_chain(&mut p, &mut sub, targets_here, chain)
+            {
+                chain.effects.extend(effects);
+                return self.chain_sub_ability(sub, chain);
+            }
+            p.clone_from(&saved_p);
+            sub.clone_from(&saved_sub);
+            chain.effects.truncate(saved_effects_len);
+            chain.target.clone_from(&saved_target);
+            chain.second_target.clone_from(&saved_second);
+            self.unclaimed.borrow_mut().clone_from(&saved_unclaimed);
             self.body.statics.truncate(saved_statics_len);
             let effects =
-                self.wave16c_choose_player_chain(&mut p, &mut sub, targets_here, chain)?;
+                self.choices_choose_player_chain(&mut p, &mut sub, targets_here, chain)?;
             chain.effects.extend(effects);
             return self.chain_sub_ability(sub, chain);
         }
@@ -512,6 +546,10 @@ impl Tx<'_> {
             return self.chain_sub_ability(sub, chain);
         }
         if api == "RepeatEach" {
+            if let Some(effects) = self.choices_join_forces(&p, sub.as_deref(), chain) {
+                chain.effects.extend(effects);
+                return Some(());
+            }
             if let Some(effects) = self.wave18b_try_eye_of_singularity_etb(&p, sub.as_deref()) {
                 chain.effects.extend(effects);
                 return Some(());
@@ -543,6 +581,10 @@ impl Tx<'_> {
             return None;
         }
         if api == "Repeat" {
+            if let Some(effects) = self.choices_plague_of_vermin(&p, sub.as_deref()) {
+                chain.effects.extend(effects);
+                return Some(());
+            }
             if let Some(effects) = self.wave18b_try_tainted_pact(&p, sub.as_deref()) {
                 chain.effects.extend(effects);
                 chain.moves_library = true;
@@ -557,6 +599,15 @@ impl Tx<'_> {
                 return Some(());
             }
             return self.repeat_process_chain(p, sub.as_deref(), chain);
+        }
+        if api == "StoreSVar"
+            && let Some(acc_var) = self.join_forces_acc_var.clone()
+            && p.take("SVar").as_deref() == Some(acc_var.trim())
+            && p.take("Type").as_deref() == Some("Number")
+            && p.take("Expression").as_deref() == Some("0")
+            && p.exhausted()
+        {
+            return self.chain_sub_ability(sub, chain);
         }
         if api == "Vote" {
             return self.vote_chain(p, sub.as_deref(), chain);
@@ -3119,6 +3170,24 @@ impl Tx<'_> {
                         effects.join(", ")
                     )]);
                 }
+            }
+            if self.in_secret_remembered_player
+                && p.peek("ConditionPlayerDefined") == Some("Remembered")
+                && p.peek("ConditionPlayerContains") == Some("You")
+            {
+                p.take("ConditionPlayerDefined");
+                p.take("ConditionPlayerContains");
+                p.take("ConditionDescription");
+                if !p.exhausted() {
+                    if let Some(key) = p.first_key() {
+                        self.note(format!("unclaimed parameter `{api}.{key}`"));
+                    }
+                    return None;
+                }
+                return Some(vec![format!(
+                    "Effect::IfCondition {{ condition: Condition::YouAreRememberedPlayer, then: &[{}], otherwise: &[] }}",
+                    effects.join(", ")
+                )]);
             }
             if p.has("ConditionNotPresent")
                 && let Some(cond) = self.wave11_object_matches_condition(p, target, true)
@@ -5891,7 +5960,7 @@ impl Tx<'_> {
                     vec![format!("Effect::Surveil {{ amount: {n} }}")]
                 }
             }
-            "Mana" => self.mana_effect(p)?,
+            "Mana" => self.mana_effect(p, target)?,
             "ManaReflected" => self.mana_reflected_db_effect(p, target, targets_here)?,
             "Branch" => {
                 let mut temp = Chain {
@@ -9461,12 +9530,18 @@ impl Tx<'_> {
         chain: &mut Chain,
     ) -> Option<Vec<String>> {
         if chain.target.as_deref().is_some_and(|t| {
-            t.starts_with("TargetSpec::Spell(")
+            t == "TargetSpec::AnySpell"
+                || t.starts_with("TargetSpec::Spell(")
                 || t.starts_with("TargetSpec::AbilityOnStack(")
                 || t.starts_with("TargetSpec::SpellOrAbility(")
                 || t.starts_with("TargetSpec::ActivatedAbility(")
         }) {
             p.take("TargetType");
+        }
+        if self.trigger_mode.as_deref() == Some("DamageDone")
+            && p.peek("Defined") == Some("TriggeredTarget")
+        {
+            p.take("Defined");
         }
         let var = p.take("BranchConditionSVar")?;
         let cmp = p
@@ -9625,7 +9700,8 @@ impl Tx<'_> {
             .to_string();
         if !raw.starts_with("Targeted$Valid ")
             && let Some(cond) = self
-                .svar_condition_clause(var, cmp)
+                .choices_svar_condition(var, cmp)
+                .or_else(|| self.svar_condition_clause(var, cmp))
                 .or_else(|| self.wave7_svar_condition(var, cmp))
                 .or_else(|| Self::wave16_svar_condition(var.trim(), cmp))
                 .or_else(|| self.wave11_amount_compare_condition(var, cmp, true))

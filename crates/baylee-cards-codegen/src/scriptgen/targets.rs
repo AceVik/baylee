@@ -1411,6 +1411,9 @@ impl Tx<'_> {
             "ChosenType" if self.has_chosen_card_type() => {
                 "Filter::OfSourceChosenCardType".to_string()
             }
+            "NotedType" if self.has_chosen_creature_type() => {
+                "Filter::MatchesChosenTypeOfSource".to_string()
+            }
             "IsNotChosenType" | "!ChosenType" | "nonChosenType"
                 if self.has_chosen_creature_type()
                     || (self.has_chosen_basic_land_type()
@@ -1505,7 +1508,7 @@ impl Tx<'_> {
             "!SharesCMCWith" | "!SharesCMCWith Self" | "cmcNESelf" | "!SameCMCAsSelf" => {
                 "Filter::Not(&Filter::SameManaValueAsSource)".to_string()
             }
-            "cmcEQChosen" | "cmcEQChosenNumber"
+            "cmcEQChosen" | "cmcEQChosenNumber" | "cmcEQCount$ChosenNumber"
                 if self.has_chosen_source_number()
                     && !self
                         .svars
@@ -2594,6 +2597,10 @@ impl Tx<'_> {
                 "PlayerRel::DefendingPlayer"
             }
             "NextPlayerToYourRight" => "PlayerRel::PlayerToYourRight",
+            "RememberedPlayer" if self.in_secret_guesser_ctx => "PlayerRel::Chosen",
+            "Remembered" | "Player.IsRemembered" if self.in_repeat_player => {
+                "PlayerRel::EventPlayer"
+            }
             "TriggeredAttackingPlayer"
                 if matches!(
                     trigger,

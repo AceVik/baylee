@@ -1786,146 +1786,10 @@ impl Tx<'_> {
         {
             return ExtraOutcome::Pass;
         }
-        ExtraOutcome::Handled(self.combat_unless_wave5(mode, p))
+        ExtraOutcome::Handled(self.choices_combat_unless(mode, p))
     }
 
-    fn combat_unless_wave5(&mut self, mode: &str, mut p: Params) -> Option<()> {
-        p.drop_prose();
-        if !matches!(p.take("Secondary").as_deref(), None | Some("True"))
-            || !matches!(p.take("EffectZone").as_deref(), None | Some("Battlefield"))
-        {
-            return self.deny(format!("static ability `S: Mode$ {mode}`"));
-        }
-        let Some(valid_card) = p.take("ValidCard") else {
-            return self.deny(format!("static ability `S: Mode$ {mode}`"));
-        };
-        let Some(cost) = p.take("Cost") else {
-            return self.deny(format!("static ability `S: Mode$ {mode}`"));
-        };
-        let target = p.take("Target");
-        let attacker = p.take("Attacker");
-        let cond = self.condition_any(&mut p)?;
-        if !p.exhausted() {
-            return self.deny(format!("static ability `S: Mode$ {mode}`"));
-        }
-        let filter = self.filter_expr(&valid_card)?;
-        match mode {
-            "CantAttackUnless" => self.cant_attack_unless_wave5(
-                &filter,
-                cost.trim(),
-                target.as_deref(),
-                attacker.as_deref(),
-                &cond,
-            ),
-            "CantBlockUnless" => self.cant_block_unless_wave5(
-                &filter,
-                cost.trim(),
-                target.as_deref(),
-                attacker.as_deref(),
-                &cond,
-            ),
-            _ => self.deny(format!("static ability `S: Mode$ {mode}`")),
-        }
-    }
-
-    fn cant_attack_unless_wave5(
-        &mut self,
-        filter: &str,
-        cost: &str,
-        target: Option<&str>,
-        attacker: Option<&str>,
-        cond: &str,
-    ) -> Option<()> {
-        if let Some(tgt) = target {
-            if !is_you_and_your_planeswalkers(tgt) {
-                return self.deny("static ability `S: Mode$ CantAttackUnless`".into());
-            }
-            if let Ok(mana) = cost.parse::<u32>()
-                && mana > 0
-            {
-                self.push_static_with_cond(
-                    filter,
-                    &format!("Modifier::AttackTaxMana {{ mana: {mana} }}"),
-                    cond,
-                );
-                return Some(());
-            }
-            if let Some(life) = parse_pay_life_u16(cost) {
-                self.push_static_with_cond(
-                    filter,
-                    &format!("Modifier::AttackTaxLife {{ life: {life} }}"),
-                    cond,
-                );
-                return Some(());
-            }
-            return self.deny("static ability `S: Mode$ CantAttackUnless`".into());
-        }
-        if attacker.is_some() {
-            return self.deny("static ability `S: Mode$ CantAttackUnless`".into());
-        }
-        if let Ok(mana) = cost.parse::<u32>()
-            && mana > 0
-        {
-            self.push_static_with_cond(
-                filter,
-                &format!("Modifier::CantAttackUnlessPayMana({mana})"),
-                cond,
-            );
-            return Some(());
-        }
-        if let Some(sac) = cost.strip_prefix("Sac<").and_then(|s| s.strip_suffix('>'))
-            && let Some((count, sac_filter)) = self.parse_attack_sac(sac)
-        {
-            self.push_static_with_cond(
-                filter,
-                &format!(
-                    "Modifier::CantAttackUnlessYouSacrifice {{ count: {count}, filter: &{sac_filter} }}"
-                ),
-                cond,
-            );
-            return Some(());
-        }
-        self.deny("static ability `S: Mode$ CantAttackUnless`".into())
-    }
-
-    fn cant_block_unless_wave5(
-        &mut self,
-        filter: &str,
-        cost: &str,
-        target: Option<&str>,
-        attacker: Option<&str>,
-        cond: &str,
-    ) -> Option<()> {
-        if target.is_some() {
-            return self.deny("static ability `S: Mode$ CantBlockUnless`".into());
-        }
-        let Ok(mana) = cost.parse::<u32>() else {
-            return self.deny("static ability `S: Mode$ CantBlockUnless`".into());
-        };
-        if mana == 0 {
-            return self.deny("static ability `S: Mode$ CantBlockUnless`".into());
-        }
-        if let Some(att_raw) = attacker {
-            let att_expr = self.filter_expr(att_raw)?;
-            let att_name = self.body.filter_static("ATTACKER", &att_expr);
-            self.push_static_with_cond(
-                filter,
-                &format!(
-                    "Modifier::CantBlockMatchingUnlessPayMana {{ attacker: &{att_name}, mana: {mana} }}"
-                ),
-                cond,
-            );
-            return Some(());
-        }
-        self.push_static_with_cond(
-            filter,
-            &format!("Modifier::CantBlockUnlessPayMana({mana})"),
-            cond,
-        );
-        Some(())
-    }
-
-    fn parse_attack_sac(&mut self, body: &str) -> Option<(u8, String)> {
+    pub(super) fn parse_attack_sac(&mut self, body: &str) -> Option<(u8, String)> {
         let mut parts = body.split('/');
         let count: u8 = parts.next()?.trim().parse().ok()?;
         let valid = parts.next()?.trim();
@@ -4000,12 +3864,7 @@ fn is_top_library_yours(affected: &str, base: &str) -> bool {
         && (atoms.contains(&"YouCtrl") || atoms.contains(&"YouOwn"))
 }
 
-fn is_you_and_your_planeswalkers(target: &str) -> bool {
-    let parts: Vec<&str> = target.split(',').map(str::trim).collect();
-    parts.len() == 2 && parts.contains(&"You") && parts.contains(&"Planeswalker.YouCtrl")
-}
-
-fn parse_pay_life_u16(raw: &str) -> Option<u16> {
+pub(super) fn parse_pay_life_u16(raw: &str) -> Option<u16> {
     let inner = raw.strip_prefix("PayLife<")?.strip_suffix('>')?;
     let n: u16 = inner.trim().parse().ok()?;
     (n > 0).then_some(n)

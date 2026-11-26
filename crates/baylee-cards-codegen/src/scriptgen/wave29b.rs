@@ -1531,6 +1531,33 @@ impl Tx<'_> {
             )]);
         }
 
+        // 2b. Protection from secretly/entry-chosen player (*Guardian Archon*):
+        if spec_head == "Player.PlayerUID_ChosenPlayerUID"
+            && defined_kw.as_deref() == Some("ChosenPlayer")
+            && self.has_chosen_source_player()
+        {
+            let chosen_ctrl = self
+                .body
+                .filter_static("PROT", "Filter::ControlledBy(PlayerRel::ChosenBySource)");
+            match defined.as_deref() {
+                None | Some("Targeted" | "ParentTarget")
+                    if aimed.starts_with("TargetSpec::Object(") =>
+                {
+                    *p = probe;
+                    return Some(vec![format!(
+                        "Effect::ModifyTargets {{ modifier: Modifier::ProtectionFrom(&{chosen_ctrl}), duration: {duration} }}"
+                    )]);
+                }
+                Some("You") => {
+                    *p = probe;
+                    return Some(vec![format!(
+                        "Effect::continuous(&Filter::Any, Modifier::PlayerProtectionFrom {{ who: PlayerRel::You, from: &{chosen_ctrl} }}, {duration})"
+                    )]);
+                }
+                _ => return None,
+            }
+        }
+
         // 3. Protection from targeted player (*Eon Frolicker*):
         if spec_head == "Player.PlayerUID_ChosenPlayerUID"
             && matches!(defined_kw.as_deref(), Some("TargetedPlayer" | "Targeted"))

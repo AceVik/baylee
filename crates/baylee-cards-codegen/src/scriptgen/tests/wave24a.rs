@@ -216,9 +216,8 @@ fn branch_triggered_card_valid_and_targeted_counters_and_die_roll() {
 fn branch_refuses_unsupported_svars_alchemy_and_malformed_arms() {
     // Unsupported Branch SVars
     for svar in [
-        "TargetedController$Counters.Poison",
-        "Count$TotalManaSpent Treasure",
-        "Count$Foretold.1.0",
+        "TargetedController$Counters.TICKET",
+        "Count$UnsupportedBranchMetric",
         "TargetedPlayer$LifeLostThisTurn",
     ] {
         let script = format!(

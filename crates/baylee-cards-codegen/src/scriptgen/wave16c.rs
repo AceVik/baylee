@@ -45,19 +45,25 @@ impl Tx<'_> {
     /// True when the permanent chooses a player (`ChooseOpponent` or
     /// `ChooseAnyPlayer`) as it enters the battlefield (`CR 614.12a`).
     pub(super) fn has_chosen_source_player(&self) -> bool {
-        self.body
-            .enter_modifiers
-            .iter()
-            .any(|m| m == "EnterModifier::ChooseOpponent" || m == "EnterModifier::ChooseAnyPlayer")
+        self.body.enter_modifiers.iter().any(|m| {
+            matches!(
+                m.as_str(),
+                "EnterModifier::ChooseOpponent"
+                    | "EnterModifier::ChooseAnyPlayer"
+                    | "EnterModifier::ChooseTwoPlayers"
+                    | "EnterModifier::SecretlyChooseOpponent"
+            )
+        })
     }
 
     /// True when the permanent chooses a number (`EnterModifier::ChooseNumber`)
     /// as it enters the battlefield (`CR 614.12a`).
     pub(super) fn has_chosen_source_number(&self) -> bool {
-        self.body
-            .enter_modifiers
-            .iter()
-            .any(|m| m.starts_with("EnterModifier::ChooseNumber {"))
+        self.body.enter_modifiers.iter().any(|m| {
+            m.starts_with("EnterModifier::ChooseNumber {")
+                || m.starts_with("EnterModifier::SecretlyChooseNumber {")
+                || m.starts_with("EnterModifier::ChooseNumberAtRandom {")
+        })
     }
 
     /// Wave 16c `K:ETBReplacement:Other:<svar>` handler for:
@@ -209,7 +215,25 @@ impl Tx<'_> {
         if !matches!(p.take("Defined").as_deref(), None | Some("You")) {
             return self.deny("as-enters `ChooseNumber` for another player".into());
         }
-        if p.has("Random") || p.has("Secretly") || p.has("SubAbility") || p.has("ListTitle") {
+        if p.has("SubAbility") || p.has("ListTitle") {
+            return self.deny("unsupported as-enters `ChooseNumber` modifier".into());
+        }
+        let random = match p.take("Random").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return self.deny("unsupported as-enters `ChooseNumber` modifier".into()),
+        };
+        let secretly = match p.take("Secretly").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return self.deny("unsupported as-enters `ChooseNumber` modifier".into()),
+        };
+        if let Some(ks) = p.take("KeepSecret")
+            && !(secretly && ks == "True")
+        {
+            return self.deny("unsupported as-enters `ChooseNumber` modifier".into());
+        }
+        if random && secretly {
             return self.deny("unsupported as-enters `ChooseNumber` modifier".into());
         }
         let min: u8 = match p.take("Min") {
@@ -231,8 +255,15 @@ impl Tx<'_> {
         if min > max || !p.exhausted() {
             return self.deny("invalid as-enters `ChooseNumber` bounds or parameters".into());
         }
+        let ctor = if random {
+            "ChooseNumberAtRandom"
+        } else if secretly {
+            "SecretlyChooseNumber"
+        } else {
+            "ChooseNumber"
+        };
         self.body.enter_modifiers.push(format!(
-            "EnterModifier::ChooseNumber {{ min: {min}, max: {max} }}"
+            "EnterModifier::{ctor} {{ min: {min}, max: {max} }}"
         ));
         Some(())
     }

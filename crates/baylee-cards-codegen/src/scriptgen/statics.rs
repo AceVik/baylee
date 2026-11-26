@@ -28,7 +28,7 @@ impl StaticEffectZone {
         }
     }
 
-    const fn is_battlefield(self) -> bool {
+    pub(super) const fn is_battlefield(self) -> bool {
         matches!(self, Self::Battlefield)
     }
 }
@@ -261,6 +261,7 @@ impl Tx<'_> {
             "IgnoreLandWalk" => return self.ignore_landwalk(p),
             "ForetellAnyTurn" => return self.wave17c_foretell_any_turn(p),
             "CantBeBeamedUp" => return self.cant_be_beamed_up_static(p),
+            "UntapOtherPlayer" => return self.statics_untap_other_player(p),
             _ => {}
         }
         if p.peek("EffectZone") == Some("Graveyard") && p.peek("Affected") == Some("Land.YouCtrl") {
@@ -3299,8 +3300,19 @@ impl Tx<'_> {
     /// `Mode$ CantRegenerate` so `regeneration.rs` keeps its narrow contract.
     pub(super) fn grant_static_modifiers_for_animate(&mut self, name: &str) -> Option<Vec<String>> {
         let trimmed = name.trim();
-        if trimmed.is_empty() || trimmed.contains([',', '&']) {
+        if trimmed.is_empty() || trimmed.contains('&') {
             return None;
+        }
+        if trimmed.contains(',') {
+            let mut all = Vec::new();
+            for part in trimmed.split(',') {
+                let p = part.trim();
+                if p.is_empty() {
+                    return None;
+                }
+                all.extend(self.grant_static_modifiers_for_animate(p)?);
+            }
+            return Some(all);
         }
         let line = self.svars.get(trimmed)?.clone();
         let trimmed_line = line.trim_start();
@@ -3738,6 +3750,35 @@ impl Tx<'_> {
         Some(())
     }
 
+    fn raise_cost_relative_or_amount(
+        &mut self,
+        p: Params,
+        allow_adjust: bool,
+        self_stack_tax: bool,
+        zone: StaticEffectZone,
+    ) -> Option<()> {
+        if allow_adjust {
+            let saved_p = p.clone();
+            let saved_statics = self.body.statics.len();
+            let saved_unclaimed = self.unclaimed.borrow().clone();
+            if self
+                .adjust_spell_cost_by_cast(p, true, self_stack_tax, zone)
+                .is_some()
+            {
+                return Some(());
+            }
+            self.body.statics.truncate(saved_statics);
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
+            if self
+                .adjust_spell_cost_by_amount(saved_p, true, self_stack_tax, zone, true)
+                .is_some()
+            {
+                return Some(());
+            }
+        }
+        self.deny("static ability `S: Mode$ RaiseCost`".into())
+    }
+
     fn raise_cost_spell(&mut self, mut p: Params) -> Option<()> {
         let spell_type = p.take("Type");
         let valid_spell = p.take("ValidSpell");
@@ -3771,26 +3812,12 @@ impl Tx<'_> {
                 && p.peek("Amount")
                     .is_some_and(|a| a.trim().parse::<u8>().is_err()))
         {
-            if valid_target.is_none() && !stack_self_target {
-                let saved_p = p.clone();
-                let saved_statics = self.body.statics.len();
-                let saved_unclaimed = self.unclaimed.borrow().clone();
-                if self
-                    .adjust_spell_cost_by_cast(p, true, self_stack_tax, zone)
-                    .is_some()
-                {
-                    return Some(());
-                }
-                self.body.statics.truncate(saved_statics);
-                *self.unclaimed.borrow_mut() = saved_unclaimed;
-                if self
-                    .adjust_spell_cost_by_amount(saved_p, true, self_stack_tax, zone, true)
-                    .is_some()
-                {
-                    return Some(());
-                }
-            }
-            return self.deny("static ability `S: Mode$ RaiseCost`".into());
+            return self.raise_cost_relative_or_amount(
+                p,
+                valid_target.is_none() && !stack_self_target,
+                self_stack_tax,
+                zone,
+            );
         }
         let target_filter = match valid_target.as_deref() {
             None => None,

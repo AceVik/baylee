@@ -516,15 +516,7 @@ fn wave28c_refusal_guards() {
          A:SP$ Draw"
     ));
 
-    // UntapOtherPlayer, Propaganda Target$ You stay refused.
-    assert!(refused_w28c(
-        "Name:Seedborn Muse\nManaCost:3 G G\nTypes:Creature Spirit\nPT:2/4\n\
-         S:Mode$ UntapOtherPlayer | ValidCard$ Permanent.YouCtrl"
-    ));
-    assert!(refused_w28c(
-        "Name:Propaganda\nManaCost:2 U\nTypes:Enchantment\n\
-         S:Mode$ CantAttackUnless | ValidCard$ Creature | Cost$ 2 | Target$ You"
-    ));
+    // Wave 19 unlocks Seedborn Muse (`UntapDuringUntapStep`) and Propaganda (`AttackTaxTarget::You`).
 
     // `Count$ValidExile Card.OppOwn` lowers via 2HG-exact `Filter::OwnedBy(PlayerRel::EachOpponent)`.
     let umbris = read_w28c(
@@ -1153,11 +1145,7 @@ fn wave28c_p3_refusal_guards() {
          SVar:AntiMagic:Event$ Counter | ValidCard$ Card.IsRemembered | ValidSA$ Spell | Layer$ CantHappen"
     ));
 
-    // Phantom cycle (CR 615.12), Propaganda (Target$ You without Planeswalker), Mirror Strike stay refused.
-    assert!(refused_w28c(
-        "Name:Propaganda\nManaCost:2 U\nTypes:Enchantment\n\
-         S:Mode$ CantAttackUnless | ValidCard$ Creature | Target$ You | Cost$ 2"
-    ));
+    // Phantom cycle (CR 615.12) and Mirror Strike stay refused.
     assert!(refused_w28c(
         "Name:Mirror Strike\nManaCost:3 W\nTypes:Instant\n\
          A:SP$ Effect | ReplacementEffects$ DamageEvent | RememberObjects$ Targeted | ExileOnMoved$ Battlefield | ValidTgts$ Creature.attacking+unblocked\n\

@@ -1789,11 +1789,17 @@ fn wave5_combat_unless_conditional_attack_and_compound_svar_conditions() {
         ]
     );
 
-    // Refusal: Target$ You alone does not cover planeswalkers you control.
-    assert!(refused(
+    // Wave 19 unlocks Target$ You alone cleanly via AttackTaxTarget::You.
+    let player_only = read(
         "Name:PlayerOnlyPrison\nTypes:Enchantment\n\
-         S:Mode$ CantAttackUnless | ValidCard$ Creature | Target$ You | Cost$ 2"
-    ));
+         S:Mode$ CantAttackUnless | ValidCard$ Creature | Target$ You | Cost$ 2",
+    );
+    assert_eq!(
+        player_only.abilities,
+        [
+            "static_ability!(Filter::CREATURE, Modifier::AttackManaTax { target: AttackTaxTarget::You, amount: Amount::Fixed(2) })"
+        ]
+    );
 
     let sea_beast = read(
         "Name:DeepLeviathan\nTypes:Creature\nPT:10/10\n\

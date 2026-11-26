@@ -89,9 +89,6 @@ fn wave30d_keeps_unsound_refusal_boundaries_strict() {
     );
 
     for bad in [
-        // CantAttackUnless Target$ You without Planeswalker.YouCtrl (AttackTaxMana hits planeswalkers too).
-        "Name:PropagandaShape\nManaCost:2 U\nTypes:Enchantment\n\
-         S:Mode$ CantAttackUnless | ValidCard$ Creature | Target$ You | Cost$ 2",
         // Player shroud (DSL only has hexproof, not shroud).
         "Name:IvoryMaskShape\nManaCost:2 W W\nTypes:Enchantment\n\
          S:Mode$ Continuous | Affected$ You | AddKeyword$ Shroud",
