@@ -65,7 +65,15 @@ fn twin_duels_reproduce_seat_frames_and_the_winner_after_catching_up() {
     };
     // The original game delegated decisions to the house. Both socket seats
     // here submit those same choices themselves, so no chair changes hands.
-    script.retain(|line| !matches!(line, Line::Chair { .. } | Line::DeclaredMind { .. }));
+    script.retain(|line| {
+        !matches!(
+            line,
+            Line::Chair { .. }
+                | Line::Connection { .. }
+                | Line::Setting { .. }
+                | Line::DeclaredMind { .. }
+        )
+    });
 
     let mut lead = Session::new(&preset).unwrap();
     let mut twin = Session::new(&preset).unwrap();

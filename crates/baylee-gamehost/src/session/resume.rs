@@ -7,10 +7,14 @@
 //! counters, what policies answered — so this applies each recorded input
 //! through the same steps a live answer takes ([`Session::replayed`]),
 //! minus the recorder, which is handed the record's position at the end so
-//! it goes on writing where the record stops.
+//! it goes on writing where the record stops. A hosted game is resumed the
+//! same way after its server restarted
+//! (`docs/proposals/games-survive-restarts.md`), so what the table says
+//! beside the inputs is made again too: chair changes, lost and returned
+//! connections, hand sharing, and where the log had been sent.
 
 use super::{Session, clock_answer};
-use crate::record::{self, Line, Recorder, ReplayError, Source};
+use crate::record::{self, ChairChange, ConnectionChange, Line, Recorder, ReplayError, Source};
 use baylee_core::ids::PlayerId;
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_view::HouseAnswer;
@@ -56,8 +60,9 @@ impl<D: baylee_engine::engine::LoopDetection, R: crate::session::SessionRegistry
                     action,
                     hash,
                     seen,
-                    ..
+                    sealed,
                 } => {
+                    session.seal_as_recorded(sealed);
                     session.tell_time(at);
                     if !session.replayed(PlayerId::new(seat), by, action) {
                         return Err(ReplayError::Refused { n });
@@ -65,7 +70,57 @@ impl<D: baylee_engine::engine::LoopDetection, R: crate::session::SessionRegistry
                     checker.check(&session.engine, Some(n), hash, seen.as_deref())?;
                     next = n + 1;
                 }
-                Line::Chair { n, .. } | Line::DeclaredMind { n, .. } => next = n + 1,
+                Line::Chair {
+                    n,
+                    at,
+                    seat,
+                    change,
+                    sealed,
+                } => {
+                    session.seal_as_recorded(sealed);
+                    session.tell_time(at);
+                    if !session.chair_again(PlayerId::new(seat), change) {
+                        return Err(ReplayError::Refused { n });
+                    }
+                    next = n + 1;
+                }
+                Line::Connection {
+                    n,
+                    at,
+                    seat,
+                    change,
+                    sealed,
+                } => {
+                    session.seal_as_recorded(sealed);
+                    session.tell_time(at);
+                    let seat = PlayerId::new(seat);
+                    match change {
+                        ConnectionChange::Lost { wait_secs } => {
+                            if !session.connection_lost(seat, wait_secs) {
+                                return Err(ReplayError::Refused { n });
+                            }
+                        }
+                        ConnectionChange::Back => session.connection_back(seat),
+                    }
+                    next = n + 1;
+                }
+                Line::Setting {
+                    n,
+                    at,
+                    seat,
+                    setting,
+                    sealed,
+                } => {
+                    session.seal_as_recorded(sealed);
+                    session.tell_time(at);
+                    // Taken when it was said, so taken again here: a setting
+                    // the table refuses now is not this game's.
+                    if session.seat_setting(PlayerId::new(seat), setting).is_err() {
+                        return Err(ReplayError::Refused { n });
+                    }
+                    next = n + 1;
+                }
+                Line::DeclaredMind { n, .. } => next = n + 1,
                 Line::End { n, .. } => {
                     if !matches!(session.engine.pending(), Pending::GameOver(_)) {
                         return Err(ReplayError::NotOver { n });
@@ -75,8 +130,29 @@ impl<D: baylee_engine::engine::LoopDetection, R: crate::session::SessionRegistry
                 }
             }
         }
+        session.earn_what_was_told();
         session.record = Some(Recorder::resumed(next, ended));
         Ok(session)
+    }
+
+    /// Seals the log as far as it had been sent when the line was written,
+    /// so what follows folds into a repeat only where it folded live. A
+    /// line from before the record noted it leaves the log as it is.
+    fn seal_as_recorded(&mut self, sealed: Option<u32>) {
+        if let Some(sealed) = sealed {
+            self.log.seal(sealed as usize);
+        }
+    }
+
+    /// A recorded change of who answers a chair, made again. `false` when
+    /// it does not take, which a chair that changed live always did.
+    fn chair_again(&mut self, seat: PlayerId, change: ChairChange) -> bool {
+        match change {
+            ChairChange::TakenOver => self.take_over(seat),
+            ChairChange::Released => self.release(seat),
+            ChairChange::StoodIn => self.stand_in(seat),
+            ChairChange::HandedBack => self.hand_back(seat),
+        }
     }
 
     /// One recorded input, applied as the live door that produced it
@@ -208,6 +284,111 @@ mod tests {
         }
         let replayed = record::replay(&whole).expect("old and new record are one record");
         assert_eq!(replayed.engine.snapshot_hash(), resumed.snapshot_hash());
+    }
+
+    /// Two people at one table, with what a hosted game adds beside the
+    /// inputs: a lost connection that came back, a chair the house held and
+    /// handed back, a clock's answer. Every seat of the resumed table is
+    /// shown what it was shown before: its view and question, its whole log,
+    /// its roster and print table, and who the table waits for. A seat shown
+    /// less would see a different game after a server restart; a seat shown
+    /// more would see what was hidden from it.
+    #[test]
+    fn every_seat_of_a_resumed_table_is_shown_what_it_was_shown() {
+        use crate::session::SeatKind;
+        let (a, b) = (PlayerId::new(0), PlayerId::new(1));
+        let mut preset = table(21);
+        preset.seats[1].controller = SeatController::Open;
+        let names = || vec!["Ada".to_owned(), "Bo".to_owned()];
+        let mut live =
+            Session::new_recorded(&preset, record::this_build()).expect("the table builds");
+        live.describe("g".into(), names());
+        let mut now = 5_000;
+        live.tell_time(now);
+        let _ = live.pump();
+        let mut record = live.take_record();
+        for step in 0..60_u32 {
+            now += 1_000;
+            live.tell_time(now);
+            match step {
+                5 => assert!(live.connection_lost(b, Some(180))),
+                9 => assert!(live.stand_in(b)),
+                15 => assert!(live.hand_back(b)),
+                18 => assert!(live.connection_lost(a, None)),
+                19 => live.connection_back(a),
+                _ => {}
+            }
+            let _ = live.pump();
+            record.extend(live.take_record());
+            if matches!(live.pending(), Pending::GameOver(_)) {
+                break;
+            }
+            let Some(seat) = live.awaiting_seat() else {
+                continue;
+            };
+            if matches!(live.seat_kind(seat), Some(SeatKind::StandIn(_))) {
+                continue;
+            }
+            if step == 22
+                && let Some(asked) = live.asked_at(seat)
+                && let Some(answered) = live.answer_by_clock(seat, asked)
+            {
+                answered.expect("the clock answers");
+            } else {
+                let action = live.house_action(seat).expect("the seat is asked");
+                live.act(seat, action).expect("the answer stands");
+            }
+            record.extend(live.take_record());
+        }
+        record.extend(live.take_record());
+
+        let mut resumed = Session::resume_recorded(&record).expect("the record resumes");
+        resumed.describe("g".into(), names());
+        resumed.tell_time(now);
+        assert_eq!(resumed.snapshot_hash(), live.snapshot_hash());
+        assert_eq!(resumed.decision_seq(), live.decision_seq());
+        assert_eq!(resumed.seq(), live.seq(), "the same number of frames");
+        assert_eq!(
+            format!("{:?}", resumed.lost_seats()),
+            format!("{:?}", live.lost_seats()),
+            "the table waits for the same players"
+        );
+        for seat in [a, b] {
+            assert_eq!(
+                resumed.log.told(seat, 0, resumed.log.len()),
+                live.log.told(seat, 0, live.log.len()),
+                "seat {seat:?} reads the same log"
+            );
+            assert_eq!(
+                format!("{:?}", resumed.view_for(seat)),
+                format!("{:?}", live.view_for(seat)),
+                "seat {seat:?} sees the same table and question"
+            );
+            let (now, then) = (resumed.game_static(seat), live.game_static(seat));
+            assert_eq!(now.seats, then.seats, "seat {seat:?} has the same roster");
+            // Earned as frames went out live, and from the log and the view
+            // after a resume: never a printing the seat was not shown, and
+            // every one its log and its table name.
+            for (at, (now, then)) in now.prints.iter().zip(&then.prints).enumerate() {
+                assert!(
+                    now.is_none() || now == then,
+                    "seat {seat:?} was never shown printing {at}"
+                );
+            }
+            let told = baylee_view::LogTail {
+                from: 0,
+                entries: resumed.log.told(seat, 0, resumed.log.len()),
+            };
+            let view = resumed.seat_view(seat);
+            for print in told.prints().chain(view.prints()) {
+                assert!(
+                    now.prints
+                        .get(print.get() as usize)
+                        .is_some_and(Option::is_some),
+                    "seat {seat:?} can draw printing {print:?} of its log and table"
+                );
+            }
+        }
     }
 
     /// A record that lost a step is not resumed into a different game: the

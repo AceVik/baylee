@@ -2552,6 +2552,17 @@ that are themselves recorded inputs. JSON Lines, so a record cut off with its
 engine is readable up to the cut; the header names the build
 (`baylee_build::short`).
 
+Three more annotations are written so that a game can be picked up again
+from its record after its server restarted
+(`docs/proposals/games-survive-restarts.md`, `Session::resume_recorded`): a
+player's connection lost and back while the chair stays theirs
+(`{"kind":"connection","change":{"lost":{"wait_secs":180}}}` or `"back"`),
+what a seat said about its hand (`{"kind":"setting","setting":…}`, #265),
+and on every input, chair, connection and setting line `sealed`, how many
+lines of the game's log had been sent when it was written: only unsent lines
+fold into a repeat, so a resumed log folds where the live one did. Replay
+passes over all of them; a record from before them reads as it did.
+
 The hash checks a replay only on the build that played it: any change to
 the engine's state moves it. So the header and every input also carry
 `seen` (`baylee_gamehost::record::seen`, 16 hex like `hash`): FNV-1a 64 of

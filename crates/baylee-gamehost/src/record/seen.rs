@@ -688,7 +688,10 @@ mod tests {
                     ));
                     (None, None)
                 }
-                Line::Chair { .. } | Line::DeclaredMind { .. } => (None, None),
+                Line::Chair { .. }
+                | Line::Connection { .. }
+                | Line::Setting { .. }
+                | Line::DeclaredMind { .. } => (None, None),
             };
             let mut fresh = raw.to_string();
             if let Some(old) = old {

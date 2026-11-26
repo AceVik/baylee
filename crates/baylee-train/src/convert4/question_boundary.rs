@@ -152,7 +152,10 @@ fn crossing(record: &[u8], digest: Digest) -> Option<Crossing> {
             }),
             Line::End { .. } => ended = true,
             Line::Header { .. } => return None,
-            Line::Chair { .. } | Line::DeclaredMind { .. } => {}
+            Line::Chair { .. }
+            | Line::Connection { .. }
+            | Line::Setting { .. }
+            | Line::DeclaredMind { .. } => {}
         }
     }
     let mut found = Crossing {

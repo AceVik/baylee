@@ -19,6 +19,15 @@
 //! which model ([`Line::DeclaredMind`]): self-declared, written as it came
 //! and whenever it changed, and passed over by replay too.
 //!
+//! Two more things a table says that move nothing in the engine are written
+//! for a resumed session to say them again: a player's connection lost and
+//! back ([`Line::Connection`]), and what a seat says about its own hand
+//! ([`Line::Setting`], #265). Replay passes over both; resume applies them
+//! with the chair changes, so every seat is shown what it was shown
+//! (`docs/proposals/games-survive-restarts.md`). Inputs and those lines also
+//! note how many log lines had been sent (`sealed`), because only unsent
+//! lines fold into a repeat, and a resumed log has to fold as this one did.
+//!
 //! The record is omniscient: it holds every seat's deck order and every
 //! answer. It names no one. Seats are numbers and the preset carries card
 //! indices and printings, never the seat names a table was described with.
@@ -76,6 +85,21 @@ pub enum ChairChange {
     StoodIn,
     /// The player came back.
     HandedBack,
+}
+
+/// What happened to a player's connection while the chair stayed theirs
+/// ([`Line::Connection`]).
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConnectionChange {
+    /// It was lost; the table waits `wait_secs` before the house sits down,
+    /// or, with `None`, holds the game paused until the player is back.
+    Lost {
+        /// As [`baylee_view::LogEvent::ConnectionLost`] says it.
+        wait_secs: Option<u32>,
+    },
+    /// The player is back before the house took the chair.
+    Back,
 }
 
 /// What kind of mind a seat's client declared.
@@ -199,8 +223,15 @@ pub enum Line {
         /// [`seen`] after it; `None` in a record from before it.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         seen: Option<String>,
+        /// How many lines of the game's log had been sent when this line was
+        /// written: a resumed session seals as many before it applies the
+        /// line, so the log folds exactly as it did. `None` in a record from
+        /// before it.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        sealed: Option<u32>,
     },
-    /// Who answers a chair changed. Not an input: replay passes over it.
+    /// Who answers a chair changed. Not an input: replay passes over it,
+    /// resume applies it.
     Chair {
         /// As on [`Line::Input`].
         n: u64,
@@ -210,6 +241,43 @@ pub enum Line {
         seat: u8,
         /// What changed.
         change: ChairChange,
+        /// As on [`Line::Input`].
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        sealed: Option<u32>,
+    },
+    /// A player's connection was lost, or came back, while the chair stayed
+    /// theirs: what every seat's log says (`Session::connection_lost`,
+    /// `Session::connection_back`). Not an input: replay passes over it,
+    /// resume says it again.
+    Connection {
+        /// As on [`Line::Input`].
+        n: u64,
+        /// As on [`Line::Input`].
+        at: u64,
+        /// The player's seat.
+        seat: u8,
+        /// What happened.
+        change: ConnectionChange,
+        /// As on [`Line::Input`].
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        sealed: Option<u32>,
+    },
+    /// What a seat said about its own hand and its teammates' (#265), as
+    /// the session took it (`Session::seat_setting`). The engine never sees
+    /// it: replay passes over it, resume says it again, so a teammate is
+    /// shown what they were shown.
+    Setting {
+        /// As on [`Line::Input`].
+        n: u64,
+        /// As on [`Line::Input`].
+        at: u64,
+        /// The seat that said it.
+        seat: u8,
+        /// What it said.
+        setting: baylee_view::SeatSetting,
+        /// As on [`Line::Input`].
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        sealed: Option<u32>,
     },
     /// What a seat's own client says answers it, self-declared and
     /// unverified: written when a socket first says it, and again whenever
@@ -246,6 +314,12 @@ pub enum Line {
 /// is not a number every reader keeps exactly.
 pub(crate) fn hex(hash: u64) -> String {
     format!("{hash:016x}")
+}
+
+/// A count of sealed log lines as a record line writes it. A log longer
+/// than `u32` lines is not a game anybody played; it is written saturated.
+fn sealed_lines(sealed: usize) -> u32 {
+    u32::try_from(sealed).unwrap_or(u32::MAX)
 }
 
 /// Writes a record as the game goes.
@@ -323,6 +397,7 @@ impl Recorder {
         by: Source,
         action: PlayerAction,
         engine: &Engine<R, D>,
+        sealed: usize,
     ) {
         let line = Line::Input {
             n: self.next(),
@@ -332,16 +407,45 @@ impl Recorder {
             action,
             hash: hex(engine.snapshot_hash()),
             seen: Some(hex(seen(engine.state()))),
+            sealed: Some(sealed_lines(sealed)),
         };
         self.write(&line);
     }
 
-    pub(crate) fn chair(&mut self, seat: PlayerId, change: ChairChange) {
+    pub(crate) fn chair(&mut self, seat: PlayerId, change: ChairChange, sealed: usize) {
         let line = Line::Chair {
             n: self.next(),
             at: self.now,
             seat: seat.get(),
             change,
+            sealed: Some(sealed_lines(sealed)),
+        };
+        self.write(&line);
+    }
+
+    pub(crate) fn connection(&mut self, seat: PlayerId, change: ConnectionChange, sealed: usize) {
+        let line = Line::Connection {
+            n: self.next(),
+            at: self.now,
+            seat: seat.get(),
+            change,
+            sealed: Some(sealed_lines(sealed)),
+        };
+        self.write(&line);
+    }
+
+    pub(crate) fn setting(
+        &mut self,
+        seat: PlayerId,
+        setting: baylee_view::SeatSetting,
+        sealed: usize,
+    ) {
+        let line = Line::Setting {
+            n: self.next(),
+            at: self.now,
+            seat: seat.get(),
+            setting,
+            sealed: Some(sealed_lines(sealed)),
         };
         self.write(&line);
     }
@@ -687,7 +791,10 @@ fn replay_with<D: baylee_engine::engine::LoopDetection, R: crate::session::Sessi
                 checker.check(&engine, Some(n), hash, seen.as_deref())?;
                 inputs += 1;
             }
-            Line::Chair { .. } | Line::DeclaredMind { .. } => {}
+            Line::Chair { .. }
+            | Line::Connection { .. }
+            | Line::Setting { .. }
+            | Line::DeclaredMind { .. } => {}
             Line::End { n, .. } => {
                 if !matches!(engine.pending(), Pending::GameOver(_)) {
                     return Err(ReplayError::NotOver { n });
@@ -1288,6 +1395,7 @@ pub(crate) mod tests {
             at: 2,
             seat: 0,
             change: ChairChange::StoodIn,
+            sealed: None,
         })
         .unwrap();
         assert!(chair.contains(r#""change":"stood_in""#), "{chair}");
@@ -1379,6 +1487,7 @@ pub(crate) mod tests {
             action: PlayerAction::PassPriority,
             hash: hex(2),
             seen: None,
+            sealed: None,
         };
         let end = Line::End {
             n: 1,
@@ -1415,6 +1524,7 @@ pub(crate) mod tests {
             action: PlayerAction::PassPriority,
             hash: hex(2),
             seen: Some(hex(0xabc)),
+            sealed: None,
         };
         let json = serde_json::to_string(&with).unwrap();
         assert!(json.contains(r#""seen":"0000000000000abc""#), "{json}");
@@ -1478,7 +1588,10 @@ pub(crate) mod tests {
                     assert!(turn.take().is_some());
                     stripped += 1;
                 }
-                Line::Chair { .. } | Line::DeclaredMind { .. } => {}
+                Line::Chair { .. }
+                | Line::Connection { .. }
+                | Line::Setting { .. }
+                | Line::DeclaredMind { .. } => {}
             }
         }
         assert!(stripped > 30);
