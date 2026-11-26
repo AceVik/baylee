@@ -299,8 +299,8 @@ fn alternative_cost_refuses_unpayable_parts_and_stays_scoped_off_activated_lines
         ),
         (
             "Name:X\nTypes:Creature\n\
-             A:AB$ Draw | Cost$ Return<4/Forest> | NumCards$ 1",
-            "a cost naming `4` objects",
+             A:AB$ Draw | Cost$ Return<16/Forest> | NumCards$ 1",
+            "a cost naming `16` objects",
         ),
     ]);
 }
@@ -342,8 +342,8 @@ fn alternative_cost_refuses_non_self_and_wrong_zone_statics_by_name() {
         ),
         (
             "Name:X\nTypes:Creature\n\
-             S:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ Graveyard | Cost$ 1 B",
-            "alternative cost from `EffectZone$ Graveyard`",
+             S:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ Exile | Cost$ 1 B",
+            "alternative cost from `EffectZone$ Exile`",
         ),
     ]);
 }

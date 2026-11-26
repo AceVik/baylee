@@ -225,7 +225,10 @@ pub fn convert(record: &[u8], keep: Keep) -> Result<Converted, Refused> {
     for line in lines {
         match line? {
             Line::Header { .. } => return Err(Refused::Unreadable("a second header".into())),
-            Line::Chair { .. } | Line::DeclaredMind { .. } => {}
+            Line::Chair { .. }
+            | Line::Connection { .. }
+            | Line::Setting { .. }
+            | Line::DeclaredMind { .. } => {}
             Line::End { winners: w, .. } => winners = Some(w),
             Line::Input {
                 n,

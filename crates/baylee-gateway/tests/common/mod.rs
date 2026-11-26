@@ -58,6 +58,31 @@ impl Gateway {
         self.child.id()
     }
 
+    /// Tells the owned process to stop, as systemd does (`SIGTERM`), and
+    /// waits for it to exit; whether it exited cleanly.
+    pub fn stop(&mut self) -> bool {
+        assert!(self.child.try_wait().unwrap().is_none());
+        let pid = self.child.id().to_string();
+        assert!(
+            std::process::Command::new("kill")
+                .args(["-TERM", &pid])
+                .status()
+                .unwrap()
+                .success()
+        );
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        loop {
+            if let Some(status) = self.child.try_wait().unwrap() {
+                return status.success();
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "the gateway did not stop"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+    }
+
     /// Crash this fixture's owned process while keeping its isolated store for inspection.
     pub fn crash(&mut self) {
         assert!(self.child.try_wait().unwrap().is_none());

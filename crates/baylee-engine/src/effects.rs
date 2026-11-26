@@ -166,7 +166,14 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::ProtectionFromExiledWithSourceTypes
         | Modifier::BecomeCopyOf(_)
         | Modifier::GrantsFlashback
+        | Modifier::GrantsFlashbackCost(_)
         | Modifier::GrantsEscape(_)
+        | Modifier::GrantsJumpStart
+        | Modifier::GrantsEncoreManaCost
+        | Modifier::GrantsEmbalmManaCost
+        | Modifier::GrantsUnearth(_)
+        | Modifier::GrantsScavengeManaCost
+        | Modifier::GrantsDredge(_)
         | Modifier::Sneak(_)
         | Modifier::GainControl
         | Modifier::AddTypeIfCountersAtLeast { .. }
@@ -214,10 +221,20 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::NextDestructionClearsDamage
         | Modifier::SpellsCostLess(_)
         | Modifier::SpellsCostLessMana { .. }
+        | Modifier::SpellsCostLessManaByAmount { .. }
         | Modifier::SpellsCostLessByAmount(_)
         | Modifier::SpellsCostLessPerCounter(_)
         | Modifier::BuybackCostsLess(_)
         | Modifier::CyclingCostsLess(_)
+        | Modifier::RaiseCostIfTargets { .. }
+        | Modifier::NonManaAbilitiesCostMore { .. }
+        | Modifier::LoyaltyAbilitiesCostMore { .. }
+        | Modifier::AdjustLoyaltyCost { .. }
+        | Modifier::EquipCostsLessIfTargets { .. }
+        | Modifier::ForetellActionCostsLess { .. }
+        | Modifier::MayForetellAnyTurn { .. }
+        | Modifier::UnlockCostsLess { .. }
+        | Modifier::MayCastFromGraveyardUsingAlt(_)
         | Modifier::SpellsCostMore(_)
         | Modifier::SpellsCostMorePerControlled(_)
         | Modifier::SpellsCostSacrificePerManaSymbol { .. }
@@ -400,7 +417,8 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::MustAttackPlayer(_)
         | Modifier::ModifyLifeGain { .. }
         | Modifier::PreventDamageRemovingCounters { .. }
-        | Modifier::PreventDamageToAffectedIfAtMost(_) => false,
+        | Modifier::PreventDamageToAffectedIfAtMost(_)
+        | Modifier::DamageCantBePrevented => false,
     }
 }
 
@@ -712,6 +730,10 @@ impl EffectTable {
                 fx.modifier,
                 Modifier::GrantActivatedFromLinkedExile(_)
                     | Modifier::GainActivatedAbilitiesOf { .. }
+                    | Modifier::GrantsEncoreManaCost
+                    | Modifier::GrantsEmbalmManaCost
+                    | Modifier::GrantsUnearth(_)
+                    | Modifier::GrantsScavengeManaCost
             ),
         );
         self.hints.insert_if(
@@ -722,6 +744,10 @@ impl EffectTable {
                     | Modifier::GrantActivatedDefinition(_)
                     | Modifier::GrantActivatedFromLinkedExile(_)
                     | Modifier::GainActivatedAbilitiesOf { .. }
+                    | Modifier::GrantsEncoreManaCost
+                    | Modifier::GrantsEmbalmManaCost
+                    | Modifier::GrantsUnearth(_)
+                    | Modifier::GrantsScavengeManaCost
             ),
         );
         self.hints.insert_if(
@@ -757,12 +783,17 @@ impl EffectTable {
                     | Modifier::SpellsCostMoreMana(_)
                     | Modifier::SpellsCostLess(_)
                     | Modifier::SpellsCostLessMana { .. }
+                    | Modifier::SpellsCostLessManaByAmount { .. }
                     | Modifier::SpellsCostLessByAmount(_)
                     | Modifier::SpellsCostLessPerCounter(_)
                     | Modifier::BuybackCostsLess(_)
                     | Modifier::SpellsCostSacrificePerManaSymbol { .. }
                     | Modifier::AdjustSpellCostByCast { .. }
                     | Modifier::ReduceCostIfTargets {
+                        abilities: false,
+                        ..
+                    }
+                    | Modifier::RaiseCostIfTargets {
                         abilities: false,
                         ..
                     }
@@ -778,9 +809,18 @@ impl EffectTable {
                     | Modifier::AbilitiesCostSacrificePerManaSymbol { .. }
                     | Modifier::AbilitiesCostLess { .. }
                     | Modifier::ActivatedAbilitiesCostLess { .. }
+                    | Modifier::NonManaAbilitiesCostMore { .. }
+                    | Modifier::LoyaltyAbilitiesCostMore { .. }
+                    | Modifier::AdjustLoyaltyCost { .. }
                     | Modifier::EquipCostsLess(_)
+                    | Modifier::EquipCostsLessIfTargets { .. }
+                    | Modifier::UnlockCostsLess { .. }
                     | Modifier::CyclingCostsLess(_)
                     | Modifier::ReduceCostIfTargets {
+                        abilities: true,
+                        ..
+                    }
+                    | Modifier::RaiseCostIfTargets {
                         abilities: true,
                         ..
                     }
@@ -835,7 +875,9 @@ impl EffectTable {
             matches!(
                 fx.modifier,
                 Modifier::GrantsFlashback
+                    | Modifier::GrantsFlashbackCost(_)
                     | Modifier::GrantsEscape(_)
+                    | Modifier::GrantsJumpStart
                     | Modifier::PlayLandsFromGraveyard
                     | Modifier::CastPermanentSpellsFromGraveyard
                     | Modifier::PermanentOfEachTypeFromGraveyard
@@ -846,6 +888,7 @@ impl EffectTable {
                     | Modifier::GraveyardVampireOnce
                     | Modifier::ExtraLandDrops(_)
                     | Modifier::MayCastWithAltCost { .. }
+                    | Modifier::MayCastFromGraveyardUsingAlt(_)
             ),
         );
         self.hints.insert_if(
@@ -1168,6 +1211,10 @@ pub fn grants(state: &crate::state::GameState) -> impl Iterator<Item = &Continuo
                 | Modifier::GrantActivatedDefinition(_)
                 | Modifier::GrantActivatedFromLinkedExile(_)
                 | Modifier::GainActivatedAbilitiesOf { .. }
+                | Modifier::GrantsEncoreManaCost
+                | Modifier::GrantsEmbalmManaCost
+                | Modifier::GrantsUnearth(_)
+                | Modifier::GrantsScavengeManaCost
         )
     })
 }
@@ -1222,7 +1269,12 @@ fn granted_worded<'a>(
             .for_effect(fx.id)
             .filter_map(move |mut grant| {
                 let obj = obj?;
-                if grant.origin_donor == Some(source) || !applies_to(state, fx, obj) {
+                if grant.origin_donor == Some(source)
+                    || grant
+                        .recipient
+                        .is_some_and(|r| r.object != source || r.version != obj.version)
+                    || !applies_to(state, fx, obj)
+                {
                     return None;
                 }
                 if grant.provenance.is_none() {
@@ -1847,7 +1899,11 @@ mod tests {
                 modifier: &Modifier::RemoveKeyword(KeywordSet::FLYING),
             },
             Modifier::GrantsFlashback,
+            Modifier::GrantsFlashbackCost(baylee_core::mana::ManaCost::ZERO),
             Modifier::GrantsEscape(3),
+            Modifier::GrantsJumpStart,
+            Modifier::GrantsEncoreManaCost,
+            Modifier::GrantsEmbalmManaCost,
             Modifier::GraveyardInstantSorceryOnce,
             Modifier::GraveyardVampireOnce,
             Modifier::NextSpellUncounterable,
@@ -2249,6 +2305,58 @@ mod tests {
                 then: Some(RIDER),
             },
             Modifier::PreventDamageToAffectedIfAtMost(3),
+            Modifier::DamageCantBePrevented,
+            Modifier::SpellsCostLessManaByAmount {
+                who: baylee_cards_dsl::PlayerRel::You,
+                filter: &Filter::Any,
+                unit: baylee_core::mana::ManaCost::parse("{U}"),
+                colored_only: true,
+                amount: &baylee_cards_dsl::Amount::Fixed(1),
+            },
+            Modifier::RaiseCostIfTargets {
+                who: baylee_cards_dsl::PlayerRel::Opponent,
+                spell_filter: &Filter::Any,
+                target_filter: &Filter::CREATURE,
+                extra_mana: baylee_core::mana::ManaCost::parse("{2}"),
+                extra_life: 0,
+                abilities: false,
+            },
+            Modifier::NonManaAbilitiesCostMore {
+                who: baylee_cards_dsl::PlayerRel::EachPlayer,
+                filter: &Filter::Any,
+                amount: 2,
+            },
+            Modifier::LoyaltyAbilitiesCostMore {
+                who: baylee_cards_dsl::PlayerRel::Opponent,
+                filter: &Filter::PLANESWALKER,
+                amount: 1,
+            },
+            Modifier::AdjustLoyaltyCost {
+                who: baylee_cards_dsl::PlayerRel::You,
+                filter: &Filter::PLANESWALKER,
+                delta: 1,
+            },
+            Modifier::EquipCostsLessIfTargets {
+                who: baylee_cards_dsl::PlayerRel::You,
+                target_filter: &Filter::CREATURE,
+                amount: 3,
+            },
+            Modifier::ForetellActionCostsLess {
+                who: baylee_cards_dsl::PlayerRel::You,
+                amount: 2,
+                first_each_turn_only: true,
+            },
+            Modifier::MayForetellAnyTurn {
+                who: baylee_cards_dsl::PlayerRel::You,
+            },
+            Modifier::UnlockCostsLess {
+                who: baylee_cards_dsl::PlayerRel::You,
+                amount: 1,
+            },
+            Modifier::GrantsUnearth(baylee_core::mana::ManaCost::parse("{2}{B}")),
+            Modifier::GrantsScavengeManaCost,
+            Modifier::GrantsDredge(2),
+            Modifier::MayCastFromGraveyardUsingAlt(baylee_cards_dsl::GraveyardAltKind::Blitz),
         ]
     }
 
@@ -2287,7 +2395,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            246,
+            264,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -2418,7 +2526,13 @@ mod tests {
         // ActivatedAbilitiesCostLess, FirstSpellEachTurnCostAdjust, MustAttackPlayer,
         // ModifyLifeGain, and PreventDamageRemovingCounters modify rules only (+5 -> 182).
         // PreventDamageToAffectedIfAtMost modifies rules only (+1 -> 183).
-        assert_eq!((locking, all.len() - locking), (63, 183));
+        // DamageCantBePrevented modifies damage-prevention rules only (+1 -> 184).
+        // GrantsFlashbackCost, GrantsJumpStart, GrantsEncoreManaCost, and GrantsEmbalmManaCost
+        // grant abilities on Layer::Ability (+4 locking -> 67).
+        // Wave 17c adds GrantsUnearth, GrantsScavengeManaCost, and GrantsDredge on
+        // Layer::Ability (+3 locking -> 70) and ten cost/permission modifiers on
+        // Layer::Text (+10 rules-only -> 194).
+        assert_eq!((locking, all.len() - locking), (70, 194));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

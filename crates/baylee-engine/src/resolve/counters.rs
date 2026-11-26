@@ -272,6 +272,37 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        Effect::PutCountersOnChosenControlled {
+            who,
+            filter,
+            kind,
+            count,
+        } => {
+            let n = u16::try_from(amount2(&count, state, you, res)).unwrap_or(u16::MAX);
+            if n == 0 {
+                return None;
+            }
+            let mut players = players_of(who, state, you, res);
+            super::chosen::order_apnap(state, &mut players);
+            let (player, options) =
+                super::chosen::next_asked(state, &mut players, filter, you, res.source)?;
+            res.awaiting = Some(AwaitingOp::PutCountersOnChosenControlled {
+                asked: player,
+                filter,
+                kind,
+                count: n,
+                remaining: players,
+                chosen: Vec::new(),
+            });
+            Some(Pending::ChooseCards {
+                player,
+                options,
+                min: 1,
+                max: 1,
+                prompt: crate::choice::ChoicePrompt::Generic,
+                total: None,
+            })
+        }
         Effect::PutEachCounterKindFromSource { target } => {
             let counters: Vec<(baylee_cards_dsl::CounterKind, u16)> = state
                 .damage_source(res.source, source_version(state, res))
@@ -322,6 +353,52 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             if !plans.is_empty() {
                 crate::replacement::counter_order::enqueue_batch(state, plans, Vec::new());
             }
+            None
+        }
+        Effect::PutAllCountersFrom { donor, target } => {
+            let counters = donor_all_counters(state, res, donor);
+            if counters.is_empty() {
+                return None;
+            }
+            let recipients: smallvec::SmallVec<[ObjectId; 2]> = match target {
+                baylee_cards_dsl::TargetSpec::ThisObject => subjects::source(state, res)
+                    .filter(|&r| subjects::on_battlefield(state, r))
+                    .map(|r| r.object)
+                    .into_iter()
+                    .collect(),
+                baylee_cards_dsl::TargetSpec::EventObject => subjects::event(state, res)
+                    .filter(|&r| subjects::on_battlefield(state, r))
+                    .map(|r| r.object)
+                    .into_iter()
+                    .collect(),
+                _ => zones::spec_objects(state, res, target)
+                    .into_iter()
+                    .filter(|&target_id| {
+                        subjects::target(state, res, target_id)
+                            .is_some_and(|r| subjects::is_current(state, r))
+                            && state
+                                .object(target_id)
+                                .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+                    })
+                    .collect(),
+            };
+            enqueue_counter_plans(state, res.controller, recipients, &counters);
+            None
+        }
+        Effect::PutAllCountersFromIntoFound { donor } => {
+            let counters = donor_all_counters(state, res, donor);
+            if counters.is_empty() {
+                return None;
+            }
+            let recipients: smallvec::SmallVec<[ObjectId; 2]> = res
+                .subject
+                .found
+                .iter()
+                .copied()
+                .filter(|&r| subjects::on_battlefield(state, r))
+                .map(|r| r.object)
+                .collect();
+            enqueue_counter_plans(state, res.controller, recipients, &counters);
             None
         }
         // As an effect, remove as many as possible (CR 609.3). A `MayDo`
@@ -822,6 +899,120 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             pump(state, res, you, &filters, (p, t), keywords, duration);
             None
         }
+        Effect::DoublePT {
+            subject,
+            double_power,
+            double_toughness,
+            keywords,
+            duration,
+        } => {
+            if matches!(
+                duration,
+                baylee_cards_dsl::Duration::WhileSourceTapped { .. }
+            ) && !source_still_tapped(state, res)
+            {
+                return None;
+            }
+            let bound: SmallVec<[crate::effects::EffectFilter; 4]> = match subject {
+                baylee_cards_dsl::DoublePtSubject::Source => super::subjects::source(state, res)
+                    .filter(|reference| super::subjects::on_battlefield(state, *reference))
+                    .map(|reference| {
+                        crate::effects::EffectFilter::ObjectIs(reference.object, reference.version)
+                    })
+                    .into_iter()
+                    .collect(),
+                baylee_cards_dsl::DoublePtSubject::Attached => {
+                    let host = match super::subjects::event_subject(state, res) {
+                        Some(reference) if super::subjects::on_battlefield(state, reference) => {
+                            reference.object
+                        }
+                        Some(_) => return None,
+                        None => super::attached_host(state, res)?.0,
+                    };
+                    smallvec::smallvec![crate::effects::EffectFilter::object(state, host)]
+                }
+                baylee_cards_dsl::DoublePtSubject::EventObject => {
+                    super::subjects::event(state, res)
+                        .filter(|reference| super::subjects::on_battlefield(state, *reference))
+                        .map(|reference| {
+                            crate::effects::EffectFilter::ObjectIs(
+                                reference.object,
+                                reference.version,
+                            )
+                        })
+                        .into_iter()
+                        .collect()
+                }
+                baylee_cards_dsl::DoublePtSubject::Targets => res
+                    .targets
+                    .iter()
+                    .filter(|&&target| {
+                        state
+                            .object(target)
+                            .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+                    })
+                    .map(|&target| crate::effects::EffectFilter::object(state, target))
+                    .collect(),
+                baylee_cards_dsl::DoublePtSubject::Filter(filter) => super::bound_now_with_context(
+                    state,
+                    filter,
+                    &baylee_cards_dsl::Modifier::ModifyPT(1, 1),
+                    you,
+                    res.rule_context(),
+                    None,
+                ),
+            };
+            // CR 611.2c & CR 701.10b–c: read each affected permanent's current
+            // power/toughness before registering any continuous effect, then
+            // register all halves under one shared timestamp (CR 613.7).
+            let snapshots: SmallVec<[(crate::effects::EffectFilter, i16, i16); 4]> = bound
+                .into_iter()
+                .filter_map(|filter| {
+                    let crate::effects::EffectFilter::ObjectIs(id, version) = filter else {
+                        return None;
+                    };
+                    let object = state.object(id)?;
+                    let chars = object.characteristics();
+                    let dp = if double_power {
+                        chars.power.unwrap_or(0)
+                    } else {
+                        0
+                    };
+                    let dt = if double_toughness {
+                        chars.toughness.unwrap_or(0)
+                    } else {
+                        0
+                    };
+                    Some((crate::effects::EffectFilter::ObjectIs(id, version), dp, dt))
+                })
+                .collect();
+            if snapshots.is_empty() {
+                return None;
+            }
+            let timestamp = state.next_timestamp();
+            for (filter, dp, dt) in snapshots {
+                let mut fx = crate::effects::ContinuousEffect {
+                    id: baylee_core::ids::EffectId::new(0),
+                    source: Some(res.source),
+                    controller: you,
+                    origin: crate::effects::EffectOrigin::Resolution,
+                    layer: baylee_cards_dsl::Layer::PtModify,
+                    timestamp,
+                    duration,
+                    filter,
+                    modifier: baylee_cards_dsl::Modifier::ModifyPT(dp, dt),
+                };
+                if (dp, dt) != (0, 0) {
+                    state.effects.register(fx.clone());
+                }
+                if !keywords.is_empty() {
+                    fx.layer = baylee_cards_dsl::Layer::Ability;
+                    fx.modifier = baylee_cards_dsl::Modifier::AddKeyword(keywords);
+                    state.effects.register(fx);
+                }
+            }
+            None
+        }
         _ => unreachable!("not a counter/P-T effect"),
     }
 }
@@ -929,6 +1120,74 @@ fn pump(
             fx.modifier = baylee_cards_dsl::Modifier::AddKeyword(keywords);
             state.effects.register(fx);
         }
+    }
+}
+
+fn donor_all_counters(
+    state: &GameState,
+    res: &Resolution,
+    donor: baylee_cards_dsl::CounterDonor,
+) -> Vec<(baylee_cards_dsl::CounterKind, u16)> {
+    let donor_obj = match donor {
+        baylee_cards_dsl::CounterDonor::Source => {
+            state.damage_source(res.source, source_version(state, res))
+        }
+        baylee_cards_dsl::CounterDonor::Event => {
+            let Some(ev) = res.event_object else {
+                return Vec::new();
+            };
+            let ver = super::event_object_identity(state, res).map(|(v, _)| v);
+            ver.and_then(|v| {
+                state
+                    .damage_source(ev, Some(v))
+                    .filter(|o| o.zone == crate::zone::Zone::Battlefield)
+                    .or_else(|| {
+                        v.checked_sub(1).and_then(|prev| {
+                            state
+                                .damage_source(ev, Some(prev))
+                                .filter(|o| o.zone == crate::zone::Zone::Battlefield)
+                        })
+                    })
+            })
+            .or_else(|| {
+                state
+                    .damage_sources
+                    .iter()
+                    .rev()
+                    .find(|o| o.id == ev && o.zone == crate::zone::Zone::Battlefield)
+                    .map(|o| &**o)
+            })
+        }
+    };
+    donor_obj.map_or_else(Vec::new, |src| {
+        src.counters
+            .iter()
+            .filter_map(|(kind, count)| (count > 0).then_some((kind, count)))
+            .collect()
+    })
+}
+
+fn enqueue_counter_plans(
+    state: &mut GameState,
+    controller: PlayerId,
+    recipients: smallvec::SmallVec<[ObjectId; 2]>,
+    counters: &[(baylee_cards_dsl::CounterKind, u16)],
+) {
+    let plans: Vec<_> = recipients
+        .into_iter()
+        .filter_map(|recipient| {
+            crate::replacement::counter_order::plan(
+                state,
+                controller,
+                recipient,
+                counters.to_vec(),
+                true,
+                None,
+            )
+        })
+        .collect();
+    if !plans.is_empty() {
+        crate::replacement::counter_order::enqueue_batch(state, plans, Vec::new());
     }
 }
 

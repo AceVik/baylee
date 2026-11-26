@@ -63,34 +63,15 @@ pub(super) fn meter(
     count: u32,
     next: Option<u32>,
 ) {
-    let track = commands
-        .spawn((
-            Node {
-                width: percent(85),
-                height: kit.m.px(3.0),
-                align_self: AlignSelf::Center,
-                border_radius: BorderRadius::all(kit.m.px(2.0)),
-                ..default()
-            },
-            BackgroundColor(tokens::CONTROL),
-            Pickable::IGNORE,
-        ))
-        .id();
     let share = next.map_or(1.0, |next| {
         (f64::from(count) / f64::from(next.max(1))).min(1.0)
     });
-    let fill = commands
-        .spawn((
-            Node {
-                width: percent((100.0 * share) as f32),
-                height: percent(100),
-                ..default()
-            },
-            BackgroundColor(tokens::ACCENT),
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(track).add_child(fill);
+    #[allow(clippy::cast_possible_truncation)] // a share of one
+    let track =
+        crate::lobby::parts::meter(commands, kit, share as f32, percent(85), tokens::ACCENT);
+    commands.entity(track).entry::<Node>().and_modify(|mut n| {
+        n.align_self = AlignSelf::Center;
+    });
     commands.entity(cell).add_child(track);
 }
 

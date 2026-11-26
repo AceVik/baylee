@@ -129,6 +129,37 @@ fn gateway_lobby_exposes_three_activities_beside_the_table_controls() {
     assert_eq!(app.world().resource::<LobbyState>().hub, Hub::Challenges);
 }
 
+/// Central's sign-in lands on the Gateways tab, and entering a gateway keeps
+/// it there while the hub draws the Play screen with its Daily and Weekly
+/// tiles. They read the calendar there as on the Play tab, instead of saying
+/// "loading" until the player happens to visit the Challenges page.
+#[test]
+fn the_play_screen_entered_from_the_gateway_list_reads_the_calendar() {
+    let mut app = headless();
+    let (handle, jobs) = central::Handle::queued_for_test();
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        central::restored_for_test(&mut state, Vec::new());
+        state.central.as_mut().unwrap().handle = Some(handle);
+        state.hub = Hub::Gateways;
+        state.gateway_selected = true;
+        state.lobby.apply(LobbyEvent::LoggedIn {
+            token: "a session".into(),
+            username: Some("Laurel".into()),
+        });
+    }
+    settle(&mut app);
+    app.update();
+    let state = app.world().resource::<LobbyState>();
+    assert_eq!(state.hub, Hub::Gateways);
+    assert!(state.showing_play(), "the hub draws the Play screen here");
+    assert!(
+        state.challenges.model.busy,
+        "the tiles asked for the calendar"
+    );
+    assert!(jobs.try_recv().is_ok(), "the account's worker got the read");
+}
+
 #[test]
 fn challenges_work_before_selecting_a_gate_and_default_to_private_scores() {
     for lang in [Lang::En, Lang::De] {

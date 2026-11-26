@@ -254,17 +254,27 @@ fn wave26f_static_spells_cant_be_countered_and_refusals() {
         taigam.abilities
     );
 
-    // Spider-Punk (abilities too), cast-by-you scoping, and Guile (ReplaceWith) stay refused.
+    // Spider-Punk (abilities too) and Guile (ReplaceWith) stay refused; Thryx lowers via Filter::WasCastByYou.
     assert!(refused(
         "Name:SpiderPunk\nManaCost:1 R\nTypes:Creature Human\nPT:2/1\n\
          R:Event$ Counter | ValidSA$ Spell,Activated,Triggered | Layer$ CantHappen | \
          ActiveZones$ Battlefield"
     ));
-    assert!(refused(
+    let thryx = read(
         "Name:ThryxGuard\nManaCost:3 U U\nTypes:Creature Elemental\nPT:4/5\n\
          R:Event$ Counter | ValidCard$ Card.cmcGE5+wasCastByYou | ValidSA$ Spell | \
-         Layer$ CantHappen | ActiveZones$ Battlefield"
-    ));
+         Layer$ CantHappen | ActiveZones$ Battlefield",
+    );
+    assert!(
+        thryx.statics.contains("Filter::WasCastByYou")
+            && thryx
+                .abilities
+                .iter()
+                .any(|a| a.contains("Modifier::SpellsCantBeCountered")),
+        "{:?} / {}",
+        thryx.abilities,
+        thryx.statics
+    );
     assert!(refused(
         "Name:GuileGuard\nManaCost:3 U U U\nTypes:Creature Elemental\nPT:6/6\n\
          R:Event$ Counter | ActiveZones$ Battlefield | ValidSA$ Spell | \
@@ -585,6 +595,7 @@ fn wave26f_moved_replacement_unlocks() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn wave26f_token_found_goad_and_peer_refusals() {
     let harness = read_with_tokens(
         "Name:Fractal Harness Probe\nManaCost:2 G\nTypes:Artifact Equipment\n\
@@ -650,15 +661,32 @@ fn wave26f_token_found_goad_and_peer_refusals() {
         goad_attacker.abilities[0]
     );
 
-    // Soundness refusals: permanent goad, missing Cleanup, ChoiceRestriction (w26c handoff),
-    // Alchemy, and Un-Set/Planechase must stay refused.
-    assert!(refused_with_tokens(
+    // Wave 28d-p2: permanent goad on remembered tokens lowers via AddTempModifier(Goaded, Indefinitely);
+    // unsupported Goad Duration$ UntilEndOfCombat stays refused.
+    let perm_goad = read_with_tokens(
         "Name:PermanentGoadToken\nManaCost:3 R\nTypes:Enchantment\n\
          T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | \
          Execute$ TrigToken\n\
          SVar:TrigToken:DB$ Token | TokenScript$ r_1_1_goblin | RememberTokens$ True | \
          SubAbility$ DBGoad\n\
          SVar:DBGoad:DB$ Goad | Defined$ Remembered | Duration$ Permanent | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        perm_goad.abilities[0]
+            .contains("modifier: Modifier::Goaded, duration: Duration::Indefinitely"),
+        "ability: {}",
+        perm_goad.abilities[0]
+    );
+    // Soundness refusals: unsupported goad duration, missing Cleanup, ChoiceRestriction (w26c handoff),
+    // Alchemy, and Un-Set/Planechase must stay refused.
+    assert!(refused_with_tokens(
+        "Name:CombatGoadToken\nManaCost:3 R\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | \
+         Execute$ TrigToken\n\
+         SVar:TrigToken:DB$ Token | TokenScript$ r_1_1_goblin | RememberTokens$ True | \
+         SubAbility$ DBGoad\n\
+         SVar:DBGoad:DB$ Goad | Defined$ Remembered | Duration$ UntilEndOfCombat | SubAbility$ DBCleanup\n\
          SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True"
     ));
     assert!(refused_with_tokens(

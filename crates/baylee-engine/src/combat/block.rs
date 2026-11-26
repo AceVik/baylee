@@ -283,6 +283,13 @@ pub fn can_block(
             _ => return false,
         };
         crate::effects::applies_to(state, fx, affected)
+            && (!matches!(
+                (fx.origin, fx.modifier),
+                (
+                    crate::effects::EffectOrigin::Resolution,
+                    baylee_cards_dsl::Modifier::CantBlock(baylee_cards_dsl::Filter::This),
+                )
+            ) || other.timestamp < fx.timestamp)
             && crate::eval::matches(
                 filter,
                 state,

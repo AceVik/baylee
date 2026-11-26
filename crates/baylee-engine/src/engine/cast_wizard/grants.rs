@@ -58,6 +58,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         Ok(true)
     }
 
+    #[allow(clippy::too_many_lines)]
     pub(super) fn choose_graveyard_permission(
         &mut self,
         mut wizard: Box<CastWizard>,
@@ -74,8 +75,36 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         | CastModeKind::JumpStart
                         | CastModeKind::Retrace
                         | CastModeKind::BeamMeUp
+                        | CastModeKind::Mayhem
                 )
             )
+            || match wizard.option {
+                Some(CastModeKind::Mutate) => crate::casting::graveyard_alt_open(
+                    &self.state,
+                    wizard.player,
+                    wizard.card,
+                    baylee_cards_dsl::GraveyardAltKind::Mutate,
+                ),
+                Some(CastModeKind::Blitz) => crate::casting::graveyard_alt_open(
+                    &self.state,
+                    wizard.player,
+                    wizard.card,
+                    baylee_cards_dsl::GraveyardAltKind::Blitz,
+                ),
+                Some(CastModeKind::Warp) => crate::casting::graveyard_alt_open(
+                    &self.state,
+                    wizard.player,
+                    wizard.card,
+                    baylee_cards_dsl::GraveyardAltKind::Warp,
+                ),
+                Some(CastModeKind::Sneak) => crate::casting::graveyard_alt_open(
+                    &self.state,
+                    wizard.player,
+                    wizard.card,
+                    baylee_cards_dsl::GraveyardAltKind::Sneak,
+                ),
+                _ => false,
+            }
             || matches!(wizard.option, Some(CastModeKind::Face(_)))
                 && (self.wizard_face(&wizard).disturb || self.wizard_face(&wizard).aftermath);
         let in_graveyard = self

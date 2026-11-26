@@ -69,11 +69,25 @@ mod targets;
 mod transform48;
 mod triggers;
 mod wall52;
+mod wave16a;
+mod wave16b;
+mod wave16c;
+mod wave17a;
+mod wave17b;
+mod wave17c;
 mod wave27a;
 mod wave27b;
 mod wave27c;
 mod wave27d;
 mod wave27e;
+mod wave28a;
+mod wave28b;
+mod wave28c;
+mod wave28d;
+mod wave29a;
+mod wave29b;
+mod wave29c;
+mod wave29d;
 
 use atoms::{
     Bound, amount, color_atom, count_bound, hybrid_pair, keyword_atom, mana_color_const,
@@ -102,6 +116,8 @@ pub struct CardScript {
     pub type_line: String,
     /// Whether the `ManaCost:` line contains a variable `X`.
     pub has_x_mana_cost: bool,
+    /// Verbatim `ManaCost:` header on this face, used for exact `EventManaValue` arithmetic.
+    pub mana_cost: String,
     /// `Oracle:` line, when present, for cross-checking target player vs. opponent.
     pub oracle: String,
     /// `PT:` line (e.g. `*/4`, `2/1+*`), used by single-sided P/T CDAs.
@@ -193,7 +209,10 @@ fn parse_face(lines: &[&str]) -> CardScript {
                 out.is_room = rest.split_whitespace().any(|word| word == "Room");
                 out.type_line = rest.to_string();
             }
-            "ManaCost" => out.has_x_mana_cost = rest.split_whitespace().any(|word| word == "X"),
+            "ManaCost" => {
+                out.has_x_mana_cost = rest.split_whitespace().any(|word| word == "X");
+                out.mana_cost = rest.trim().to_string();
+            }
             "PT" => out.pt = Some(rest.trim().to_string()),
             "Oracle" => out.oracle = rest.to_string(),
             "AlternateMode" => {
@@ -377,13 +396,16 @@ struct Chain {
     target_is_x: bool,
     target_up_to: Option<u8>,
     target_exact: Option<u8>,
+    target_range: Option<(u8, u8)>,
     target_unique: bool,
     target_constraint: Option<&'static str>,
     second_target: Option<String>,
     second_target_up_to: Option<u8>,
+    second_target_range: Option<(u8, u8)>,
     second_target_constraint: Option<&'static str>,
     third_target: Option<String>,
     third_target_up_to: Option<u8>,
+    third_target_range: Option<(u8, u8)>,
     third_target_constraint: Option<&'static str>,
     could_add_mana: bool,
     moves_library: bool,
@@ -493,6 +515,24 @@ struct Tx<'a> {
     cost_sacrifices_self: bool,
     /// Whether the activated ability being read sacrifices another object in its cost.
     cost_sacrifices_other: bool,
+    /// Whether the spell/ability cost discards a single card (`Discard<1/...>`).
+    cost_discards_single_for_cost: bool,
+    /// Whether the active damage trigger binds `event_object` to the damage source.
+    damage_trigger_binds_source: bool,
+    /// Whether the active damage trigger's `ValidSource$` is the attached permanent.
+    damage_trigger_source_is_attached: bool,
+    /// Whether the active damage trigger is a combat-damage trigger.
+    damage_trigger_is_combat: bool,
+    /// Whether the active trigger/chapter body runs inside an optional `DiscardHand` payment.
+    in_discard_hand_may: bool,
+    /// Whether the active trigger/chapter body runs inside a `ChooseNumberEx` `X` payment.
+    in_resolution_chosen_x: bool,
+    /// Whether an earlier instruction in this chain emitted `Effect::LoseLife`.
+    chain_prev_lose_life: bool,
+    /// Whether the line currently being lowered has a single object target.
+    single_object_target: bool,
+    /// Whether the spell being read beholds or reveals a card in its `Cost$`.
+    cost_beholds_or_reveals: bool,
     /// Whether the script's `ManaCost:` line contains a variable `X`.
     has_x_mana_cost: bool,
     /// Whether the script carries `K:Flash`, for timing-sensitive keyword guards.
@@ -550,6 +590,9 @@ struct Tx<'a> {
     /// Whether the activated cost being read is activated from the hand
     /// (`ActivationZone$ Hand`), allowing self-discard and self-exile costs.
     pub(super) in_hand_activation: bool,
+    /// Whether the activated cost being read is a `Forecast$ True` ability
+    /// (`CR 702.57b`), allowing `Reveal<1/CARDNAME>` -> `RevealSelfFromHand`.
+    pub(super) in_forecast_activation: bool,
     /// Whether this face is the front half of a `Split` card (`AlternateMode$ Split`).
     is_split_front: bool,
     /// When transcoding a Room split card (CR 709.5), the door index of this
@@ -568,6 +611,31 @@ struct Tx<'a> {
     overload_cost: Option<String>,
     /// Active Wave 27c `Effect::CaptureAffected::then` scope, if any.
     capture_scope: Option<wave27c::CaptureScope>,
+    /// Player relation naming the chain's single targeted player while lowering
+    /// a line (`Some("PlayerRel::Chosen")` on Slot 1, or
+    /// `Some("PlayerRel::FirstTargetPlayerOrController")` inside Slot 2's
+    /// `WithSecondTarget`, where `res.chosen_player` is overwritten).
+    current_single_player_rel: Option<&'static str>,
+    /// True while lowering a line/chain that targets an object (used to gate
+    /// `Targeted.<Type>+Attached` and `Targeted.Other+<...>` battlefield filters).
+    current_object_target: bool,
+    /// True while inside a chain opened by a leading `DB$ Cleanup | ClearRemembered$ True`
+    /// (*Deathrender*).
+    preceded_by_cleanup: bool,
+    /// True while reading an ability whose `Cost$` contains `Sac<All/...>`.
+    cost_sacrifices_all: bool,
+    /// True while reading an ability whose `Cost$` contains `Sac<X/...>`.
+    cost_sacrifices_x: bool,
+    /// True while reading an ability whose `Cost$` returns `CARDNAME`/`NICKNAME` to hand.
+    cost_returns_self: bool,
+    /// True when the script declares `K:Kicker:X ...` without a mana-cost `X`.
+    has_x_kicker: bool,
+    /// True while lowering resolution effects inside `Tx::chain`.
+    in_chain_resolution: bool,
+    /// Verbatim `ManaCost:` line on this face.
+    mana_cost: &'a str,
+    /// Active vote option index while lowering a `StoreVoteNum$ True` option chain.
+    vote_option_idx: Option<u8>,
     body: CardBody,
     /// The first `Api.Key` no rule claimed, if that is why this
     /// script was refused. Recorded rather than derived, because a
@@ -587,6 +655,15 @@ impl<'a> Tx<'a> {
                 .enter_modifiers
                 .iter()
                 .any(|m| m == "EnterModifier::ChooseSubtype")
+    }
+
+    pub(super) fn has_chosen_basic_land_type(&self) -> bool {
+        self.body.enter_modifiers.iter().any(|m| {
+            matches!(
+                m.as_str(),
+                "EnterModifier::ChooseBasicLandType" | "EnterModifier::ChooseTwoBasicLandTypes"
+            )
+        })
     }
 
     pub(super) fn new(
@@ -626,6 +703,20 @@ impl<'a> Tx<'a> {
             has_resolution_chosen_name: false,
             cost_sacrifices_self: false,
             cost_sacrifices_other: false,
+            cost_discards_single_for_cost: false,
+            damage_trigger_binds_source: false,
+            damage_trigger_source_is_attached: false,
+            damage_trigger_is_combat: false,
+            in_discard_hand_may: false,
+            in_resolution_chosen_x: false,
+            chain_prev_lose_life: false,
+            single_object_target: false,
+            cost_beholds_or_reveals: false,
+            cost_sacrifices_all: false,
+            cost_sacrifices_x: false,
+            cost_returns_self: false,
+            has_x_kicker: Self::wave29b_script_has_x_kicker(script),
+            in_chain_resolution: false,
             has_x_mana_cost: script.has_x_mana_cost,
             has_flash: script.keywords.iter().any(|k| k.trim() == "Flash"),
             has_single_kicker: !multi_or_dual && single_kickers == 1,
@@ -643,6 +734,7 @@ impl<'a> Tx<'a> {
             in_chosen_creature_type: false,
             in_graveyard_activation: false,
             in_hand_activation: false,
+            in_forecast_activation: false,
             is_split_front: script.alternate_mode.as_deref() == Some("Split"),
             room_door: None,
             is_double_faced_front: script.alternate_mode.as_deref() == Some("DoubleFaced"),
@@ -651,6 +743,11 @@ impl<'a> Tx<'a> {
             class_next_level: 2,
             overload_cost: None,
             capture_scope: None,
+            current_single_player_rel: None,
+            current_object_target: false,
+            preceded_by_cleanup: false,
+            mana_cost: &script.mana_cost,
+            vote_option_idx: None,
             body: CardBody::default(),
             unclaimed: std::cell::RefCell::new(None),
         }
@@ -675,7 +772,7 @@ impl<'a> Tx<'a> {
 
     /// Lowers a self-spell `S: Mode$ OptionalCost` static ability into
     /// `FaceDef::optional_cost` (`CR 118.8b`).
-    fn lower_optional_cost_static(&mut self, spec: &str, is_land: bool) -> Option<()> {
+    pub(super) fn lower_optional_cost_static(&mut self, spec: &str, is_land: bool) -> Option<()> {
         if is_land {
             return self.deny("`S: Mode$ OptionalCost` on a land".to_string());
         }
@@ -700,6 +797,9 @@ impl<'a> Tx<'a> {
         };
         if let Some(key) = p.first_key() {
             return self.deny(format!("unclaimed parameter `OptionalCost.{key}`"));
+        }
+        if let Some(res) = self.wave16b_try_waterbend_optional_cost(&cost_raw) {
+            return res.ok();
         }
         let (cost_expr, uses_x) = self.parse_kicker_cost_expr(&cost_raw)?;
         if uses_x {
@@ -737,7 +837,7 @@ impl<'a> Tx<'a> {
                 return Some(format!("Amount::Fixed({value})"));
             }
         }
-        amount(raw, self.svars, self.has_x)
+        amount(raw, self.svars, self.has_x).or_else(|| self.wave16a_amount_num(raw))
     }
 
     /// [`plain_number`], resolving a non-zero `Count$Kicked.<A>.<B>` `SVar` when
@@ -888,7 +988,7 @@ pub(super) fn is_vanilla_face(script: &CardScript) -> bool {
         && script.oracle.trim().is_empty()
 }
 
-fn is_optional_cost_static(spec: &str) -> bool {
+pub(super) fn is_optional_cost_static(spec: &str) -> bool {
     Params::parse(spec).is_some_and(|(mode, _)| mode == "OptionalCost")
 }
 
@@ -932,19 +1032,21 @@ fn transcode_face(
     {
         tx.keyword(line)?;
     }
+    // Read `S: Mode$ OptionalCost` before non-Kicker keywords and rules so
+    // `self.body.optional_cost` (and any cost filter static) is established
+    // before `K:etbCounter` / `A:` / `T:` lines check `Condition::OptionalCostPaid`
+    // or Tarkir `Count$Presence_<Subtype>.1.0`.
+    for (kind, spec) in &script.rules {
+        if *kind == 'S' && is_optional_cost_static(spec) {
+            tx.lower_optional_cost_static(spec, script.is_land)?;
+        }
+    }
     for line in script
         .keywords
         .iter()
         .filter(|line| !line.starts_with("Kicker:"))
     {
         tx.keyword(line)?;
-    }
-    // Read `S: Mode$ OptionalCost` before other rules so `self.body.optional_cost`
-    // is established before `A:`/`T:` lines check `Condition::OptionalCostPaid`.
-    for (kind, spec) in &script.rules {
-        if *kind == 'S' && is_optional_cost_static(spec) {
-            tx.lower_optional_cost_static(spec, script.is_land)?;
-        }
     }
     for (kind, spec) in &script.rules {
         if *kind == 'S' && is_optional_cost_static(spec) {

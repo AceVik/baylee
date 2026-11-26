@@ -244,6 +244,35 @@ fn float_graveyard_activations(
         return;
     };
     for object in grave {
+        for grant in &object.grants {
+            let index = baylee_engine::choice::granted_ability(grant.slot);
+            if legal.abilities.contains(&(object.id, index)) || on_the_stack(view, object.id, index)
+            {
+                continue;
+            }
+            let Some(price) = legal
+                .unpaid_abilities
+                .iter()
+                .find_map(|&(id, ab, mana)| (id == object.id && ab == index).then_some(mana))
+            else {
+                continue;
+            };
+            if price.cmc() == 0 || price.has_variable() || u64::from(price.cmc()) > room {
+                continue;
+            }
+            let Some(worth) =
+                super::graveyard_grant_worth(view, object.id, grant.slot, Some(price))
+            else {
+                continue;
+            };
+            if worth > THRESHOLD
+                && best.is_none_or(|(w, id, _, _)| {
+                    (worth, std::cmp::Reverse(object.id)) > (w, std::cmp::Reverse(id))
+                })
+            {
+                *best = Some((worth, object.id, price, false));
+            }
+        }
         for (index, def) in printed_list(object).iter().enumerate() {
             let (AbilityDef::Unearth { cost } | AbilityDef::Encore { cost }) = def else {
                 continue;

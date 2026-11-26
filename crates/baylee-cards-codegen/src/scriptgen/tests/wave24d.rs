@@ -391,12 +391,22 @@ fn remembered_chains_copies_haste_and_incubate() {
         ardyn.abilities[0]
     );
 
-    // REFUSAL: Multi-target exile-and-copy must stay refused (1 redirected + 1 exiled would over-copy).
-    assert!(refused_w24(
-        "Name:BadMultiCopy\nManaCost:5 B B\nTypes:Sorcery\n\
+    // Wave 28a: Multi-target graveyard exile-and-copy now lowers cleanly via
+    // Effect::CaptureAffected + Effect::ForEachRemembered (never ThisWay, so only
+    // cards actually moved are copied).
+    let multi_copy = read_w24(
+        "Name:MultiCopy\nManaCost:5 B B\nTypes:Sorcery\n\
          A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Exile | TargetMin$ 0 | TargetMax$ 2 | ValidTgts$ Creature | RememberChanged$ True | SubAbility$ DBCopy\n\
          SVar:DBCopy:DB$ CopyPermanent | Defined$ Remembered",
-    ));
+    );
+    assert!(
+        multi_copy.abilities[0].contains("Effect::CaptureAffected")
+            && multi_copy.abilities[0].contains("Effect::ForEachRemembered")
+            && multi_copy.abilities[0].contains("Effect::CreateTokenCopy")
+            && !multi_copy.abilities[0].contains("ThisWay"),
+        "{}",
+        multi_copy.abilities[0]
+    );
 
     // Reanimate all + grant haste until EOT -> MoveAndModify with Duration::UntilEndOfTurn (Wake the Past).
     let wake = read_w24(
@@ -482,20 +492,33 @@ fn pump_double_freeze_hexproof_protection_and_refusals() {
         double_pt.abilities[0]
     );
 
-    // REFUSAL: Double on Self, Valid, multi-target, or Alchemy Duration$ Perpetual.
-    assert!(refused_w24(
-        "Name:SelfDouble\nManaCost:1 G\nTypes:Creature Cat\nPT:2/2\n\
-         A:AB$ Pump | Cost$ G | Defined$ Self | NumAtt$ Double",
-    ));
-    assert!(refused_w24(
-        "Name:ValidDouble\nManaCost:3 G\nTypes:Sorcery\n\
-         A:SP$ Pump | Defined$ Valid Creature.YouCtrl | NumAtt$ Double",
-    ));
-    assert!(refused_w24(
-        "Name:MultiDouble\nManaCost:2 G\nTypes:Instant\n\
-         A:SP$ Pump | ValidTgts$ Creature | TargetMin$ 0 | TargetMax$ 2 | NumAtt$ Double\n\
-         Oracle:Double the power of up to two target creatures until end of turn.",
-    ));
+    // Wave 17c: Double on Self, Valid, and multi-target lower via Effect::DoublePT;
+    // Alchemy Duration$ Perpetual remains refused.
+    assert!(
+        read_w24(
+            "Name:SelfDouble\nManaCost:1 G\nTypes:Creature Cat\nPT:2/2\n\
+             A:AB$ Pump | Cost$ G | Defined$ Self | NumAtt$ Double",
+        )
+        .abilities[0]
+            .contains("Effect::DoublePT")
+    );
+    assert!(
+        read_w24(
+            "Name:ValidDouble\nManaCost:3 G\nTypes:Sorcery\n\
+             A:SP$ Pump | Defined$ Valid Creature.YouCtrl | NumAtt$ Double",
+        )
+        .abilities[0]
+            .contains("Effect::DoublePT")
+    );
+    assert!(
+        read_w24(
+            "Name:MultiDouble\nManaCost:2 G\nTypes:Instant\n\
+             A:SP$ Pump | ValidTgts$ Creature | TargetMin$ 0 | TargetMax$ 2 | NumAtt$ Double\n\
+             Oracle:Double the power of up to two target creatures until end of turn.",
+        )
+        .abilities[0]
+            .contains("Effect::DoublePT")
+    );
     assert!(refused_w24(
         "Name:AlchemyPerp\nManaCost:B\nTypes:Instant\n\
          A:SP$ Pump | ValidTgts$ Creature | NumAtt$ Double | Duration$ Perpetual",

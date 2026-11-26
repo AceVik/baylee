@@ -28,9 +28,17 @@ card!(
     abilities = &[triggered!(
         Trigger::Dies(&TRIGGER1),
         &[Effect::IfCondition {
-            condition: Condition::ObjectMatches {
-                what: &TargetSpec::EventObject,
-                filter: &Filter::ATTACKING_CREATURE
+            condition: Condition::AmountCompare {
+                left: &Amount::IfCondition {
+                    condition: &Condition::ObjectMatches {
+                        what: &TargetSpec::EventObject,
+                        filter: &Filter::ATTACKING_CREATURE
+                    },
+                    then: &Amount::Fixed(1),
+                    otherwise: &Amount::Fixed(0)
+                },
+                op: AmountCmp::AtLeast,
+                right: &Amount::Fixed(1)
             },
             then: &[Effect::draw(1)],
             otherwise: &[Effect::DealDamage {

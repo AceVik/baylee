@@ -850,6 +850,10 @@ pub enum AwaitingOp {
     NewTargets(Box<retarget::Retarget>),
     /// After `WishToHand`: the chosen card, if any, goes to its owner's hand.
     WishToHand,
+    /// First branch of `Effect::Learn` (`CR 701.46a–b`): if a Lesson card was
+    /// chosen from outside the game, reveal it and put it into hand; otherwise
+    /// offer the optional rummage ("discard a card to draw a card").
+    LearnWish,
     /// After `DigRest`: the unpicked cards go to the bottom in the
     /// player's chosen order.
     DigBottom,
@@ -935,6 +939,23 @@ pub enum AwaitingOp {
         asked: PlayerId,
         /// What may be sacrificed.
         filter: &'static baylee_cards_dsl::Filter,
+        /// Players still to choose, in APNAP order.
+        remaining: Vec<PlayerId>,
+        /// Choices already made and held until every player has answered.
+        chosen: Vec<(PlayerId, baylee_core::ids::DamageSourceRef)>,
+    },
+    /// After `PutCountersOnChosenControlled` (`DB$ Blight`): record the chosen
+    /// permanent, ask the next remaining player in APNAP order, and place the
+    /// counters once all have answered (`CR 101.4`, `CR 701.68`).
+    PutCountersOnChosenControlled {
+        /// Player answering the open choice.
+        asked: PlayerId,
+        /// Matching permanent filter.
+        filter: &'static baylee_cards_dsl::Filter,
+        /// Counter kind placed on each chosen permanent.
+        kind: baylee_cards_dsl::CounterKind,
+        /// Number of counters placed on each chosen permanent.
+        count: u16,
         /// Players still to choose, in APNAP order.
         remaining: Vec<PlayerId>,
         /// Choices already made and held until every player has answered.
@@ -1573,6 +1594,8 @@ pub enum AwaitingOp {
     },
     /// Card selection for `Effect::ChooseCardConstrained` (distinct-name or single-step).
     ChooseCardConstrained(Box<super::wave15b::ChooseConstrainedState>),
+    /// Permanent selection for `Effect::ChooseDistinctPowersOnBattlefield`.
+    ChooseDistinctPowers(Box<super::wave15b::ChooseDistinctPowersState>),
     /// Attachment selection for `Effect::AttachChosen` (CR 701.3a–b).
     AttachChosen {
         /// Recipient permanent or player to attach chosen permanents to.
@@ -2099,6 +2122,9 @@ impl AwaitingOp {
             Self::ChooseCardConstrained(spec) => {
                 crate::state::structural_fingerprint(&(251_u8, spec))
             }
+            Self::ChooseDistinctPowers(spec) => {
+                crate::state::structural_fingerprint(&(255_u8, 1_u16, spec))
+            }
             Self::AttachChosen { host } => crate::state::structural_fingerprint(&(252_u8, host)),
             Self::ShieldFromChosenSourceWithLifeCondition {
                 protects,
@@ -2110,6 +2136,17 @@ impl AwaitingOp {
                 sources,
                 gain_life_sources,
             )),
+            Self::PutCountersOnChosenControlled {
+                asked,
+                filter,
+                kind,
+                count,
+                remaining,
+                chosen,
+            } if !chosen.is_empty() => crate::state::structural_fingerprint(&(
+                254_u8, asked, filter, kind, count, remaining, chosen,
+            ))
+            .max(1),
             _ => 0,
         }
     }
@@ -2121,6 +2158,7 @@ impl AwaitingOp {
         match self {
             Self::DestroyChosen { chosen, .. }
             | Self::SacrificeFilter { chosen, .. }
+            | Self::PutCountersOnChosenControlled { chosen, .. }
             | Self::SacrificeAnyNumber { chosen, .. }
             | Self::ReturnChosen { chosen, .. } => chosen,
             _ => &[],

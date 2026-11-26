@@ -1068,6 +1068,20 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     this_way_from: None,
                     coin_stake: None,
                 };
+                if obj.riders.contains(&crate::object::Rider::EncoreAbility) {
+                    self.resolve_encore(obj.controller, loc.source);
+                    self.finish_resolution(&res);
+                    return;
+                }
+                if obj.riders.contains(&crate::object::Rider::UnearthAbility) {
+                    let expected_version = obj.riders.iter().find_map(|r| match r {
+                        crate::object::Rider::AbilitySourceVersion(v) => Some(*v),
+                        _ => None,
+                    });
+                    self.resolve_unearth(obj.controller, loc.source, expected_version);
+                    self.finish_resolution(&res);
+                    return;
+                }
                 match resolve::run(&mut self.state, &mut res) {
                     resolve::Flow::Complete => self.finish_resolution(&res),
                     resolve::Flow::Enter => {
@@ -1140,6 +1154,20 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 }
                 Some(AbilityDef::Encore { .. }) => {
                     self.resolve_encore(obj.controller, loc.source);
+                    self.finish_resolution(&res);
+                    return;
+                }
+                _ if obj.riders.contains(&crate::object::Rider::EncoreAbility) => {
+                    self.resolve_encore(obj.controller, loc.source);
+                    self.finish_resolution(&res);
+                    return;
+                }
+                _ if obj.riders.contains(&crate::object::Rider::UnearthAbility) => {
+                    let expected_version = obj.riders.iter().find_map(|r| match r {
+                        crate::object::Rider::AbilitySourceVersion(v) => Some(*v),
+                        _ => None,
+                    });
+                    self.resolve_unearth(obj.controller, loc.source, expected_version);
                     self.finish_resolution(&res);
                     return;
                 }

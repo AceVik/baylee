@@ -62,6 +62,8 @@ pub enum CastModeKind {
     Flashback,
     /// Beam me up's graveyard cost and returning a controlled creature.
     BeamMeUp,
+    /// Mayhem's graveyard cost for a card discarded by its owner this turn (`CR 702.187a`).
+    Mayhem,
     /// Cast for the card's dash cost rather than its mana cost
     /// (CR 702.109a): the permanent it becomes has haste and returns to its
     /// owner's hand at the beginning of the next end step.

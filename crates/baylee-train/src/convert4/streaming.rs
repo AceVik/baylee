@@ -150,7 +150,10 @@ fn replay_seen_across_builds<D: baylee_engine::engine::LoopDetection>(
     for line in lines {
         match line? {
             Line::Header { .. } => return Err("second header in record".into()),
-            Line::Chair { .. } | Line::DeclaredMind { .. } => {}
+            Line::Chair { .. }
+            | Line::Connection { .. }
+            | Line::Setting { .. }
+            | Line::DeclaredMind { .. } => {}
             Line::Input {
                 n,
                 seat,
@@ -335,7 +338,10 @@ fn terminal_targets_live_with<D: baylee_engine::engine::LoopDetection>(
     for line in lines {
         match line? {
             Line::Header { .. } => return Err("second header in record".into()),
-            Line::Chair { .. } | Line::DeclaredMind { .. } => {}
+            Line::Chair { .. }
+            | Line::Connection { .. }
+            | Line::Setting { .. }
+            | Line::DeclaredMind { .. } => {}
             Line::Input {
                 seat: seat_u8,
                 action,

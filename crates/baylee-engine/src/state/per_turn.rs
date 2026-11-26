@@ -82,6 +82,15 @@ impl<T: Hash> Hash for PerTurnTracked<T> {
     }
 }
 
+/// A static game-wide tracking flag on [`PerTurn`] that contributes nothing to
+/// `PerTurn::hash` (so games without any reader keep their exact state hash).
+#[derive(Clone, Copy, PartialEq, Eq, Default, Debug)]
+pub struct PerTurnTrackedFlag(pub bool);
+
+impl Hash for PerTurnTrackedFlag {
+    fn hash<H: std::hash::Hasher>(&self, _state: &mut H) {}
+}
+
 /// Per-turn chosen-mode bitmasks (`Effect::ChooseOneRestricted` with
 /// `ModalRestriction::OncePerTurn`, CR 700.2i), keyed by `(incarnation, ability_index)`.
 /// Writes nothing into [`Hash`] while empty so existing snapshot hashes are preserved;
@@ -322,6 +331,42 @@ pub struct PerTurn {
     /// Spells cast this turn, with frozen stack-time snapshots for
     /// [`baylee_cards_dsl::Modifier::FirstSpellEachTurnCostAdjust`].
     pub cast_spells_this_turn: PerTurnTracked<CastSpellRecord>,
+    /// Whether any card in this game reads `ManaColorSpentToCast` or
+    /// `ColorsOfManaSpentToCast` (so ordinary games skip attaching
+    /// `Rider::ManaTypesSpent` and keep their exact snapshot digests).
+    pub track_mana_types_spent: PerTurnTrackedFlag,
+    /// Whether any card in this game reads `CastFromZone` / `SourceCastFromZone`
+    /// for `Exile`, `Library`, or `Command` (`Rider::CastOriginZone`).
+    pub track_cast_origin_zone: PerTurnTrackedFlag,
+    /// Graveyard card incarnations put there while surveilling this turn,
+    /// paired with the surveilling player (`Filter::SurveilledByYouThisTurn`).
+    pub surveilled_cards: PerTurnTracked<(baylee_core::ids::DamageSourceRef, PlayerId)>,
+    /// Per-player count of cards foretold via the foretell special action this
+    /// turn (`Modifier::ForetellActionCostsLess { first_each_turn_only: true, .. }`).
+    pub cards_foretold: PerTurnTracked<(PlayerId, u32)>,
+    /// Chronological log of cards discarded this turn (with pre-discard hand
+    /// snapshots) for `Trigger::OneOrMoreCardsDiscarded { first_this_turn: true, .. }`.
+    pub discard_history: PerTurnTracked<DiscardHistoryRecord>,
+}
+
+/// One discarded card recorded this turn ([`PerTurn::discard_history`]).
+#[derive(Clone, Debug)]
+pub struct DiscardHistoryRecord {
+    /// Player who discarded the card.
+    pub player: PlayerId,
+    /// Whether the card's characteristics were known to all players.
+    pub known: bool,
+    /// Pre-discard hand incarnation.
+    pub object: baylee_core::ids::DamageSourceRef,
+    /// Frozen snapshot of the card in hand right before discard.
+    pub snapshot: std::sync::Arc<crate::object::GameObject>,
+}
+
+impl std::hash::Hash for DiscardHistoryRecord {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (485_u16, self.player, self.known, self.object).hash(state);
+        super::hash::sacrifice_snapshot_digest(&self.snapshot).hash(state);
+    }
 }
 
 /// One `(target, counter kind, placing player)` fact from this turn
@@ -749,6 +794,11 @@ impl PerTurn {
             spells_cast_log: PerTurnTracked::default(),
             counter_placers: PerTurnTracked::default(),
             cast_spells_this_turn: PerTurnTracked::default(),
+            track_mana_types_spent: PerTurnTrackedFlag::default(),
+            track_cast_origin_zone: PerTurnTrackedFlag::default(),
+            surveilled_cards: PerTurnTracked::default(),
+            cards_foretold: PerTurnTracked::default(),
+            discard_history: PerTurnTracked::default(),
         }
     }
 
@@ -856,6 +906,33 @@ impl PerTurn {
             .map_or(0, |(_, count)| *count)
     }
 
+    /// Records that `player` foretold a card from hand this turn (CR 702.143a).
+    pub fn note_foretell(&mut self, player: PlayerId) {
+        if !self.cards_foretold.tracked {
+            return;
+        }
+        if let Some((_, count)) = self
+            .cards_foretold
+            .items
+            .iter_mut()
+            .find(|(p, _)| *p == player)
+        {
+            *count = count.saturating_add(1);
+        } else {
+            self.cards_foretold.items.push((player, 1));
+        }
+    }
+
+    /// Total cards `player` has foretold this turn (CR 702.143a).
+    #[must_use]
+    pub fn cards_foretold_by(&self, player: PlayerId) -> u32 {
+        self.cards_foretold
+            .items
+            .iter()
+            .find(|(p, _)| *p == player)
+            .map_or(0, |(_, count)| *count)
+    }
+
     /// Clears the object and event history that belongs only to this turn.
     fn clear_turn_history(&mut self) {
         self.pending_entry_history.clear();
@@ -892,9 +969,13 @@ impl PerTurn {
         self.spells_cast_log.items.clear();
         self.counter_placers.items.clear();
         self.cast_spells_this_turn.items.clear();
+        self.surveilled_cards.items.clear();
+        self.cards_foretold.items.clear();
+        self.discard_history.items.clear();
     }
 
     /// Resets all counters (called at every turn start).
+    #[allow(clippy::too_many_lines)]
     pub fn reset(&mut self) {
         self.clear_turn_history();
         // Every field is named without `..`, including the history cleared
@@ -965,6 +1046,11 @@ impl PerTurn {
             spells_cast_log: _,
             counter_placers: _,
             cast_spells_this_turn: _,
+            track_mana_types_spent: _,
+            track_cast_origin_zone: _,
+            surveilled_cards: _,
+            cards_foretold: _,
+            discard_history: _,
         } = self;
         *untapped_lands_at_start = 0;
         *hand_size_at_start = 0;

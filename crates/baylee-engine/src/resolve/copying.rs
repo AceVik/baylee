@@ -205,6 +205,9 @@ fn copied_spell_riders(riders: &[crate::object::Rider]) -> Vec<crate::object::Ri
                     | R::Awakened(_)
                     | R::RepeatedModes(_)
                     | R::OptionalCostPaid
+                    | R::ControlledSubtypeOnCast(_)
+                    | R::BeheldCostPower(_, _, _)
+                    | R::MayhemPaid
             )
         })
         .collect()

@@ -144,6 +144,8 @@ pub struct LobbyState {
     pub(crate) website_code: Option<source::Code>,
     /// Which community QR dialog is open over the front door.
     pub(crate) community_dialog: Option<front::CommunityKind>,
+    /// The donation figures, and whether the donation sheet is up.
+    pub(crate) giving: front::donate::Giving,
     /// Whether the chosen gateway mirrors card art, as its `/auth/config`
     /// said. Used only while signed in there (`systems::art_follows_the_session`).
     pub(crate) art_cache: bool,
@@ -574,6 +576,7 @@ impl LobbyState {
             whatsapp_code: None,
             website_code: None,
             community_dialog: None,
+            giving: front::donate::Giving::default(),
             art_cache: false,
             submitted_decks_epoch: None,
             #[cfg(not(target_arch = "wasm32"))]
@@ -842,6 +845,20 @@ impl LobbyState {
         self.central_without_gateway()
             && matches!(self.hub, Hub::Play | Hub::Tables | Hub::Gateways)
             && matches!(self.lobby.screen(), Screen::SignIn { .. } | Screen::Table)
+    }
+
+    /// Whether the hub draws the Play screen, whose activity rail holds the
+    /// Ranked, Tower, Daily and Weekly tiles (`hub::draw`): the Play and
+    /// Tables tabs and the Gateways tab once a gateway is entered (Central's
+    /// sign-in lands on the Gateways tab, and entering a gateway keeps it
+    /// there), and the Challenges tab for a session that cannot enter it.
+    #[must_use]
+    pub(crate) fn showing_play(&self) -> bool {
+        match self.hub {
+            Hub::Play | Hub::Tables | Hub::Gateways => !self.showing_gateway_hub(),
+            Hub::Challenges => !self.can_enter_challenges(),
+            _ => false,
+        }
     }
 
     /// Whether this session is connected to a live gateway (registered account or guest).

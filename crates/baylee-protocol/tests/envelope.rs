@@ -130,6 +130,7 @@ fn flush_and_flushed_echo_the_nonce_and_piece_count() {
     let ask = v1::FlushRecord {
         game_id: "g".into(),
         nonce: u64::MAX,
+        hold: true,
     };
     assert_eq!(trip(Msg::FlushRecord(ask.clone())), Msg::FlushRecord(ask));
     let done = v1::RecordFlushed {

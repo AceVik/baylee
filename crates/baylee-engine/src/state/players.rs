@@ -403,11 +403,13 @@ impl GameState {
     }
 
     fn set_designation(&mut self, now: DayNight) {
-        if self.day_night == Some(now) {
+        let previous = self.day_night;
+        if previous == Some(now) {
             return;
         }
         self.day_night = Some(now);
-        self.journal.record(GameEvent::DayNightChanged { now });
+        self.journal
+            .record(GameEvent::DayNightChanged { previous, now });
     }
 
     /// Sets the monarch (CR 726.3), and ends every exile that lasted "until

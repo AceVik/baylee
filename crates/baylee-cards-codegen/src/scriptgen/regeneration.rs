@@ -45,6 +45,12 @@ impl Tx<'_> {
         if api != "DealDamage" {
             return Some(false);
         }
+        if p.peek("Defined") == Some("You")
+            && p.peek("OptionalDecider") == Some("You")
+            && self.sub_is_api(sub.as_deref(), "ImmediateTrigger")
+        {
+            return Some(false);
+        }
         p.take("RememberDamaged");
         self.damage_recipient_regeneration(sub.as_deref()?)?;
         *sub = None;
@@ -264,7 +270,21 @@ impl Tx<'_> {
     pub(super) fn damage_recipient_regeneration(&self, name: &str) -> Option<()> {
         let (api, mut p) = Params::parse(self.svars.get(name)?)?;
         p.drop_prose();
-        if api != "Effect" || p.take("RememberObjects").as_deref() != Some("Remembered.Creature") {
+        if api != "Effect" {
+            return self.deny("a damage memory consumed by another effect or recipient set".into());
+        }
+        let remembers_creatures = match p.take("RememberObjects").as_deref() {
+            Some("Remembered.Creature") => true,
+            Some("Remembered")
+                if p.take("ConditionDefined").as_deref() == Some("Remembered")
+                    && p.take("ConditionPresent").as_deref() == Some("Creature")
+                    && matches!(p.take("ConditionCompare").as_deref(), None | Some("GE1")) =>
+            {
+                true
+            }
+            _ => false,
+        };
+        if !remembers_creatures {
             return self.deny("a damage memory consumed by another effect or recipient set".into());
         }
         let ends = p.take("ExileOnMoved").or_else(|| p.take("ForgetOnMoved"));
@@ -319,6 +339,19 @@ impl Tx<'_> {
         p: &mut Params,
         target: Option<&str>,
     ) -> Option<Vec<String>> {
+        let snapshot = p.clone();
+        let saved_unclaimed = self.unclaimed.borrow().clone();
+        let saved_statics_len = self.body.statics.len();
+        if let Some(effects) = self.static_effect_inner(p, target) {
+            return Some(effects);
+        }
+        p.clone_from(&snapshot);
+        self.unclaimed.borrow_mut().clone_from(&saved_unclaimed);
+        self.body.statics.truncate(saved_statics_len);
+        self.wave28c_static_effect(p, target)
+    }
+
+    fn static_effect_inner(&mut self, p: &mut Params, target: Option<&str>) -> Option<Vec<String>> {
         if let Some(rep_name) = p.peek("ReplacementEffects") {
             if target.is_none() {
                 if let Some((event, _)) = self
@@ -601,6 +634,9 @@ impl Tx<'_> {
             ) {
                 return None;
             }
+            if !matches!(st.take("Secondary").as_deref(), None | Some("True")) {
+                return None;
+            }
             if mode == "CombatDamageToughness" {
                 saw_toughness = true;
             } else if mode != "CanAttackDefender" {
@@ -752,25 +788,38 @@ impl Tx<'_> {
         let body = self.svars.get(&statics)?.clone();
         let (mode, mut st) = Params::parse(&body)?;
         st.drop_prose();
-        if mode != "CantPreventDamage" || st.take("IsCombat").as_deref() != Some("True") {
+        if mode != "CantPreventDamage" {
             return None;
         }
+        let combat_only = match (
+            st.take("IsCombat").as_deref(),
+            st.take("CombatDamage").as_deref(),
+        ) {
+            (Some("True"), None) | (None, Some("True")) => true,
+            (None, None) => false,
+            _ => return None,
+        };
         let valid_source = st.take("ValidSource");
         if !st.exhausted() {
             return None;
         }
         let filter = match valid_source {
             None => "Filter::Any".to_string(),
+            Some(_) if !combat_only => return None,
             Some(valid) => {
                 let expr = self.filter_expr(&valid)?;
                 self.body.filter_static("EFFECT", &expr)
             }
         };
+        let mod_str = if combat_only {
+            "Modifier::CombatDamageCantBePrevented"
+        } else {
+            "Modifier::DamageCantBePrevented"
+        };
         p.take("StaticAbilities");
         p.take("Duration");
         Some(vec![format!(
-            "Effect::continuous(&{filter}, Modifier::CombatDamageCantBePrevented, \
-             Duration::UntilEndOfTurn)"
+            "Effect::continuous(&{filter}, {mod_str}, Duration::UntilEndOfTurn)"
         )])
     }
 

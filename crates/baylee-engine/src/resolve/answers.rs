@@ -1368,6 +1368,28 @@ pub(super) fn resume_arranged_inner(
                     ZonePosition::Top,
                     Cause::Effect,
                 );
+                if state.per_turn.surveilled_cards.tracked
+                    && let Some(obj) = state
+                        .object(card)
+                        .filter(|o| o.zone == crate::zone::Zone::Graveyard)
+                {
+                    let reference = baylee_core::ids::DamageSourceRef {
+                        object: card,
+                        version: obj.version,
+                    };
+                    if !state
+                        .per_turn
+                        .surveilled_cards
+                        .items
+                        .contains(&(reference, res.controller))
+                    {
+                        state
+                            .per_turn
+                            .surveilled_cards
+                            .items
+                            .push((reference, res.controller));
+                    }
+                }
             }
             for &card in top.iter().rev() {
                 let _ = state.move_object(card, library, ZonePosition::Top, Cause::Effect);

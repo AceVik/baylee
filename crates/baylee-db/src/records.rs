@@ -241,6 +241,95 @@ pub async fn append(
     Ok(done.rows_affected() == 1)
 }
 
+/// The pieces of `game_id`'s record as stored, in order, one gzip stream,
+/// with how many there are; `None` for a game with no record. For the
+/// gateway's own keeping of the record (compacting a finished one, resuming
+/// one after a restart: `docs/proposals/games-survive-restarts.md`), never
+/// for a player.
+///
+/// # Errors
+///
+/// When the statement fails.
+pub async fn stored_pieces(
+    db: &impl ConnectionTrait,
+    game_id: &str,
+) -> Result<Option<(Vec<u8>, u32)>, DbErr> {
+    let row = db
+        .query_one_raw(Statement::from_sql_and_values(
+            db.get_database_backend(),
+            "SELECT \
+                 coalesce((SELECT string_agg(c.data, ''::bytea ORDER BY c.seq) \
+                           FROM game_record_chunk c WHERE c.game_id = r.game_id), ''::bytea) \
+                   AS data, \
+                 (SELECT count(*) FROM game_record_chunk c WHERE c.game_id = r.game_id) \
+                   AS pieces \
+             FROM game_record r WHERE r.game_id = $1",
+            [game_id.into()],
+        ))
+        .await?;
+    row.map(|row| {
+        let pieces: i64 = row.try_get("", "pieces")?;
+        Ok((
+            row.try_get("", "data")?,
+            u32::try_from(pieces).map_err(|_| DbErr::Custom("piece count out of range".into()))?,
+        ))
+    })
+    .transpose()
+}
+
+/// Replaces the `pieces` pieces of a complete record with `data`, the same
+/// record as one gzip member: a game sends its record in a piece every two
+/// seconds of play, a few hundred small members, and a finished game keeps
+/// one. Nothing changes, and `false` comes back, when the record is not
+/// complete or no longer has exactly `pieces` pieces.
+///
+/// # Errors
+///
+/// When a statement fails; the transaction then changes nothing.
+pub async fn compact(
+    db: &DatabaseConnection,
+    game_id: &str,
+    pieces: u32,
+    data: Vec<u8>,
+) -> Result<bool, DbErr> {
+    let txn = db.begin().await?;
+    let backend = txn.get_database_backend();
+    let still = txn
+        .query_one_raw(Statement::from_sql_and_values(
+            backend,
+            "SELECT r.complete AND \
+                 (SELECT count(*) FROM game_record_chunk c WHERE c.game_id = r.game_id) = $2 \
+               AS still \
+             FROM game_record r WHERE r.game_id = $1 FOR UPDATE",
+            [game_id.into(), i64::from(pieces).into()],
+        ))
+        .await?
+        .map(|row| row.try_get::<bool>("", "still"))
+        .transpose()?
+        .unwrap_or(false);
+    if !still {
+        txn.rollback().await?;
+        return Ok(false);
+    }
+    txn.execute_raw(Statement::from_sql_and_values(
+        backend,
+        "DELETE FROM game_record_chunk WHERE game_id = $1",
+        [game_id.into()],
+    ))
+    .await?;
+    txn.execute_raw(Statement::from_sql_and_values(
+        backend,
+        "WITH piece AS ( \
+             INSERT INTO game_record_chunk (game_id, seq, data) VALUES ($1, 0, $2) \
+             RETURNING octet_length(data) AS n) \
+         UPDATE game_record r SET bytes = piece.n FROM piece WHERE r.game_id = $1",
+        [game_id.into(), data.into()],
+    ))
+    .await?;
+    txn.commit().await?;
+    Ok(true)
+}
+
 /// A game's record as stored.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Record {

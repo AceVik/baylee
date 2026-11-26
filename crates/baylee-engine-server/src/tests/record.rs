@@ -118,6 +118,7 @@ pub(super) fn flush(runner: &mut EngineRunner, nonce: u64) -> Vec<Envelope> {
             msg: Some(v1::envelope::Msg::FlushRecord(v1::FlushRecord {
                 game_id: "g1".to_string(),
                 nonce,
+                hold: false,
             })),
         },
         &[],
@@ -150,7 +151,7 @@ pub(super) fn unpacked(pieces: &[v1::GameRecordChunk]) -> Vec<u8> {
 }
 
 /// Plays the house's answers for seat 0, `steps` of them.
-fn play_a_little(runner: &mut EngineRunner, steps: usize) -> Vec<Envelope> {
+pub(super) fn play_a_little(runner: &mut EngineRunner, steps: usize) -> Vec<Envelope> {
     let me = PlayerId::new(0);
     let mut out = Vec::new();
     for _ in 0..steps {
@@ -597,6 +598,7 @@ fn a_game_that_cannot_start_says_so_rather_than_hanging() {
                 seat_names: Vec::new(),
                 seat_guests: Vec::new(),
                 seat_accounts: Vec::new(),
+                ..Default::default()
             })),
         },
         &[],

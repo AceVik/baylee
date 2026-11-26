@@ -431,6 +431,7 @@ pub fn project_with_detection<D: baylee_engine::engine::LoopDetection>(
 ///
 /// # Errors
 /// As [`project_with_detection`], plus refusal of an unsupported native manifest.
+#[allow(clippy::too_many_lines)] // one pass over the record, line by line, as a replay is told
 pub fn project_with_registry<
     D: baylee_engine::engine::LoopDetection,
     R: crate::session::SessionRegistry,
@@ -476,7 +477,11 @@ pub fn project_with_registry<
     let opening = checker.check(&session, None, &hash, seen.as_deref());
     let first_at = match lines.peek() {
         Some(Ok(
-            Line::Input { at, .. } | Line::Chair { at, .. } | Line::DeclaredMind { at, .. },
+            Line::Input { at, .. }
+            | Line::Chair { at, .. }
+            | Line::Connection { at, .. }
+            | Line::Setting { at, .. }
+            | Line::DeclaredMind { at, .. },
         )) => *at,
         _ => 0,
     };
@@ -504,7 +509,10 @@ pub fn project_with_registry<
     for line in lines {
         match line? {
             Line::Header { .. } => return Err(ReplayError::NoHeader),
-            Line::Chair { .. } | Line::DeclaredMind { .. } => {}
+            Line::Chair { .. }
+            | Line::Connection { .. }
+            | Line::Setting { .. }
+            | Line::DeclaredMind { .. } => {}
             Line::Input {
                 n,
                 at,
@@ -513,6 +521,7 @@ pub fn project_with_registry<
                 action,
                 hash,
                 seen,
+                ..
             } => {
                 let session = &mut teller.session;
                 session.tell_time(at);
@@ -670,7 +679,10 @@ pub fn summary(record: &[u8]) -> Result<Summary, ReplayError> {
                 summary.inputs += 1;
                 at
             }
-            Line::Chair { at, .. } | Line::DeclaredMind { at, .. } => at,
+            Line::Chair { at, .. }
+            | Line::Connection { at, .. }
+            | Line::Setting { at, .. }
+            | Line::DeclaredMind { at, .. } => at,
             Line::End {
                 at,
                 winners,

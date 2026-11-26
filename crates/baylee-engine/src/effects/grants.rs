@@ -39,6 +39,11 @@ static BASIC_GREEN: AbilityDef = ActivatedParts {
 }
 .build();
 
+static EXILE_SELF_PARTS: [baylee_cards_dsl::CostPart; 1] = [baylee_cards_dsl::CostPart::ExileSelf];
+static EMBALM_EFFECTS: [Effect; 1] = [Effect::CreateTokenCopyOfSource {
+    mods: baylee_cards_dsl::EMBALM_MODS,
+}];
+
 fn basic_mana_definition(color: ManaColor) -> Option<(u32, &'static AbilityDef)> {
     match color {
         ManaColor::White => Some((10_000, &BASIC_WHITE)),
@@ -67,6 +72,8 @@ pub struct GrantedAbility {
     pub source: Option<ObjectId>,
     /// Original donor object from which this ability was copied, if any.
     pub origin_donor: Option<ObjectId>,
+    /// Specific recipient incarnation when synthesized per card (Encore/Embalm at mana cost).
+    pub recipient: Option<DamageSourceRef>,
     /// Printed clause of the donor, when this is a copied definition.
     pub provenance: Option<AbilityProvenance>,
     /// Wording of the granted definition.
@@ -81,7 +88,9 @@ impl GrantedAbility {
             AbilityDef::Activated { cost, effects, .. }
             | AbilityDef::ActivatedConditional { cost, effects, .. } => (cost, effects),
             AbilityDef::Loyalty { effects, .. } => (Cost::FREE, effects),
-            AbilityDef::ModalActivated { cost, .. } => (cost, &[] as &[_]),
+            AbilityDef::ModalActivated { cost, .. }
+            | AbilityDef::Encore { cost }
+            | AbilityDef::Unearth { cost } => (cost, &[] as &[_]),
             _ => return None,
         };
         Some(Self {
@@ -91,6 +100,7 @@ impl GrantedAbility {
             effects,
             source,
             origin_donor: None,
+            recipient: None,
             mana_ability: definition.is_mana_ability(),
             provenance: None,
             text: TextChangeMap::default(),
@@ -346,6 +356,7 @@ fn push_donor_own_abilities(
 /// # Panics
 /// Panics if one donor has more than `u32::MAX` ability clauses or the
 /// registry exhausts the action-identity domain.
+#[allow(clippy::too_many_lines)]
 pub fn sync_granted_activated(state: &mut GameState, lookup: &impl CardLookup) {
     if !state.effects.may_grant_activated() {
         return;
@@ -365,6 +376,114 @@ pub fn sync_granted_activated(state: &mut GameState, lookup: &impl CardLookup) {
     }
     let mut has_battlefield_grant = false;
     for effect in state.effects.iter() {
+        if matches!(
+            effect.modifier,
+            Modifier::GrantsEncoreManaCost
+                | Modifier::GrantsEmbalmManaCost
+                | Modifier::GrantsUnearth(_)
+                | Modifier::GrantsScavengeManaCost
+        ) {
+            for p in &state.players {
+                for &card_id in state.zones.list(ZoneLocation::Graveyard(p.id)) {
+                    let Some(card_obj) = state.object(card_id) else {
+                        continue;
+                    };
+                    let chars = card_obj.characteristics();
+                    if chars.abilities_lost.is_some_and(|lost| {
+                        crate::object::Characteristics::lost_at(effect.timestamp) <= lost
+                    }) || chars.rules_text_lost
+                        || !super::applies_to(state, effect, card_obj)
+                    {
+                        continue;
+                    }
+                    let (synth_idx, definition) = match effect.modifier {
+                        Modifier::GrantsUnearth(mana) => {
+                            if !chars.types.is_permanent() {
+                                continue;
+                            }
+                            (
+                                30_002_u32,
+                                AbilityDef::Unearth {
+                                    cost: Cost { mana, parts: &[] },
+                                },
+                            )
+                        }
+                        Modifier::GrantsScavengeManaCost => {
+                            if !chars.types.contains(baylee_core::types::TypeSet::CREATURE) {
+                                continue;
+                            }
+                            let Some(mana) = card_obj
+                                .card
+                                .and_then(|c| lookup.card(c.index))
+                                .and_then(|def| def.faces.first())
+                                .map(|f| f.mana_cost)
+                                .filter(crate::casting::has_a_printed_cost)
+                            else {
+                                continue;
+                            };
+                            (30_003_u32, AbilityDef::scavenge(mana))
+                        }
+                        Modifier::GrantsEncoreManaCost | Modifier::GrantsEmbalmManaCost => {
+                            let Some(mana) = card_obj
+                                .card
+                                .and_then(|c| lookup.card(c.index))
+                                .and_then(|def| def.faces.first())
+                                .map(|f| f.mana_cost)
+                                .filter(crate::casting::has_a_printed_cost)
+                            else {
+                                continue;
+                            };
+                            let cost = Cost {
+                                mana,
+                                parts: &EXILE_SELF_PARTS,
+                            };
+                            match effect.modifier {
+                                Modifier::GrantsEncoreManaCost => {
+                                    (30_000_u32, AbilityDef::Encore { cost })
+                                }
+                                Modifier::GrantsEmbalmManaCost => (
+                                    30_001_u32,
+                                    AbilityDef::Activated {
+                                        cost,
+                                        effects: &EMBALM_EFFECTS,
+                                        targets: None,
+                                        second_targets: None,
+                                        third_targets: None,
+                                        timing: baylee_cards_dsl::ActivationTiming::SorcerySpeed,
+                                        mana_ability: false,
+                                        zone: baylee_cards_dsl::ActivationZone::Graveyard,
+                                        limit: baylee_cards_dsl::ActivationLimit::Unlimited,
+                                        x_value: baylee_cards_dsl::ActivationX::Any,
+                                        cost_reduction: None,
+                                    },
+                                ),
+                                _ => unreachable!(),
+                            }
+                        }
+                        _ => unreachable!(),
+                    };
+                    let Some(mut ability) = GrantedAbility::new(&definition, effect.source) else {
+                        continue;
+                    };
+                    let recipient_ref = DamageSourceRef {
+                        object: card_obj.id,
+                        version: card_obj.version,
+                    };
+                    ability.recipient = Some(recipient_ref);
+                    ability.text = state.effect_text(effect);
+                    let key = Key {
+                        effect: effect.id,
+                        donor: Some(recipient_ref),
+                        acquisition: card_obj.rules_acquisition(),
+                        index: synth_idx,
+                    };
+                    if !discovered.iter().any(|(k, _)| *k == key) {
+                        discovered.push((key, ability));
+                    }
+                }
+            }
+            continue;
+        }
         let (filter, zone, allow_exiled_with) = match effect.modifier {
             Modifier::GrantActivatedFromLinkedExile(filter) => {
                 (filter, AbilityDonorZone::LinkedExile, false)

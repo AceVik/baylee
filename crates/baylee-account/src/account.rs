@@ -12,6 +12,7 @@ mod archive;
 pub use advent::check_advent_image;
 mod challenges;
 mod decks;
+mod funding;
 mod gateway_import;
 mod legacy_decks;
 mod paged_decks;
@@ -20,6 +21,7 @@ mod ranked;
 mod social;
 mod tower;
 
+pub use funding::funding_read;
 pub use gateway_import::GatewayDeckImport;
 pub use pairing::{PairedSession, PairingClaim};
 pub use ranked::{

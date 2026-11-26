@@ -1525,10 +1525,11 @@ fn wave5_reduce_cost_and_spell_prevention() {
         "Name:BadSmith\nManaCost:1 W\nTypes:Creature\nPT:1/1\n\
          S:Mode$ ReduceCost | ValidCard$ Card | ValidSpell$ Activated.Equip | Activator$ You | Amount$ 1 | MinMana$ 1"
     ));
-    assert!(refused(
+    let target_smith = read(
         "Name:TargetSmith\nManaCost:R\nTypes:Creature\nPT:1/1\n\
-         S:Mode$ ReduceCost | ValidTarget$ Card.Self | ValidSpell$ Activated.Equip | Activator$ You | Amount$ 3"
-    ));
+         S:Mode$ ReduceCost | ValidTarget$ Card.Self | ValidSpell$ Activated.Equip | Activator$ You | Amount$ 3",
+    );
+    assert!(target_smith.abilities[0].contains("Modifier::EquipCostsLessIfTargets"));
 
     let grounds = read(
         "Name:TrainingRing\nManaCost:U\nTypes:Enchantment\n\
@@ -4029,11 +4030,11 @@ fn wave11b_pass2_effect_apis_graveyard_and_turn_history() {
         nimble.abilities[0]
     );
 
-    // Non-combat CantPreventDamage must stay refused.
+    // Recipient-scoped CantPreventDamage must stay refused.
     assert!(refused(
-        "Name:AllUnpreventable\nManaCost:1 R\nTypes:Instant\n\
+        "Name:ScopedUnpreventable\nManaCost:1 R\nTypes:Instant\n\
          A:SP$ Effect | StaticAbilities$ NoPrev\n\
-         SVar:NoPrev:Mode$ CantPreventDamage"
+         SVar:NoPrev:Mode$ CantPreventDamage | ValidTarget$ Creature"
     ));
 
     // Untargeted exile from any graveyard via ChooseCard; opponent reanimate without GainControl$ refused.
@@ -4815,7 +4816,7 @@ fn wave14c_counter_types_and_wave6c_effect_modifiers() {
     );
     assert!(refused(
         "Name:UnmodeledKindCounter\nManaCost:2 G\nTypes:Sorcery\n\
-         A:SP$ PutCounter | ValidTgts$ Creature | CounterTypes$ P1P1,DIVINITY | CounterNum$ 1"
+         A:SP$ PutCounter | ValidTgts$ Creature | CounterTypes$ P1P1,UNASSIGNED_XYZ | CounterNum$ 1"
     ));
 
     let max_block = read(
@@ -5764,7 +5765,7 @@ fn wave18c_cost_and_spell_keywords() {
     for bad in [
         "Name:BadThreeWay\nManaCost:B\nTypes:Sorcery\nK:AlternateAdditionalCost:Sac<1/Creature>:Discard<1/Card>:PayLife<4>\nA:SP$ Draw | NumCards$ 1",
         "Name:BadOneWay\nManaCost:B\nTypes:Sorcery\nK:AlternateAdditionalCost:Sac<1/Creature>\nA:SP$ Draw | NumCards$ 1",
-        "Name:BadRevealEither\nManaCost:1 B\nTypes:Creature\nPT:2/2\nK:AlternateAdditionalCost:Reveal<1/Vampire>:1",
+        "Name:BadRevealEither\nManaCost:1 B\nTypes:Creature\nPT:2/2\nK:AlternateAdditionalCost:Reveal<2/SameColor>:1",
         "Name:BadDupEither\nManaCost:B\nTypes:Sorcery\nK:AlternateAdditionalCost:PayLife<2>:1\nK:AlternateAdditionalCost:Discard<1/Card>:2\nA:SP$ Draw | NumCards$ 1",
         "Name:BadLandEither\nTypes:Land\nK:AlternateAdditionalCost:PayLife<2>:1",
     ] {
@@ -6730,12 +6731,24 @@ fn wave19c_phase_check_svar_negated_and_refusals() {
         yard_types_neg.abilities[0]
     );
 
-    // 5. Explicit refusal boundaries: non-subtype `Permanent`, `TriggeredPlayer$` outside `Phase`,
-    //    `LowestCardsInHand` on opponents, and mismatched `HighestValid` RHS.
-    for bad in [
+    // Wave 16a: `SacrificedThisTurn Permanent` now lowers via `Amount::PermanentsSacrificedThisTurn`.
+    let sac_perm = read(
         "Name:SacPerm\nManaCost:2 B\nTypes:Enchantment\n\
          T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | CheckSVar$ X | SVarCompare$ GE1 | TriggerZones$ Battlefield | Execute$ D\n\
          SVar:X:PlayerCountPropertyYou$SacrificedThisTurn Permanent\nSVar:D:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        sac_perm.abilities[0].contains("Amount::PermanentsSacrificedThisTurn"),
+        "{}",
+        sac_perm.abilities[0]
+    );
+
+    // 5. Explicit refusal boundaries: unmodelled `Permanent.Self` on `SacrificedThisTurn`,
+    //    `TriggeredPlayer$` outside `Phase`, `LowestCardsInHand` on opponents, and mismatched `HighestValid` RHS.
+    for bad in [
+        "Name:SacPermSelf\nManaCost:2 B\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | CheckSVar$ X | SVarCompare$ GE1 | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:X:PlayerCountPropertyYou$SacrificedThisTurn Permanent.Self\nSVar:D:DB$ Draw | NumCards$ 1",
         "Name:NonPhaseActive\nManaCost:2 B\nTypes:Enchantment\n\
          T:Mode$ SpellCast | ValidCard$ Card | ValidActivatingPlayer$ Opponent | CheckSVar$ H | SVarCompare$ LE2 | TriggerZones$ Battlefield | Execute$ D\n\
          SVar:H:TriggeredPlayer$CardsInHand\nSVar:D:DB$ Draw | NumCards$ 1",

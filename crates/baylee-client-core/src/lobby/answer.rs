@@ -97,7 +97,11 @@ impl Lobby {
                 let by_address = self.username.text().contains('@');
                 match username {
                     Some(name) if by_address => {
-                        self.write(Phrase::YourUsernameIs.fill(self.lang, &[&name]), Tone::Note);
+                        self.write(
+                            Phrase::YourUsernameIs.fill(self.lang, &[&name]),
+                            Tone::Note,
+                            Some(Phrase::YourUsernameIs),
+                        );
                         self.set_field(Field::Username, &name);
                     }
                     Some(name) => {
@@ -202,6 +206,7 @@ impl Lobby {
                 self.write(
                     Phrase::RefusedNote.fill(self.lang, &[&refusal.list]),
                     Tone::Refusal,
+                    Some(Phrase::RefusedNote),
                 );
                 self.refusal = Some(refusal);
                 None
@@ -413,7 +418,7 @@ impl Lobby {
                     self.password.clear();
                     self.password_again.clear();
                 }
-                self.write(said, Tone::Refusal);
+                self.write(said, Tone::Refusal, None);
                 None
             }
             LobbyEvent::Failed(why) => {
@@ -425,7 +430,7 @@ impl Lobby {
                     deletion.refusal = Some(why.clone());
                     self.account_password.clear();
                 }
-                self.write(why, Tone::Refusal);
+                self.write(why, Tone::Refusal, None);
                 // A deck that could not be fetched is not being edited: the
                 // list it was opened from is where the player stands.
                 if std::mem::take(&mut self.opening_deck) {

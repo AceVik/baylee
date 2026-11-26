@@ -60,6 +60,7 @@ impl Table {
             seat_guests: vec![false; 2],
             seat_accounts: vec![true, false],
             execution: identity.to_metadata(),
+            ..Default::default()
         };
         table.perform(|driver| {
             driver.handle(

@@ -541,6 +541,48 @@ pub enum Filter {
     /// control matching the nested filter (`CR 115.1`, `CR 608.2b`).
     /// Appended to preserve replay identities.
     TargetsYouControl(&'static Filter),
+    /// Power equal to the dynamically evaluated [`crate::Amount`] (`CR 208.3`;
+    /// matches only objects with a power characteristic; cycle-capped in filter
+    /// evaluation; *Localized Destruction*). Appended to preserve replay
+    /// identities.
+    PowerEqualsAmount(&'static crate::Amount),
+    /// Toughness equal to the dynamically evaluated [`crate::Amount`] (`CR 208.3`;
+    /// matches only objects with a toughness characteristic; cycle-capped in
+    /// filter evaluation). Appended to preserve replay identities.
+    ToughnessEqualsAmount(&'static crate::Amount),
+    /// Mana value equal to the number chosen for the ability's source (`CR 607.2a`,
+    /// `CR 202.3`; *Sanctum Prelate*, *Talion, the Kindly Lord*). Matches nothing
+    /// if no number was chosen for the source. Appended to preserve replay
+    /// identities.
+    CmcEqualsChosenNumber,
+    /// Power equal to the number chosen for the ability's source (`CR 607.2a`,
+    /// `CR 208.3`; *Talion, the Kindly Lord*, *Squall, Gunblade Duelist*). Matches
+    /// nothing if no number was chosen or the object has no power. Appended to
+    /// preserve replay identities.
+    PowerEqualsChosenNumber,
+    /// Toughness equal to the number chosen for the ability's source (`CR 607.2a`,
+    /// `CR 208.3`; *Talion, the Kindly Lord*, *Squall, Gunblade Duelist*). Matches
+    /// nothing if no number was chosen or the object has no toughness. Appended to
+    /// preserve replay identities.
+    ToughnessEqualsChosenNumber,
+    /// This object's current incarnation was cast (`CR 601.2i`, `CR 400.7d`,
+    /// `CR 707.10`): true for a cast spell on the stack and the permanent that
+    /// spell became upon resolving; false for spell copies, tokens, and cards put
+    /// onto the battlefield without being cast. Appended to preserve replay
+    /// identities.
+    WasCast,
+    /// This object's current incarnation was cast by `you` (`CR 601.2i`,
+    /// `CR 400.7d`, `CR 707.10`). Appended to preserve replay identities.
+    WasCastByYou,
+    /// This object's current incarnation was cast from the specified zone
+    /// (`CR 601.2`, `CR 400.7d`, `CR 707.10`: *Prosper, Tome-Bound*, *Ash Zealot*,
+    /// *Melek, Izzet Paragon*, *Party Thrasher*). False for uncast objects and
+    /// spell copies. Appended to preserve replay identities.
+    CastFromZone(ZoneRef),
+    /// A card in a graveyard whose exact current graveyard incarnation was put
+    /// there by `you` while surveilling this turn (`CR 701.25a`, `CR 400.7`;
+    /// *Eye of Duskmantle*). Appended to preserve replay identities.
+    SurveilledByYouThisTurn,
 }
 
 /// Zone references for filters (engine zones, DSL view).

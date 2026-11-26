@@ -382,6 +382,13 @@ impl GameLog {
         self.sealed = self.sealed.max(upto.min(self.lines.len()));
     }
 
+    /// How many lines may have been sent ([`Self::seal`]): what a record
+    /// line notes, so a resumed log folds exactly as this one did.
+    #[must_use]
+    pub const fn sealed(&self) -> usize {
+        self.sealed
+    }
+
     /// A line only the session knows, naming no object.
     pub fn note(&mut self, event: LogEvent) {
         self.push(event, Vec::new());
@@ -1082,7 +1089,7 @@ impl GameLog {
                     vec![sees],
                 );
             }
-            GameEvent::DayNightChanged { now } => {
+            GameEvent::DayNightChanged { now, .. } => {
                 self.push(
                     LogEvent::DayNight {
                         now: day_night(*now),

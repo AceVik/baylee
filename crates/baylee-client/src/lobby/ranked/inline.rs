@@ -1,69 +1,51 @@
-//! The ranked game's inline controls share the Play activity rail and its scroll position.
+//! The ranked desk: Central's matchmaking for the signed-in account (its
+//! standing, the format, the deck, the search and its result). It stands on
+//! the Ranked page beside the public ladder. The Play screen's tile opens the
+//! page and says in one line how the queue stands, so nothing in the lobby
+//! unfolds and pushes the tiles under it down.
 use super::{
-    Action, Cx, Format, Hub, Kit, Lang, League, Live, LobbyRequest, LobbyState, OwnRank, Phrase,
-    Press, Weight, api, controls, draw, format_name, join, native, orders, parts, queue,
+    Action, Cx, Format, Hub, Kit, Lang, League, LobbyRequest, LobbyState, OwnRank, Phrase, api,
+    draw, format_name, join, native, orders, queue,
 };
-use crate::{hud::glyph, lobby::ranked_profile::Book, shellkit::ShellMetrics};
+use crate::{
+    lobby::{Mailbox, ranked_profile::Book},
+    shellkit::ShellMetrics,
+};
 use bevy::prelude::*;
 
+/// The desk's slot on the Ranked page, filled by [`patch`].
 #[derive(Component)]
 pub(super) struct Desk {
     metrics: ShellMetrics,
-    arrow: Entity,
-    caption: Entity,
-    formats: Entity,
     queue: Entity,
-    board: Entity,
 }
 
-pub(in crate::lobby) fn entry(
-    commands: &mut Commands,
-    card: Entity,
-    caption: Entity,
-    arrow: Entity,
-    kit: Kit,
-) {
-    let root = draw::column(commands, card, kit);
-    commands
-        .entity(root)
-        .entry::<Node>()
-        .and_modify(|mut n| n.display = Display::None);
-    let formats = parts::row(commands, kit, true);
-    commands.entity(root).add_child(formats);
-    let queue = draw::column(commands, root, kit);
-    let board = controls::button_compact(
-        commands,
-        kit,
-        Some(glyph::TROPHY),
-        Phrase::RankedBoard.text(kit.lang()),
-        Weight::Ghost,
-        Live::Yes,
-        Press::Ranked(Action::Open),
-    );
-    commands.entity(root).add_child(board);
-    commands.entity(root).insert(Desk {
+/// The Play tile's line under its title. [`patch`] rewrites it as the queue
+/// moves; the lobby is never rebuilt for it.
+#[derive(Component)]
+pub(in crate::lobby) struct TileCaption;
+
+/// Stands the desk's slot in `parent`. The page's one format choice, in its
+/// head, serves the ladder and the queue alike ([`follow_format`]).
+pub(super) fn desk(commands: &mut Commands, parent: Entity, kit: Kit) {
+    let queue = draw::column(commands, parent, kit);
+    commands.entity(parent).insert(Desk {
         metrics: kit.m,
-        arrow,
-        caption,
-        formats,
         queue,
-        board,
     });
 }
 
-fn showing(state: &LobbyState) -> bool {
-    (matches!(state.hub, Hub::Play | Hub::Tables | Hub::Gateways)
-        || state.hub == Hub::Challenges && !state.can_enter_challenges())
-        && matches!(state.lobby.screen(), crate::lobby::Screen::Table)
-        && !state.showing_gateway_hub()
-        && !state.lobby.offline()
-}
-
-fn expanded(state: &LobbyState) -> bool {
-    state
-        .ranked
-        .expanded
-        .unwrap_or(!matches!(state.ranked_net.queue, api::QueueState::Idle))
+/// The page's format chose `format`: the queue follows it, unless an entry
+/// is already waiting or seated in another (the ladder follows regardless).
+pub(super) fn follow_format(state: &mut LobbyState, format: Format) {
+    if locked(state) || format == state.ranked.queue_format {
+        return;
+    }
+    native::clear_preview(state);
+    state.ranked.queue_format = format;
+    state.ranked.deck_id = None;
+    state.ranked.deck_page = 0;
+    state.ranked.show_decks = false;
 }
 
 fn locked(state: &LobbyState) -> bool {
@@ -74,62 +56,57 @@ fn locked(state: &LobbyState) -> bool {
         )
 }
 
-pub(in crate::lobby) fn preview_visible(state: &LobbyState) -> bool {
-    showing(state) && expanded(state)
+/// The desk's own actions, which only the Ranked page offers.
+pub(super) fn owns(action: Action) -> bool {
+    matches!(
+        action,
+        Action::ToggleDecks
+            | Action::DeckPage(_)
+            | Action::Deck(_)
+            | Action::Preview
+            | Action::Join
+            | Action::Cancel
+            | Action::Resume
+    )
 }
 
-pub(in crate::lobby) fn escape_queue(state: &mut LobbyState) -> &'static str {
-    if state.ranked.show_decks {
-        state.ranked.show_decks = false;
-        state.ranked.revision = state.ranked.revision.wrapping_add(1);
-        "deck"
-    } else {
-        collapse(state);
-        "ranked"
+/// The page opened: the account's decks and its queue entry are read again,
+/// as the Play tile's desk read them when it unfolded.
+pub(super) fn opened(state: &mut LobbyState, mailbox: &Mailbox) {
+    if state.has_central_account() && state.central_handle().is_some_and(|h| h.is_active()) {
+        crate::lobby::dispatch(state, mailbox, Some(LobbyRequest::ListDecks));
+        native::refresh(state);
     }
 }
 
-fn collapse(state: &mut LobbyState) {
-    state.ranked.expanded = Some(false);
+/// The page's Refresh, for the desk: the queue entry read again.
+pub(super) fn refresh(state: &mut LobbyState) {
+    if state.has_central_account() {
+        native::refresh(state);
+    }
+}
+
+/// Esc on the Ranked page, first rung: an open deck list closes. `false`
+/// when there was none, and the page's own ladder goes on.
+pub(super) fn escape(state: &mut LobbyState) -> bool {
+    if !state.ranked.show_decks {
+        return false;
+    }
     state.ranked.show_decks = false;
-    native::clear_preview(state);
     state.ranked.revision = state.ranked.revision.wrapping_add(1);
+    true
 }
 
 pub(super) fn press(action: Action, cx: Cx<'_, '_, '_, '_, '_>) {
-    if !showing(cx.state) {
+    if cx.state.hub != Hub::Ranked || !cx.state.has_central_account() {
         return;
     }
     let state = cx.state.bypass_change_detection();
-    if action == Action::ToggleQueue {
-        if expanded(state) {
-            collapse(state);
-        } else {
-            state.ranked.expanded = Some(true);
-            state.ranked.revision = state.ranked.revision.wrapping_add(1);
-            if state.has_central_account() && state.central_handle().is_some_and(|h| h.is_active())
-            {
-                crate::lobby::dispatch(state, cx.mailbox, Some(LobbyRequest::ListDecks));
-                native::refresh(state);
-            }
-        }
-        return;
-    }
-    if !expanded(state) || !state.has_central_account() {
-        return;
-    }
     #[cfg(feature = "dev-control")]
     if super::visual_fixture::reply(state, action) {
         return;
     }
     match action {
-        Action::QueueFormat(format) if !locked(state) && format != state.ranked.queue_format => {
-            native::clear_preview(state);
-            state.ranked.queue_format = format;
-            state.ranked.deck_id = None;
-            state.ranked.deck_page = 0;
-            state.ranked.show_decks = false;
-        }
         Action::ToggleDecks => state.ranked.show_decks = !state.ranked.show_decks,
         Action::DeckPage(page) => state.ranked.deck_page = page,
         Action::Deck(id) => {
@@ -147,7 +124,6 @@ pub(super) fn press(action: Action, cx: Cx<'_, '_, '_, '_, '_>) {
         Action::Join if !locked(state) || state.ranked_net.needs_deck => join(state),
         Action::Cancel => native::cancel(state),
         Action::Resume => native::resume(state),
-        Action::Refresh => native::refresh(state),
         _ => return,
     }
     state.ranked.revision = state.ranked.revision.wrapping_add(1);
@@ -206,45 +182,62 @@ pub(super) fn reveal_focus(
     }
 }
 
+/// What [`patch`] last painted for: the desk, the tile's line, both
+/// revisions and the account's standing.
+type PaintKey = (Option<Entity>, Option<Entity>, u64, u64, Option<OwnRank>);
+
 #[derive(Default)]
 pub(super) struct Painted {
-    key: Option<(Entity, u64, u64, Option<OwnRank>)>,
-    open: bool,
-    formats: Option<Format>,
+    key: Option<PaintKey>,
     queue: Option<queue::Look>,
     caption: String,
+    /// Whether the desk stands: only for a Central account. A guest reading
+    /// the ladder from the front door sees the ladder alone, full width.
+    shown: Option<bool>,
 }
 
-fn caption(state: &LobbyState, open: bool) -> String {
+/// The tile's line: the queue's state while there is one, else the
+/// account's standing in the queue's format, else what the mode is.
+fn caption(state: &LobbyState, own: Option<OwnRank>) -> String {
     let lang = state.lobby.lang();
-    if !open {
-        match state.ranked_net.queue {
-            api::QueueState::Waiting { format, .. } => {
-                return Phrase::RankedSearching.fill(lang, &[format_name(format, lang)]);
-            }
-            api::QueueState::Assigned { ref assignment, .. } => {
-                if state.ranked_net.waiting_consent() {
-                    return Phrase::RankedHostsWaiting.text(lang).to_owned();
-                }
-                return Phrase::RankedAssigned.fill(lang, &[format_name(assignment.format, lang)]);
-            }
-            api::QueueState::Finished {
-                format,
-                outcome,
-                seat,
-                elo,
-                delta,
-                ..
-            } => return queue::receipt(lang, format, outcome, seat, elo, delta),
-            api::QueueState::Idle => {}
+    match state.ranked_net.queue {
+        api::QueueState::Waiting { format, .. } => {
+            return Phrase::RankedSearching.fill(lang, &[format_name(format, lang)]);
         }
+        api::QueueState::Assigned { ref assignment, .. } => {
+            if state.ranked_net.waiting_consent() {
+                return Phrase::RankedHostsWaiting.text(lang).to_owned();
+            }
+            return Phrase::RankedAssigned.fill(lang, &[format_name(assignment.format, lang)]);
+        }
+        api::QueueState::Finished {
+            format,
+            outcome,
+            seat,
+            elo,
+            delta,
+            ..
+        } => return queue::receipt(lang, format, outcome, seat, elo, delta),
+        api::QueueState::Idle => {}
     }
-    Phrase::RankedModeEntry.text(lang).to_owned()
+    match own {
+        Some((rank, _, Some(elo), _)) if rank.league != League::Unranked => format!(
+            "{} · {}",
+            super::rank_name(rank, lang),
+            Phrase::RankedElo.fill(lang, &[&elo.to_string()])
+        ),
+        _ => Phrase::RankedModeEntry.text(lang).to_owned(),
+    }
 }
 
 fn own_rank(book: &Book, format: Format) -> Option<OwnRank> {
     if let Some(s) = book.own_player(format) {
-        return Some((s.rank, s.placement_games, Some(s.elo)));
+        return Some((
+            s.rank,
+            s.placement_games,
+            Some(s.elo),
+            Some((s.wins, s.losses, s.draws)),
+        ));
     }
     book.own_loaded().then_some((
         api::Rank {
@@ -253,6 +246,7 @@ fn own_rank(book: &Book, format: Format) -> Option<OwnRank> {
             champion_place: None,
         },
         0,
+        None,
         None,
     ))
 }
@@ -263,61 +257,65 @@ pub(super) fn patch(
     book: Option<Res<Book>>,
     fonts: Option<Res<crate::hud::UiFonts>>,
     desks: Query<(Entity, &Desk)>,
+    captions: Query<Entity, With<TileCaption>>,
     mut painted: Local<Painted>,
 ) {
-    let (Ok((root, desk)), Some(fonts)) = (desks.single(), fonts.as_deref()) else {
+    let desk = desks.single().ok();
+    let caption_at = captions.single().ok();
+    if desk.is_none() && caption_at.is_none() {
+        *painted = Painted::default();
         return;
-    };
+    }
     let format = queue::effective_format(&state);
     let own = book
         .as_deref()
         .filter(|_| state.has_central_account())
         .and_then(|book| own_rank(book, format));
-    let key = (root, state.ranked.revision, state.ranked_net.revision, own);
+    let key = (
+        desk.map(|(root, _)| root),
+        caption_at,
+        state.ranked.revision,
+        state.ranked_net.revision,
+        own,
+    );
     if painted.key == Some(key) && !state.is_changed() {
         return;
     }
-    if painted.key.is_none_or(|old| old.0 != root) {
-        *painted = Painted::default();
+    // A desk or a tile drawn afresh holds nothing of what was painted.
+    let old = painted.key;
+    if old.is_none_or(|old| old.0 != key.0) {
+        painted.queue = None;
+        painted.shown = None;
+    }
+    if old.is_none_or(|old| old.1 != key.1) {
+        painted.caption.clear();
     }
     painted.key = Some(key);
-    let open = expanded(&state);
-    let words = caption(&state, open);
+    let words = caption(&state, own);
     if painted.caption != words {
-        commands
-            .entity(desk.caption)
-            .insert(Text::new(words.clone()));
+        if let Some(line) = caption_at {
+            commands.entity(line).insert(Text::new(words.clone()));
+        }
         painted.caption = words;
     }
-    if open != painted.open {
-        painted.open = open;
+    let (Some((root, desk)), Some(fonts)) = (desk, fonts.as_deref()) else {
+        return;
+    };
+    let eligible = state.has_central_account();
+    if painted.shown != Some(eligible) {
+        painted.shown = Some(eligible);
         commands
             .entity(root)
             .entry::<Node>()
-            .and_modify(move |mut node| {
-                node.display = if open { Display::Flex } else { Display::None };
+            .and_modify(move |mut n| {
+                n.display = if eligible {
+                    Display::Flex
+                } else {
+                    Display::None
+                };
             });
-        let icon = if open {
-            glyph::CHEVRON_UP
-        } else {
-            glyph::CHEVRON_DOWN
-        };
-        commands
-            .entity(desk.arrow)
-            .insert(Text::new(icon.to_string()));
-        if open {
-            orders::stop(&mut commands, desk.board, &orders::PLAY, "ranked-board");
-        } else {
-            commands
-                .entity(desk.board)
-                .remove::<crate::shellkit::focus::Stop>();
-            commands.entity(desk.formats).despawn_children();
-            commands.entity(desk.queue).despawn_children();
-            painted.queue = None;
-            painted.formats = None;
-        }
     }
-    if !open {
+    if !eligible {
         return;
     }
     let kit = Kit {
@@ -325,24 +323,6 @@ pub(super) fn patch(
         m: desk.metrics,
         german: state.lobby.lang() == Lang::De,
     };
-    let selectable = (state.has_central_account() && !locked(&state)).then_some(format);
-    if painted.formats != selectable {
-        painted.formats = selectable;
-        commands.entity(desk.formats).despawn_children();
-        if let Some(current) = selectable {
-            for (i, format) in Format::ALL.into_iter().enumerate() {
-                draw::btn(
-                    &mut commands,
-                    desk.formats,
-                    kit,
-                    format_name(format, kit.lang()),
-                    Action::QueueFormat(format),
-                    (&orders::PLAY, "rank-format", i),
-                    format == current,
-                );
-            }
-        }
-    }
     let view = queue::look(&state, own);
     if painted.queue.as_ref() != Some(&view) {
         commands.entity(desk.queue).despawn_children();

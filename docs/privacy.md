@@ -714,10 +714,21 @@ only waits while one runs (`/run/baylee-backup/run.lock`).
   and Central accounts deleted since the run before, in a list that is part
   of every snapshot. After a restore of an older snapshot those accounts are
   deleted again: on the gateway through its own deletion
-  (`DELETE /admin/accounts/{id}`); for Central, which has no operator
-  deletion, the program names the ids and the step for a person. Until a
-  restore, a deleted account stays in older backups as long as they are
-  kept (above).
+  (`DELETE /admin/accounts/{id}`); on Central through its own operator
+  erasure (`central-service --erase-accounts-stdin`) where the installed
+  Central has it, else the program names the ids and the step for a
+  person. Until a restore, a deleted account stays in older backups as
+  long as they are kept (above).
+- **A replaced database on the server:** a restore of a snapshot older
+  than the live database's schema (after a deploy whose migration went
+  wrong) keeps the live database it replaces, renamed
+  `<name>_before_restore_<time>`, in the same PostgreSQL on the server, so
+  that it can be put back. It holds everything the live database held at
+  the restore, so an account deleted after the restore stays in it,
+  **until the operator discards it**
+  (`baylee-backup restore discard-previous`); nothing removes
+  it by itself and there is no upper bound, but the program warns every day
+  once one is older than 7 days. It is in no backup.
 
 ## Logs
 

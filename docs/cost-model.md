@@ -9,11 +9,13 @@ documents the supported authoring forms. Card files normally use
 
 The cost families are tap/untap (`TapSelf`, `UntapSelf`, `TapOther`, `TapX`, `TapN`,
 `Crew`, `Saddle`), sacrifice (`SacrificeSelf`, `Sacrifice`, `SacrificeX`,
-`SacrificeAll`), discard (`Discard`, `DiscardSelf`, `DiscardRandom`), zone
+`SacrificeAll`), discard/reveal (`Discard`, `DiscardSelf`, `DiscardRandom`,
+`RevealFromHand`, `RevealFromHandX`, `RevealSelfFromHand`, `Behold`,
+`BeholdAndExile`), zone
 movement (`ExileSelf`, `ExileFromHand`, `ExileFromGraveyard`,
 `ReturnSelfToHand`, `ReturnToHand`), life (`PayLife`, `PayLifeX`,
 `PayCommanderColors`), energy (`PayEnergy`, `PayEnergyX`) and counters
-(`RemoveCounterSelf`, `RemoveCounterSelfX`, `PutCounterSelf`).
+(`RemoveCounterSelf`, `RemoveCounterSelfX`, `PutCounterSelf`, `PutCounterOnOther`).
 
 Activation X is one announcement shared by the mana and non-mana parts.
 `ActivationX` supplies an optional lower bound or a card-defined amount.

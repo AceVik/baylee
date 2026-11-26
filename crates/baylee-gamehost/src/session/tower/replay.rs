@@ -67,6 +67,7 @@ pub(super) fn apply<D: LoopDetection, R: SessionRegistry>(
             action,
             hash,
             seen,
+            ..
         } if n == next => {
             if matches!(session.engine.pending(), Pending::GameOver(_)) {
                 return Err(Refused::Invalid);

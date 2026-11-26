@@ -123,6 +123,7 @@ fn at_rest(state: &LobbyState) -> bool {
         && !state.about_open
         && !state.memorial.open
         && state.community_dialog.is_none()
+        && !state.giving.open
         && !state.terms.up()
         && !super::central::terms_pending(state)
         && !state.lobby.busy()

@@ -23,6 +23,9 @@ impl<D: LoopDetection, R: SessionRegistry, T: crate::recording::Transport> Engin
     /// as it was.
     #[must_use]
     pub fn clocks(&self) -> Vec<Clock> {
+        if self.held {
+            return Vec::new();
+        }
         let Some(session) = self.session.as_ref() else {
             return Vec::new();
         };
@@ -146,7 +149,7 @@ impl<D: LoopDetection, R: SessionRegistry, T: crate::recording::Transport> Engin
     /// timer firing and this being called, and one seat's expired clock must
     /// never take another seat's decision, nor this seat's next one.
     pub fn timeout(&mut self, clock: Clock) -> Vec<Envelope> {
-        if self.curtain.is_some() {
+        if self.held || self.curtain.is_some() {
             return Vec::new();
         }
         if clock.what == Deadline::Hold {

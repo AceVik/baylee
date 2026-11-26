@@ -140,47 +140,82 @@ pub(super) fn draw(
     join_button(commands, parent, kit, look);
 }
 
+/// The account's standing in the format: its badge, rank and Elo, the
+/// season's record, and while it is placed a bar of the ten placement games.
 fn own_rank(commands: &mut Commands, parent: Entity, kit: Kit, look: &Look) {
     let lang = kit.lang();
-    if let Some((rank, placements, elo)) = look.own {
-        let group = parts::row(commands, kit, true);
-        commands.entity(parent).add_child(group);
-        let badge = commands
-            .spawn((
-                Node {
-                    width: kit.m.px(42.0),
-                    height: kit.m.px(42.0),
-                    flex_shrink: 0.0,
-                    ..default()
-                },
-                Pickable::IGNORE,
-            ))
-            .id();
-        if let Some(art) = crate::rank_art::RankArt::badge(
-            league_name(rank.league, Lang::En),
-            rank.division,
-            false,
-            rank.champion_place.map(u32::from),
-        ) {
-            commands.entity(badge).insert(art);
-        }
-        commands.entity(group).add_child(badge);
-        label(
+    let Some((rank, placements, elo, record)) = look.own else {
+        return;
+    };
+    let group = parts::row(commands, kit, false);
+    commands.entity(group).entry::<Node>().and_modify(|mut n| {
+        n.width = Val::Percent(100.0);
+    });
+    commands.entity(parent).add_child(group);
+    let badge = commands
+        .spawn((
+            Node {
+                width: kit.m.px(56.0),
+                height: kit.m.px(56.0),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    if let Some(art) = crate::rank_art::RankArt::badge(
+        league_name(rank.league, Lang::En),
+        rank.division,
+        false,
+        rank.champion_place.map(u32::from),
+    ) {
+        commands.entity(badge).insert(art);
+    }
+    commands.entity(group).add_child(badge);
+    let words = super::draw::column(commands, group, kit);
+    commands.entity(words).entry::<Node>().and_modify(|mut n| {
+        n.flex_grow = 1.0;
+        n.row_gap = Val::Px(2.0);
+    });
+    let name = parts::line(
+        commands,
+        kit,
+        &rank_name(rank, lang),
+        kit.m.head,
+        tokens::INK,
+    );
+    commands
+        .entity(name)
+        .insert(crate::hud::tf_bold(kit.fonts, kit.m.head));
+    commands.entity(words).add_child(name);
+    let placing = rank.league == League::Unranked;
+    let figures = if placing {
+        Phrase::RankedPlacements.fill(lang, &[&placements.to_string()])
+    } else {
+        let elo = elo.map(|value| Phrase::RankedElo.fill(lang, &[&value.to_string()]));
+        let record = record.map(|(wins, losses, draws)| {
+            Phrase::RankedRecord.fill(
+                lang,
+                &[&wins.to_string(), &losses.to_string(), &draws.to_string()],
+            )
+        });
+        elo.into_iter()
+            .chain(record)
+            .collect::<Vec<_>>()
+            .join(" · ")
+    };
+    if !figures.is_empty() {
+        label(commands, words, kit, &figures, kit.m.small, tokens::ACCENT);
+    }
+    if placing {
+        let bar = parts::meter(
             commands,
-            group,
             kit,
-            &rank_name(rank, lang),
-            kit.m.text,
-            tokens::INK,
+            f32::from(placements.min(10)) / 10.0,
+            Val::Percent(100.0),
+            tokens::ACCENT,
         );
-        let progress = if rank.league == League::Unranked {
-            Phrase::RankedPlacements.fill(lang, &[&placements.to_string()])
-        } else {
-            elo.map_or_else(String::new, |value| {
-                Phrase::RankedElo.fill(lang, &[&value.to_string()])
-            })
-        };
-        label(commands, group, kit, &progress, kit.m.small, tokens::ACCENT);
+        commands.entity(words).add_child(bar);
     }
 }
 
@@ -209,7 +244,7 @@ fn error(commands: &mut Commands, parent: Entity, kit: Kit, look: &Look) {
             kit,
             Phrase::ShellRetry.text(lang),
             Action::Refresh,
-            (&orders::PLAY, "queue", 2),
+            (&super::ORDER, "queue", 2),
             false,
         );
     }
@@ -230,7 +265,7 @@ fn show_status(commands: &mut Commands, parent: Entity, kit: Kit, look: &Look) -
                     kit,
                     Phrase::RankedCancel.text(lang),
                     Action::Cancel,
-                    (&orders::PLAY, "queue", 1),
+                    (&super::ORDER, "queue", 1),
                     false,
                 );
             }
@@ -252,7 +287,7 @@ fn show_status(commands: &mut Commands, parent: Entity, kit: Kit, look: &Look) -
                     kit,
                     Phrase::RankedResume.text(lang),
                     Action::Resume,
-                    (&orders::PLAY, "queue", 0),
+                    (&super::ORDER, "queue", 0),
                     true,
                 );
             }
@@ -267,12 +302,11 @@ fn show_status(commands: &mut Commands, parent: Entity, kit: Kit, look: &Look) -
             elo,
             delta,
             format,
+            before,
             after,
             ..
         } => {
-            let receipt = receipt(lang, *format, *outcome, *seat, *elo, *delta);
-            label(commands, parent, kit, &receipt, kit.m.text, tokens::GOLD);
-            let progress = if deck.after.league == League::Unranked {
+            let deck_progress = if deck.after.league == League::Unranked {
                 Phrase::RankedPlacements.fill(lang, &[&deck.placement_games.to_string()])
             } else {
                 rank_name(deck.after, lang)
@@ -282,29 +316,63 @@ fn show_status(commands: &mut Commands, parent: Entity, kit: Kit, look: &Look) -
                 &[
                     &format!("{:+}", deck.delta),
                     &deck.elo.to_string(),
-                    &progress,
+                    &deck_progress,
                 ],
             );
-            label(
+            result_card(
                 commands,
                 parent,
                 kit,
-                &deck_receipt,
-                kit.m.small,
-                tokens::ACCENT,
-            );
-            label(
-                commands,
-                parent,
-                kit,
-                &rank_name(*after, lang),
-                kit.m.small,
-                tokens::MUTED,
+                Settled {
+                    format: *format,
+                    result: result(*outcome, *seat),
+                    elo: *elo,
+                    delta: *delta,
+                    before: *before,
+                    after: *after,
+                    deck: &deck_receipt,
+                },
             );
         }
     }
 
     true
+}
+
+/// A settled game from this seat's side.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Verdict {
+    Won,
+    Lost,
+    Drawn,
+}
+
+fn result(outcome: Outcome, seat: u8) -> Verdict {
+    match (outcome, seat) {
+        (Outcome::FirstWins, 0) | (Outcome::SecondWins, 1) => Verdict::Won,
+        (Outcome::Draw, _) => Verdict::Drawn,
+        _ => Verdict::Lost,
+    }
+}
+
+impl Verdict {
+    fn phrase(self) -> Phrase {
+        match self {
+            Self::Won => Phrase::RankedWon,
+            Self::Lost => Phrase::RankedLost,
+            Self::Drawn => Phrase::RankedDrawn,
+        }
+    }
+
+    /// Its glyph and ink: the cup in gold, the cross in danger, the
+    /// handshake in muted ink.
+    fn look(self) -> (char, Color) {
+        match self {
+            Self::Won => (glyph::TROPHY, tokens::GOLD),
+            Self::Lost => (glyph::CLOSE, tokens::DANGER),
+            Self::Drawn => ('\u{f2b5}', tokens::MUTED),
+        }
+    }
 }
 
 pub(super) fn receipt(
@@ -315,20 +383,140 @@ pub(super) fn receipt(
     elo: i32,
     delta: i32,
 ) -> String {
-    let result = match (outcome, seat) {
-        (Outcome::FirstWins, 0) | (Outcome::SecondWins, 1) => Phrase::RankedWon,
-        (Outcome::Draw, _) => Phrase::RankedDrawn,
-        _ => Phrase::RankedLost,
-    };
     Phrase::RankedReceipt.fill(
         lang,
         &[
             format_name(format, lang),
-            result.text(lang),
+            result(outcome, seat).phrase().text(lang),
             &format!("{delta:+}"),
             &elo.to_string(),
         ],
     )
+}
+
+/// What the result card says about a settled game.
+struct Settled<'a> {
+    format: Format,
+    result: Verdict,
+    elo: i32,
+    delta: i32,
+    before: api::Rank,
+    after: api::Rank,
+    /// The deck's line, already in words.
+    deck: &'a str,
+}
+
+/// A rank's small badge, as the result card shows it before and after.
+fn rank_badge(commands: &mut Commands, kit: Kit, rank: api::Rank) -> Entity {
+    let node = commands
+        .spawn((
+            Node {
+                width: kit.m.px(34.0),
+                height: kit.m.px(34.0),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    if let Some(art) = crate::rank_art::RankArt::badge(
+        league_name(rank.league, Lang::En),
+        rank.division,
+        false,
+        rank.champion_place.map(u32::from),
+    ) {
+        commands.entity(node).insert(art);
+    }
+    node
+}
+
+/// The last settled game as a card: the result in its colour, the rank
+/// before and after it, the Elo it moved and where it stands, the deck's line.
+fn result_card(commands: &mut Commands, parent: Entity, kit: Kit, settled: Settled<'_>) {
+    let lang = kit.lang();
+    let (icon, ink) = settled.result.look();
+    let card = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
+                row_gap: kit.m.space(1),
+                padding: UiRect::all(kit.m.space(2)),
+                border: UiRect::all(Val::Px(1.0)),
+                border_radius: BorderRadius::all(Val::Px(tokens::RADIUS_CONTROL)),
+                ..default()
+            },
+            BackgroundColor(tokens::CONTROL.with_alpha(0.45)),
+            BorderColor::all(ink.with_alpha(0.55)),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(parent).add_child(card);
+    let head = parts::row(commands, kit, false);
+    commands.entity(card).add_child(head);
+    let title = parts::marked_line(
+        commands,
+        kit,
+        icon,
+        settled.result.phrase().text(lang),
+        kit.m.head,
+        ink,
+    );
+    let grow = parts::grow(commands);
+    let format = parts::line(
+        commands,
+        kit,
+        format_name(settled.format, lang),
+        kit.m.small,
+        tokens::MUTED,
+    );
+    commands.entity(head).add_children(&[title, grow, format]);
+    let line = parts::row(commands, kit, false);
+    commands.entity(card).add_child(line);
+    let from = rank_badge(commands, kit, settled.before);
+    let arrow = commands
+        .spawn((
+            Text::new(glyph::ARROW_RIGHT.to_string()),
+            crate::hud::icon_tf(kit.fonts, kit.m.small),
+            TextColor(tokens::MUTED),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let to = rank_badge(commands, kit, settled.after);
+    let name = parts::line(
+        commands,
+        kit,
+        &rank_name(settled.after, lang),
+        kit.m.text,
+        tokens::INK,
+    );
+    let grow = parts::grow(commands);
+    let moved = match settled.delta.cmp(&0) {
+        std::cmp::Ordering::Greater => tokens::GAIN,
+        std::cmp::Ordering::Less => tokens::DANGER,
+        std::cmp::Ordering::Equal => tokens::MUTED,
+    };
+    let delta = parts::badge(
+        commands,
+        kit,
+        &format!(
+            "{:+} · {}",
+            settled.delta,
+            Phrase::RankedElo.fill(lang, &[&settled.elo.to_string()])
+        ),
+        moved,
+    );
+    commands
+        .entity(line)
+        .add_children(&[from, arrow, to, name, grow, delta]);
+    label(
+        commands,
+        card,
+        kit,
+        settled.deck,
+        kit.m.small,
+        tokens::ACCENT,
+    );
 }
 
 fn waiting(commands: &mut Commands, parent: Entity, kit: Kit, format: Format, queued_at: i64) {
@@ -373,7 +561,7 @@ fn deck_picker(commands: &mut Commands, parent: Entity, kit: Kit, state: &LobbyS
             Weight::Secondary,
             Press::Ranked(Action::ToggleDecks),
         );
-        orders::stop(commands, picker, &orders::PLAY, "deck");
+        orders::stop(commands, picker, &super::ORDER, "deck");
         commands.entity(parent).add_child(picker);
         if look.picker {
             let decks = choices(state).collect::<Vec<_>>();
@@ -392,7 +580,7 @@ fn deck_picker(commands: &mut Commands, parent: Entity, kit: Kit, state: &LobbyS
                     kit,
                     &d.name,
                     Action::Deck(*id),
-                    (&orders::PLAY, "deck-choice", idx),
+                    (&super::ORDER, "deck-choice", idx),
                     id == selected,
                 );
             }
@@ -406,7 +594,7 @@ fn deck_picker(commands: &mut Commands, parent: Entity, kit: Kit, state: &LobbyS
                         kit,
                         Phrase::ChallengePrevious.text(lang),
                         Action::DeckPage(page - 1),
-                        (&orders::PLAY, "deck-choice", DECK_PAGE),
+                        (&super::ORDER, "deck-choice", DECK_PAGE),
                         false,
                     );
                 }
@@ -417,7 +605,7 @@ fn deck_picker(commands: &mut Commands, parent: Entity, kit: Kit, state: &LobbyS
                         kit,
                         Phrase::ChallengeNext.text(lang),
                         Action::DeckPage(page + 1),
-                        (&orders::PLAY, "deck-choice", DECK_PAGE + 1),
+                        (&super::ORDER, "deck-choice", DECK_PAGE + 1),
                         false,
                     );
                 }
@@ -428,43 +616,65 @@ fn deck_picker(commands: &mut Commands, parent: Entity, kit: Kit, state: &LobbyS
 
 fn join_button(commands: &mut Commands, parent: Entity, kit: Kit, look: &Look) {
     let lang = kit.lang();
-    let reason = if look.held {
-        Some(Phrase::ChallengeLeaveTable)
-    } else if look.deck.is_none() {
-        Some(Phrase::RankedNoDeck)
-    } else if look.busy {
-        Some(Phrase::RankedJoining)
-    } else {
-        None
-    };
-    let join = controls::button_with_icon(
-        commands,
-        kit,
-        glyph::BULLSEYE,
-        if look.recover {
-            Phrase::RankedRestore
-        } else {
-            Phrase::RankedStart
-        }
-        .text(lang),
-        Weight::Primary,
-        reason.map_or(Live::Yes, |r| Live::No(r.text(lang))),
-        None,
-        Press::Ranked(Action::Join),
-    );
-    if reason.is_none() {
-        orders::stop(commands, join, &orders::PLAY, "queue");
-    }
-    commands.entity(parent).add_child(join);
-    if let Some(r) = reason {
-        label(
+    if look.deck.is_none() && !look.held {
+        // No deck to play yet: the desk says so in its middle and leads to
+        // the deck library, instead of a grey button and a line beside it.
+        let to_decks = controls::button_with_icon(
             commands,
-            parent,
             kit,
-            r.text(lang),
-            kit.m.small,
-            tokens::MUTED,
+            glyph::LIBRARY,
+            Phrase::ShellDecks.text(lang),
+            Weight::Secondary,
+            Live::Yes,
+            None,
+            Press::Hub(crate::lobby::HubPress::Tab(crate::lobby::Hub::Decks)),
         );
+        orders::stop(commands, to_decks, &super::ORDER, "queue");
+        let empty = crate::shellkit::states::empty(
+            commands,
+            kit,
+            glyph::LIBRARY,
+            Phrase::RankedNoDeck.text(lang),
+            Some(to_decks),
+        );
+        commands.entity(parent).add_child(empty);
+    } else {
+        let reason = if look.held {
+            Some(Phrase::ChallengeLeaveTable)
+        } else if look.busy {
+            Some(Phrase::RankedJoining)
+        } else {
+            None
+        };
+        let join = controls::button_with_icon(
+            commands,
+            kit,
+            glyph::BULLSEYE,
+            if look.recover {
+                Phrase::RankedRestore
+            } else {
+                Phrase::RankedStart
+            }
+            .text(lang),
+            Weight::Primary,
+            reason.map_or(Live::Yes, |r| Live::No(r.text(lang))),
+            None,
+            Press::Ranked(Action::Join),
+        );
+        if reason.is_none() {
+            orders::stop(commands, join, &super::ORDER, "queue");
+        }
+        commands.entity(parent).add_child(join);
+        if let Some(r) = reason {
+            label(
+                commands,
+                parent,
+                kit,
+                r.text(lang),
+                kit.m.small,
+                tokens::MUTED,
+            );
+        }
     }
     label(
         commands,
@@ -474,14 +684,20 @@ fn join_button(commands: &mut Commands, parent: Entity, kit: Kit, look: &Look) {
         kit.m.small,
         tokens::MUTED,
     );
-    label(
-        commands,
-        parent,
-        kit,
-        Phrase::RankedPlacementHelp.text(lang),
-        kit.m.small,
-        tokens::MUTED,
-    );
+    // How placement works matters while one is being placed, not after.
+    if look
+        .own
+        .is_none_or(|(rank, ..)| rank.league == League::Unranked)
+    {
+        label(
+            commands,
+            parent,
+            kit,
+            Phrase::RankedPlacementHelp.text(lang),
+            kit.m.small,
+            tokens::MUTED,
+        );
+    }
 }
 
 pub(super) fn animate(

@@ -115,6 +115,7 @@ mod tests {
             action,
             hash: String::new(),
             seen: None,
+            sealed: None,
         }
     }
     #[test]

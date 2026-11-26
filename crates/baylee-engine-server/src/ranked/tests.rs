@@ -34,6 +34,7 @@ fn setup() -> v1::RankedEngineSetup {
             seat_guests: vec![false; 2],
             execution: identity().to_metadata(),
             preset_json: serde_json::to_vec(&preset).unwrap(),
+            ..Default::default()
         }),
     }
 }

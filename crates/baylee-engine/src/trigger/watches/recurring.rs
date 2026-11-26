@@ -196,8 +196,18 @@ pub(crate) fn collect_general(
                 rem.object,
                 identity,
                 rem.subject,
-                rem.amount,
-                rem.player,
+                rem.amount.or_else(|| {
+                    events::event_amount_for(
+                        trigger,
+                        &entry.event,
+                        events,
+                        state,
+                        delayed.controller,
+                        context,
+                    )
+                }),
+                rem.player
+                    .or_else(|| events::event_player_for(trigger, entry, state)),
                 None,
                 None,
                 rem.mana_value,

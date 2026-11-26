@@ -389,6 +389,16 @@ pub(super) fn run(press: Press, cx: Cx<'_, '_, '_, '_, '_>) {
         {
             return;
         }
+        if state.giving.open
+            && !matches!(
+                press,
+                Press::Front(
+                    FrontPress::Donate | FrontPress::CloseDonate | FrontPress::OpenGiving(_)
+                ) | Press::Shared(SharedPress::PickerNothing)
+            )
+        {
+            return;
+        }
         if state.confirmation.is_some()
             && !matches!(
                 press,

@@ -77,6 +77,7 @@ pub mod feltveins;
 pub mod feltwarp;
 pub mod filterdialog;
 pub mod firewheel;
+pub mod funding;
 pub mod gamelog;
 pub mod granted;
 pub mod graphics;

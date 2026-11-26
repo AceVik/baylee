@@ -251,6 +251,8 @@ pub(super) async fn run() {
     // Before serving, so it is done by the time anybody can upload (#301).
     account::sweep_pictures(&state).await;
     spawn_cleanup(state.clone());
+    // A stop stores the running games' records first (`record::flush_on_stop`).
+    record::flush_on_stop(state.clone());
     spawn_ticket_sweep(state.clone());
     spawn_session_sweep(state.clone());
     central::spawn_local_check(state.clone());

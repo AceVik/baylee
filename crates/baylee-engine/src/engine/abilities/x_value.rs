@@ -49,6 +49,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 CostPart::SacrificeX(filter)
                 | CostPart::TapX(filter)
                 | CostPart::DiscardX(filter)
+                | CostPart::RevealFromHandX(filter)
                 | CostPart::ExileFromGraveyardX(filter) => (
                     u32::try_from(
                         cost_wizard::menu(&self.state, player, source, &price.parts, part).len(),
@@ -61,6 +62,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             (CostPart::SacrificeX(_), CostPart::Sacrifice(other))
                             | (CostPart::TapX(_), CostPart::TapOther(other))
                             | (CostPart::DiscardX(_), CostPart::Discard(other))
+                            | (CostPart::RevealFromHandX(_), CostPart::RevealFromHand(other))
                             | (
                                 CostPart::ExileFromGraveyardX(_),
                                 CostPart::ExileFromGraveyard(other),

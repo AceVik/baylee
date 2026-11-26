@@ -4,8 +4,46 @@ use super::{
     SessionRegistry, curtain, ended, error, seat_frames, v1,
 };
 
+/// The most a resumed record may unpack to. A two-seat game writes 100–190
+/// KiB; the gateway keeps at most 64 MiB of a record compressed.
+const MAX_RESUMED_BYTES: u64 = 256 * 1024 * 1024;
+
+/// The session a stored record holds, for a game whose server restarted
+/// (`docs/proposals/games-survive-restarts.md`): unpacked within
+/// [`MAX_RESUMED_BYTES`], played again by [`Session::resume_for_execution`]
+/// on exactly the artifact that played it, and still going. A ranked duel
+/// resumes through Central's journal, never here.
+fn resumed<D: LoopDetection, R: SessionRegistry>(
+    packed: &[u8],
+    identity: &baylee_protocol::execution::Identity,
+    preset: &GamePreset,
+) -> Result<Session<D, R>, &'static str> {
+    use std::io::Read as _;
+    if preset.house_rules.ranked_duel {
+        return Err("a ranked duel is not resumed from its record");
+    }
+    let mut record = Vec::new();
+    flate2::read::MultiGzDecoder::new(packed)
+        .take(MAX_RESUMED_BYTES + 1)
+        .read_to_end(&mut record)
+        .map_err(|_| "the stored record does not unpack")?;
+    if record.len() as u64 > MAX_RESUMED_BYTES {
+        return Err("the stored record is too large to resume");
+    }
+    let session = Session::resume_for_execution(&record, identity)
+        .map_err(|_| "the stored record does not resume on this engine")?;
+    if matches!(
+        session.pending(),
+        baylee_engine::choice::Pending::GameOver(_)
+    ) {
+        return Err("the stored record is of a game that is over");
+    }
+    Ok(session)
+}
+
 impl<D: LoopDetection, R: SessionRegistry, T: crate::recording::Transport> EngineRunner<D, R, T> {
-    /// Builds the game.
+    /// Builds the game, or picks it up again from its record
+    /// (`GameSetup.resume_record`).
     pub(super) fn setup(&mut self, setup: &v1::GameSetup) -> Vec<Envelope> {
         if self.session.is_some() {
             return Vec::new();
@@ -17,8 +55,16 @@ impl<D: LoopDetection, R: SessionRegistry, T: crate::recording::Transport> Engin
         else {
             return vec![ended(&setup.game_id, "invalid engine execution identity")];
         };
-        let Some(mut session) = Session::recorded_for_execution(&preset, &identity) else {
-            return vec![ended(&setup.game_id, "the preset does not make a game")];
+        let resuming = !setup.resume_record.is_empty();
+        let built = if resuming {
+            resumed::<D, R>(&setup.resume_record, &identity, &preset)
+        } else {
+            Session::recorded_for_execution(&preset, &identity)
+                .ok_or("the preset does not make a game")
+        };
+        let mut session = match built {
+            Ok(session) => session,
+            Err(why) => return vec![ended(&setup.game_id, why)],
         };
         // These read one frame at a time; see `Session::tell_views_whole`.
         #[cfg(test)]
@@ -39,6 +85,22 @@ impl<D: LoopDetection, R: SessionRegistry, T: crate::recording::Transport> Engin
         session.tell_time(self.now);
         self.game_id.clone_from(&setup.game_id);
         self.ranked_duel = preset.house_rules.ranked_duel;
+        if resuming {
+            // The table was open before its server restarted: no curtain, the
+            // record goes on at the next piece, and a player whose connection
+            // the record says was lost is still lost here, so their return is
+            // told. Every other seat is simply absent until it dials again.
+            self.record_seq = setup.resume_pieces;
+            self.record_sent_at = self.now;
+            self.record_waiting_since = None;
+            self.lost = session
+                .lost_seats()
+                .iter()
+                .map(|lost| lost.seat.get())
+                .collect();
+            self.session = Some(session);
+            return Vec::new();
+        }
         // The header is waiting from here.
         self.record_sent_at = self.now;
         self.record_waiting_since = Some(self.now);
@@ -64,7 +126,7 @@ impl<D: LoopDetection, R: SessionRegistry, T: crate::recording::Transport> Engin
     /// sent the same at the end of its own batch. The clocks start here too,
     /// because this is the first moment [`EngineRunner::clocks`] names any.
     pub fn raise_curtain(&mut self) -> Vec<Envelope> {
-        if self.curtain.take().is_none() {
+        if self.held || self.curtain.take().is_none() {
             return Vec::new();
         }
         self.enter_at = None;
@@ -85,6 +147,9 @@ impl<D: LoopDetection, R: SessionRegistry, T: crate::recording::Transport> Engin
     /// Scheduled arrival, at which play and its clocks may begin.
     #[must_use]
     pub fn entrance_deadline(&self) -> Option<u64> {
+        if self.held {
+            return None;
+        }
         self.enter_at
             .map(|at| at.saturating_add(baylee_protocol::TABLE_ENTRANCE_MS))
     }
@@ -100,7 +165,7 @@ impl<D: LoopDetection, R: SessionRegistry, T: crate::recording::Transport> Engin
 
     /// Preparation failed. Never start decision clocks for an unready seat.
     pub fn preparation_expired(&mut self) -> Vec<Envelope> {
-        if self.curtain.is_none() || self.enter_at.is_some() {
+        if self.held || self.curtain.is_none() || self.enter_at.is_some() {
             return Vec::new();
         }
         self.ended = true;

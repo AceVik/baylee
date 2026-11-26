@@ -1029,7 +1029,11 @@ fn moves_of(game: &Game) -> anyhow::Result<BTreeMap<u8, Vec<Move>>> {
                 });
                 let _ = session.act(player, action);
             }
-            Line::Chair { .. } | Line::DeclaredMind { .. } | Line::End { .. } => {}
+            Line::Chair { .. }
+            | Line::Connection { .. }
+            | Line::Setting { .. }
+            | Line::DeclaredMind { .. }
+            | Line::End { .. } => {}
         }
     }
     ensure!(

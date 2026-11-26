@@ -25,14 +25,15 @@ pub(super) fn catalogue(
         .collect();
     elsewhere(commands, body, kit, lang, model, &live);
     if model.catalogue.is_empty() && model.loaded {
-        layout::notice(
+        let section = layout::section(commands, body, kit);
+        let empty = crate::shellkit::states::empty(
             commands,
-            body,
             kit,
-            crate::hud::glyph::INFO,
+            crate::hud::glyph::CALENDAR,
             Phrase::ChallengeEmpty.text(lang),
-            tokens::INK,
+            None,
         );
+        commands.entity(section).add_child(empty);
     }
     let stacked = layout::tight(kit);
     if !live.is_empty() {
@@ -169,6 +170,7 @@ fn current(
         let line = crate::lobby::parts::glyph_line(commands, kit, icon, &text, tokens::MUTED);
         commands.entity(card).add_child(line);
     }
+    presentation::countdown(commands, card, kit, lang, period.ends_at);
     let space = crate::lobby::parts::grow(commands);
     commands.entity(card).add_child(space);
     let resume = model

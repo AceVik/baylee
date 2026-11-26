@@ -774,6 +774,34 @@ pub enum Condition {
         /// Only placements made by "you" (the ability's controller) count.
         by_you: bool,
     },
+    /// Whether the caster controlled a permanent with `SubtypeId` as this spell
+    /// (or the spell that became this permanent, `CR 400.7d`, or a copy of it,
+    /// `CR 707.10`) finished being cast (`CR 601.2i`; Tarkir Dragon-reveal
+    /// cycle). Appended to preserve replay identities.
+    ControlledSubtypeOnCast(baylee_core::ids::SubtypeId),
+    /// This source incarnation (spell on the stack or the permanent it became on
+    /// resolving, `CR 400.7d`, `CR 603.4`, `CR 608.2h`) was cast by any player
+    /// (*Anti-Venom, Horrifying Healer*, *Doomsday Excruciator*, *Wedding Ring*).
+    /// False for spell copies (`CR 707.10`) and uncast permanents. Appended to
+    /// preserve replay identities.
+    SourceWasCast,
+    /// This source incarnation (spell on the stack or the permanent it became on
+    /// resolving, `CR 400.7d`, `CR 603.4`, `CR 608.2h`) was cast from anywhere
+    /// other than a hand (*Antiquities on the Loose*, *Otterball Antics*). False
+    /// for spell copies (`CR 707.10`) and uncast objects. Appended to preserve
+    /// replay identities.
+    CastFromOtherThanHand,
+    /// This source incarnation (spell on the stack or the permanent it became on
+    /// resolving, `CR 400.7d`, `CR 603.4`, `CR 608.2h`) was cast from `ZoneRef`
+    /// (*Increasing Devotion*, *Delayed Blast Fireball*, *Fblthp, the Lost*,
+    /// *Retrieve the Esper*). False for spell copies (`CR 707.10`) and uncast
+    /// objects. Appended to preserve replay identities.
+    SourceCastFromZone(crate::ZoneRef),
+    /// "If this spell's mayhem cost was paid" (`CR 702.187b`; *Sandman's
+    /// Quicksand*), asked of the source spell or the permanent it became on
+    /// resolving from the stack while it remains on the battlefield. Appended
+    /// to preserve replay identities.
+    MayhemCostPaid,
 }
 
 /// Trigger conditions for triggered abilities.
@@ -1384,6 +1412,39 @@ pub enum Trigger {
         attacked: AttackedTargetKind,
         /// Optional exact total attacker count declared attacking that defender.
         exact_count: Option<u8>,
+    },
+    /// Day becomes night or night becomes day (`CR 730.2`, `CR 732.1a`;
+    /// *Brimstone Vandal*, *The Celestus*, *Celestus Sanctifier*, *Firmament
+    /// Sage*, *Gavony Dawnguard*, *Vadrik, Astral Archmage*). Does not fire
+    /// when the game first becomes day or night from neither designation.
+    /// Appended to preserve replay identities.
+    DayNightChanges,
+    /// One or more cards matching `filter` are discarded (`CR 603.2c`,
+    /// `CR 701.9a`; Forge `T: Mode$ DiscardedAll`: *Captain Howler*, *Rielle,
+    /// the Everwise*, *Toluz, Clever Conductor*, *Tinybones, Pocket Nuisance*,
+    /// *Hostile Investigator*, *Veronica, Dissident Scribe*).
+    ///
+    /// - When `per_player` is `true`, fires once per discarding player matching
+    ///   `who` in a simultaneous discard batch; when `false` ("Whenever one or
+    ///   more players discard one or more cards"), fires once for the whole
+    ///   batch across all matching players.
+    /// - When `first_this_turn` is `true`, fires only if no earlier discard run
+    ///   this turn already included a matching discard by that player (or by any
+    ///   matching player when `!per_player`).
+    /// - Binds `EventPlayer` to the discarding player, `EventAmount` to the
+    ///   count of matching cards discarded in that batch, and
+    ///   `SubjectContext::found` to the post-discard graveyard incarnations of
+    ///   those cards. Appended to preserve replay identities.
+    OneOrMoreCardsDiscarded {
+        /// Which discarding player(s) qualify.
+        who: crate::effect::PlayerRel,
+        /// Card filter evaluated on the discarded card (must be known when not `Filter::Any`).
+        filter: &'static Filter,
+        /// Restrict to the first matching discard batch this turn.
+        first_this_turn: bool,
+        /// `true` for per-player ("Whenever you / a player discards one or more…"),
+        /// `false` for whole-table ("Whenever one or more players discard one or more…").
+        per_player: bool,
     },
 }
 

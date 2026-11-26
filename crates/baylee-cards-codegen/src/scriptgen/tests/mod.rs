@@ -20,6 +20,12 @@ mod reading;
 mod saga_ward_convoke;
 mod static_supertypes;
 mod tokens_and_zones;
+mod wave16a;
+mod wave16b;
+mod wave16c;
+mod wave17a;
+mod wave17b;
+mod wave17c;
 mod wave24a;
 mod wave24b;
 mod wave24c;
@@ -41,6 +47,14 @@ mod wave27b;
 mod wave27c;
 mod wave27d;
 mod wave27e;
+mod wave28a;
+mod wave28b;
+mod wave28c;
+mod wave28d;
+mod wave29a;
+mod wave29b;
+mod wave29c;
+mod wave29d;
 
 fn cats() -> SubtypeCatalogs {
     let mut c = SubtypeCatalogs {

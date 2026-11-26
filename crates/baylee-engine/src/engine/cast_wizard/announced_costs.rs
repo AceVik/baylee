@@ -91,12 +91,20 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 || self.can_make_mana_for_cast(paying.player)
                 || {
                     let mut cost = wizard_total_cost(face, paying);
-                    if face.waterbend && paying.kicked {
-                        let waterbend_generic = face
-                            .additional_costs
-                            .iter()
-                            .fold(ManaCost::ZERO, |sum, add| sum.combine(&add.mana))
-                            .generic_total();
+                    if face.waterbend && (paying.kicked || paying.optional_cost_paid) {
+                        let mut waterbend = if paying.kicked {
+                            face.additional_costs
+                                .iter()
+                                .fold(ManaCost::ZERO, |sum, add| sum.combine(&add.mana))
+                        } else {
+                            ManaCost::ZERO
+                        };
+                        if paying.optional_cost_paid
+                            && let Some(opt) = face.optional_cost
+                        {
+                            waterbend = waterbend.combine(&opt.mana);
+                        }
+                        let waterbend_generic = waterbend.generic_total();
                         let taps = u32::try_from(
                             casting::waterbend_sources(&self.state, paying.player).len(),
                         )
@@ -129,6 +137,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
         let mut paying = wizard.clone();
         paying.bargained = true;
+        self.refresh_target_cost_adjustments(&mut paying);
         if !self.announced_cost_payable(&paying) {
             return None;
         }

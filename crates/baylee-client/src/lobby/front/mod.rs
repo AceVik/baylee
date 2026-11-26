@@ -38,6 +38,7 @@
 //! frame's pose onto whatever panels stand.
 
 pub(crate) mod about;
+pub(crate) mod donate;
 pub(crate) mod door;
 pub(crate) mod faces;
 pub(crate) mod keys;
@@ -1615,6 +1616,10 @@ pub(super) fn front_door(
                 .add_children(&[brand, tagline, stage, community]);
             let top_right = door::top_right_controls(commands, state, kit, music_on);
             commands.entity(root).add_child(top_right);
+            if donate::showing(state) {
+                let corner = donate::corner(commands, state, kit);
+                commands.entity(root).add_child(corner);
+            }
         }
         commands
             .entity(page)
@@ -1645,6 +1650,12 @@ pub(super) fn front_door(
         commands.entity(holder).add_child(line);
         holder
     };
+    // The donation sheet never stands beside the Fan Content notice
+    // (`docs/legal.md` §"Donations"): while it is up the colophon keeps its
+    // place but is not drawn, so nothing under the scrim moves.
+    if state.giving.open {
+        commands.entity(colophon).insert(Visibility::Hidden);
+    }
     commands.entity(root).add_child(colophon);
     if state.front_menu {
         let veil = commands
@@ -1665,6 +1676,7 @@ pub(super) fn front_door(
         commands.entity(root).add_child(veil);
     }
     door::community_dialog(commands, root, state, kit);
+    donate::sheet(commands, root, state, kit);
 }
 
 /// A control of the front door: the saved gateways, the account form,
@@ -1689,6 +1701,12 @@ pub(crate) enum FrontPress {
     OpenCommunityDialog(CommunityKind),
     /// Closes the QR-code modal dialog.
     CloseCommunityDialog,
+    /// Opens the donation sheet (the button at the top left).
+    Donate,
+    /// Closes the donation sheet.
+    CloseDonate,
+    /// Opens one of the places to give in the browser.
+    OpenGiving(baylee_client_core::funding::Platform),
     /// Swap the form between log-in and sign-up.
     ToggleRegistering,
     /// Send the sign-in form.
@@ -1795,6 +1813,12 @@ impl FrontPress {
             FrontPress::CloseCommunityDialog => {
                 state.community_dialog = None;
             }
+            FrontPress::Donate => {
+                state.front_menu = false;
+                state.community_dialog = None;
+                state.giving.open = true;
+            }
+            FrontPress::CloseDonate => state.giving.open = false,
             FrontPress::Nothing => {}
             FrontPress::BackToSignIn => {
                 state.back_a_face();
@@ -1858,6 +1882,7 @@ impl FrontPress {
             | FrontPress::OpenWebsite
             | FrontPress::OpenChangelog
             | FrontPress::OpenExternal(_)
+            | FrontPress::OpenGiving(_)
             | FrontPress::OpenImpressum) => {
                 if state.community_dialog.is_some() {
                     state.community_dialog = None;

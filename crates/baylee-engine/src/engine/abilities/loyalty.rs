@@ -125,10 +125,53 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// second activation, which refused it, and the target question was
     /// left with nothing to answer it.
     pub(crate) fn loyalty_cost(&self, source: ObjectId, ability_index: u32) -> Option<i8> {
-        match self.activation_definition(source, ability_index)? {
-            AbilityDef::Loyalty { cost, .. } => Some(cost),
-            _ => None,
+        let AbilityDef::Loyalty { cost, .. } = self.activation_definition(source, ability_index)?
+        else {
+            return None;
+        };
+        if !self.state.effects.may_change_or_forbid_abilities() {
+            return Some(cost);
         }
+        let Some(object) = self.state.object(source) else {
+            return Some(cost);
+        };
+        let mut adjusted = i16::from(cost);
+        for effect in self.state.effects.iter() {
+            let baylee_cards_dsl::Modifier::AdjustLoyaltyCost { who, filter, delta } =
+                effect.modifier
+            else {
+                continue;
+            };
+            if delta == 0 {
+                continue;
+            }
+            let player_ok =
+                eval::players_for_source(who, &self.state, effect.controller, effect.source)
+                    .is_some_and(|players| players.contains(&object.controller));
+            if !player_ok {
+                continue;
+            }
+            let outer_ok = matches!(
+                effect.filter,
+                crate::effects::EffectFilter::Dsl(
+                    baylee_cards_dsl::Filter::Any | baylee_cards_dsl::Filter::This
+                ) | crate::effects::EffectFilter::DslControlledBy(_, _)
+            ) || crate::effects::applies_to(&self.state, effect, object);
+            if !outer_ok {
+                continue;
+            }
+            let context = crate::text_changes::RuleContext {
+                source: effect.source.unwrap_or(source),
+                text: self.state.effect_text(effect),
+                resolved_name: None,
+                resolved_subtype: effect.filter.chosen_subtype(),
+                reference: None,
+            };
+            if eval::matches_with_context(filter, &self.state, object, effect.controller, context) {
+                adjusted = adjusted.saturating_add(i16::from(delta));
+            }
+        }
+        Some(i8::try_from(adjusted.clamp(i16::from(i8::MIN), i16::from(i8::MAX))).unwrap_or(cost))
     }
 
     /// The second instance of "target" on a loyalty ability, if it prints

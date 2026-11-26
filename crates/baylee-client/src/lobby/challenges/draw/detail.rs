@@ -95,6 +95,9 @@ fn brief(
     );
     commands.entity(goal).add_child(target);
     presentation::calendar(commands, goal, kit, lang, period);
+    if !task.withdrawn {
+        presentation::countdown(commands, goal, kit, lang, period.ends_at);
+    }
 }
 
 fn progress(commands: &mut Commands, card: Entity, kit: Kit, lang: Lang, model: &State) {
@@ -111,12 +114,20 @@ fn progress(commands: &mut Commands, card: Entity, kit: Kit, lang: Lang, model: 
         .best_turn
         .map_or_else(|| "—".into(), |turn| turn.to_string());
     let band = layout::split(commands, card, kit, false);
-    for (caption, value) in [
-        (Phrase::ChallengeStatStarts, progress.starts.to_string()),
-        (Phrase::ChallengeStatFailures, progress.failures.to_string()),
-        (Phrase::ChallengeStatBest, best),
+    for (icon, caption, value) in [
+        (
+            crate::hud::glyph::PLAY,
+            Phrase::ChallengeStatStarts,
+            progress.starts.to_string(),
+        ),
+        (
+            crate::hud::glyph::CLOSE,
+            Phrase::ChallengeStatFailures,
+            progress.failures.to_string(),
+        ),
+        (crate::hud::glyph::FINISH, Phrase::ChallengeStatBest, best),
     ] {
-        layout::stat(commands, band, kit, &value, caption.text(lang));
+        layout::stat(commands, band, kit, icon, &value, caption.text(lang));
     }
     if let Some(at) = progress.completed_at {
         let message = format!(
@@ -357,8 +368,10 @@ fn rankings(commands: &mut Commands, scores: Entity, kit: Kit, lang: Lang, model
     );
     board_tabs(commands, scores, kit, lang, model);
     standings(commands, scores, kit, lang, model);
-    let space = crate::lobby::parts::grow(commands);
-    commands.entity(scores).add_child(space);
+    if !model.standings.is_empty() {
+        let space = crate::lobby::parts::grow(commands);
+        commands.entity(scores).add_child(space);
+    }
     pager(commands, scores, kit, lang, model);
 }
 
@@ -404,27 +417,23 @@ fn standings(commands: &mut Commands, scores: Entity, kit: Kit, lang: Lang, mode
             Phrase::ChallengeStatTime.text(lang),
         ],
         Tone::Head,
+        None,
     );
     if model.standings.is_empty() && !model.busy {
-        let empty = commands
-            .spawn((
-                Node {
-                    width: percent(100),
-                    justify_content: JustifyContent::Center,
-                    padding: UiRect::vertical(kit.m.space(4)),
-                    flex_shrink: 0.0,
-                    ..default()
-                },
-                Pickable::IGNORE,
-            ))
-            .id();
-        label(
+        // No score yet: the ranking says so in its middle, under a cup,
+        // as every empty list of the lobby does.
+        let empty = crate::shellkit::states::empty(
             commands,
-            empty,
             kit,
+            crate::hud::glyph::TROPHY,
             Phrase::ChallengeNoScores.text(lang),
-            tokens::MUTED,
+            None,
         );
+        commands.entity(empty).entry::<Node>().and_modify(|mut n| {
+            n.width = percent(100);
+            n.flex_grow = 1.0;
+            n.justify_content = JustifyContent::Center;
+        });
         commands.entity(scores).add_child(empty);
     }
     for score in &model.standings {
@@ -449,6 +458,7 @@ fn standings(commands: &mut Commands, scores: Entity, kit: Kit, lang: Lang, mode
                 &formatting::elapsed(score.milliseconds),
             ],
             if score.own { Tone::Own } else { Tone::Other },
+            usize::try_from(score.rank).ok(),
         );
     }
 }
@@ -505,13 +515,21 @@ struct Columns([f32; 5]);
 impl Columns {
     fn of(kit: Kit) -> Self {
         Self(if layout::tight(kit) {
-            [36.0, 0.0, 44.0, 76.0, 76.0]
+            [44.0, 0.0, 48.0, 88.0, 84.0]
         } else {
-            [52.0, 0.0, 64.0, 104.0, 104.0]
+            [60.0, 0.0, 64.0, 124.0, 116.0]
         })
     }
 
-    fn line(self, commands: &mut Commands, root: Entity, kit: Kit, cells: [&str; 5], tone: Tone) {
+    fn line(
+        self,
+        commands: &mut Commands,
+        root: Entity,
+        kit: Kit,
+        cells: [&str; 5],
+        tone: Tone,
+        place: Option<usize>,
+    ) {
         let line = commands
             .spawn((
                 Node {
@@ -524,7 +542,9 @@ impl Columns {
                     },
                     flex_shrink: 0.0,
                     align_items: AlignItems::Center,
-                    column_gap: kit.m.space(1),
+                    // Two steps between columns: a right-aligned number never
+                    // meets the next column's name in a long German heading.
+                    column_gap: kit.m.space(2),
                     padding: UiRect::axes(kit.m.space(2), kit.m.space(0)),
                     border: UiRect::bottom(px_fixed(1.0)),
                     border_radius: if tone == Tone::Own {
@@ -544,6 +564,20 @@ impl Columns {
             ))
             .id();
         for (index, (text, width)) in cells.into_iter().zip(self.0).enumerate() {
+            if index == 0
+                && let Some(place) = place
+            {
+                let cell = crate::lobby::parts::place_cell(
+                    commands,
+                    kit,
+                    place,
+                    kit.m.px(width),
+                    kit.m.text,
+                    tokens::INK,
+                );
+                commands.entity(line).add_child(cell);
+                continue;
+            }
             let name = index == 1;
             let font = match tone {
                 Tone::Head => tf_bold(kit.fonts, kit.m.small),

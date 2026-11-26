@@ -1229,21 +1229,21 @@ pub mod prelude {
     pub use crate::counters;
     pub use crate::effect::{
         Amount, AttachHost, ChooseMove, ChooseZone, ColorSubject, CombatWatchEvent, CopyCleanup,
-        CounterKind, DamageRedirectTo, DamageRider, DamageTo, DefinedObjects, DelayedDuration,
-        DelayedObservation, DelayedStep, DelayedTriggerWhen, DivisionAmount, Effect, ExileMana,
-        ExilePermission, ExilePlay, ExileUntil, Find, LookRest, ManaDistribution, ManaRestriction,
-        ManaSource, ManaUse, ManaValueBound, ManaValueCmp, ModalRestriction, MoveSubject,
-        NumberChoiceKind, PeekPickDest, PeekRestDest, PlayCostMode, PlayCount, PlaySource,
-        PlayWindow, PlayerRel, ReflexiveEvent, ReflexiveWhen, RepeatDomain, RevealUntilFound,
-        RevealUntilRest, SearchDest, SourceLeaveAction, SpendRider, TargetChooser,
-        TargetConstraint, TargetReq, TargetSlot, TargetSpec, ThisWay, TokenDef, TriggerRemember,
-        VariablePayKind, VoteObjectAction, VoteOption, VoteOutcome, ZoneSel,
+        CounterDonor, CounterKind, DamageRedirectTo, DamageRider, DamageTo, DefinedObjects,
+        DelayedDuration, DelayedObservation, DelayedStep, DelayedTriggerWhen, DivisionAmount,
+        DoublePtSubject, Effect, ExileMana, ExilePermission, ExilePlay, ExileUntil, Find, LookRest,
+        ManaDistribution, ManaRestriction, ManaSource, ManaUse, ManaValueBound, ManaValueCmp,
+        ModalRestriction, MoveSubject, NumberChoiceKind, PeekPickDest, PeekRestDest, PlayCostMode,
+        PlayCount, PlaySource, PlayWindow, PlayerRel, ReflexiveEvent, ReflexiveWhen, RepeatDomain,
+        RevealUntilFound, RevealUntilRest, SearchDest, SourceLeaveAction, SpendRider,
+        TargetChooser, TargetConstraint, TargetReq, TargetSlot, TargetSpec, ThisWay, TokenDef,
+        TriggerRemember, VariablePayKind, VoteObjectAction, VoteOption, VoteOutcome, ZoneSel,
     };
     pub use crate::filter::{Filter, OriginalExpansion, ZoneRef, ZoneRef as ZoneKind};
     pub use crate::static_ability::{
         AbilityDonorZone, AltCastPrice, AltCastZones, CounterReplaceOp, DamageAmountReplacement,
-        DamageRecipients, DamagedByScope, Duration, LAYERS, Layer, LifeGainOp, Modifier, PtCount,
-        ReplacementRule, SpellCastMetric, StaticAbility,
+        DamageRecipients, DamagedByScope, Duration, GraveyardAltKind, LAYERS, Layer, LifeGainOp,
+        Modifier, PtCount, ReplacementRule, SpellCastMetric, StaticAbility, TriggerCause,
     };
     pub use crate::{
         ALL_MANA_COLORS, ANY_COLOR_MANA, BeholdOrPay, CardDef, CommanderRule, Coverage,

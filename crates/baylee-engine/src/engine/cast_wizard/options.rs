@@ -219,10 +219,14 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     || !casting::graveyard_face_permissions(&self.state, player, card, 0).is_empty()
                     || face.flashback.is_some()
                     || face.jump_start
+                    || casting::jump_start_granted(&self.state, card)
                     || o.characteristics()
                         .keywords
                         .contains(baylee_cards_dsl::KeywordSet::RETRACE)
                     || face.escape.is_some()
+                    || (face.mayhem.is_some()
+                        && casting::mayhem_discarded_this_turn(&self.state, player, o))
+                    || casting::any_graveyard_alt_open(&self.state, player, card)
             });
             if !front_too && !casting::has_alt_cast_grant(&self.state, &self.lookup, player, card) {
                 return Ok((options, Vec::new()));
@@ -280,7 +284,29 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     cost: price(beam),
                 });
             }
-            if face.jump_start
+            if let Some(mayhem) = face.mayhem
+                && self
+                    .state
+                    .object(card)
+                    .is_some_and(|o| casting::mayhem_discarded_this_turn(&self.state, player, o))
+                && afford(&mayhem.with_x(0))
+                && casting::additional_payment_capacity_for(
+                    &self.state,
+                    player,
+                    card,
+                    face,
+                    Some(CastModeKind::Mayhem),
+                    &[],
+                )
+                .is_some()
+            {
+                options.push(CastModeDesc {
+                    index: 0,
+                    kind: CastModeKind::Mayhem,
+                    cost: price(mayhem),
+                });
+            }
+            if (face.jump_start || casting::jump_start_granted(&self.state, card))
                 && face.types.intersects(
                     baylee_core::types::TypeSet::INSTANT
                         .union(baylee_core::types::TypeSet::SORCERY),
@@ -415,7 +441,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let front_additional_ok =
             casting::additional_payment_capacity_for(&self.state, player, card, face, None, &[])
                 .is_some();
-        let normal_route_ok = front_timing_ok
+        let normal_route_base_ok = front_timing_ok
             && front_additional_ok
             && !modal_only
             && ((foretell_cost.is_none() && !plot_ok)
@@ -432,9 +458,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 )
                 .is_ok())
             && casting::has_a_printed_cost(&face.mana_cost)
-            && afford_normal(&min_normal_cost.with_x(0))
             && (face.kicked_targets.is_none()
                 || casting::ordinary_targets_reachable(&self.state, def, player, card));
+        let normal_route_ok = normal_route_base_ok && afford_normal(&min_normal_cost.with_x(0));
         if normal_route_ok {
             // Keep the ordinary cast first beside alternative graveyard costs.
             // The final pass assigns indices after every option is assembled.
@@ -453,8 +479,59 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         if let Some(opt_cost) = face.optional_cost {
             let opt_mana = normal_cost.combine(&opt_cost.mana);
             let min_opt_mana = min_normal_cost.combine(&opt_cost.mana);
-            let normal_optional = normal_route_ok
-                && afford_normal(&min_opt_mana.with_x(0))
+            let mut opt_spell = obj.as_ref().clone();
+            if !opt_spell
+                .riders
+                .contains(&crate::object::Rider::OptionalCostPaid)
+            {
+                opt_spell
+                    .riders
+                    .push(crate::object::Rider::OptionalCostPaid);
+            }
+            let opt_adj =
+                casting::spell_adjustment_with_def(&self.state, player, &opt_spell, Some(def));
+            let opt_kw = if face.waterbend {
+                u32::try_from(casting::waterbend_sources(&self.state, player).len())
+                    .unwrap_or(u32::MAX)
+                    .min(opt_cost.mana.generic_total())
+            } else {
+                casting::keyword_reduction(&self.state, face, player, card)
+            };
+            let opt_priced = opt_adj.price(opt_mana, printed_reduction);
+            let opt_preview = casting::keyword_priced(
+                &self.state,
+                face,
+                player,
+                &opt_adj.price(min_opt_mana.with_x(0), printed_reduction),
+                opt_kw,
+            );
+            let opt_allow = opt_adj.allowance(
+                &self.state,
+                casting::SpendFor::Spell(card),
+                printed_reduction.saturating_add(opt_kw),
+            );
+            let opt_mana_ok = defer_mana
+                || casting::source_affordable(
+                    &self.state,
+                    player,
+                    casting::SpendFor::Spell(card),
+                    pool,
+                    &opt_preview,
+                    &[],
+                    Some(opt_allow),
+                )
+                || (casting::north_star_face_allowed(&self.state, player, card, 0)
+                    && casting::normal_spell_affordable(
+                        &self.state,
+                        player,
+                        casting::SpendFor::Spell(card),
+                        pool,
+                        &opt_preview,
+                        &face.mana_cost,
+                        opt_allow,
+                    ));
+            let normal_optional = normal_route_base_ok
+                && opt_mana_ok
                 && casting::additional_payment_capacity_for(
                     &self.state,
                     player,
@@ -478,7 +555,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     CastModeDesc {
                         index: u32::try_from(insert_at).expect("bounded cast options"),
                         kind: CastModeKind::OptionalCost,
-                        cost: flash_option.map_or_else(|| price(opt_mana), |choice| choice.cost),
+                        cost: flash_option.map_or(opt_priced, |choice| choice.cost),
                     },
                 );
             }
@@ -750,10 +827,15 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 });
             }
         }
-        // Warp (CR 702.185a): cast from your hand for its warp cost.
+        // Warp (CR 702.185a): cast from your hand (or graveyard permission) for its warp cost.
         if front_timing_ok
-            && obj.zone == crate::zone::Zone::Hand
-            && obj.zone_owner == Some(player)
+            && ((obj.zone == crate::zone::Zone::Hand && obj.zone_owner == Some(player))
+                || casting::graveyard_alt_open(
+                    &self.state,
+                    player,
+                    card,
+                    baylee_cards_dsl::GraveyardAltKind::Warp,
+                ))
             && let Some(warp) = face.warp
         {
             let taxed = baylee_cards_dsl::Cost {
@@ -1338,6 +1420,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         | CastModeKind::JumpStart
                         | CastModeKind::Retrace
                         | CastModeKind::BeamMeUp
+                        | CastModeKind::Mayhem
                         | CastModeKind::EscapeGranted { .. }
                 ) || (matches!(option.kind, CastModeKind::Face(_))
                     && (def.faces[face_index].disturb || def.faces[face_index].aftermath))
@@ -1346,6 +1429,34 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     || (face_index == 0
                         && casting::mana_cost_mode(def, face_index, option.kind)
                         && casting::flashback_granted(&self.state, card))
+                    || (matches!(option.kind, CastModeKind::Blitz)
+                        && casting::graveyard_alt_open(
+                            &self.state,
+                            player,
+                            card,
+                            baylee_cards_dsl::GraveyardAltKind::Blitz,
+                        ))
+                    || (matches!(option.kind, CastModeKind::Warp)
+                        && casting::graveyard_alt_open(
+                            &self.state,
+                            player,
+                            card,
+                            baylee_cards_dsl::GraveyardAltKind::Warp,
+                        ))
+                    || (matches!(option.kind, CastModeKind::Mutate)
+                        && casting::graveyard_alt_open(
+                            &self.state,
+                            player,
+                            card,
+                            baylee_cards_dsl::GraveyardAltKind::Mutate,
+                        ))
+                    || (matches!(option.kind, CastModeKind::Sneak)
+                        && casting::graveyard_alt_open(
+                            &self.state,
+                            player,
+                            card,
+                            baylee_cards_dsl::GraveyardAltKind::Sneak,
+                        ))
             });
         }
         if foretell_cost.is_some()

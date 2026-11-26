@@ -2552,6 +2552,17 @@ that are themselves recorded inputs. JSON Lines, so a record cut off with its
 engine is readable up to the cut; the header names the build
 (`baylee_build::short`).
 
+Three more annotations are written so that a game can be picked up again
+from its record after its server restarted
+(`docs/proposals/games-survive-restarts.md`, `Session::resume_recorded`): a
+player's connection lost and back while the chair stays theirs
+(`{"kind":"connection","change":{"lost":{"wait_secs":180}}}` or `"back"`),
+what a seat said about its hand (`{"kind":"setting","setting":…}`, #265),
+and on every input, chair, connection and setting line `sealed`, how many
+lines of the game's log had been sent when it was written: only unsent lines
+fold into a repeat, so a resumed log folds where the live one did. Replay
+passes over all of them; a record from before them reads as it did.
+
 The hash checks a replay only on the build that played it: any change to
 the engine's state moves it. So the header and every input also carry
 `seen` (`baylee_gamehost::record::seen`, 16 hex like `hash`): FNV-1a 64 of
@@ -2605,17 +2616,34 @@ turns 13 and 16):
   or from before the ask) costs the report the wait and never the report:
   it goes with the record as stored until then. A flush moves nothing in the
   game: no pump, no clock, no frame to a seat.
-- **Time passes.** Record that has waited `RECORD_FLUSH_MS` (30 s of wall
-  time, `crates/baylee-engine-server/src/lib.rs`) goes without being asked,
-  counted from when those bytes began to wait rather than from the last
-  piece, so a quiet game sends no piece per action. It keeps a game lost with
-  its engine, or reported on after it ended that way, at most half a minute
-  short. Not while the curtain is down: loading seats have the database to
-  themselves, and the first move after it rises finds the header overdue.
+- **Time passes.** Record that has waited `RECORD_FLUSH_MS` (2 s of wall
+  time, `crates/baylee-engine-server/src/lib.rs`; 30 s until 26.11.2026) goes
+  without being asked, counted from when those bytes began to wait rather
+  than from the last piece, so a quiet game sends no piece per action. It
+  keeps a game lost with its engine, or reported on after it ended that way,
+  at most two seconds short, and a game resumed after a crash
+  (`docs/proposals/games-survive-restarts.md`) as far back. Not while the
+  curtain is down: loading seats have the database to themselves, and the
+  first move after it rises finds the header overdue.
+- **The gateway stops.** A gateway told to stop (`SIGTERM`, Ctrl-C) asks
+  every running game's engine for its record with `hold` and waits, five
+  seconds at most (`record::FLUSH_ON_STOP`), until each answer is stored,
+  then exits cleanly. An engine that answered a `hold` moves nothing more
+  (no answer, no clock, no house move) until its link closes, so the stored
+  record is the game as the players last saw it. A Tower engine and a
+  ranked duel's protected engines are not asked. A write the database fails
+  meanwhile is tried again for up to 15 minutes before a game's record is
+  given up (`record.rs`, `RETRY_FOR`).
 
 Where a piece breaks changes nothing else: the pieces are gzip members of
 their own, and the record they make is the same bytes with or without
 flushes (`flushes_at_any_moment_change_nothing_but_where_the_pieces_break`).
+A game of the acceptance decks played an answer every few seconds sends one
+piece an answer, about 530 for 530 answers and 104 KB, where one piece holds
+the same record in 35 KB (measured 26.11.2026). So once the game is over
+and its last piece stored, the gateway keeps the record as one piece
+(`baylee_db::records::compact`, `a_finished_record_is_kept_as_one_piece`);
+a record that cannot be compacted stays in its pieces and reads the same.
 
 Training and balancing read records only through the operator's export,
 `baylee-gateway records export --out <dir>` (no route): every complete

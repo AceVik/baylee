@@ -188,6 +188,20 @@ pub enum PlayerRel {
     /// controller of its third object target (last known, `CR 608.2h`), read
     /// from any target scope. Appended to preserve replay identities.
     ThirdTargetPlayerOrController,
+    /// Each opponent of "you" still in the game (`CR 102.2`, `CR 800.4a`) other
+    /// than the player the triggering event was about ([`Self::EventPlayer`] /
+    /// [`Self::DamagedPlayer`]; *Hydra Omnivore*, *Amarant Coral*, *Grenzo's
+    /// Ruffians* `"each other opponent"`). Appended to preserve replay
+    /// identities.
+    OtherOpponents,
+    /// The player or opponent chosen for the ability's source permanent as it
+    /// entered (`EnterModifier::ChooseOpponent` or
+    /// `EnterModifier::ChooseAnyPlayer`), including last-known information if
+    /// the source left the battlefield while its ability waited on the stack
+    /// (`CR 614.12a`, `CR 608.2h`: *True-Name Nemesis*, *Saskia the Unyielding*,
+    /// *Stuffy Doll*, *Sewer Nemesis*, *Sawhorn Nemesis*, *Canker Abomination*).
+    /// Appended to preserve replay identities.
+    ChosenBySource,
 }
 
 impl PlayerRel {
@@ -510,4 +524,19 @@ pub enum TargetSlot {
     /// The object chosen for its third instance
     /// (`third_targets` on the ability).
     Third,
+}
+
+/// Which permanent(s) [`crate::Effect::DoublePT`] doubles (`CR 701.10b–c`).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum DoublePtSubject {
+    /// The resolving ability's source permanent (`Defined$ Self` or omitted `Defined$`).
+    Source,
+    /// The permanent the source Aura, Equipment, or Fortification is attached to.
+    Attached,
+    /// The triggering event's permanent (`TriggeredAttacker`, `TriggeredCard`, …).
+    EventObject,
+    /// Every legal object target in the ability's first target slot.
+    Targets,
+    /// Every battlefield permanent matching `0` at resolution (`CR 611.2c`).
+    Filter(&'static Filter),
 }

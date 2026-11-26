@@ -19,50 +19,97 @@ pub(super) fn leaderboards(commands: &mut Commands, parent: Entity, kit: Kit) {
     commands.entity(parent).add_child(link);
 }
 
+/// The ranked mode's tile: it opens the Ranked page, where the queue and the
+/// ladder stand, and says in its line how the queue stands meanwhile.
 #[cfg(not(target_arch = "wasm32"))]
-pub(super) fn ranked(commands: &mut Commands, parent: Entity, kit: Kit) {
-    let arrow = commands
-        .spawn((
-            Text::new(glyph::CHEVRON_DOWN.to_string()),
-            crate::hud::icon_tf(kit.fonts, kit.m.small * 0.8),
-            TextColor(tokens::ACCENT),
-            Pickable::IGNORE,
-        ))
-        .id();
+pub(super) fn ranked(commands: &mut Commands, parent: Entity, kit: Kit) -> Entity {
     let (card, caption) = tile(
         commands,
         parent,
         kit,
         Tile {
             stop: "ranked",
-            trailing: &[arrow],
+            trailing: &[],
             title: Phrase::RankedTitle.text(kit.lang()),
             description: Phrase::RankedModeEntry.text(kit.lang()),
             scene: Scene::Ranked,
             icon: glyph::TROPHY,
-            action: Press::Ranked(super::super::ranked::Action::ToggleQueue),
+            action: Press::Ranked(super::super::ranked::Action::Open),
             live: Live::Yes,
             accent: tokens::ACCENT,
         },
     );
-    super::super::ranked::entry(commands, card, caption, arrow, kit);
+    commands
+        .entity(caption)
+        .insert(super::super::ranked::TileCaption);
+    card
 }
 
+/// The four modes as two rows of two equal tiles (owner, 25.11.2026: tidy and
+/// symmetric): Ranked beside the Tower, the Daily beside the Weekly. A
+/// season's plaque (the Advent calendar) stands over them, full width.
 pub(super) fn draw(commands: &mut Commands, parent: Entity, state: &LobbyState, kit: Kit) {
     #[cfg(not(target_arch = "wasm32"))]
     super::super::advent::entry(commands, parent, kit);
-    challenges(commands, parent, state, kit);
-}
-
-fn challenges(commands: &mut Commands, parent: Entity, state: &LobbyState, kit: Kit) {
     commands
         .entity(parent)
         .entry::<Node>()
         .and_modify(move |mut node| node.row_gap = kit.m.px(12.0));
+    let modes = pair(commands, parent, kit);
+    let mut cards = Vec::with_capacity(4);
+    #[cfg(not(target_arch = "wasm32"))]
+    if !state.lobby.offline() {
+        cards.push(ranked(commands, modes, kit));
+    }
+    cards.push(tower(commands, modes, state, kit));
+    let tasks = pair(commands, parent, kit);
+    cards.extend(challenges(commands, tasks, state, kit));
+    // A phone's rail is one tile wide: there the rows stand their tiles
+    // one under the other.
+    if kit.m.frame == crate::shellkit::Frame::Phone {
+        return;
+    }
+    for card in cards {
+        commands
+            .entity(card)
+            .entry::<Node>()
+            .and_modify(|mut node| {
+                node.width = Val::Auto;
+                node.flex_grow = 1.0;
+                node.flex_basis = px(0);
+                node.min_width = px(0);
+            });
+    }
+}
+
+/// A row of two tiles, each taking half of it; both as tall as the taller.
+fn pair(commands: &mut Commands, parent: Entity, kit: Kit) -> Entity {
+    let row = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                flex_shrink: 0.0,
+                flex_direction: if kit.m.frame == crate::shellkit::Frame::Phone {
+                    FlexDirection::Column
+                } else {
+                    FlexDirection::Row
+                },
+                align_items: AlignItems::Stretch,
+                column_gap: kit.m.px(12.0),
+                row_gap: kit.m.px(12.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(parent).add_child(row);
+    row
+}
+
+fn tower(commands: &mut Commands, parent: Entity, state: &LobbyState, kit: Kit) -> Entity {
     let lang = state.lobby.lang();
     let signed_in = state.can_enter_challenges();
-    let account_hint = Phrase::ChallengeSignIn.text(lang);
-    tile(
+    let (card, _) = tile(
         commands,
         parent,
         kit,
@@ -77,12 +124,25 @@ fn challenges(commands: &mut Commands, parent: Entity, state: &LobbyState, kit: 
             live: if signed_in {
                 Live::Yes
             } else {
-                Live::No(account_hint)
+                Live::No(Phrase::ChallengeSignIn.text(lang))
             },
             accent: tokens::GOLD,
         },
     );
+    card
+}
+
+fn challenges(
+    commands: &mut Commands,
+    parent: Entity,
+    state: &LobbyState,
+    kit: Kit,
+) -> Vec<Entity> {
+    let lang = state.lobby.lang();
+    let signed_in = state.can_enter_challenges();
+    let account_hint = Phrase::ChallengeSignIn.text(lang);
     let model = &state.challenges.model;
+    let mut cards = Vec::with_capacity(2);
     for kind in [api::Kind::Daily, api::Kind::Weekly] {
         let task = model
             .catalogue
@@ -112,7 +172,7 @@ fn challenges(commands: &mut Commands, parent: Entity, state: &LobbyState, kit: 
             Lang::De => task.description.title.de.as_str(),
             Lang::En => task.description.title.en.as_str(),
         });
-        tile(
+        let (card, _) = tile(
             commands,
             parent,
             kit,
@@ -154,7 +214,19 @@ fn challenges(commands: &mut Commands, parent: Entity, state: &LobbyState, kit: 
                 },
             },
         );
+        // What is left of the task, counted down under its name.
+        if let Some(task) = task {
+            super::super::challenges::draw::presentation::countdown(
+                commands,
+                card,
+                kit,
+                lang,
+                task.description.period.ends_at,
+            );
+        }
+        cards.push(card);
     }
+    cards
 }
 
 struct Tile<'a> {

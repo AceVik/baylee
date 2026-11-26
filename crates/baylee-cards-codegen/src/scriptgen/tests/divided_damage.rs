@@ -48,7 +48,7 @@ fn division_near_misses_refuse_every_unread_rule() {
     for candidate in [
         format!("{base} | NoPrevention$ True"),
         format!("{base} | Cost$ R PayLife<2>"),
-        base.replace("TargetMin$ 0", "TargetMin$ 1"),
+        base.replace("TargetMin$ 0", "TargetMin$ 2"),
         base.replace("ValidTgts$ Any", "ValidTgts$ Player"),
         base.replace("ValidTgts$ Any", "ValidTgts$ Opponent"),
         base.replace("DividedAsYouChoose$ 11", "DividedAsYouChoose$ 10"),
@@ -61,7 +61,7 @@ fn division_near_misses_refuse_every_unread_rule() {
             "{base} | SubAbility$ Bonus\nSVar:Bonus:DB$ GainLife | ValidTgts$ Opponent | Defined$ You | LifeAmount$ 6"
         ),
         format!(
-            "{base} | SubAbility$ Bonus\nSVar:Bonus:DB$ GainLife | ValidTgts$ Opponent | LifeAmount$ 6 | SubAbility$ Draw\nSVar:Draw:DB$ Draw | NumCards$ 1"
+            "{base} | SubAbility$ Bonus\nSVar:Bonus:DB$ GainLife | ValidTgts$ Opponent | LifeAmount$ 6 | SubAbility$ Third\nSVar:Third:DB$ Tap | ValidTgts$ Creature"
         ),
     ] {
         assert!(refused(&candidate), "{candidate}");

@@ -507,13 +507,20 @@ impl Tx<'_> {
         }
         // `resolve/wave14d.rs` binds resolution-scoped `MustAttackPlayer(Chosen)`
         // via `Rider::MustAttackPlayerThisTurn` exclusively for `Duration::UntilEndOfTurn`.
-        let has_chosen_player = self.has_chosen_opponent()
+        let has_chosen_player = self.has_chosen_source_player()
             || matches!(
                 target,
-                Some("TargetSpec::AnyPlayer" | "TargetSpec::AnyOpponent")
+                Some(
+                    "TargetSpec::AnyPlayer"
+                        | "TargetSpec::AnyOpponent"
+                        | "TargetSpec::Player(PlayerRel::Chosen)"
+                )
             );
         if raw_player.trim() == "ChosenPlayer"
-            && duration == "Duration::UntilEndOfTurn"
+            && matches!(
+                duration,
+                "Duration::UntilEndOfTurn" | "Duration::UntilEndOfCombat"
+            )
             && has_chosen_player
         {
             let tgt = match (subject, valid.as_str()) {

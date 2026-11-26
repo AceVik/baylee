@@ -128,6 +128,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Line::Chair {
                 n, seat, change, ..
             } => format!("── {n}: seat {seat} {change:?}\n"),
+            Line::Connection {
+                n, seat, change, ..
+            } => format!("── {n}: seat {seat} connection {change:?}\n"),
+            Line::Setting {
+                n, seat, setting, ..
+            } => format!("── {n}: seat {seat} said {setting:?}\n"),
             Line::DeclaredMind { n, seat, mind, .. } => {
                 format!("── {n}: seat {seat} declared {:?}\n", mind.kind)
             }

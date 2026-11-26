@@ -24,13 +24,13 @@ card!(
         types = TypeSet::INSTANT,
     ),],
     abilities = &[spell!(
-        &[
-            Effect::Blink {
+        &[Effect::CaptureAffected {
+            first: &[Effect::Blink {
                 target: TargetSpec::Object(&TARGET1),
                 owner_control: true
-            },
-            Effect::draw(1)
-        ],
+            }],
+            then: &[Effect::draw(1)]
+        }],
         targets = Some(TargetReq::up_to_one(TargetSpec::Object(&TARGET1)))
     ),],
 );

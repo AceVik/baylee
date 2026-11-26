@@ -447,6 +447,8 @@ pub mod infinite_hourglass;
 pub mod infuse;
 #[path = "hml/irini_sengir.rs"]
 pub mod irini_sengir;
+#[path = "pmei/iroh_grand_lotus.rs"]
+pub mod iroh_grand_lotus;
 #[path = "hml/ironclaw_curse.rs"]
 pub mod ironclaw_curse;
 #[path = "pmei/jamuraan_lion.rs"]
