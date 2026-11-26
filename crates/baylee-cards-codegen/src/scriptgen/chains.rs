@@ -11264,9 +11264,15 @@ impl Tx<'_> {
         let cond_filter = self.body.filter_static("COND", &cond_expr);
         *p = p_clone;
         *sub = next_sub;
+        let purge = "Effect::RevealHand { who: PlayerRel::ControllerOfTarget }, ".to_string()
+            + "Effect::ChooseCardEx { chooser: PlayerRel::You, "
+            + "zone: ChooseZone::Hand(PlayerRel::ControllerOfTarget), "
+            + "filter: &Filter::SharesNameWithRemembered, min: 0, max: Amount::Fixed(0), "
+            + "reveal_chosen: false, movement: ChooseMove::None, "
+            + "not_chosen_movement: ChooseMove::Exile, then: &[], for_unchosen: &[] }";
         chain.effects.push(format!(
-            "Effect::RememberTargetsThen {{ then: &[{},              Effect::IfCondition {{ condition: Condition::CapturedMatches(&{cond_filter}),              then: &[Effect::RevealHand {{ who: PlayerRel::ControllerOfTarget }},              Effect::ChooseCardEx {{ chooser: PlayerRel::You,              zone: ChooseZone::Hand(PlayerRel::ControllerOfTarget),              filter: &Filter::SharesNameWithRemembered, min: 0, max: Amount::Fixed(0),              reveal_chosen: false, movement: ChooseMove::None,              not_chosen_movement: ChooseMove::Exile, then: &[], for_unchosen: &[] }}],              otherwise: &[] }}] }}",
-            first_effs[0]
+            "Effect::RememberTargetsThen {{ then: &[Effect::IfTargetMatchesElse {{ filter: &{cond_filter}, then: &[{}, {purge}], otherwise: &[{}] }}] }}",
+            first_effs[0], first_effs[0]
         ));
         true
     }
@@ -11585,8 +11591,14 @@ impl Tx<'_> {
             return None;
         }
 
+        let p1_constrained = p1
+            .peek("ChangeType")
+            .is_some_and(|ct| !matches!(ct.trim(), "Card" | "Card.YouOwn"));
+        if !p1.has("Optional") && !p1_constrained {
+            return None;
+        }
         p1.entries.push(("Shuffle".to_string(), "True".to_string()));
-        if !p1.has("Optional") {
+        if !p1.has("Optional") && p1_constrained {
             p1.entries
                 .push(("Optional".to_string(), "True".to_string()));
         }

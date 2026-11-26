@@ -2180,7 +2180,7 @@ fn target_same_name_graveyard_sweeps_hour_of_glory_and_refusals() {
     );
     assert!(
         hour_of_glory.abilities[0].contains("Effect::RememberTargetsThen")
-            && hour_of_glory.abilities[0].contains("Condition::CapturedMatches(&")
+            && hour_of_glory.abilities[0].contains("Effect::IfTargetMatchesElse { filter: &")
             && hour_of_glory.abilities[0]
                 .contains("Effect::RevealHand { who: PlayerRel::ControllerOfTarget }")
             && hour_of_glory.abilities[0].contains("filter: &Filter::SharesNameWithRemembered")
@@ -2205,6 +2205,13 @@ fn target_same_name_graveyard_sweeps_hour_of_glory_and_refusals() {
          A:SP$ TargetOnly | ValidTgts$ Creature | SubAbility$ DBEx\n\
          SVar:DBEx:DB$ ChangeZoneAll | Origin$ Battlefield | Destination$ Exile | UseAllOriginZones$ True | \
          ChangeType$ TargetedCard.Self,Creature.NotDefinedTargeted+sharesNameWith Targeted",
+        "Name:BadUnconstrainedMandatorySearch\nManaCost:2 W\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigS\n\
+         SVar:TrigS:DB$ ChangeZone | Origin$ Library | Destination$ Battlefield | ChangeType$ Card | ChangeNum$ 1 | RememberChanged$ True | NoShuffle$ True | SubAbility$ DB2\n\
+         SVar:DB2:DB$ ChangeZone | Optional$ True | Origin$ Library | Destination$ Battlefield | ConditionCheckSVar$ X | ConditionSVarCompare$ GTY | ChangeType$ Land.Plains | ChangeNum$ 1 | RememberChanged$ True | NoShuffle$ True | SubAbility$ DBS\n\
+         SVar:DBS:DB$ Shuffle | Defined$ You | ConditionDefined$ Remembered | ConditionPresent$ Card | ConditionCompare$ GE1\n\
+         SVar:X:PlayerCountOpponents$HighestValid Land.YouCtrl\n\
+         SVar:Y:Count$Valid Land.YouCtrl",
     ] {
         assert!(refused_extra(bad), "must refuse: {bad}");
     }
