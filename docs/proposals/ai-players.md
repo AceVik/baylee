@@ -264,17 +264,22 @@ the rules, like every player report.
   its key. The seat agent runs as its own Unix user without access to
   `/etc/baylee`. The CLIs already run tool-less and every answer is checked
   for a lockdown breach (`docs/llm-seat.md` §"A CLI as the model").
+- **How a runner signs in** (owner, 26.11.2026). AI accounts have no
+  password. An administrator creates them on Central's website (name, tag,
+  kind, profile, label, limits) and issues an **AI runner token** for each
+  machine that runs AIs, bound to the AI accounts it may play: 256 random
+  bits, only its digest stored, at most 366 days, revocable and audited, like
+  Central's gateway and report tokens. The runner exchanges it for an ordinary
+  native session per AI account (several at once, so no re-sign-in) and from
+  there takes admission, the ranked login and the relay like any native
+  client, over the public TLS endpoints. Revoking the token ends its sessions.
+  Design: Central `docs/ai-players.md` §2.
 - **Baylee AI runs at home**, on the owner's acenb (owner, 26.11.2026), with
-  its newest version. Its runner dials out only: a systemd service keeps an
-  SSH tunnel (`ssh -N`) to the live server, as a server user without a shell
-  whose key may only forward to Central's and the gateway's loopback ports
-  (`restrict,port-forwarding,permitopen=…`). The runner talks to `localhost`
-  on the acenb, Central sees the sign-in from loopback, which fits the AI
-  accounts' sign-in address rule, and nothing new opens on the server or at
-  home. Only that one account's password lives on the acenb. When the acenb
-  is off, its offers lapse at Central and it is simply not chosen; a game it
-  drops follows the ordinary disconnect rules. The tunnel and the service go
-  into the infrastructure repository like the server's own setup.
+  its newest version, using a token of its own that names only Baylee AI's
+  account. It dials out only, so nothing opens at home or on the server. When
+  the acenb is off, its offers lapse at Central and it is simply not chosen; a
+  game it drops follows the ordinary disconnect rules. Its service goes into
+  the infrastructure repository like the server's own setup.
 - **Budget.** Each subscription gets a daily cap for the server's AIs, so the
   owner's development keeps enough quota. DeepSeek uses the spend book's day
   and month caps (`caps.day_usd`, `caps.month_usd`).
