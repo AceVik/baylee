@@ -457,6 +457,7 @@ fn the_window_wears_the_clients_glass_and_its_pill_a_flat_fill() {
         .init_resource::<Windows>()
         .init_resource::<crate::social::zoom::Zoom>()
         .init_resource::<LobbyChatSizing>()
+        .init_resource::<LobbyChatPlacing>()
         .insert_resource(State::new(DuelPhase::Playing))
         .insert_resource(SocialHost {
             machine: Some(
@@ -686,6 +687,7 @@ fn chat_pill_is_visible_and_table_chat_steps_aside_for_open_friends_drawer() {
         .init_resource::<Windows>()
         .init_resource::<crate::social::zoom::Zoom>()
         .init_resource::<LobbyChatSizing>()
+        .init_resource::<LobbyChatPlacing>()
         .insert_resource(crate::social::drawer::DrawerSlide(0.0))
         .insert_resource(State::new(DuelPhase::Playing))
         .insert_resource(SocialHost {
