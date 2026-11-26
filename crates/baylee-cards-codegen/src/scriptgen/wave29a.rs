@@ -1220,7 +1220,10 @@ impl Tx<'_> {
         }
         if !self.trigger_is_self
             && self.has_linked_exile_reader()
-            && self.trigger_mode.as_deref() == Some("ChangesZone")
+            && matches!(
+                self.trigger_mode.as_deref(),
+                Some("ChangesZone" | "Sacrificed")
+            )
             && matches!(
                 defined,
                 "TriggeredNewCardLKICopy"

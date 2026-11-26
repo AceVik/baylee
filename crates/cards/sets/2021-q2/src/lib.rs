@@ -191,6 +191,8 @@ pub mod crushing_disappointment;
 pub mod culling_ritual;
 #[path = "pstx/culmination_of_studies.rs"]
 pub mod culmination_of_studies;
+#[path = "c21/cunning_rhetoric.rs"]
+pub mod cunning_rhetoric;
 #[path = "stx/curate.rs"]
 pub mod curate;
 #[path = "c21/curiosity_crafter.rs"]
@@ -209,6 +211,8 @@ pub mod darkmoss_bridge;
 pub mod dauthi_voidwalker;
 #[path = "c21/dazzling_sphinx.rs"]
 pub mod dazzling_sphinx;
+#[path = "stx/deadly_brew.rs"]
+pub mod deadly_brew;
 #[path = "stx/decisive_denial.rs"]
 pub mod decisive_denial;
 #[path = "c21/deekah_fractal_theorist.rs"]
@@ -505,6 +509,8 @@ pub mod marble_gargoyle;
 pub mod mascot_interception;
 #[path = "pmh2/master_of_death.rs"]
 pub mod master_of_death;
+#[path = "pstx/mavinda_students_advocate.rs"]
+pub mod mavinda_students_advocate;
 #[path = "mh2/mental_journey.rs"]
 pub mod mental_journey;
 #[path = "stx/mentor_s_guidance.rs"]
@@ -643,6 +649,8 @@ pub mod reckless_amplimancer;
 pub mod reduce_to_memory;
 #[path = "stx/reflective_golem.rs"]
 pub mod reflective_golem;
+#[path = "c21/reinterpret.rs"]
+pub mod reinterpret;
 #[path = "stx/reject.rs"]
 pub mod reject;
 #[path = "stx/relic_sloth.rs"]
@@ -691,6 +699,8 @@ pub mod scurrid_colony;
 pub mod scurry_oak;
 #[path = "mh2/scuttletide.rs"]
 pub mod scuttletide;
+#[path = "pmh2/search_the_premises.rs"]
+pub mod search_the_premises;
 #[path = "stx/secret_rendezvous.rs"]
 pub mod secret_rendezvous;
 #[path = "pstx/sedgemoor_witch.rs"]

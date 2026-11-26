@@ -63,12 +63,57 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         )
     }
 
+    pub(super) fn activation_price_with_x(
+        &self,
+        player: PlayerId,
+        source: ObjectId,
+        ability_index: u32,
+        cost: &Cost,
+        x: u32,
+        reduction: Option<baylee_cards_dsl::CostReduction>,
+    ) -> ActivationPrice {
+        self.activation_price_for_targets_x(
+            player,
+            source,
+            ability_index,
+            cost,
+            Some(x),
+            reduction,
+            ActivationTargetPricing::Preview,
+        )
+    }
+
     pub(super) fn activation_price_for_targets(
         &self,
         player: PlayerId,
         source: ObjectId,
         ability_index: u32,
         cost: &Cost,
+        reduction: Option<baylee_cards_dsl::CostReduction>,
+        target_pricing: ActivationTargetPricing<'_>,
+    ) -> ActivationPrice {
+        self.activation_price_for_targets_x(
+            player,
+            source,
+            ability_index,
+            cost,
+            None,
+            reduction,
+            target_pricing,
+        )
+    }
+
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "activation pricing requires full target/X/reduction context"
+    )]
+    pub(super) fn activation_price_for_targets_x(
+        &self,
+        player: PlayerId,
+        source: ObjectId,
+        ability_index: u32,
+        cost: &Cost,
+        x: Option<u32>,
         reduction: Option<baylee_cards_dsl::CostReduction>,
         target_pricing: ActivationTargetPricing<'_>,
     ) -> ActivationPrice {
@@ -90,7 +135,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         ordinary = ordinary.saturating_add(extra_ab_inc.1);
         eligible = eligible.saturating_add(extra_ab_inc.0);
         let increase = eligible.saturating_add(ordinary);
-        let mut base_mana = cost.mana;
+        let mut base_mana = cost
+            .mana
+            .with_more_generic(waterbend_mana(cost.parts, x.unwrap_or(0)));
         if cost.parts.contains(&CostPart::PayAttachedManaCost)
             && let Some(attached) = self
                 .state
@@ -1155,7 +1202,15 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         if !self.source_cost_parts_ready(source, parts) {
             return false;
         }
-        if !self.can_pay_mana(player, what, &mana) {
+        let x = self.activation_x.unwrap_or(0);
+        let wb_total = waterbend_mana(parts, x);
+        let wb_taps = if wb_total > 0 {
+            waterbend_tap_capacity(&self.state, player, source, parts).min(wb_total)
+        } else {
+            0
+        };
+        let effective_mana = mana.with_less_generic(wb_taps);
+        if !self.can_pay_mana(player, what, &effective_mana) {
             return false;
         }
         if !cost_wizard::counter_remove::can_afford_counter_parts(
@@ -1375,6 +1430,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::PayEnergyX
                 | CostPart::DealDamageToYou(_)
                 | CostPart::Either(_, _)
+                | CostPart::Waterbend(_)
+                | CostPart::WaterbendX
                 | CostPart::PayAttachedManaCost => {}
             }
         }
@@ -2051,6 +2108,14 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         cost_wizard::pay(&mut self.state, player, part, creature)?;
                     }
                 }
+                CostPart::Waterbend(_) | CostPart::WaterbendX => {
+                    let Some(taps) = answers.next() else {
+                        return Err(EngineError::IllegalAction("unanswered waterbend cost"));
+                    };
+                    for &perm in taps {
+                        cost_wizard::pay(&mut self.state, player, part, perm)?;
+                    }
+                }
                 CostPart::CollectEvidence(mv) => {
                     let Some(cards) = answers.next() else {
                         return Err(EngineError::IllegalAction(
@@ -2188,4 +2253,31 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         work.paid = paid;
         Ok(true)
     }
+}
+
+pub(crate) fn waterbend_mana(parts: &[CostPart], x: u32) -> u32 {
+    parts
+        .iter()
+        .filter_map(|p| match p {
+            CostPart::Waterbend(n) => Some(u32::from(*n)),
+            CostPart::WaterbendX => Some(x),
+            _ => None,
+        })
+        .fold(0_u32, u32::saturating_add)
+}
+
+pub(crate) fn waterbend_tap_capacity(
+    state: &crate::state::GameState,
+    player: PlayerId,
+    source: ObjectId,
+    parts: &[CostPart],
+) -> u32 {
+    let mut sources = casting::waterbend_sources(state, player);
+    if parts
+        .iter()
+        .any(|p| matches!(p, CostPart::TapSelf | CostPart::UntapSelf))
+    {
+        sources.retain(|&id| id != source);
+    }
+    u32::try_from(sources.len()).unwrap_or(u32::MAX)
 }

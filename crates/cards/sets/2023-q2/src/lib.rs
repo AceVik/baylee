@@ -135,6 +135,10 @@ pub mod captain_of_umbar;
 pub mod captive_weird;
 #[path = "ltr/cast_into_the_fire.rs"]
 pub mod cast_into_the_fire;
+#[path = "ltr/celeborn_the_wise.rs"]
+pub mod celeborn_the_wise;
+#[path = "ltc/champions_of_minas_tirith.rs"]
+pub mod champions_of_minas_tirith;
 #[path = "ltr/chance_met_elves.rs"]
 pub mod chance_met_elves;
 #[path = "mom/change_the_equation.rs"]
@@ -235,6 +239,8 @@ pub mod elanor_gardner;
 pub mod elrond_lord_of_rivendell;
 #[path = "mom/elspeth_s_smite.rs"]
 pub mod elspeth_s_smite;
+#[path = "moc/elspeth_s_talent.rs"]
+pub mod elspeth_s_talent;
 #[path = "ltr/elven_chorus.rs"]
 pub mod elven_chorus;
 #[path = "ltr/elven_farsight.rs"]
@@ -309,6 +315,8 @@ pub mod fertilid_s_favor;
 pub mod field_tested_frying_pan;
 #[path = "ltr/fiery_inscription.rs"]
 pub mod fiery_inscription;
+#[path = "moc/filigree_vector.rs"]
+pub mod filigree_vector;
 #[path = "mat/filter_out.rs"]
 pub mod filter_out;
 #[path = "mom/final_flourish.rs"]
@@ -323,6 +331,8 @@ pub mod flowering_of_the_white_tree;
 pub mod flywheel_racer;
 #[path = "ltr/fog_on_the_barrow_downs.rs"]
 pub mod fog_on_the_barrow_downs;
+#[path = "ltc/forth_eorlingas.rs"]
+pub mod forth_eorlingas;
 #[path = "ltr/frodo_determined_hero.rs"]
 pub mod frodo_determined_hero;
 #[path = "mom/furnace_gremlin.rs"]
@@ -443,6 +453,8 @@ pub mod herbology_instructor;
 pub mod hidetsugu_and_kairi;
 #[path = "ltr/hithlain_knots.rs"]
 pub mod hithlain_knots;
+#[path = "ltc/hithlain_rope.rs"]
+pub mod hithlain_rope;
 #[path = "ltr/hobbit_s_sting.rs"]
 pub mod hobbit_s_sting;
 #[path = "ltr/horn_of_gondor.rs"]
@@ -499,6 +511,8 @@ pub mod invasion_of_mercadia;
 pub mod invasion_of_moag;
 #[path = "mom/invasion_of_muraganda.rs"]
 pub mod invasion_of_muraganda;
+#[path = "mom/invasion_of_segovia.rs"]
+pub mod invasion_of_segovia;
 #[path = "mom/invasion_of_shandalar.rs"]
 pub mod invasion_of_shandalar;
 #[path = "mom/invasion_of_theros.rs"]
@@ -755,6 +769,8 @@ pub mod ranger_s_firebrand;
 pub mod rangers_of_ithilien;
 #[path = "ltc/rapacious_guest.rs"]
 pub mod rapacious_guest;
+#[path = "moc/rashmi_and_ragavan.rs"]
+pub mod rashmi_and_ragavan;
 #[path = "mom/ravenous_sailback.rs"]
 pub mod ravenous_sailback;
 #[path = "mom/realmbreaker_s_grasp.rs"]
@@ -781,6 +797,8 @@ pub mod riders_of_rohan;
 pub mod riders_of_the_mark;
 #[path = "ltr/ringwraiths.rs"]
 pub mod ringwraiths;
+#[path = "ltr/rise_of_the_witch_king.rs"]
+pub mod rise_of_the_witch_king;
 #[path = "ltr/rising_of_the_day.rs"]
 pub mod rising_of_the_day;
 #[path = "ltr/rivendell.rs"]
@@ -789,6 +807,8 @@ pub mod rivendell;
 pub mod rohirrim_chargers;
 #[path = "ltr/rohirrim_lancer.rs"]
 pub mod rohirrim_lancer;
+#[path = "moc/rowan_s_talent.rs"]
+pub mod rowan_s_talent;
 #[path = "mom/ruins_recluse.rs"]
 pub mod ruins_recluse;
 #[path = "ltr/rush_the_room.rs"]
@@ -927,6 +947,8 @@ pub mod tangled_skyline;
 pub mod tarkir_duneshaper;
 #[path = "ltc/taunt_from_the_rampart.rs"]
 pub mod taunt_from_the_rampart;
+#[path = "moc/teferi_s_talent.rs"]
+pub mod teferi_s_talent;
 #[path = "mom/tenured_oilcaster.rs"]
 pub mod tenured_oilcaster;
 #[path = "mom/terror_of_towashi.rs"]
@@ -999,6 +1021,8 @@ pub mod unseal_the_necropolis;
 pub mod urn_of_godfire;
 #[path = "ltr/uruk_hai_berserker.rs"]
 pub mod uruk_hai_berserker;
+#[path = "moc/vivien_s_talent.rs"]
+pub mod vivien_s_talent;
 #[path = "moc/vodalian_wave_knight.rs"]
 pub mod vodalian_wave_knight;
 #[path = "mom/volcanic_spite.rs"]

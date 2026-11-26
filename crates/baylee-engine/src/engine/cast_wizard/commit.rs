@@ -90,7 +90,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         total = convoked;
         let reduction = u32::try_from(wizard.delve_exiles.len() + wizard.convoke_taps.len())
             .unwrap_or(u32::MAX)
-            .saturating_sub(colored);
+            .saturating_sub(colored)
+            .saturating_add(wizard.harmonize_reduction(&self.state))
+            .saturating_add(wizard.assist_paid);
         if reduction > 0 {
             total = reduce_generic(&total, reduction);
         }
@@ -170,7 +172,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 Cause::Cost,
             )?;
         }
-        let convoked_count = if face.convoke {
+        let convoked_count = if crate::casting::has_convoke(
+            &self.state,
+            wizard.card,
+            face,
+            player,
+            wizard.face_index(),
+        ) {
             u16::try_from(
                 wizard
                     .convoke_taps
@@ -190,6 +198,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         };
         for &creature in &wizard.convoke_taps {
             self.state.set_tapped(creature, true);
+        }
+        if let Some(harmonized) = wizard.harmonize_tap {
+            self.state.set_tapped(harmonized, true);
         }
         // One ordered answer stream feeds both the selected alternative cost
         // and any mandatory additional costs. No object can pay two parts.
@@ -431,6 +442,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::ExileFromGraveyardX(_)
                 | CostPart::CraftMaterials { .. }
                 | CostPart::Either(_, _)
+                | CostPart::Waterbend(_)
+                | CostPart::WaterbendX
                 | CostPart::PayLifeX => {}
             }
         }
@@ -722,16 +735,18 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         }
                     }
                 }
-                CostPart::TapX(_) => {
-                    for _ in 0..wizard.x {
-                        let chosen =
-                            cost_objects
-                                .next()
-                                .copied()
-                                .ok_or(EngineError::IllegalAction(
-                                    "the cast did not choose every tap",
-                                ))?;
-                        super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
+                CostPart::TapX(_) | CostPart::Waterbend(_) | CostPart::WaterbendX => {
+                    if let CostPart::TapX(_) = part {
+                        for _ in 0..wizard.x {
+                            let chosen =
+                                cost_objects
+                                    .next()
+                                    .copied()
+                                    .ok_or(EngineError::IllegalAction(
+                                        "the cast did not choose every tap",
+                                    ))?;
+                            super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
+                        }
                     }
                 }
                 CostPart::TapN { count, .. } => {
@@ -1304,7 +1319,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .riders
                 .push(crate::object::Rider::Foretold { turn });
         }
-        if wizard.exile_instead_of_graveyard {
+        if wizard.exile_instead_of_graveyard
+            || wizard
+                .selected_alt_grant()
+                .is_some_and(|r| r.exile_instead_of_graveyard)
+        {
             self.state
                 .object_mut(card)
                 .expect("cast spell")

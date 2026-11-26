@@ -499,6 +499,52 @@ pub(super) fn attackers_at_target(
     Some(matched)
 }
 
+/// Fires ONCE per combat batch on the first `BecameAttacker` declared by a
+/// qualifying `attacker` targeting a defender satisfying `attacked`
+/// (*Cunning Rhetoric*, *Ever-Watching Threshold*; `CR 508.1m`, `CR 508.3c`).
+#[allow(clippy::too_many_arguments)]
+pub(super) fn attackers_declared_against(
+    event: &GameEvent,
+    batch: &[JournalEntry],
+    state: &GameState,
+    you: PlayerId,
+    source: baylee_core::ids::ObjectId,
+    attacker_rel: baylee_cards_dsl::PlayerRel,
+    attacked: baylee_cards_dsl::AttackedTargetKind,
+) -> Option<PlayerId> {
+    let GameEvent::BecameAttacker { defending, .. } = *event else {
+        return None;
+    };
+    if !defender_matches(attacked, defending, state, you, source) {
+        return None;
+    }
+    let idx = index_of_event(event, batch)?;
+    let attackers = crate::eval::players_for_source(attacker_rel, state, you, Some(source))?;
+    let mut first_idx = None;
+    let mut attacking_player = None;
+    for (i, entry) in batch.iter().enumerate() {
+        let GameEvent::BecameAttacker {
+            object,
+            defending: entry_def,
+        } = entry.event
+        else {
+            continue;
+        };
+        if !defender_matches(attacked, entry_def, state, you, source) {
+            continue;
+        }
+        let owner = state
+            .object_or_departed(object)
+            .map_or(state.turn.active, |o| o.controller);
+        if attackers.contains(&owner) {
+            first_idx = Some(i);
+            attacking_player = Some(owner);
+            break;
+        }
+    }
+    (first_idx == Some(idx)).then_some(attacking_player?)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

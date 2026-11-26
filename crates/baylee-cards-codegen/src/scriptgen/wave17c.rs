@@ -748,6 +748,9 @@ impl Tx<'_> {
         if kw == "Scavenge:CardManaCost" {
             return Some(("Modifier::GrantsScavengeManaCost".to_string(), false));
         }
+        if kw == "Harmonize" {
+            return Some(("Modifier::GrantsHarmonizeManaCost".to_string(), false));
+        }
         if allow_offboard_static_kw {
             if let Some(n_raw) = kw.strip_prefix("Dredge:") {
                 let n = n_raw.trim().parse::<u8>().ok().filter(|&n| n > 0)?;

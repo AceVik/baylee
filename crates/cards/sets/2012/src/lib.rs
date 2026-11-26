@@ -125,6 +125,8 @@ pub mod blistercoil_weird;
 pub mod blood_artist;
 #[path = "dka/blood_feud.rs"]
 pub mod blood_feud;
+#[path = "m13/blood_reckoning.rs"]
+pub mod blood_reckoning;
 #[path = "avr/bloodflow_connoisseur.rs"]
 pub mod bloodflow_connoisseur;
 #[path = "rtr/bloodfray_giant.rs"]
@@ -369,6 +371,8 @@ pub mod duskmantle_prowler;
 pub mod duty_bound_dead;
 #[path = "rtr/dynacharge.rs"]
 pub mod dynacharge;
+#[path = "avr/eaten_by_spiders.rs"]
+pub mod eaten_by_spiders;
 #[path = "m13/elderscale_wurm.rs"]
 pub mod elderscale_wurm;
 #[path = "pc2/elderwood_scion.rs"]
@@ -557,6 +561,8 @@ pub mod harvester_of_souls;
 pub mod haunted_fengraf;
 #[path = "avr/haunted_guardian.rs"]
 pub mod haunted_guardian;
+#[path = "dka/havengul_lich.rs"]
+pub mod havengul_lich;
 #[path = "dka/havengul_runebinder.rs"]
 pub mod havengul_runebinder;
 #[path = "avr/havengul_skaab.rs"]
@@ -629,6 +635,8 @@ pub mod indrik_umbra;
 pub mod into_the_void;
 #[path = "rtr/isperia_s_skywatch.rs"]
 pub mod isperia_s_skywatch;
+#[path = "rtr/isperia_supreme_judge.rs"]
+pub mod isperia_supreme_judge;
 #[path = "ddj/izzet_charm.rs"]
 pub mod izzet_charm;
 #[path = "rtr/izzet_guildgate.rs"]
@@ -1025,6 +1033,8 @@ pub mod slitherhead;
 pub mod sluiceway_scorpion;
 #[path = "rtr/slum_reaper.rs"]
 pub mod slum_reaper;
+#[path = "m13/slumbering_dragon.rs"]
+pub mod slumbering_dragon;
 #[path = "m13/smelt.rs"]
 pub mod smelt;
 #[path = "avr/snare_the_skies.rs"]
@@ -1075,6 +1085,8 @@ pub mod stormbound_geist;
 pub mod strangleroot_geist;
 #[path = "ddj/street_spasm.rs"]
 pub mod street_spasm;
+#[path = "rtr/street_sweeper.rs"]
+pub mod street_sweeper;
 #[path = "dka/stromkirk_captain.rs"]
 pub mod stromkirk_captain;
 #[path = "m13/sublime_archangel.rs"]

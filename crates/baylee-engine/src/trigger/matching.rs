@@ -366,7 +366,8 @@ pub(super) fn trigger_count_for_source_at(
         | Trigger::AttackWithAtLeastMatching { .. }
         | Trigger::AttacksAlone(_)
         | Trigger::PlayerAttacked(_)
-        | Trigger::AttackersDeclaredAtTarget { .. } => baylee_cards_dsl::TriggerEventKind::Attack,
+        | Trigger::AttackersDeclaredAtTarget { .. }
+        | Trigger::AttackersDeclaredAgainst { .. } => baylee_cards_dsl::TriggerEventKind::Attack,
         _ => baylee_cards_dsl::TriggerEventKind::Any,
     };
     let _ = controller;
@@ -621,24 +622,6 @@ fn event_targets_matching(
                 .copied()
                 .any(|t| state.targets_current_object(object, t) && fits(t))
         }
-        GameEvent::AbilityActivated {
-            ability: Some(ability_ref),
-            ..
-        } => {
-            let Some(obj) = state.source_object(ability_ref) else {
-                return false;
-            };
-            obj.targets
-                .iter()
-                .chain(obj.second_targets())
-                .chain(
-                    obj.extra_target_instances()
-                        .iter()
-                        .flat_map(|inst| inst.targets.iter()),
-                )
-                .copied()
-                .any(|t| state.targets_current_object(ability_ref.object, t) && fits(t))
-        }
         _ => false,
     }
 }
@@ -847,6 +830,9 @@ fn matches(
         | (Trigger::BecomesMonstrous, GameEvent::BecameMonstrous { object, .. }) => {
             *object == source
         }
+        (Trigger::TurnedFaceUpMatching(filter), GameEvent::TurnedFaceUp { object }) => state
+            .object(*object)
+            .is_some_and(|obj| eval::matches_with_context(filter, state, obj, you, context)),
         (
             Trigger::ClassLevelGained(wanted),
             GameEvent::ClassLevelChanged {
@@ -1229,6 +1215,21 @@ fn matches(
                 && mana_ability.is_none_or(|required| required == *mana)
                 && eval::players_for_source(*who, state, you, Some(source))
                     .is_some_and(|players| players.contains(player))
+                && state.source_object(*activated).is_some_and(|object| {
+                    activations::source_matches(filter, state, object, you, context)
+                })
+        }
+        (
+            Trigger::LoyaltyAbilityActivated { filter, who },
+            GameEvent::AbilityActivated {
+                source: activated,
+                player,
+                loyalty: true,
+                ..
+            },
+        ) => {
+            eval::players_for_source(*who, state, you, Some(source))
+                .is_some_and(|players| players.contains(player))
                 && state.source_object(*activated).is_some_and(|object| {
                     activations::source_matches(filter, state, object, you, context)
                 })
@@ -1845,6 +1846,19 @@ fn matches(
             attackers,
             *attacked,
             *exact_count,
+        )
+        .is_some(),
+        (
+            Trigger::AttackersDeclaredAgainst { attacker, attacked },
+            GameEvent::BecameAttacker { .. },
+        ) => event_groups::attackers_declared_against(
+            event,
+            batch,
+            state,
+            you,
+            context.source,
+            *attacker,
+            *attacked,
         )
         .is_some(),
         (Trigger::Exerted(filter), GameEvent::PermanentExerted { object, .. }) => state

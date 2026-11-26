@@ -1289,6 +1289,9 @@ impl Tx<'_> {
         if token.starts_with("CollectEvidence<") {
             return Some(vec![self.parse_collect_evidence_cost_token(token)?]);
         }
+        if token.starts_with("Waterbend<") {
+            return Some(vec![self.wave18b_waterbend_cost_token(token)?]);
+        }
         if let Some(amt) = token
             .strip_prefix("PayLife<")
             .and_then(|t| t.strip_suffix('>'))

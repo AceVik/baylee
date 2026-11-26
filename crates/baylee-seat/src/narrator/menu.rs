@@ -1324,6 +1324,16 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
             format!("pay {{{mana}}}"),
             "don't pay".into(),
         ),
+        YesNoPrompt::PayWaterbend { mana } => (
+            format!("Waterbend {{{mana}}}?"),
+            format!("waterbend {{{mana}}}"),
+            "don't pay".into(),
+        ),
+        YesNoPrompt::Assist => (
+            "Help pay mana toward this spell with assist?".into(),
+            "assist".into(),
+            "don't assist".into(),
+        ),
         YesNoPrompt::PayMana { cost } => (
             format!("Pay {cost}?"),
             format!("pay {cost}"),

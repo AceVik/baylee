@@ -112,6 +112,7 @@ pub(super) fn ability_colors(ability: &AbilityDef) -> ColorSet {
         | AbilityDef::Spell { .. }
         | AbilityDef::Triggered { .. }
         | AbilityDef::Ward { .. }
+        | AbilityDef::WardWaterbend { .. }
         | AbilityDef::Toxic { .. }
         | AbilityDef::SagaChapter { .. }
         | AbilityDef::Prepared { .. }

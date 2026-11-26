@@ -771,6 +771,9 @@ impl Tx<'_> {
     /// (`baylee-engine` supports up to `WARD_CEILING = 10`). Non-generic ward
     /// costs stay refused.
     pub(super) fn ward(&mut self, rest: &str) -> Option<()> {
+        if rest.trim().starts_with("Waterbend<") {
+            return self.wave18b_try_ward_waterbend(rest);
+        }
         if rest.contains(':') {
             return self.deny(format!("ward `{rest}`"));
         }

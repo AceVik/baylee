@@ -752,6 +752,20 @@ pub fn condition_holds_with_context(
                 crate::zone::Zone::Stack | crate::zone::Zone::Battlefield
             ) && o.riders.contains(&crate::object::Rider::MayhemPaid)
         }),
+        Condition::FirstMatchingSpellThisTurn(filter) => {
+            let items = &state.per_turn.cast_spells_this_turn.items;
+            let limit = state
+                .object(source)
+                .and_then(|obj| {
+                    items.iter().position(|rec| {
+                        rec.source.object == obj.id && rec.source.version == obj.version
+                    })
+                })
+                .unwrap_or(items.len());
+            !items[..limit].iter().any(|rec| {
+                rec.controller == you && matches(filter, state, &rec.snapshot, you, source)
+            })
+        }
         Condition::SpellWarpedThisTurn(who) => match who {
             None => !state.per_turn.spells_warped.is_empty(),
             Some(rel) => {
@@ -771,6 +785,28 @@ pub fn condition_holds_with_context(
         Condition::IsSuspected => state
             .object(source)
             .is_some_and(|object| object_is_suspected(state, object)),
+        Condition::ChosenMode(mode) => state.object(source).is_some_and(|object| {
+            object
+                .riders
+                .contains(&crate::object::Rider::ChosenMode(mode))
+        }),
+        Condition::CapturedCountAtLeast(min) => state
+            .resolution_remembered
+            .as_ref()
+            .is_some_and(|(_, list)| u32::try_from(list.len()).unwrap_or(u32::MAX) >= min),
+        Condition::CapturedMatches(filter) => {
+            state
+                .resolution_remembered
+                .as_ref()
+                .is_some_and(|(_, list)| {
+                    list.iter().any(|rem| {
+                        state
+                            .source_object(rem.reference)
+                            .or_else(|| state.object_or_departed(rem.reference.object))
+                            .is_some_and(|obj| super::matches(filter, state, obj, you, source))
+                    })
+                })
+        }
         Condition::HasRingBearer => state
             .players
             .get(usize::from(you.get()))
@@ -1014,6 +1050,13 @@ pub(crate) fn intervening_if_for_incarnation(
         Some(Condition::IsSuspected) => state
             .damage_source(source, version)
             .is_some_and(|object| object.riders.contains(&crate::object::Rider::Suspected)),
+        Some(Condition::ChosenMode(mode)) => {
+            state.damage_source(source, version).is_some_and(|object| {
+                object
+                    .riders
+                    .contains(&crate::object::Rider::ChosenMode(mode))
+            })
+        }
         Some(Condition::SourceCameUnderYourControlSinceYourLastUpkeep) => {
             super::upkeep_history::came_under_your_control(state, you, source, version)
         }

@@ -174,6 +174,15 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::GrantsUnearth(_)
         | Modifier::GrantsScavengeManaCost
         | Modifier::GrantsDredge(_)
+        | Modifier::GrantsHarmonizeManaCost
+        | Modifier::GrantAffinity(_)
+        | Modifier::GrantCascade(_)
+        | Modifier::GrantCasualty(_)
+        | Modifier::GrantReplicateCardManaCost
+        | Modifier::GrantRipple(_)
+        | Modifier::GrantBlitzCardManaCost
+        | Modifier::GrantProwl(_)
+        | Modifier::GrantFreerunning(_)
         | Modifier::Sneak(_)
         | Modifier::GainControl
         | Modifier::AddTypeIfCountersAtLeast { .. }
@@ -418,7 +427,12 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::ModifyLifeGain { .. }
         | Modifier::PreventDamageRemovingCounters { .. }
         | Modifier::PreventDamageToAffectedIfAtMost(_)
-        | Modifier::DamageCantBePrevented => false,
+        | Modifier::DamageCantBePrevented
+        | Modifier::CantAttackYouOrYourPlaneswalkers
+        | Modifier::CantBeAttackedBy(_)
+        | Modifier::MayActivateLoyaltyAsInstant { .. }
+        | Modifier::MayCastFromGraveyardTargeted { .. }
+        | Modifier::CastCostIncreaseUnlessTargets { .. } => false,
     }
 }
 
@@ -799,6 +813,11 @@ impl EffectTable {
                     }
                     | Modifier::AdjustSpellCostByAmount { .. }
                     | Modifier::FirstSpellEachTurnCostAdjust { .. }
+                    | Modifier::GrantAffinity(_)
+                    | Modifier::GrantBlitzCardManaCost
+                    | Modifier::GrantProwl(_)
+                    | Modifier::GrantFreerunning(_)
+                    | Modifier::CastCostIncreaseUnlessTargets { .. }
             ),
         );
         self.hints.insert_if(
@@ -889,6 +908,8 @@ impl EffectTable {
                     | Modifier::ExtraLandDrops(_)
                     | Modifier::MayCastWithAltCost { .. }
                     | Modifier::MayCastFromGraveyardUsingAlt(_)
+                    | Modifier::GrantsHarmonizeManaCost
+                    | Modifier::MayCastFromGraveyardTargeted { .. }
             ),
         );
         self.hints.insert_if(
@@ -947,6 +968,20 @@ impl EffectTable {
             if effect.controller == active && effect.duration == Duration::UntilEndOfYourNextUpkeep
             {
                 effect.duration = Duration::UntilEndOfCurrentUpkeep;
+                changed = true;
+            }
+        }
+        if changed {
+            self.generation += 1;
+        }
+    }
+
+    /// Stage "until the end of your next turn" effects when their controller's turn starts.
+    pub(crate) fn begin_turn(&mut self, active: PlayerId) {
+        let mut changed = false;
+        for effect in self.effects.iter_mut().chain(&mut self.parked) {
+            if effect.controller == active && effect.duration == Duration::UntilEndOfYourNextTurn {
+                effect.duration = Duration::UntilEndOfTurn;
                 changed = true;
             }
         }
@@ -2357,6 +2392,28 @@ mod tests {
             Modifier::GrantsScavengeManaCost,
             Modifier::GrantsDredge(2),
             Modifier::MayCastFromGraveyardUsingAlt(baylee_cards_dsl::GraveyardAltKind::Blitz),
+            Modifier::GrantAffinity(&baylee_cards_dsl::Filter::ARTIFACT),
+            Modifier::GrantCascade(1),
+            Modifier::GrantCasualty(2),
+            Modifier::GrantReplicateCardManaCost,
+            Modifier::GrantRipple(4),
+            Modifier::GrantBlitzCardManaCost,
+            Modifier::GrantProwl(baylee_core::mana::ManaCost::ZERO),
+            Modifier::GrantFreerunning(baylee_core::mana::ManaCost::ZERO),
+            Modifier::GrantsHarmonizeManaCost,
+            Modifier::CantAttackYouOrYourPlaneswalkers,
+            Modifier::CantBeAttackedBy(&baylee_cards_dsl::Filter::CREATURE),
+            Modifier::MayActivateLoyaltyAsInstant {
+                who: baylee_cards_dsl::PlayerRel::You,
+            },
+            Modifier::MayCastFromGraveyardTargeted {
+                free: false,
+                exile_instead_of_graveyard: true,
+            },
+            Modifier::CastCostIncreaseUnlessTargets {
+                filter: &baylee_cards_dsl::Filter::YOUR_CREATURE,
+                generic: 8,
+            },
         ]
     }
 
@@ -2395,7 +2452,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            264,
+            278,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -2532,7 +2589,7 @@ mod tests {
         // Wave 17c adds GrantsUnearth, GrantsScavengeManaCost, and GrantsDredge on
         // Layer::Ability (+3 locking -> 70) and ten cost/permission modifiers on
         // Layer::Text (+10 rules-only -> 194).
-        assert_eq!((locking, all.len() - locking), (70, 194));
+        assert_eq!((locking, all.len() - locking), (79, 199));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

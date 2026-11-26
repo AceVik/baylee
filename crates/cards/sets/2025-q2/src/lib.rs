@@ -93,6 +93,8 @@ pub mod balamb_t_rexaur;
 pub mod bard_s_bow;
 #[path = "fin/baron_airship_kingdom.rs"]
 pub mod baron_airship_kingdom;
+#[path = "ptdm/barrensteppe_siege.rs"]
+pub mod barrensteppe_siege;
 #[path = "fic/barret_avalanche_leader.rs"]
 pub mod barret_avalanche_leader;
 #[path = "fin/barret_wallace.rs"]
@@ -319,6 +321,8 @@ pub mod felothar_the_steadfast;
 pub mod fight_on;
 #[path = "tdm/fire_rim_form.rs"]
 pub mod fire_rim_form;
+#[path = "fic/fishing_gear.rs"]
+pub mod fishing_gear;
 #[path = "ptdm/flamehold_grappler.rs"]
 pub mod flamehold_grappler;
 #[path = "tdm/fleeting_effigy.rs"]
@@ -335,6 +339,8 @@ pub mod fortress_kin_guard;
 pub mod fresh_start;
 #[path = "tdm/frontline_rush.rs"]
 pub mod frontline_rush;
+#[path = "ptdm/frostcliff_siege.rs"]
+pub mod frostcliff_siege;
 #[path = "tdm/furious_forebear.rs"]
 pub mod furious_forebear;
 #[path = "fin/g_raha_tia.rs"]
@@ -355,6 +361,8 @@ pub mod general_leo_cristophe;
 pub mod gigantoad;
 #[path = "fin/giott_king_of_the_dwarves.rs"]
 pub mod giott_king_of_the_dwarves;
+#[path = "ptdm/glacierwood_siege.rs"]
+pub mod glacierwood_siege;
 #[path = "fin/gladiolus_amicitia.rs"]
 pub mod gladiolus_amicitia;
 #[path = "fic/gogo_mysterious_mime.rs"]
@@ -459,6 +467,8 @@ pub mod judge_magister_gabranth;
 pub mod judgment_bolt;
 #[path = "fin/jumbo_cactuar.rs"]
 pub mod jumbo_cactuar;
+#[path = "fin/kain_traitorous_dragoon.rs"]
+pub mod kain_traitorous_dragoon;
 #[path = "tdm/kheru_goldkeeper.rs"]
 pub mod kheru_goldkeeper;
 #[path = "tdm/kin_tree_nurturer.rs"]
@@ -535,6 +545,8 @@ pub mod midgar_city_of_mako;
 pub mod minwu_white_mage;
 #[path = "ptdm/mistrise_village.rs"]
 pub mod mistrise_village;
+#[path = "fic/mog_moogle_warrior.rs"]
+pub mod mog_moogle_warrior;
 #[path = "tdm/monastery_messenger.rs"]
 pub mod monastery_messenger;
 #[path = "fin/monk_s_fist.rs"]
@@ -749,6 +761,8 @@ pub mod smile_at_death;
 pub mod snow_villiers;
 #[path = "tdm/snowmelt_stag.rs"]
 pub mod snowmelt_stag;
+#[path = "ptdm/songcrafter_mage.rs"]
+pub mod songcrafter_mage;
 #[path = "tdm/spectral_denial.rs"]
 pub mod spectral_denial;
 #[path = "fic/sphere_grid.rs"]
@@ -831,6 +845,8 @@ pub mod temur_monument;
 pub mod temur_tawnyback;
 #[path = "fic/terra_herald_of_hope.rs"]
 pub mod terra_herald_of_hope;
+#[path = "ptdm/teval_arbiter_of_virtue.rs"]
+pub mod teval_arbiter_of_virtue;
 #[path = "tdc/teval_s_judgment.rs"]
 pub mod teval_s_judgment;
 #[path = "tdc/teval_the_balanced_scale.rs"]

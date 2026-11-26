@@ -231,6 +231,8 @@ pub enum SpellForm {
     Impending(ManaCost),
     /// A spell cast paying its `FaceDef::optional_cost` (`CR 118.8b`).
     OptionalCost(ManaCost),
+    /// A spell cast paying its blitz alternative cost (`CR 702.152a`).
+    Blitz,
 }
 
 /// The spell characteristics a player may use to assess a face-down exiled
@@ -333,6 +335,11 @@ impl SpellForm {
             Self::Foretell(_) | Self::Plot | Self::Impending(_) | Self::OptionalCost(_) => {
                 unreachable!("handled before the characteristic projection")
             }
+            Self::Blitz => {
+                if !object.riders.contains(&crate::object::Rider::Blitzed) {
+                    object.riders.push(crate::object::Rider::Blitzed);
+                }
+            }
         }
         object
     }
@@ -343,7 +350,7 @@ impl SpellForm {
             Self::Disguise => const { ManaCost::parse("{3}") },
             Self::Bestow(cost) => cost.mana,
             Self::Foretell(cost) | Self::Impending(cost) | Self::OptionalCost(cost) => cost,
-            Self::Plot => ManaCost::ZERO,
+            Self::Plot | Self::Blitz => ManaCost::ZERO,
         }
     }
 }

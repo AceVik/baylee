@@ -1588,6 +1588,11 @@ impl Tx<'_> {
         {
             return Some(out);
         }
+        if let Some(out) =
+            self.wave30c_dig_until_remember_revealed(p, sub, target, targets_a_player, chain)
+        {
+            return Some(out);
+        }
         if !chain.effects.is_empty() {
             return None;
         }
@@ -1760,7 +1765,7 @@ impl Tx<'_> {
     }
 
     #[allow(clippy::too_many_lines)]
-    fn parse_dig_until_core(
+    pub(super) fn parse_dig_until_core(
         &mut self,
         p: &mut Params,
         target: Option<&str>,
@@ -1989,7 +1994,7 @@ impl Tx<'_> {
         })
     }
 
-    fn format_reveal_until_then(
+    pub(super) fn format_reveal_until_then(
         parsed: &ParsedDigUntil,
         found: &str,
         rest: &str,
@@ -2300,7 +2305,7 @@ impl Tx<'_> {
         Some((rest, after))
     }
 
-    fn consume_dig_cleanup_tail(
+    pub(super) fn consume_dig_cleanup_tail(
         &self,
         next: Option<String>,
         allow_imprinted: bool,
@@ -5372,7 +5377,7 @@ enum ExilePlayRef {
 }
 
 /// Result of consuming a trailing `DB$ Cleanup` step.
-enum CleanupTail {
+pub(super) enum CleanupTail {
     End,
     Next(String),
 }
@@ -5393,7 +5398,7 @@ impl CleanupTail {
         }
     }
 
-    fn into_option(self) -> Option<String> {
+    pub(super) fn into_option(self) -> Option<String> {
         match self {
             Self::End => None,
             Self::Next(s) => Some(s),
@@ -5409,26 +5414,26 @@ enum DigPlaySaFilter {
 
 /// Parsed fields of a `DigUntil` line for `Effect::RevealUntilThen`.
 #[allow(clippy::struct_excessive_bools)]
-struct ParsedDigUntil {
+pub(super) struct ParsedDigUntil {
     library: &'static str,
-    multi_seat_domain: Option<&'static str>,
+    pub(super) multi_seat_domain: Option<&'static str>,
     valid_raw: String,
     filter_ref: String,
     count: String,
     count_is_one: bool,
     max_revealed: Option<String>,
-    exile_while_revealing: bool,
-    found: String,
+    pub(super) exile_while_revealing: bool,
+    pub(super) found: String,
     found_dest_raw: Option<String>,
     tapped: bool,
-    rest: String,
-    trailing_shuffle: bool,
-    optional_whole: bool,
-    optional_found_move: bool,
+    pub(super) rest: String,
+    pub(super) trailing_shuffle: bool,
+    pub(super) optional_whole: bool,
+    pub(super) optional_found_move: bool,
     optional_no_dest: Option<String>,
     no_move_revealed: bool,
-    remember_found: bool,
-    imprint_found: bool,
-    remember_revealed: bool,
-    imprint_revealed: bool,
+    pub(super) remember_found: bool,
+    pub(super) imprint_found: bool,
+    pub(super) remember_revealed: bool,
+    pub(super) imprint_revealed: bool,
 }

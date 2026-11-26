@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::state::CardLookup;
 
 /// Whether any effect lets mana be spent as though it were mana of any
 /// color (Mycosynth Lattice).
@@ -142,6 +143,226 @@ pub fn has_improvise(
             .unwrap_or(false)
 }
 
+/// Keywords granted onto a prospective cast of `card` (`face_idx`) on the stack
+/// via active layer-6 continuous effects (`AffectedZone$ Stack`).
+#[must_use]
+pub fn stack_granted_keywords(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    face_idx: usize,
+) -> baylee_cards_dsl::KeywordSet {
+    if !state
+        .effects
+        .iter()
+        .any(|fx| matches!(fx.modifier, baylee_cards_dsl::Modifier::AddKeyword(_)))
+    {
+        return baylee_cards_dsl::KeywordSet::EMPTY;
+    }
+    let Some(obj) = state.object(card) else {
+        return baylee_cards_dsl::KeywordSet::EMPTY;
+    };
+    let Some(def) = obj.card.and_then(|c| state.bases.card(c.index)) else {
+        return baylee_cards_dsl::KeywordSet::EMPTY;
+    };
+    let face_idx = face_idx.min(def.faces.len().saturating_sub(1));
+    let mut prospective = obj.clone();
+    prospective.base = std::sync::Arc::new(crate::object::Characteristics::from_face(
+        def,
+        face_idx,
+        obj.base.name,
+    ));
+    prospective.face_index = u8::try_from(face_idx).unwrap_or(0);
+    prospective.cache.clear();
+    projected_spell(state, player, &prospective)
+        .characteristics()
+        .keywords
+}
+
+/// Collect values mapped from active continuous effects that apply to a
+/// prospective cast of `card` (`face_idx`) on the stack.
+pub(crate) fn collect_stack_modifiers<T>(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    face_idx: usize,
+    mut map: impl FnMut(&crate::effects::ContinuousEffect) -> Option<T>,
+) -> Vec<T> {
+    if !state.effects.iter().any(|fx| map(fx).is_some()) {
+        return Vec::new();
+    }
+    let Some(obj) = state.object(card) else {
+        return Vec::new();
+    };
+    let Some(def) = obj.card.and_then(|c| state.bases.card(c.index)) else {
+        return Vec::new();
+    };
+    let face_idx = face_idx.min(def.faces.len().saturating_sub(1));
+    let mut prospective = obj.clone();
+    prospective.base = std::sync::Arc::new(crate::object::Characteristics::from_face(
+        def,
+        face_idx,
+        obj.base.name,
+    ));
+    prospective.face_index = u8::try_from(face_idx).unwrap_or(0);
+    prospective.cache.clear();
+    let spell = projected_spell(state, player, &prospective);
+    state
+        .effects
+        .iter()
+        .filter(|fx| crate::effects::applies_to(state, fx, &spell))
+        .filter_map(&mut map)
+        .collect()
+}
+
+/// Whether `card`'s `face` has convoke (printed or granted on stack, CR 702.51a).
+#[must_use]
+pub fn has_convoke(
+    state: &GameState,
+    card: ObjectId,
+    face: &baylee_cards_dsl::FaceDef,
+    player: PlayerId,
+    face_idx: usize,
+) -> bool {
+    face.convoke
+        || stack_granted_keywords(state, player, card, face_idx)
+            .contains(baylee_cards_dsl::KeywordSet::CONVOKE)
+}
+
+/// Whether `card`'s `face` has delve (printed or granted on stack, CR 702.66a).
+#[must_use]
+pub fn has_delve(
+    state: &GameState,
+    card: ObjectId,
+    face: &baylee_cards_dsl::FaceDef,
+    player: PlayerId,
+    face_idx: usize,
+) -> bool {
+    face.delve
+        || stack_granted_keywords(state, player, card, face_idx)
+            .contains(baylee_cards_dsl::KeywordSet::DELVE)
+}
+
+/// Whether `card`'s `face` has improvise (printed, next-spell, or granted on stack, CR 702.126a).
+#[must_use]
+pub fn has_improvise_for(
+    state: &GameState,
+    card: ObjectId,
+    face: &baylee_cards_dsl::FaceDef,
+    player: PlayerId,
+    face_idx: usize,
+) -> bool {
+    has_improvise(state, face, player)
+        || stack_granted_keywords(state, player, card, face_idx)
+            .contains(baylee_cards_dsl::KeywordSet::IMPROVISE)
+}
+
+/// Tap-to-pay sources parameterized directly by `convoke`/`improvise` flags.
+#[must_use]
+pub fn tap_to_pay_sources_for(
+    state: &GameState,
+    convoke: bool,
+    improvise: bool,
+    player: PlayerId,
+) -> Vec<ObjectId> {
+    let mut types = TypeSet::EMPTY;
+    if convoke {
+        types = types.union(TypeSet::CREATURE);
+    }
+    if improvise {
+        types = types.union(TypeSet::ARTIFACT);
+    }
+    if types.is_empty() {
+        return Vec::new();
+    }
+    untapped_of(state, player, types)
+}
+
+/// Colors paid by convoke/improvise taps parameterized directly by `convoke`.
+#[must_use]
+pub fn tap_colors_for(
+    state: &GameState,
+    convoke: bool,
+    taps: &[ObjectId],
+) -> Vec<baylee_core::color::ColorSet> {
+    taps.iter()
+        .map(|id| {
+            state
+                .object(*id)
+                .map(crate::object::GameObject::characteristics)
+                .filter(|c| convoke && c.types.contains(TypeSet::CREATURE))
+                .map_or(baylee_core::color::ColorSet::EMPTY, |c| c.colors)
+        })
+        .collect()
+}
+
+/// Generic mana reduction from convoke/improvise/delve parameterized directly.
+#[must_use]
+pub fn keyword_reduction_for(
+    state: &GameState,
+    convoke: bool,
+    improvise: bool,
+    delve: bool,
+    player: PlayerId,
+    card: ObjectId,
+) -> u32 {
+    let convoke_n = u32::try_from(tap_to_pay_sources_for(state, convoke, improvise, player).len())
+        .unwrap_or(u32::MAX);
+    let delve_n = if delve {
+        u32::try_from(delve_sources(state, player, card).len()).unwrap_or(u32::MAX)
+    } else {
+        0
+    };
+    convoke_n.saturating_add(delve_n)
+}
+
+/// Effective blitz cost for `card`/`face`: printed blitz, else stack-granted
+/// `Blitz:CardManaCost` (`Modifier::GrantBlitzCardManaCost`; *Henzie "Toolbox" Torre*).
+#[must_use]
+pub fn effective_blitz_cost(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    face: &baylee_cards_dsl::FaceDef,
+    face_idx: usize,
+) -> Option<baylee_cards_dsl::Cost> {
+    if let Some(blitz) = face.blitz {
+        return Some(blitz);
+    }
+    let has_grant = !collect_stack_modifiers(state, player, card, face_idx, |fx| {
+        matches!(
+            fx.modifier,
+            baylee_cards_dsl::Modifier::GrantBlitzCardManaCost
+        )
+        .then_some(())
+    })
+    .is_empty();
+    has_grant.then_some(baylee_cards_dsl::Cost {
+        mana: face.mana_cost,
+        parts: &[],
+    })
+}
+
+/// Alternative costs granted onto a spell on the stack (`GrantProwl`, `GrantFreerunning`).
+#[must_use]
+pub fn granted_stack_alternatives(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    face_idx: usize,
+) -> Vec<(ManaCost, baylee_cards_dsl::Condition)> {
+    collect_stack_modifiers(state, player, card, face_idx, |fx| match fx.modifier {
+        baylee_cards_dsl::Modifier::GrantProwl(cost) => {
+            Some((cost, baylee_cards_dsl::Condition::Prowl))
+        }
+        baylee_cards_dsl::Modifier::GrantFreerunning(cost) => Some((
+            cost,
+            baylee_cards_dsl::Condition::DealtCombatDamageToPlayerByAssassinOrCommanderThisTurn,
+        )),
+        _ => None,
+    })
+}
+
 /// The permanents that may be tapped to pay for {1} each of a spell cast
 /// from `face`: untapped creatures for convoke (CR 702.51a), untapped
 /// artifacts for improvise (CR 702.126a), each permanent once.
@@ -219,13 +440,46 @@ pub fn keyword_reduction(
     player: PlayerId,
     card: ObjectId,
 ) -> u32 {
-    let convoke = u32::try_from(tap_to_pay_sources(state, face, player).len()).unwrap_or(u32::MAX);
-    let delve = if face.delve {
-        u32::try_from(delve_sources(state, player, card).len()).unwrap_or(u32::MAX)
+    let face_idx = state
+        .object(card)
+        .and_then(|o| o.card)
+        .and_then(|c| state.bases.card(c.index))
+        .and_then(|def| def.faces.iter().position(|f| std::ptr::eq(f, face)))
+        .unwrap_or(0);
+    let base = keyword_reduction_for(
+        state,
+        has_convoke(state, card, face, player, face_idx),
+        has_improvise_for(state, card, face, player, face_idx),
+        has_delve(state, card, face, player, face_idx),
+        player,
+        card,
+    );
+    let mandatory_wb = face
+        .mandatory_additional_costs
+        .iter()
+        .filter_map(|p| match p {
+            baylee_cards_dsl::CostPart::Waterbend(n) => Some(u32::from(*n)),
+            _ => None,
+        })
+        .fold(0_u32, u32::saturating_add);
+    let wb = if mandatory_wb > 0 {
+        u32::try_from(waterbend_sources(state, player).len())
+            .unwrap_or(u32::MAX)
+            .min(mandatory_wb)
     } else {
         0
     };
-    convoke.saturating_add(delve)
+    let assist = if face.keywords.contains(baylee_cards_dsl::KeywordSet::ASSIST) {
+        state
+            .players
+            .iter()
+            .filter(|p| p.loss.is_none() && p.id != player)
+            .map(|p| super::spendable_units(state, p.id, super::SpendFor::Spell(card)))
+            .fold(0_u32, u32::saturating_add)
+    } else {
+        0
+    };
+    base.saturating_add(wb).saturating_add(assist)
 }
 
 /// The colours each of `taps` pays with for a spell cast from `face`: a
@@ -238,15 +492,30 @@ pub fn tap_colors(
     face: &baylee_cards_dsl::FaceDef,
     taps: &[ObjectId],
 ) -> Vec<baylee_core::color::ColorSet> {
-    taps.iter()
-        .map(|id| {
-            state
-                .object(*id)
-                .map(crate::object::GameObject::characteristics)
-                .filter(|c| face.convoke && c.types.contains(TypeSet::CREATURE))
-                .map_or(baylee_core::color::ColorSet::EMPTY, |c| c.colors)
-        })
-        .collect()
+    tap_colors_for(state, face.convoke, taps)
+}
+
+/// `cost` as the probes that ask whether a cast can be paid price it, including
+/// stack-granted `Convoke` / `Improvise` on `card`'s `face_idx`.
+#[must_use]
+pub fn keyword_priced_for(
+    state: &GameState,
+    card: ObjectId,
+    face_idx: usize,
+    face: &baylee_cards_dsl::FaceDef,
+    player: PlayerId,
+    cost: &ManaCost,
+    generic: u32,
+) -> ManaCost {
+    let convoke = has_convoke(state, card, face, player, face_idx);
+    let improvise = has_improvise_for(state, card, face, player, face_idx);
+    let taps = tap_colors_for(
+        state,
+        convoke,
+        &tap_to_pay_sources_for(state, convoke, improvise, player),
+    );
+    let (cost, colored) = cost.convoked_colored(&taps);
+    cost.with_less_generic(generic.saturating_sub(colored))
 }
 
 /// `cost` as the probes that ask whether a cast can be paid price it: the
@@ -557,6 +826,8 @@ const fn is_spell_cost_modifier(modifier: baylee_cards_dsl::Modifier) -> bool {
             }
             | baylee_cards_dsl::Modifier::AdjustSpellCostByAmount { .. }
             | baylee_cards_dsl::Modifier::FirstSpellEachTurnCostAdjust { .. }
+            | baylee_cards_dsl::Modifier::GrantAffinity(_)
+            | baylee_cards_dsl::Modifier::CastCostIncreaseUnlessTargets { .. }
     )
 }
 
@@ -1045,6 +1316,12 @@ fn apply_dynamic_spell_cost_modifier(
                 adjustment.reduction = adjustment.reduction.saturating_add(value);
             }
         }
+        baylee_cards_dsl::Modifier::CastCostIncreaseUnlessTargets { filter, generic } => {
+            adjustment.has_target_conditional_tax = true;
+            if !spell_targets_matching(state, spell, filter, controller, context) {
+                adjustment.increase = adjustment.increase.saturating_add(u32::from(generic));
+            }
+        }
         baylee_cards_dsl::Modifier::FirstSpellEachTurnCostAdjust {
             who,
             filter,
@@ -1123,6 +1400,22 @@ fn apply_spell_cost_modifier(
                 crate::eval::amount(&amount, state, controller, source.unwrap_or(spell.id), None);
             adjustment.reduction = adjustment.reduction.saturating_add(value);
         }
+        baylee_cards_dsl::Modifier::GrantAffinity(filter) => {
+            let context = crate::eval::live_context(state, source.unwrap_or(spell.id));
+            let count = state
+                .battlefield_seen()
+                .filter(|&id| {
+                    state.object(id).is_some_and(|permanent| {
+                        permanent.controller == player
+                            && crate::eval::matches_with_context(
+                                filter, state, permanent, player, context,
+                            )
+                    })
+                })
+                .count();
+            let count = u32::try_from(count).unwrap_or(u32::MAX);
+            adjustment.reduction = adjustment.reduction.saturating_add(count);
+        }
         baylee_cards_dsl::Modifier::BuybackCostsLess(amount) => {
             adjustment.buyback_reduction = adjustment.buyback_reduction.saturating_add(amount);
         }
@@ -1137,7 +1430,8 @@ fn apply_spell_cost_modifier(
         | baylee_cards_dsl::Modifier::ReduceCostIfTargets { .. }
         | baylee_cards_dsl::Modifier::RaiseCostIfTargets { .. }
         | baylee_cards_dsl::Modifier::AdjustSpellCostByAmount { .. }
-        | baylee_cards_dsl::Modifier::FirstSpellEachTurnCostAdjust { .. } => {
+        | baylee_cards_dsl::Modifier::FirstSpellEachTurnCostAdjust { .. }
+        | baylee_cards_dsl::Modifier::CastCostIncreaseUnlessTargets { .. } => {
             let context = crate::text_changes::RuleContext {
                 source: source.unwrap_or(spell.id),
                 text,
@@ -2275,51 +2569,93 @@ pub(crate) fn preview_cast_metric_bounds_for(
         }
         let spell = projected_spell(state, player, &raw);
         for effect in state.effects.iter() {
-            let baylee_cards_dsl::Modifier::RaiseCostIfTargets {
-                who,
-                spell_filter,
-                target_filter,
-                extra_mana,
-                extra_life,
-                abilities: false,
-            } = effect.modifier
-            else {
-                continue;
-            };
-            if (extra_mana == ManaCost::ZERO && extra_life == 0)
-                || !spell_cost_effect_applies(state, effect, who, player, &spell)
-                || !crate::eval::players_for_source(who, state, effect.controller, effect.source)
-                    .is_some_and(|ps| ps.contains(&player))
-            {
-                continue;
-            }
-            let context = crate::text_changes::RuleContext {
-                source: effect.source.unwrap_or(spell.id),
-                text: state.effect_text(effect),
-                resolved_name: None,
-                resolved_subtype: effect.filter.chosen_subtype(),
-                reference: None,
-            };
-            if !crate::eval::matches_with_context(
-                spell_filter,
-                state,
-                &spell,
-                effect.controller,
-                context,
-            ) {
-                continue;
-            }
-            let probe_rule = TargetConditionalRule {
-                controller: effect.controller,
-                context,
-                target_filter,
-                reduction: ManaCost::ZERO,
-            };
-            let (_, guaranteed) =
-                face_matches_target_filter(state, player, card, def, face_idx, kind, &probe_rule);
-            if guaranteed {
-                out.min_mana_increase = out.min_mana_increase.combine(&extra_mana);
-                out.min_life_increase = out.min_life_increase.saturating_add(extra_life);
+            match effect.modifier {
+                baylee_cards_dsl::Modifier::RaiseCostIfTargets {
+                    who,
+                    spell_filter,
+                    target_filter,
+                    extra_mana,
+                    extra_life,
+                    abilities: false,
+                } => {
+                    if (extra_mana == ManaCost::ZERO && extra_life == 0)
+                        || !spell_cost_effect_applies(state, effect, who, player, &spell)
+                        || !crate::eval::players_for_source(
+                            who,
+                            state,
+                            effect.controller,
+                            effect.source,
+                        )
+                        .is_some_and(|ps| ps.contains(&player))
+                    {
+                        continue;
+                    }
+                    let context = crate::text_changes::RuleContext {
+                        source: effect.source.unwrap_or(spell.id),
+                        text: state.effect_text(effect),
+                        resolved_name: None,
+                        resolved_subtype: effect.filter.chosen_subtype(),
+                        reference: None,
+                    };
+                    if !crate::eval::matches_with_context(
+                        spell_filter,
+                        state,
+                        &spell,
+                        effect.controller,
+                        context,
+                    ) {
+                        continue;
+                    }
+                    let probe_rule = TargetConditionalRule {
+                        controller: effect.controller,
+                        context,
+                        target_filter,
+                        reduction: ManaCost::ZERO,
+                    };
+                    let (_, guaranteed) = face_matches_target_filter(
+                        state,
+                        player,
+                        card,
+                        def,
+                        face_idx,
+                        kind,
+                        &probe_rule,
+                    );
+                    if guaranteed {
+                        out.min_mana_increase = out.min_mana_increase.combine(&extra_mana);
+                        out.min_life_increase = out.min_life_increase.saturating_add(extra_life);
+                    }
+                }
+                baylee_cards_dsl::Modifier::CastCostIncreaseUnlessTargets { filter, generic }
+                    if generic > 0 && crate::effects::applies_to(state, effect, &spell) =>
+                {
+                    let context = crate::text_changes::RuleContext {
+                        source: effect.source.unwrap_or(spell.id),
+                        text: state.effect_text(effect),
+                        resolved_name: None,
+                        resolved_subtype: effect.filter.chosen_subtype(),
+                        reference: None,
+                    };
+                    let probe_rule = TargetConditionalRule {
+                        controller: effect.controller,
+                        context,
+                        target_filter: filter,
+                        reduction: ManaCost::ZERO,
+                    };
+                    let (achievable, _) = face_matches_target_filter(
+                        state,
+                        player,
+                        card,
+                        def,
+                        face_idx,
+                        kind,
+                        &probe_rule,
+                    );
+                    if achievable {
+                        out.max_reduction = out.max_reduction.saturating_add(u32::from(generic));
+                    }
+                }
+                _ => {}
             }
         }
     }

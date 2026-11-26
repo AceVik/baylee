@@ -149,6 +149,31 @@ fn resolve_originals(
         .collect()
 }
 
+fn filter_uses_created_by_source(filter: &Filter) -> bool {
+    match filter {
+        Filter::CreatedBySource => true,
+        Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_uses_created_by_source),
+        Filter::Not(inner)
+        | Filter::AttachedTo(inner)
+        | Filter::LowestManaValueOnBattlefield(inner) => filter_uses_created_by_source(inner),
+        _ => false,
+    }
+}
+
+fn effects_track_created_by_source(effects: &[Effect]) -> bool {
+    effects.iter().any(|effect| {
+        if let Effect::ExileAll { filter, .. }
+        | Effect::DestroyAll { filter, .. }
+        | Effect::GainControlAll { filter, .. } = effect
+            && filter_uses_created_by_source(filter)
+        {
+            return true;
+        }
+        let (then, otherwise) = effect.branches();
+        effects_track_created_by_source(then) || effects_track_created_by_source(otherwise)
+    })
+}
+
 fn apply_token_riders(
     state: &mut GameState,
     res: &Resolution,
@@ -156,7 +181,15 @@ fn apply_token_riders(
     made: &[ObjectId],
     spec: TokenCopySpec,
 ) {
+    let created_by = effects_track_created_by_source(&res.effects)
+        .then(|| subjects::source(state, res))
+        .flatten();
     for &id in made {
+        if let Some(source) = created_by
+            && let Some(tok) = state.object_mut(id)
+        {
+            tok.riders.push(crate::object::Rider::CreatedBy(source));
+        }
         if spec.tapped {
             state.set_tapped(id, true);
         }

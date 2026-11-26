@@ -46,7 +46,7 @@ pub use alt_grants::alt_cast_land_open;
 pub(crate) use alt_grants::{
     AltCastGrantRoute, alt_cast_face_open, alt_cast_face_with_flash, alt_cast_grant_options,
     alt_cast_graveyard_land_zone_open, alt_cast_route_still_open, alt_cast_zone_spell_open,
-    consume_alt_cast_land_allowance, has_alt_cast_grant,
+    consume_alt_cast_land_allowance, harmonize_max_power, has_alt_cast_grant,
 };
 pub(crate) use escape::{escape_grants, granted_escape_options, mana_cost_mode};
 pub(crate) use face_options::{optional_flash_cost_options, ordinary_face_kind};
@@ -62,7 +62,8 @@ pub use payment::{SpellForm, SpendFor, pay_mana_for, spendable_units};
 pub(crate) use permissions::*;
 pub(crate) use pricing::{
     PreviewCastKind, PreviewDynamicDelta, card_has_self_spell_cost_statics,
-    preview_cast_metric_bounds, preview_cast_metric_bounds_for, preview_max_mandatory_x,
+    collect_stack_modifiers, preview_cast_metric_bounds, preview_cast_metric_bounds_for,
+    preview_max_mandatory_x,
 };
 #[cfg(feature = "test-support")]
 pub use pricing::{
@@ -77,9 +78,11 @@ pub(crate) use pricing::{
     spell_adjustment, spell_adjustment_with_def, spell_mana_spending,
 };
 pub use pricing::{
-    ability_mana_spending, commander_tax, convoke_sources, delve_sources, has_improvise,
-    keyword_priced, keyword_reduction, mana_cost_reduction, mana_is_wild, mana_spending,
-    printed_reduction, reduction_amount, tap_colors, tap_to_pay_sources, waterbend_sources,
+    ability_mana_spending, commander_tax, convoke_sources, delve_sources, effective_blitz_cost,
+    granted_stack_alternatives, has_convoke, has_delve, has_improvise, has_improvise_for,
+    keyword_priced, keyword_priced_for, keyword_reduction, mana_cost_reduction, mana_is_wild,
+    mana_spending, printed_reduction, reduction_amount, tap_colors, tap_colors_for,
+    tap_to_pay_sources, tap_to_pay_sources_for, waterbend_sources,
 };
 
 /// Whether `player` can pay all non-mana flashback parts and mandatory
@@ -2111,11 +2114,18 @@ pub(crate) fn can_cast_form_paying(
                 CastError::NoWayToCast
             });
         }
+        let form_cost = if matches!(form, SpellForm::Blitz) {
+            printed
+                .and_then(|def| effective_blitz_cost(state, player, card, &def.faces[0], 0))
+                .map_or(ManaCost::ZERO, |c| c.mana)
+        } else {
+            form.cost()
+        };
         return if affordable(
             state,
             player,
             pool,
-            &adjustment.price(form.cost().with_x(0), form_printed),
+            &adjustment.price(form_cost.with_x(0), form_printed),
             SpendFor::SpellAs(card, form),
             adjustment.allowance(state, SpendFor::SpellAs(card, form), form_printed),
         ) || matches!(form, SpellForm::Prototype(_))
@@ -2125,8 +2135,8 @@ pub(crate) fn can_cast_form_paying(
                 player,
                 SpendFor::SpellAs(card, form),
                 pool,
-                &adjustment.price(form.cost(), form_printed),
-                &form.cost(),
+                &adjustment.price(form_cost, form_printed),
+                &form_cost,
                 adjustment.allowance(state, SpendFor::SpellAs(card, form), form_printed),
             ) {
             Ok(())
@@ -2159,7 +2169,7 @@ pub(crate) fn can_cast_form_paying(
             .with_less_mana(&adjustment.mana_reduction, false);
         printed_face.map_or_else(
             || cost.with_less_generic(reduction),
-            |face| keyword_priced(state, face, player, &cost, reduction),
+            |face| keyword_priced_for(state, card, 0, face, player, &cost, reduction),
         )
     };
     let probe = |cost: &ManaCost| {
@@ -2281,8 +2291,10 @@ pub(crate) fn can_cast_form_paying(
         let base_mana = face
             .mana_cost
             .combine(&face_additional_mana_floor(state, player, card, face));
-        let cost = keyword_priced(
+        let cost = keyword_priced_for(
             state,
+            card,
+            i,
             face,
             player,
             &base_mana
@@ -2358,8 +2370,10 @@ pub(crate) fn can_cast_form_paying(
                             SpendFor::Spell(card),
                             printed_red.saturating_add(kw_red),
                         );
-                        let cost = keyword_priced(
+                        let cost = keyword_priced_for(
                             state,
+                            card,
+                            0,
                             &def.faces[0],
                             player,
                             &adj.price(fused_mana_cost(def).with_x(0), printed_red),
@@ -2646,8 +2660,10 @@ pub(crate) fn can_cast_form_paying(
             } else {
                 keyword_reduction(state, face, player, card)
             };
-            let opt_priced = keyword_priced(
+            let opt_priced = keyword_priced_for(
                 state,
+                card,
+                0,
                 face,
                 player,
                 &opt_adj.price(
@@ -2800,11 +2816,12 @@ pub(crate) fn can_cast_form_paying(
         // `legal.castable` and the wizard then reversed the cast at the pitch
         // stage. Every part is asked about here, the way every condition is
         // asked about below — the two halves of the same offer.
+        let granted_alts = granted_stack_alternatives(state, player, card, 0);
         let any_alt = front_now
             && front_target_ok
             && !flashback_only
             && !gy_alt_only
-            && face.alternative_costs.iter().enumerate().any(|(i, alt)| {
+            && (face.alternative_costs.iter().enumerate().any(|(i, alt)| {
                 // Every condition, not merely the one that was written first.
                 // `CommanderControlled` fell through the old `!matches!` as
                 // "true", so Flawless Maneuver and Fierce Guardianship were
@@ -2833,7 +2850,23 @@ pub(crate) fn can_cast_form_paying(
                         &[],
                     )
                     .is_some()
-            });
+            }) || granted_alts
+                .iter()
+                .enumerate()
+                .any(|(k, (cost, condition))| {
+                    let idx = face.alternative_costs.len() + k;
+                    crate::eval::condition_holds(state, player, card, *condition)
+                        && probe(cost)
+                        && additional_payment_capacity_for(
+                            state,
+                            player,
+                            card,
+                            face,
+                            Some(crate::choice::CastModeKind::Alternative(idx)),
+                            &[],
+                        )
+                        .is_some()
+                }));
         // Affordable *and* pointable, of the **same** mode. A mode's price
         // and a mode's target line are the two halves of one way to cast the
         // card, and this probe used to ask only the first while
@@ -2896,9 +2929,48 @@ pub(crate) fn can_cast_form_paying(
             && front_target_ok
             && !flashback_only
             && (!gy_alt_only || gy_blitz_ok)
-            && face.blitz.is_some_and(|blitz| {
-                probe(&blitz.mana.with_x(0))
-                    && alternative_parts_payable(state, player, card, blitz.parts)
+            && effective_blitz_cost(state, player, card, face, 0).is_some_and(|blitz| {
+                let blitz_adj =
+                    face_adjustment(state, player, card, def, 0, Some(SpellForm::Blitz));
+                let blitz_preview = blitz_adj.for_preview(preview_cast_metric_bounds_for(
+                    state,
+                    player,
+                    card,
+                    def,
+                    0,
+                    Some(SpellForm::Blitz),
+                    PreviewCastKind::Face,
+                    &blitz_adj,
+                ));
+                let blitz_printed = printed_reduction(state, face, player, card);
+                let blitz_kw = keyword_reduction(state, face, player, card);
+                let blitz_cost = keyword_priced_for(
+                    state,
+                    card,
+                    0,
+                    face,
+                    player,
+                    &blitz_preview.price(blitz.mana.with_x(0), blitz_printed),
+                    blitz_kw,
+                );
+                let blitz_what = SpendFor::SpellAs(card, SpellForm::Blitz);
+                let blitz_pool = planning_pool(state, player, blitz_what, 0);
+                let blitz_pool_ref = blitz_pool
+                    .as_ref()
+                    .unwrap_or(&state.players[usize::from(player.get())].mana_pool);
+                let blitz_allow = blitz_preview.allowance(
+                    state,
+                    blitz_what,
+                    blitz_printed.saturating_add(blitz_kw),
+                );
+                affordable(
+                    state,
+                    player,
+                    blitz_pool_ref,
+                    &blitz_cost,
+                    blitz_what,
+                    blitz_allow,
+                ) && alternative_parts_payable(state, player, card, blitz.parts)
                     && additional_payment_capacity_for(
                         state,
                         player,
@@ -3247,6 +3319,17 @@ pub fn face_additional_mana_floor(
             extra = extra.combine(&m);
         }
     }
+    let mandatory_wb = face
+        .mandatory_additional_costs
+        .iter()
+        .filter_map(|p| match p {
+            baylee_cards_dsl::CostPart::Waterbend(n) => Some(u32::from(*n)),
+            _ => None,
+        })
+        .fold(0_u32, u32::saturating_add);
+    if mandatory_wb > 0 {
+        extra = extra.with_more_generic(mandatory_wb);
+    }
     extra
 }
 
@@ -3275,6 +3358,10 @@ pub fn face_base_mana_cost(
 /// Every variant is named rather than swept into a wildcard:
 /// `cast_wizard::paid_as_an_alternative_cost` says which ones the payment
 /// pays, and `offer_tests` holds unsupported parts off this list entirely.
+#[allow(
+    clippy::too_many_lines,
+    reason = "exhaustive alternative-cost payment check"
+)]
 fn alternative_parts_payable(
     state: &GameState,
     player: PlayerId,
@@ -3364,6 +3451,8 @@ fn alternative_parts_payable(
         | CostPart::PutCounterSelf { .. }
         | CostPart::DealDamageToYou(_)
         | CostPart::Forage
+        | CostPart::Waterbend(_)
+        | CostPart::WaterbendX
         | CostPart::PayLifeX => true,
         CostPart::Behold(filter) | CostPart::BeholdAndExile(filter) => {
             !behold_options(state, player, card, filter).is_empty()

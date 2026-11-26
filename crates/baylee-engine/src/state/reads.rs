@@ -28,6 +28,9 @@ pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> boo
         | Filter::Tapped
         | Filter::Untapped
         | Filter::Attacking
+        | Filter::AttackingYouOrYourPlaneswalker
+        | Filter::DefendingPlayerIsYou
+        | Filter::FirstMatchingSpellThisTurn(_)
         | Filter::Blocking
         | Filter::Blocked
         | Filter::BlockingSource
@@ -59,6 +62,7 @@ pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> boo
         | Filter::NotRemembered
         | Filter::SharesCardTypeWithRemembered
         | Filter::SharesNameWithRemembered
+        | Filter::AttachedHostOfRemembered
         | Filter::SharesNameWithAnotherPermanent => true,
         Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_reads_board_state),
         Filter::Not(f) | Filter::ControllerControls(f) | Filter::TargetsYouControl(f) => {
@@ -88,7 +92,8 @@ fn filter_reads_reference_at(filter: &baylee_cards_dsl::Filter, depth: u8) -> bo
         | Filter::BlockedReferenceThisTurn
         | Filter::NotControlledByReferenceController
         | Filter::SharesCreatureTypeWithOtherTarget
-        | Filter::SharesTypeWithReference(_) => true,
+        | Filter::SharesTypeWithReference(_)
+        | Filter::SharesCardTypeWithReference => true,
         Filter::CmcAtMostAmount(amt)
         | Filter::CmcEqualsAmount(amt)
         | Filter::PowerAtMostAmount(amt)
@@ -1557,11 +1562,35 @@ pub(crate) fn card_reads_first_spell_each_turn(def: &CardDef) -> bool {
     })
 }
 
+fn filter_reads_first_spell_each_turn(filter: &baylee_cards_dsl::Filter, depth: u8) -> bool {
+    use baylee_cards_dsl::Filter;
+    if depth >= 8 {
+        return false;
+    }
+    match filter {
+        Filter::FirstMatchingSpellThisTurn(_) => true,
+        Filter::And(parts) | Filter::Or(parts) => parts
+            .iter()
+            .any(|p| filter_reads_first_spell_each_turn(p, depth + 1)),
+        Filter::Not(f) | Filter::ControllerControls(f) | Filter::TargetsYouControl(f) => {
+            filter_reads_first_spell_each_turn(f, depth + 1)
+        }
+        _ => false,
+    }
+}
+
 fn ability_reads_first_spell_each_turn(ability: &baylee_cards_dsl::AbilityDef) -> bool {
     use baylee_cards_dsl::{AbilityDef, Modifier};
     match ability {
         AbilityDef::Static(sa) => {
             matches!(sa.modifier, Modifier::FirstSpellEachTurnCostAdjust { .. })
+                || filter_reads_first_spell_each_turn(&sa.filter, 0)
+                || sa.condition.as_ref().is_some_and(|c| {
+                    matches!(
+                        c,
+                        baylee_cards_dsl::Condition::FirstMatchingSpellThisTurn(_)
+                    )
+                })
         }
         AbilityDef::Spell { effects, .. }
         | AbilityDef::Triggered { effects, .. }

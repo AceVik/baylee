@@ -309,6 +309,7 @@ fn condition_refers_to_subject(condition: &baylee_cards_dsl::Condition) -> bool 
         | C::ClassLevelExactly(_)
         | C::ClassLevelAtLeast(_)
         | C::IsSuspected
+        | C::ChosenMode(_)
         | C::SoulbondSelfCanPair
         | C::SoulbondEventCanPair => true,
         C::All(parts) | C::Any(parts) => parts.iter().any(condition_refers_to_subject),

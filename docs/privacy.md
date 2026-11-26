@@ -98,8 +98,8 @@ old gateway data is preserved during the transition. See
 | Chair ticket (hash only), with the room, chair and host account it is for | gateway memory | ≤ 120 s (`BAYLEE_CHAIR_TICKET_SECS`), or until used | use, its host leaving the room or being deleted, the ticket sweep, a restart |
 | Rate-limit keys (IP, typed login name) | gateway memory | a window (300 s), then until the next check | the limiter itself |
 | Chat devices (public keys, the OS family as a label, when added and last seen) | Postgres `social_device` | until removed | the player (Settings → Chat & privacy), or the account's deletion |
-| Friends, friend requests, blocks | Postgres `friendship`, `friend_request`, `social_block` | until changed | the player, or either account's deletion |
-| Groups (name, members, invites) | Postgres `chat_group`, `group_member`, `group_invite` | until the group is deleted | the owner; a group nobody is left in; an account's deletion removes its membership |
+| Blocks (from before Central; Central's blocks do not reach the gateway, so these still keep a blocked player's table chat away) | Postgres `social_block` | until the account's deletion | the account's deletion, or the operator on request (the client sends new blocks to Central) |
+| Friends, friend requests, groups (name, members, invites) from before Central | were Postgres `friendship`, `friend_request`, `chat_group`, `group_member`, `group_invite`; the tables stay, empty | deleted by migration 35 (`m20261125_000035_drop_old_friends`, owner 25.11.2026), with the groups' undelivered messages | — (contacts and groups are Central's) |
 | Undelivered messages (encrypted; the gateway can't read them) and who they're for | Postgres `chat_message`, `chat_delivery` | until delivered, at most `BAYLEE_SOCIAL_KEEP_DAYS` (14 unless set, 1 to 30; 1 day to a guest) | delivery, the sweep, the sender's or recipient's deletion |
 | Whisper and request settings, "show my table to friends" | Postgres `account` (`whispers_from`, `requests_open`, `share_table`) | until changed | the account's deletion |
 | Presence (status, where, which social sockets are open), table invites, chat rate limits | gateway memory | while connected, 10 minutes for an invite | disconnecting, a restart |
@@ -1235,9 +1235,14 @@ to weigh, not conclusions.
    client still sends its session or seat token in a socket's address, and
    `/auth/confirm?token=` always does; whatever access log sits in front of
    the gateway sees those.
-4. **Retention of stdout logs** is not set anywhere in the repository.
-   Backups have their own (§"Backups"), set in the separate `baylee-backup`
-   repository.
+4. **Retention of stdout logs** is set on the server, not in the
+   repository. The system journal keeps 14 days (`MaxRetentionSec=14day`;
+   journald deletes whole files once their first entry is that old), and
+   the files rsyslog, fail2ban and ufw write from it rotate daily with
+   `maxage 14` (since 25.11.2026). The owner's own user journal (deploy
+   output, sudo sessions) keeps longer, by his choice (26.11.2026); it
+   holds no player data as far as checked. Backups have their own
+   (§"Backups"), set in the separate `baylee-backup` repository.
 5. **Game records** (#315) are kept without a time limit. The record names
    no account; who sat in a seat is `game_record_seat.account_id` (and
    `delegated_by` for a host's seat bridge), both `ON DELETE SET NULL`

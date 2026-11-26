@@ -49,6 +49,8 @@ pub mod angel_of_suffering;
 pub mod angelic_observer;
 #[path = "ncc/angelic_sleuth.rs"]
 pub mod angelic_sleuth;
+#[path = "ncc/anhelo_the_painter.rs"]
+pub mod anhelo_the_painter;
 #[path = "snc/antagonize.rs"]
 pub mod antagonize;
 #[path = "snc/arc_spitter.rs"]
@@ -73,6 +75,8 @@ pub mod astral_dragon;
 pub mod atrocious_experiment;
 #[path = "snc/attended_socialite.rs"]
 pub mod attended_socialite;
+#[path = "ncc/audacious_swap.rs"]
+pub mod audacious_swap;
 #[path = "psnc/aven_heartstabber.rs"]
 pub mod aven_heartstabber;
 #[path = "clb/avenging_hunter.rs"]
@@ -427,6 +431,8 @@ pub mod hammers_of_moradin;
 pub mod haunted_one;
 #[path = "clb/heap_gate.rs"]
 pub mod heap_gate;
+#[path = "ncc/henzie_toolbox_torre.rs"]
+pub mod henzie_toolbox_torre;
 #[path = "snc/high_rise_sawjack.rs"]
 pub mod high_rise_sawjack;
 #[path = "psnc/hoard_hauler.rs"]
@@ -541,6 +547,8 @@ pub mod manor_gate;
 pub mod marching_duodrone;
 #[path = "ncc/mari_the_killing_quill.rs"]
 pub mod mari_the_killing_quill;
+#[path = "ncc/master_of_ceremonies.rs"]
+pub mod master_of_ceremonies;
 #[path = "snc/mayhem_patrol.rs"]
 pub mod mayhem_patrol;
 #[path = "snc/metropolis_angel.rs"]
@@ -593,6 +601,8 @@ pub mod nothic;
 pub mod obscura_ascendancy;
 #[path = "snc/obscura_charm.rs"]
 pub mod obscura_charm;
+#[path = "ncc/obscura_confluence.rs"]
+pub mod obscura_confluence;
 #[path = "snc/obscura_initiate.rs"]
 pub mod obscura_initiate;
 #[path = "psnc/obscura_interceptor.rs"]
@@ -747,6 +757,8 @@ pub mod sea_hag;
 pub mod seasoned_dungeoneer;
 #[path = "snc/security_bypass.rs"]
 pub mod security_bypass;
+#[path = "ncc/seize_the_spotlight.rs"]
+pub mod seize_the_spotlight;
 #[path = "snc/sewer_crocodile.rs"]
 pub mod sewer_crocodile;
 #[path = "psnc/shadow_of_mortality.rs"]
@@ -921,3 +933,5 @@ pub mod your_temple_is_under_attack;
 pub mod zhentarim_bandit;
 #[path = "psnc/ziatora_s_proving_ground.rs"]
 pub mod ziatora_s_proving_ground;
+#[path = "psnc/ziatora_the_incinerator.rs"]
+pub mod ziatora_the_incinerator;

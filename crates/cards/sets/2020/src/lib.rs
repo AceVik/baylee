@@ -543,6 +543,8 @@ pub mod fireblade_charger;
 pub mod fireflux_squad;
 #[path = "znr/fissure_wizard.rs"]
 pub mod fissure_wizard;
+#[path = "cmr/flamekin_herald.rs"]
+pub mod flamekin_herald;
 #[path = "c20/flawless_maneuver.rs"]
 pub mod flawless_maneuver;
 #[path = "thb/flicker_of_fate.rs"]
@@ -657,6 +659,8 @@ pub mod guul_draz_mucklord;
 pub mod hagra_constrictor;
 #[path = "pznr/hagra_mauling.rs"]
 pub mod hagra_mauling;
+#[path = "cmr/halana_kessig_ranger.rs"]
+pub mod halana_kessig_ranger;
 #[path = "anb/hallowed_priest.rs"]
 pub mod hallowed_priest;
 #[path = "iko/hampering_snare.rs"]
@@ -717,6 +721,8 @@ pub mod illuna_apex_of_wishes;
 pub mod ilysian_caryatid;
 #[path = "jmp/immolating_gyre.rs"]
 pub mod immolating_gyre;
+#[path = "cmr/imoti_celebrant_of_bounty.rs"]
+pub mod imoti_celebrant_of_bounty;
 #[path = "thb/impending_doom.rs"]
 pub mod impending_doom;
 #[path = "iko/imposing_vantasaur.rs"]
@@ -801,6 +807,8 @@ pub mod keeper_of_the_accord;
 pub mod keleth_sunmane_familiar;
 #[path = "jmp/kels_fight_fixer.rs"]
 pub mod kels_fight_fixer;
+#[path = "m21/keral_keep_disciples.rs"]
+pub mod keral_keep_disciples;
 #[path = "cmr/keskit_the_flesh_sculptor.rs"]
 pub mod keskit_the_flesh_sculptor;
 #[path = "iko/ketria_crystal.rs"]
@@ -963,6 +971,8 @@ pub mod miscast;
 pub mod mischievous_chimera;
 #[path = "m21/mistral_singer.rs"]
 pub mod mistral_singer;
+#[path = "cmr/mnemonic_deluge.rs"]
+pub mod mnemonic_deluge;
 #[path = "thb/mogis_s_favor.rs"]
 pub mod mogis_s_favor;
 #[path = "znr/molten_blast.rs"]
@@ -1777,6 +1787,8 @@ pub mod volcanic_torrent;
 pub mod voracious_greatshark;
 #[path = "thb/voracious_typhon.rs"]
 pub mod voracious_typhon;
+#[path = "cmr/vow_of_torment.rs"]
+pub mod vow_of_torment;
 #[path = "iko/vulpikeet.rs"]
 pub mod vulpikeet;
 #[path = "m21/waker_of_waves.rs"]

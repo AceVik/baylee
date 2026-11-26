@@ -207,7 +207,8 @@ pub(super) fn count(
                 },
                 ThisWay::CountersRemovedFromTargets,
             ) if res.target_players.contains(*player) && new < old => u32::from(old - new),
-            (GameEvent::ControllerChanged { .. }, ThisWay::ControlChanged) => 1,
+            (GameEvent::ControllerChanged { .. }, ThisWay::ControlChanged)
+            | (GameEvent::SpellCountered { .. }, ThisWay::Countered) => 1,
             (
                 GameEvent::ZoneChanged {
                     object,

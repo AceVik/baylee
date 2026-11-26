@@ -949,6 +949,14 @@ html[data-js] .set:not(.shown) .pbar > span, html[data-js] .sets-overall:not(.sh
 .legal { max-width: 46rem; }
 .legal h1 { font-size: clamp(2rem, 1.4rem + 2.2vw, 3rem); }
 .legal h2 { font-size: clamp(1.3rem, 1.1rem + 0.8vw, 1.7rem); margin-top: 2.2rem; }
+/* the gateway's terms as terms.js draws them (nutzungsbedingungen.html):
+   `#` is an h2, `##` an h3; a long address breaks instead of widening the
+   page on a phone */
+.terms-text h3 { margin-top: 2rem; }
+.terms-text p, .terms-text li { overflow-wrap: break-word; }
+.terms-text ul, .terms-text ol { margin: 0 0 1em; padding-left: 1.4em; }
+.terms-text li { margin: 0 0 0.5em; }
+.terms-text hr { border: 0; border-top: 1px solid var(--edge-soft); margin: 2rem 0; }
 .imp-box { padding: 1.2rem 1.4rem; margin: 0 0 1rem; }
 .imp-box p:last-child { margin-bottom: 0; }
 .imp-address { font-size: 1.08rem; line-height: 1.7; }

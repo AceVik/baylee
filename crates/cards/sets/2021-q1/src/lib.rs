@@ -161,6 +161,8 @@ pub mod fearless_liberator;
 pub mod fearless_pup;
 #[path = "khm/feed_the_serpent.rs"]
 pub mod feed_the_serpent;
+#[path = "khm/fire_giant_s_fury.rs"]
+pub mod fire_giant_s_fury;
 #[path = "khm/firja_judge_of_valor.rs"]
 pub mod firja_judge_of_valor;
 #[path = "khm/firja_s_retribution.rs"]
@@ -319,6 +321,8 @@ pub mod realmwalker;
 pub mod reckless_crew;
 #[path = "khm/reflections_of_littjara.rs"]
 pub mod reflections_of_littjara;
+#[path = "khm/reidane_god_of_the_worthy.rs"]
+pub mod reidane_god_of_the_worthy;
 #[path = "khm/renegade_reaper.rs"]
 pub mod renegade_reaper;
 #[path = "khm/return_upon_the_tide.rs"]
@@ -407,6 +411,8 @@ pub mod struggle_for_skemfar;
 pub mod sulfurous_mire;
 #[path = "khm/surtland_elementalist.rs"]
 pub mod surtland_elementalist;
+#[path = "khm/surtland_flinger.rs"]
+pub mod surtland_flinger;
 #[path = "khm/surtland_frostpyre.rs"]
 pub mod surtland_frostpyre;
 #[path = "khm/tergrid_s_shadow.rs"]

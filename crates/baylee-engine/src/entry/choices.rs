@@ -353,6 +353,69 @@ pub fn advance(state: &mut GameState) -> Option<Pending> {
                             Pending::ChooseSubtype { player, options },
                         ));
                     }
+                    EnterModifier::ChooseMode(labels) => {
+                        if labels.is_empty() {
+                            continue;
+                        }
+                        let object = entry.object;
+                        let options = (0..labels.len())
+                            .map(|index| crate::choice::CastModeDesc {
+                                index: u32::try_from(index).expect("mode fits u32"),
+                                kind: crate::choice::CastModeKind::Mode(index),
+                                cost: baylee_core::mana::ManaCost::ZERO,
+                            })
+                            .collect();
+                        return Some(ask(
+                            state,
+                            entry,
+                            Question::ChooseMode {
+                                count: u8::try_from(labels.len()).expect("mode fits u8"),
+                            },
+                            Pending::ChooseCastMode {
+                                player,
+                                object,
+                                options,
+                            },
+                        ));
+                    }
+                    EnterModifier::EachPlayerChooseMode(labels) => {
+                        if labels.is_empty() {
+                            continue;
+                        }
+                        let object = entry.object;
+                        let mut seats = crate::eval::players(
+                            baylee_cards_dsl::PlayerRel::EachPlayer,
+                            state,
+                            player,
+                        )
+                        .unwrap_or_default();
+                        seats.sort_by_key(|&p| crate::battle::sba::apnap_distance(state, p));
+                        if seats.is_empty() {
+                            continue;
+                        }
+                        let first = seats.remove(0);
+                        let options = (0..labels.len())
+                            .map(|index| crate::choice::CastModeDesc {
+                                index: u32::try_from(index).expect("mode fits u32"),
+                                kind: crate::choice::CastModeKind::Mode(index),
+                                cost: baylee_core::mana::ManaCost::ZERO,
+                            })
+                            .collect();
+                        return Some(ask(
+                            state,
+                            entry,
+                            Question::EachPlayerChooseMode {
+                                player: first,
+                                remaining: seats,
+                                count: u8::try_from(labels.len()).expect("mode fits u8"),
+                            },
+                            Pending::ChooseCastMode {
+                                player: first,
+                                object,
+                                options,
+                            },
+                        ));
+                    }
                     EnterModifier::ChooseOpponent | EnterModifier::ChooseAnyPlayer
                         if super::has_pre_counter_choice(entry.modifiers) =>
                     {
@@ -485,6 +548,32 @@ pub fn answer(state: &mut GameState, action: &PlayerAction) {
         }
         (Question::Number, PlayerAction::ChooseNumber(number)) => {
             entry.chosen_number = Some(u8::try_from(*number).expect("bounded choice"));
+        }
+        (Question::ChooseMode { .. }, PlayerAction::ChooseMode(index)) => {
+            entry.chosen_mode = Some(u8::try_from(*index).expect("mode fits u8"));
+        }
+        (
+            Question::EachPlayerChooseMode {
+                player: chooser,
+                mut remaining,
+                count,
+            },
+            PlayerAction::ChooseMode(index),
+        ) => {
+            entry
+                .player_chosen_modes
+                .push((chooser, u8::try_from(*index).expect("mode fits u8")));
+            remaining.retain(|&p| !state.has_left(p));
+            if !remaining.is_empty() {
+                let next_player = remaining.remove(0);
+                state.entries.question = Some(Question::EachPlayerChooseMode {
+                    player: next_player,
+                    remaining,
+                    count,
+                });
+                state.entries.pending.push_front(entry);
+                return;
+            }
         }
         (Question::AcceptSacrifice { options, count }, PlayerAction::YesNo(accept)) => {
             if *accept {
@@ -741,6 +830,21 @@ pub fn next_question(state: &GameState) -> Option<Pending> {
             min: 0,
             max: u32::try_from(kinds.len().saturating_sub(1)).expect("bounded slice"),
             reason: crate::choice::NumberPrompt::Choice,
+        }),
+        Question::EachPlayerChooseMode {
+            player: chooser,
+            count,
+            ..
+        } => Some(Pending::ChooseCastMode {
+            player: *chooser,
+            object: entry.object,
+            options: (0..usize::from(*count))
+                .map(|index| crate::choice::CastModeDesc {
+                    index: u32::try_from(index).expect("mode fits u32"),
+                    kind: crate::choice::CastModeKind::Mode(index),
+                    cost: baylee_core::mana::ManaCost::ZERO,
+                })
+                .collect(),
         }),
         _ => None,
     }

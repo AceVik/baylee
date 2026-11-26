@@ -261,6 +261,7 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "BecomeMonarch",
     "GainControl",
     "ChooseColor",
+    "BecomesBlocked",
     "ProtectionAll",
     "RepeatEach",
     "ChooseCard",

@@ -7851,6 +7851,73 @@ pub static BIRD_1_1_BLUE_FLYING_A92C7E842: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 5/5 green Wurm.
+pub static WURM_5_5_GREEN: TokenDef = TokenDef {
+    name: "Wurm",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::WURM],
+    power: Some(5),
+    toughness: Some(5),
+    ..TokenDef::DEFAULT
+};
+
+/// 5/1 red Lightning Rager with haste and trample.
+pub static LIGHTNING_RAGER_5_1_RED_HASTE_TRAMPLE_A730DA31D: TokenDef = TokenDef {
+    name: "Lightning Rager",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ELEMENTAL],
+    power: Some(5),
+    toughness: Some(1),
+    keywords: KeywordSet::HASTE.union(KeywordSet::TRAMPLE),
+    abilities: &[triggered!(
+        Trigger::StepBegin {
+            step: StepKind::End,
+            whose: PlayerRel::EachPlayer
+        },
+        &[Effect::SacrificeFilter {
+            who: PlayerRel::You,
+            filter: &Filter::This
+        }]
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 3/3 red Ogre.
+pub static OGRE_3_3_RED: TokenDef = TokenDef {
+    name: "Ogre",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::OGRE],
+    power: Some(3),
+    toughness: Some(3),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 red green Goblin Warrior.
+pub static GOBLIN_WARRIOR_1_1_RED_GREEN: TokenDef = TokenDef {
+    name: "Goblin Warrior",
+    colors: ColorSet::from_slice(&[Color::Red, Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::GOBLIN, creature::WARRIOR],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 blue Kraken with trample.
+pub static KRAKEN_1_1_BLUE_TRAMPLE: TokenDef = TokenDef {
+    name: "Kraken",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::KRAKEN],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::TRAMPLE,
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -9237,6 +9304,11 @@ pub static ALL: &[&TokenDef] = &[
     &HORROR_2_2_BLACK,
     &QUESTING_ENCHANT_CREATURE_AF17BF9C3,
     &BIRD_1_1_BLUE_FLYING_A92C7E842,
+    &WURM_5_5_GREEN,
+    &LIGHTNING_RAGER_5_1_RED_HASTE_TRAMPLE_A730DA31D,
+    &OGRE_3_3_RED,
+    &GOBLIN_WARRIOR_1_1_RED_GREEN,
+    &KRAKEN_1_1_BLUE_TRAMPLE,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -9834,6 +9906,11 @@ pub static GENERATED: &[&TokenDef] = &[
     &HORROR_2_2_BLACK,
     &QUESTING_ENCHANT_CREATURE_AF17BF9C3,
     &BIRD_1_1_BLUE_FLYING_A92C7E842,
+    &WURM_5_5_GREEN,
+    &LIGHTNING_RAGER_5_1_RED_HASTE_TRAMPLE_A730DA31D,
+    &OGRE_3_3_RED,
+    &GOBLIN_WARRIOR_1_1_RED_GREEN,
+    &KRAKEN_1_1_BLUE_TRAMPLE,
 ];
 
 /// Legacy duplicate ids and the canonical ids they now resolve to.

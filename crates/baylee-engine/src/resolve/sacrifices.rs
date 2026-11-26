@@ -19,7 +19,13 @@ pub(super) fn offer_payment(
     let player = players_of(who, state, res.controller, res)
         .first()
         .copied()?;
-    let options = chosen::sacrifice_options(state, player, filter, res.controller, res.source);
+    let options = chosen::sacrifice_options_with_context(
+        state,
+        player,
+        filter,
+        res.controller,
+        res.rule_context(),
+    );
     if options.len() < usize::from(count) {
         return if on_payment {
             None

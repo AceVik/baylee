@@ -960,3 +960,19 @@ and adding **+465 pure-paper cards** (`0` Un-sets/Acorn, `0` Alchemy/digital-onl
 Whole pool after Wave 17 (`xtask validate`): **26,404 definitions** —
 **25,775 finished** (**2,782 hand-owned `Implemented`** and **22,993
 machine-owned `Generated`**) and **629 stubs**.
+
+## Wave 18 + Codegen Wave 30 pure-paper expansion (2026-11-26)
+
+Implemented Engine Wave 18a/b/c (`Assist`, `Waterbend`, `GenericChoice` /
+`AnyPlayerCost` / `MultiPlayerChoice`, stack statics, combat/planeswalker
+attack guards, granted loyalty, control-exchange, counter manipulation, and
+`Unless` / `TurnFaceUp` / APNAP replacements), Codegen Wave 30a–d readers
+(plus `RepeatEach` + `ModifyEvent` snapshot fixes and `ThisWayBy(You)`
+scoping), and client/AI public-view filter coverage (`OwnedBy`,
+`AttackingYouOrYourPlaneswalker`, `DefendingPlayerIsYou`), promoting **+29
+machine-owned stubs** and adding **+282 pure-paper cards** (`0` Un-sets/Acorn,
+`0` Alchemy/digital-only, `0` stub downgrades).
+
+Whole pool after Wave 18 (`xtask validate`): **26,686 definitions** —
+**26,086 finished** (**2,782 hand-owned `Implemented`** and **23,304
+machine-owned `Generated`**) and **600 stubs**.

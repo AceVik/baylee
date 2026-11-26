@@ -91,19 +91,24 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 || self.can_make_mana_for_cast(paying.player)
                 || {
                     let mut cost = wizard_total_cost(face, paying);
-                    if face.waterbend && (paying.kicked || paying.optional_cost_paid) {
-                        let mut waterbend = if paying.kicked {
+                    let mandatory_wb = super::wizard_mandatory_waterbend_generic(face, paying);
+                    if (face.waterbend && (paying.kicked || paying.optional_cost_paid))
+                        || mandatory_wb > 0
+                    {
+                        let mut waterbend = if face.waterbend && paying.kicked {
                             face.additional_costs
                                 .iter()
                                 .fold(ManaCost::ZERO, |sum, add| sum.combine(&add.mana))
                         } else {
                             ManaCost::ZERO
                         };
-                        if paying.optional_cost_paid
+                        if face.waterbend
+                            && paying.optional_cost_paid
                             && let Some(opt) = face.optional_cost
                         {
                             waterbend = waterbend.combine(&opt.mana);
                         }
+                        waterbend = waterbend.with_more_generic(mandatory_wb);
                         let waterbend_generic = waterbend.generic_total();
                         let taps = u32::try_from(
                             casting::waterbend_sources(&self.state, paying.player).len(),
@@ -118,8 +123,15 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             paying.player,
                             paying.card,
                         );
-                        cost =
-                            casting::keyword_priced(&self.state, face, paying.player, &cost, red);
+                        cost = casting::keyword_priced_for(
+                            &self.state,
+                            paying.card,
+                            paying.face_index(),
+                            face,
+                            paying.player,
+                            &cost,
+                            red,
+                        );
                     }
                     self.wizard_pool_can_pay(paying, cost)
                 })
@@ -190,12 +202,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// none or no controlled creature with projected power `>= min_power` can
     /// pay it alongside the cast's other costs.
     pub(super) fn ask_casualty(&mut self, wizard: &CastWizard) -> Option<Pending> {
-        let min_power = self.wizard_face(wizard).casualty?;
+        let min_power = self.wizard_effective_casualty(wizard)?;
         if wizard.option == Some(CastModeKind::Disguise) || wizard.masked {
             return None;
         }
         let mut paying = wizard.clone();
         paying.casualty = true;
+        paying.casualty_power = Some(min_power);
         if !self.announced_cost_payable(&paying) {
             return None;
         }
@@ -368,6 +381,7 @@ impl CastWizard {
             optional_cost_paid: self.optional_cost_paid,
             offspring: self.offspring,
             casualty: self.casualty,
+            casualty_power: self.casualty_power,
             squad: self.squad,
             kicked: self.kicked,
             kicked_mask: self.kicked_mask,

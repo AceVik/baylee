@@ -79,7 +79,8 @@ fn a_continuous_player_relation_is_one_the_state_can_answer() {
                     | PlayerRel::EachOtherPlayer
                     | PlayerRel::MostLifeOrTied
                     | PlayerRel::LeastLifeOrTied
-                    | PlayerRel::MostLife => true,
+                    | PlayerRel::MostLife
+                    | PlayerRel::PlayerToYourRight => true,
                     PlayerRel::OwnerOfSource
                     | PlayerRel::ControllerOfAttached
                     | PlayerRel::EnchantedPlayer

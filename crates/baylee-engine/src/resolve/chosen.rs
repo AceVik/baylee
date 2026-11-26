@@ -110,6 +110,19 @@ pub(super) fn sacrifice_options(
         .collect()
 }
 
+pub(super) fn sacrifice_options_with_context(
+    state: &GameState,
+    player: PlayerId,
+    filter: &'static Filter,
+    you: PlayerId,
+    context: crate::text_changes::RuleContext,
+) -> Vec<ObjectId> {
+    eval::controlled_matching_with_context(state, player, filter, you, context)
+        .into_iter()
+        .filter(|&id| state.can_be_sacrificed(id, Some(you)))
+        .collect()
+}
+
 /// Orders `players` in APNAP order starting at the active player (CR 101.4),
 /// dropping any player who has already left the game.
 pub(super) fn order_apnap(state: &GameState, players: &mut Vec<PlayerId>) {

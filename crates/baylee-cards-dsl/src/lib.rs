@@ -135,12 +135,13 @@ pub use build::{
 };
 pub use cost::{AltCondition, AlternativeCost, Cost, CostPart, CostReduction};
 pub use effect::{
-    Amount, AttachHost, ChooseMove, ChooseZone, ColorSubject, CombatWatchEvent, CopyCleanup,
-    CounterDonor, CounterKind, DamageRedirectTo, DamageRider, DamageTo, DefinedObjects,
-    DelayedDuration, DelayedObservation, DelayedStep, DelayedTriggerWhen, DivisionAmount,
-    DoublePtSubject, Effect, ExileMana, ExilePermission, ExilePlay, ExileUntil, Find, LookRest,
-    ManaDistribution, ManaRestriction, ManaSource, ManaUse, ManaValueBound, ManaValueCmp,
-    ModalRestriction, MoveSubject, NumberChoiceKind, PeekPickDest, PeekRestDest, PlayCostMode,
+    Amount, AnyPlayerCost, AttachHost, ChooseMove, ChooseZone, ColorSubject, CombatWatchEvent,
+    CopyCleanup, CounterDestination, CounterDonor, CounterKind, CounterScope, DamageRedirectTo,
+    DamageRider, DamageTo, DefinedObjects, DelayedDuration, DelayedObservation, DelayedStep,
+    DelayedTriggerWhen, DivisionAmount, DoublePtSubject, Effect, ExileMana, ExilePermission,
+    ExilePlay, ExileUntil, Find, LookRest, ManaDistribution, ManaRestriction, ManaSource, ManaUse,
+    ManaValueBound, ManaValueCmp, ModalRestriction, MoveSubject, MultiPlayerChoice,
+    MultiPlayerChoiceAggregate, NumberChoiceKind, PeekPickDest, PeekRestDest, PlayCostMode,
     PlayCount, PlaySource, PlayWindow, PlayerRel, ReflexiveEvent, ReflexiveWhen, RepeatDomain,
     RevealUntilFound, RevealUntilRest, SearchDest, SourceLeaveAction, SpendRider, TargetChooser,
     TargetConstraint, TargetReq, TargetSlot, TargetSpec, ThisWay, TokenDef, TriggerRemember,
@@ -1346,6 +1347,12 @@ pub enum EnterModifier {
     /// (`CR 726.2`, `CR 614.12`: *Brimstone Vandal*, *The Celestus*, *Vadrik,
     /// Astral Archmage*). Appended to preserve replay identities.
     BecomeDayIfNeither,
+    /// "As this enters, choose [mode0] or [mode1]..." (`CR 614.12`: Khans/Dragons
+    /// Sieges, *Mirrodin Besieged*). Appended to preserve replay identities.
+    ChooseMode(&'static [&'static str]),
+    /// "As this enters, each player chooses [mode0] or [mode1]..." (`CR 614.12`:
+    /// *Archangel of Strife*). Appended to preserve replay identities.
+    EachPlayerChooseMode(&'static [&'static str]),
 }
 
 impl EnterModifier {
@@ -1529,6 +1536,11 @@ keywords! {
     CIPHER = 119, "Cipher (CR 702.99).";
     CHAMPION = 120, "Champion (CR 702.72).";
     TRIBUTE = 121, "Tribute (CR 702.104).";
+    CONVOKE = 122, "Convoke (CR 702.51).";
+    IMPROVISE = 123, "Improvise (CR 702.126).";
+    DELVE = 124, "Delve (CR 702.66).";
+    DEMONSTRATE = 125, "Demonstrate (CR 702.148).";
+    ASSIST = 126, "Assist (CR 702.132).";
 }
 
 impl KeywordSet {
@@ -1689,6 +1701,11 @@ pub const PRINTED_KEYWORDS: &[(KeywordSet, &str)] = &[
     (KeywordSet::CIPHER, "Cipher"),
     (KeywordSet::CHAMPION, "Champion"),
     (KeywordSet::TRIBUTE, "Tribute"),
+    (KeywordSet::CONVOKE, "Convoke"),
+    (KeywordSet::IMPROVISE, "Improvise"),
+    (KeywordSet::DELVE, "Delve"),
+    (KeywordSet::DEMONSTRATE, "Demonstrate"),
+    (KeywordSet::ASSIST, "Assist"),
     (KeywordSet::UNBLOCKABLE, "This creature can't be blocked."),
     (KeywordSet::CANT_BLOCK, "This creature can't block."),
     (KeywordSet::CANT_ATTACK, "This creature can't attack."),

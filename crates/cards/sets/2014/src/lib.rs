@@ -41,6 +41,8 @@ pub mod aerie_worshippers;
 pub mod aeronaut_tinkerer;
 #[path = "c14/aether_gale.rs"]
 pub mod aether_gale;
+#[path = "m15/aetherspouts.rs"]
+pub mod aetherspouts;
 #[path = "cns/agent_of_acquisitions.rs"]
 pub mod agent_of_acquisitions;
 #[path = "jou/agent_of_erebos.rs"]
@@ -203,6 +205,8 @@ pub mod charging_badger;
 pub mod chariot_of_victory;
 #[path = "pm15/chasm_skulker.rs"]
 pub mod chasm_skulker;
+#[path = "pm15/chief_engineer.rs"]
+pub mod chief_engineer;
 #[path = "ktk/chief_of_the_edge.rs"]
 pub mod chief_of_the_edge;
 #[path = "ktk/chief_of_the_scale.rs"]
@@ -307,6 +311,8 @@ pub mod dictate_of_karametra;
 pub mod dictate_of_kruphix;
 #[path = "pjou/dictate_of_the_twin_gods.rs"]
 pub mod dictate_of_the_twin_gods;
+#[path = "m15/diffusion_sliver.rs"]
+pub mod diffusion_sliver;
 #[path = "ktk/dig_through_time.rs"]
 pub mod dig_through_time;
 #[path = "ktk/disdainful_stroke.rs"]
@@ -409,6 +415,8 @@ pub mod felhide_brawler;
 pub mod felhide_petrifier;
 #[path = "bng/felhide_spiritbinder.rs"]
 pub mod felhide_spiritbinder;
+#[path = "c14/fell_the_mighty.rs"]
+pub mod fell_the_mighty;
 #[path = "m15/feral_incarnation.rs"]
 pub mod feral_incarnation;
 #[path = "m15/festergloom.rs"]
@@ -581,6 +589,8 @@ pub mod ignition_team;
 pub mod impetuous_sunchaser;
 #[path = "pm15/in_garruk_s_wake.rs"]
 pub mod in_garruk_s_wake;
+#[path = "pm15/indulgent_tormentor.rs"]
+pub mod indulgent_tormentor;
 #[path = "m15/inferno_fist.rs"]
 pub mod inferno_fist;
 #[path = "c14/intellectual_offering.rs"]
@@ -1029,6 +1039,8 @@ pub mod scrapyard_mongrel;
 pub mod scuttling_doom_engine;
 #[path = "bng/searing_blood.rs"]
 pub mod searing_blood;
+#[path = "ktk/secret_plans.rs"]
+pub mod secret_plans;
 #[path = "ktk/see_the_unwritten.rs"]
 pub mod see_the_unwritten;
 #[path = "ktk/seeker_of_the_way.rs"]
@@ -1189,6 +1201,8 @@ pub mod sylvan_offering;
 pub mod taigam_s_scheming;
 #[path = "ktk/take_up_arms.rs"]
 pub mod take_up_arms;
+#[path = "c14/teferi_temporal_archmage.rs"]
+pub mod teferi_temporal_archmage;
 #[path = "bng/temple_of_enlightenment.rs"]
 pub mod temple_of_enlightenment;
 #[path = "jou/temple_of_epiphany.rs"]
@@ -1239,6 +1253,8 @@ pub mod tomb_of_the_spirit_dragon;
 pub mod tormented_thoughts;
 #[path = "ktk/tormenting_voice.rs"]
 pub mod tormenting_voice;
+#[path = "ktk/trail_of_mystery.rs"]
+pub mod trail_of_mystery;
 #[path = "ktk/tranquil_cove.rs"]
 pub mod tranquil_cove;
 #[path = "ktk/trap_essence.rs"]

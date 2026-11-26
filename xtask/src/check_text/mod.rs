@@ -109,6 +109,7 @@ pub(crate) fn check_target_counts_match_the_printing(
     if [
         "up_to_one(",
         "up_to(",
+        "up_to_x(",
         "x_targets(",
         "min: 0",
         "ObjectOfEachOpponent(",
@@ -458,6 +459,9 @@ const OFFERS_A_CHOICE: &[&str] = &[
     "GrantFlash",
     "ChooseNumberEx",
     "RemoveAnyCounterX",
+    "MayCastFromGraveyardTargeted",
+    "MayActivateLoyaltyAsInstant",
+    "TaintedPact",
 ];
 
 pub(crate) fn check_optional_clauses_are_offered(
@@ -947,6 +951,10 @@ pub(crate) fn check_scope_matches_the_text(
         || built.contains("AttackTaxLife")
         || built.contains("AttackTaxMana")
         || built.contains("WheneverCreatureAttacksYouOrYourPlaneswalkerUntilYourNextTurn")
+        || built.contains("AttackingYouOrYourPlaneswalker")
+        || built.contains("CantAttackYouOrYourPlaneswalkers")
+        || built.contains("YouOrYourPlaneswalker")
+        || built.contains("DefendingPlayerIsYou")
         // Both comparative combat restrictions count the effect controller's creatures.
         || built.contains("UnlessYouControlMoreCreaturesThan")
         // This cumulative coin-flip effect untaps only lands its controller controls.
@@ -977,6 +985,7 @@ pub(crate) fn check_scope_matches_the_text(
         || (built.contains("AnyOpponent")
             && (built.contains("controlled_by: Some(Chosen)")
                 || built.contains("ControlledBy(Chosen)")
+                || built.contains("DestroyAllOf { who: Chosen")
                 || built.contains("TapAllOf { who: Chosen")
                 || built.contains("ControlledCount { who: Chosen")
                 || built.contains("ControlledCount { who: FirstTargetPlayerOrController")

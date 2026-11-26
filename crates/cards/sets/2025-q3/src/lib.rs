@@ -527,6 +527,8 @@ pub mod rust_harvester;
 pub mod sami_s_curiosity;
 #[path = "eoe/sami_ship_s_engineer.rs"]
 pub mod sami_ship_s_engineer;
+#[path = "eoe/sami_wildcat_captain.rs"]
+pub mod sami_wildcat_captain;
 #[path = "om1/sandman_s_quicksand.rs"]
 pub mod sandman_s_quicksand;
 #[path = "om1/savage_mansion.rs"]

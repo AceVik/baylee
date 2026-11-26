@@ -414,6 +414,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                 | resolve::AwaitingOp::MutatePosition
                                 | resolve::AwaitingOp::ChooseEffect { .. }
                                 | resolve::AwaitingOp::ChooseEffectRestricted { .. }
+                                | resolve::AwaitingOp::ChoosePayCostOrDecline { .. }
+                                | resolve::AwaitingOp::PlayersChooseMode { .. }
                                 | resolve::AwaitingOp::Colors { .. }
                                 | resolve::AwaitingOp::MoveCounter { .. }
                                 | resolve::AwaitingOp::OptionVote(_)
@@ -755,6 +757,34 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 } else if wizard.stage == cast_wizard::WizardStage::Replicate {
                     wizard.replicated = u8::try_from(n).unwrap_or(u8::MAX);
                     wizard.stage = cast_wizard::WizardStage::Splice;
+                } else if wizard.stage == cast_wizard::WizardStage::Assist {
+                    let helper = wizard
+                        .assist
+                        .as_deref()
+                        .and_then(|a| a.assistant)
+                        .ok_or(EngineError::IllegalAction("no assistant selected"))?;
+                    if n > 0 {
+                        let face = self.wizard_face(&wizard);
+                        let spend = cast_wizard::spend_for(&wizard, face);
+                        let allowance = self.wizard_source_allowance(&wizard);
+                        let cost = baylee_core::mana::ManaCost::from_symbol_generic(n);
+                        if casting::pay_mana_scoped_recording_x(
+                            &mut self.state,
+                            helper,
+                            spend,
+                            &cost,
+                            None,
+                            allowance,
+                        )
+                        .is_none()
+                        {
+                            return Err(EngineError::IllegalAction(
+                                "assistant cannot pay that much generic mana",
+                            ));
+                        }
+                        wizard.assist_paid = wizard.assist_paid.saturating_add(n);
+                    }
+                    wizard.stage = cast_wizard::WizardStage::Done;
                 } else {
                     wizard.x = n;
                     wizard.stage = if wizard.stage == cast_wizard::WizardStage::KickerX {
@@ -782,6 +812,19 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             (Pending::ChoosePlayer { player: p, .. }, PlayerAction::ChoosePlayer(chosen))
                 if *p == player =>
             {
+                if self
+                    .cast_wizard
+                    .as_ref()
+                    .is_some_and(|w| w.stage == cast_wizard::WizardStage::Assist)
+                {
+                    let mut wizard = self.cast_wizard.take().expect("wizard active");
+                    if let Some(assist) = wizard.assist.as_deref_mut() {
+                        assist.assistant = Some(chosen);
+                    }
+                    self.cast_wizard = Some(wizard);
+                    self.continue_cast_wizard();
+                    return Ok(());
+                }
                 if self.resolution.as_ref().is_some_and(|res| {
                     matches!(
                         res.awaiting,
@@ -1070,6 +1113,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                 | resolve::AwaitingOp::TwoPilesPickChooser(_)
                                 | resolve::AwaitingOp::PutAttachedHostPlayer(_)
                                 | resolve::AwaitingOp::CreateTokenAttachedPlayer { .. }
+                                | resolve::AwaitingOp::DemonstrateOpponent
                         )
                     )
                 }) {
@@ -1265,6 +1309,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 if let Some(mut wizard) = self.cast_wizard.take() {
                     if wizard.stage == cast_wizard::WizardStage::Convoke {
                         wizard.convoke_taps = objects.into_iter().collect();
+                        wizard.stage = cast_wizard::WizardStage::Harmonize;
+                    } else if wizard.stage == cast_wizard::WizardStage::Harmonize {
+                        wizard.harmonize_tap = objects.first().copied();
                         wizard.stage = cast_wizard::WizardStage::Sacrifice;
                     } else if let Some(progress) = wizard.one_per_player.as_deref_mut() {
                         let seat = progress.current.take();
@@ -1918,6 +1965,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             Some(
                                 resolve::AwaitingOp::LandwalkChoice { .. }
                                     | resolve::AwaitingOp::ChooseCreatureType { .. }
+                                    | resolve::AwaitingOp::ChooseBasicLandType
                             )
                         )
                     }) =>
@@ -2252,7 +2300,51 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     }
                     return Ok(());
                 }
-                // Tax choice (Rhystic Study & co.).
+                // Tax choice (Rhystic Study & co.) and Waterbend tax choices.
+                if let Some((payer, mana, effect)) =
+                    self.resolution.as_ref().and_then(|r| match r.awaiting {
+                        Some(crate::resolve::AwaitingOp::PlayerMayWaterbendConfirm {
+                            player,
+                            mana,
+                            effect,
+                        }) => Some((player, mana, effect)),
+                        _ => None,
+                    })
+                {
+                    if answer
+                        && mana > 0
+                        && payer == player
+                        && crate::casting::waterbend_sources(&self.state, player).is_empty()
+                    {
+                        let mut res = self.resolution.take().expect("resolution suspended");
+                        res.awaiting = Some(crate::resolve::AwaitingOp::PlayerMayPay {
+                            player: payer,
+                            cost: baylee_core::mana::ManaCost::from_symbol_generic(u32::from(mana)),
+                            outcome: crate::resolve::ManaPaymentOutcome::WaterbendEffects {
+                                effect,
+                                taps: Vec::new(),
+                            },
+                        });
+                        self.resolution = Some(res);
+                    } else {
+                        let mut res = self.resolution.take().expect("resolution suspended");
+                        match resolve::resume_yes_no(&mut self.state, &mut res, answer) {
+                            resolve::Flow::Enter => {
+                                self.resolution = Some(res);
+                                self.awaiting_answer = false;
+                            }
+                            resolve::Flow::Wait(pending) => {
+                                self.resolution = Some(res);
+                                self.pending = pending;
+                                self.awaiting_answer = true;
+                            }
+                            resolve::Flow::Complete => {
+                                self.finish_resolution(&res);
+                            }
+                        }
+                        return Ok(());
+                    }
+                }
                 if self.resolution.as_ref().is_some_and(|r| {
                     matches!(
                         r.awaiting,
@@ -2562,6 +2654,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 {
                     let mut wizard = self.cast_wizard.take().expect("wizard active");
                     wizard.casualty = answer;
+                    if answer {
+                        wizard.casualty_power = self.wizard_effective_casualty(&wizard);
+                    }
                     wizard.stage = cast_wizard::WizardStage::Gift;
                     self.cast_wizard = Some(wizard);
                     self.continue_cast_wizard();
@@ -2629,6 +2724,19 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         wizard.conspired = wizard.conspired.saturating_add(1);
                     } else {
                         wizard.stage = cast_wizard::WizardStage::Targets;
+                    }
+                    self.cast_wizard = Some(wizard);
+                    self.continue_cast_wizard();
+                    return Ok(());
+                }
+                if self
+                    .cast_wizard
+                    .as_ref()
+                    .is_some_and(|w| w.stage == cast_wizard::WizardStage::Assist)
+                {
+                    let mut wizard = self.cast_wizard.take().expect("wizard active");
+                    if !answer {
+                        wizard.stage = cast_wizard::WizardStage::Done;
                     }
                     self.cast_wizard = Some(wizard);
                     self.continue_cast_wizard();
@@ -3040,6 +3148,72 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         return Ok(());
                     }
                     other => self.pending_plan = other,
+                }
+                if let Some((payer, mana, effect)) =
+                    self.resolution.as_ref().and_then(|r| match r.awaiting {
+                        Some(crate::resolve::AwaitingOp::PlayerMayWaterbendTaps {
+                            player,
+                            mana,
+                            effect,
+                        }) => Some((player, mana, effect)),
+                        _ => None,
+                    })
+                {
+                    let wb = crate::casting::waterbend_sources(&self.state, payer);
+                    if objects.len() > usize::from(mana)
+                        || objects
+                            .iter()
+                            .enumerate()
+                            .any(|(i, id)| objects[..i].contains(id) || !wb.contains(id))
+                    {
+                        return Err(EngineError::IllegalAction("invalid waterbend tap choice"));
+                    }
+                    let rem = mana.saturating_sub(u16::try_from(objects.len()).unwrap_or(u16::MAX));
+                    let rem_cost = baylee_core::mana::ManaCost::from_symbol_generic(u32::from(rem));
+                    let mut res = self.resolution.take().expect("resolution suspended");
+                    res.awaiting = Some(crate::resolve::AwaitingOp::PlayerMayPay {
+                        player: payer,
+                        cost: rem_cost,
+                        outcome: crate::resolve::ManaPaymentOutcome::WaterbendEffects {
+                            effect,
+                            taps: objects,
+                        },
+                    });
+                    if rem > 0
+                        && !self.can_pay_mana(
+                            payer,
+                            resolve::payment_for(&self.state, &res),
+                            &rem_cost,
+                        )
+                    {
+                        let mut legal = self.compute_legal(payer);
+                        self.narrow_to_mana(&mut legal);
+                        if legal.has_mana_source() {
+                            self.mana_window = Some(PaymentWindow {
+                                player: payer,
+                                suspended: PaymentContinuation::Tax(Box::new(res)),
+                            });
+                            self.pending = self.window_priority(payer, legal);
+                            self.awaiting_answer = true;
+                            return Ok(());
+                        }
+                    }
+                    let settled = self.can_settle_tax(&res);
+                    match resolve::resume_tax_choice(&mut self.state, &mut res, settled) {
+                        resolve::Flow::Enter => {
+                            self.resolution = Some(res);
+                            self.awaiting_answer = false;
+                        }
+                        resolve::Flow::Wait(pending) => {
+                            self.resolution = Some(res);
+                            self.pending = pending;
+                            self.awaiting_answer = true;
+                        }
+                        resolve::Flow::Complete => {
+                            self.finish_resolution(&res);
+                        }
+                    }
+                    return Ok(());
                 }
                 let mut res = self.resolution.take().expect("resolution suspended");
                 match resolve::resume(&mut self.state, &mut res, &objects) {

@@ -75,6 +75,10 @@ mod wave16c;
 mod wave17a;
 mod wave17b;
 mod wave17c;
+mod wave18a;
+mod wave18b;
+mod wave18b_bookkeeping;
+mod wave18c;
 mod wave27a;
 mod wave27b;
 mod wave27c;
@@ -88,6 +92,10 @@ mod wave29a;
 mod wave29b;
 mod wave29c;
 mod wave29d;
+mod wave30a;
+mod wave30b;
+mod wave30c;
+mod wave30d;
 
 use atoms::{
     Bound, amount, color_atom, count_bound, hybrid_pair, keyword_atom, mana_color_const,
@@ -184,9 +192,12 @@ pub fn parse(text: &str) -> CardScript {
 fn parse_face(lines: &[&str]) -> CardScript {
     const AFTER_BLOCKERS_TEXT: &str =
         "Text:Cast CARDNAME only during combat after blockers are declared.";
+    const DECLARE_BLOCKERS_TEXT: &str =
+        "Text:Cast this spell only during the declare blockers step.";
 
     let mut out = CardScript::default();
     let mut cast_only_after_blockers = false;
+    let mut cast_only_declare_blockers = false;
     for &line in lines {
         if line.is_empty() || line.starts_with('#') {
             continue;
@@ -228,6 +239,7 @@ fn parse_face(lines: &[&str]) -> CardScript {
                 out.has_commander_text = true;
             }
             "Text" if line == AFTER_BLOCKERS_TEXT => cast_only_after_blockers = true,
+            "Text" if line.trim() == DECLARE_BLOCKERS_TEXT => cast_only_declare_blockers = true,
             "K" => out.keywords.push(rest.to_string()),
             "A" | "T" | "S" | "R" => out
                 .rules
@@ -241,6 +253,22 @@ fn parse_face(lines: &[&str]) -> CardScript {
             }
             _ if IGNORED_PREFIXES.contains(&prefix) => {}
             _ => out.unknown_lines.push(line.to_string()),
+        }
+    }
+    if cast_only_declare_blockers {
+        let spells: Vec<&str> = out
+            .rules
+            .iter()
+            .filter(|(kind, spec)| *kind == 'A' && spec.trim_start().starts_with("SP$"))
+            .map(|(_, spec)| spec.as_str())
+            .collect();
+        if spells.is_empty()
+            || !spells.iter().all(|spec| {
+                spec.split(" | ")
+                    .any(|part| part.trim_start() == "ActivationPhases$ Declare Blockers")
+            })
+        {
+            out.unknown_lines.push(DECLARE_BLOCKERS_TEXT.to_string());
         }
     }
     if cast_only_after_blockers {
@@ -289,6 +317,7 @@ const PROSE_KEYS: &[&str] = &[
     "CostDesc",
     "References",
     "SpellDescriptionSVar",
+    "UnlessAI",
 ];
 
 /// An ordered `Key$ Value` list that records what has been read.
@@ -394,12 +423,14 @@ struct Chain {
     effects: Vec<String>,
     target: Option<String>,
     target_is_x: bool,
+    target_up_to_x: bool,
     target_up_to: Option<u8>,
     target_exact: Option<u8>,
     target_range: Option<(u8, u8)>,
     target_unique: bool,
     target_constraint: Option<&'static str>,
     second_target: Option<String>,
+    second_target_is_x: bool,
     second_target_up_to: Option<u8>,
     second_target_range: Option<(u8, u8)>,
     second_target_constraint: Option<&'static str>,
@@ -634,8 +665,21 @@ struct Tx<'a> {
     in_chain_resolution: bool,
     /// Verbatim `ManaCost:` line on this face.
     mana_cost: &'a str,
+    /// True while reading a chain after `Counter | RememberCountered$ True | RememberCounteredSA$ True`.
+    countered_this_way: bool,
+    /// True while reading a chain after `Counter | RememberCounteredCMC$ True`.
+    remembered_cmc: bool,
     /// Active vote option index while lowering a `StoreVoteNum$ True` option chain.
     vote_option_idx: Option<u8>,
+    /// True while lowering `Effect | ImprintCards$ Targeted` delayed body or its trailing `Cleanup`.
+    wave30a_allow_clear_imprinted: bool,
+    /// True while parsing an activated ability's `Cost$` whose `{X}` is
+    /// defined by `SVar:X:Imprinted$CardManaCost` on `ChooseZone::LinkedExile`.
+    pub(super) allow_defined_cost_x: bool,
+    /// Named `SetChosenMode$ True` ETB choices in prompt order (`0..n`).
+    etb_chosen_modes: Vec<String>,
+    /// Named `NotedFor<Name>` tags for `ETBReplacement:Other` `EachPlayerChooseMode` (`0..n`).
+    etb_player_chosen_modes: Vec<String>,
     body: CardBody,
     /// The first `Api.Key` no rule claimed, if that is why this
     /// script was refused. Recorded rather than derived, because a
@@ -747,7 +791,13 @@ impl<'a> Tx<'a> {
             current_object_target: false,
             preceded_by_cleanup: false,
             mana_cost: &script.mana_cost,
+            countered_this_way: false,
+            remembered_cmc: false,
             vote_option_idx: None,
+            wave30a_allow_clear_imprinted: false,
+            allow_defined_cost_x: false,
+            etb_chosen_modes: Vec::new(),
+            etb_player_chosen_modes: Vec::new(),
             body: CardBody::default(),
             unclaimed: std::cell::RefCell::new(None),
         }

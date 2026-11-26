@@ -3,6 +3,27 @@
 use super::*;
 
 impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
+    /// Whether `player` may activate loyalty abilities of `source` at instant
+    /// speed on any player's turn (`CR 606.3`, *Teferi's Talent* emblem).
+    pub(crate) fn may_activate_loyalty_as_instant(
+        &self,
+        player: PlayerId,
+        source: ObjectId,
+    ) -> bool {
+        let Some(obj) = self.state.object(source) else {
+            return false;
+        };
+        self.state.effects.iter().any(|fx| {
+            let baylee_cards_dsl::Modifier::MayActivateLoyaltyAsInstant { who } = fx.modifier
+            else {
+                return false;
+            };
+            crate::eval::players_for_source(who, &self.state, fx.controller, fx.source)
+                .is_some_and(|players| players.contains(&player))
+                && crate::effects::applies_to(&self.state, fx, obj)
+        })
+    }
+
     /// Whether this incarnation of `source` already activated a loyalty
     /// ability this turn. A permanent that left and came back is a new
     /// object (CR 400.7) and starts over (CR 606.3).
@@ -107,6 +128,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             player,
             tap_cost: false,
             mana_ability: false,
+            loyalty: true,
         });
         self.note_crime_if_any(player, id);
         self.after_action(player);
@@ -602,6 +624,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     ) -> Result<(), EngineError> {
         if self.loyalty_used(source) {
             return Err(EngineError::IllegalAction("loyalty already used this turn"));
+        }
+        let main_phase = matches!(
+            self.state.turn.phase,
+            crate::turn::Phase::FirstMain | crate::turn::Phase::SecondMain
+        );
+        let sorcery_timing =
+            main_phase && self.state.turn.active == player && self.state.zones.stack_is_empty();
+        if !sorcery_timing && !self.may_activate_loyalty_as_instant(player, source) {
+            return Err(EngineError::IllegalAction(
+                "loyalty abilities can only be activated as a sorcery",
+            ));
         }
         let Some(AbilityDef::Loyalty {
             targets: wanted, ..

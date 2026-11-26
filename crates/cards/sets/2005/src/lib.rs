@@ -57,8 +57,12 @@ pub mod blessing_of_leeches;
 pub mod blockbuster;
 #[path = "sok/blood_clock.rs"]
 pub mod blood_clock;
+#[path = "rav/blood_funnel.rs"]
+pub mod blood_funnel;
 #[path = "bok/body_of_jukai.rs"]
 pub mod body_of_jukai;
+#[path = "rav/boros_fury_shield.rs"]
+pub mod boros_fury_shield;
 #[path = "rav/boros_garrison.rs"]
 pub mod boros_garrison;
 #[path = "rav/boros_guildmage.rs"]
@@ -133,6 +137,8 @@ pub mod courier_hawk;
 pub mod crack_the_earth;
 #[path = "bok/crawling_filth.rs"]
 pub mod crawling_filth;
+#[path = "sok/curtain_of_light.rs"]
+pub mod curtain_of_light;
 #[path = "sok/cut_the_earthly_bond.rs"]
 pub mod cut_the_earthly_bond;
 #[path = "rav/cyclopean_snare.rs"]
@@ -193,6 +199,8 @@ pub mod drift_of_phantasms;
 pub mod dromad_purebred;
 #[path = "rav/drooling_groodion.rs"]
 pub mod drooling_groodion;
+#[path = "rav/dryad_s_caress.rs"]
+pub mod dryad_s_caress;
 #[path = "rav/duskmantle_house_of_shadow.rs"]
 pub mod duskmantle_house_of_shadow;
 #[path = "sok/elder_pine_of_jukai.rs"]
@@ -235,6 +243,10 @@ pub mod flame_fusillade;
 pub mod flame_kin_zealot;
 #[path = "bok/flames_of_the_blood_hand.rs"]
 pub mod flames_of_the_blood_hand;
+#[path = "rav/flash_conscription.rs"]
+pub mod flash_conscription;
+#[path = "rav/flickerform.rs"]
+pub mod flickerform;
 #[path = "psal/flight_of_fancy.rs"]
 pub mod flight_of_fancy;
 #[path = "bok/floodbringer.rs"]
@@ -261,6 +273,8 @@ pub mod gate_hound;
 pub mod gather_courage;
 #[path = "sok/gaze_of_adamaro.rs"]
 pub mod gaze_of_adamaro;
+#[path = "rav/gaze_of_the_gorgon.rs"]
+pub mod gaze_of_the_gorgon;
 #[path = "bok/genju_of_the_cedars.rs"]
 pub mod genju_of_the_cedars;
 #[path = "bok/genju_of_the_falls.rs"]
@@ -395,6 +409,8 @@ pub mod indebted_samurai;
 pub mod indentured_oaf;
 #[path = "psal/indrik_stomphowler.rs"]
 pub mod indrik_stomphowler;
+#[path = "rav/induce_paranoia.rs"]
+pub mod induce_paranoia;
 #[path = "rav/infectious_host.rs"]
 pub mod infectious_host;
 #[path = "sok/infernal_kirin.rs"]
@@ -543,6 +559,8 @@ pub mod mnemonic_nexus;
 pub mod moldervine_cloak;
 #[path = "sok/molting_skin.rs"]
 pub mod molting_skin;
+#[path = "sok/moonbow_illusionist.rs"]
+pub mod moonbow_illusionist;
 #[path = "bok/moonlit_strider.rs"]
 pub mod moonlit_strider;
 #[path = "sok/moonwing_moth.rs"]
@@ -575,6 +593,8 @@ pub mod nikko_onna;
 pub mod ninja_of_the_deep_hours;
 #[path = "psal/nullmage_shepherd.rs"]
 pub mod nullmage_shepherd;
+#[path = "rav/nullstone_gargoyle.rs"]
+pub mod nullstone_gargoyle;
 #[path = "rav/oathsworn_giant.rs"]
 pub mod oathsworn_giant;
 #[path = "sok/oboro_breezecaller.rs"]
@@ -607,6 +627,8 @@ pub mod ornate_kanzashi;
 pub mod overgrown_tomb;
 #[path = "psal/overwhelm.rs"]
 pub mod overwhelm;
+#[path = "sok/overwhelming_intellect.rs"]
+pub mod overwhelming_intellect;
 #[path = "bok/oyobi_who_split_the_heavens.rs"]
 pub mod oyobi_who_split_the_heavens;
 #[path = "rav/pariah_s_shield.rs"]
@@ -667,12 +689,18 @@ pub mod recollect;
 pub mod reduce_to_dreams;
 #[path = "sok/reki_the_history_of_kamigawa.rs"]
 pub mod reki_the_history_of_kamigawa;
+#[path = "rav/remand.rs"]
+pub mod remand;
 #[path = "sok/rending_vines.rs"]
 pub mod rending_vines;
 #[path = "sok/reverence.rs"]
 pub mod reverence;
+#[path = "rav/ribbons_of_night.rs"]
+pub mod ribbons_of_night;
 #[path = "bok/ribbons_of_the_reikai.rs"]
 pub mod ribbons_of_the_reikai;
+#[path = "rav/rolling_spoil.rs"]
+pub mod rolling_spoil;
 #[path = "sok/ronin_cavekeeper.rs"]
 pub mod ronin_cavekeeper;
 #[path = "bok/ronin_cliffrider.rs"]
@@ -723,6 +751,8 @@ pub mod scroll_of_origins;
 pub mod searing_meditation;
 #[path = "sok/secretkeeper.rs"]
 pub mod secretkeeper;
+#[path = "psal/seed_spark.rs"]
+pub mod seed_spark;
 #[path = "sok/seed_the_land.rs"]
 pub mod seed_the_land;
 #[path = "rav/seeds_of_strength.rs"]
@@ -773,6 +803,8 @@ pub mod siege_wurm;
 pub mod silverstorm_samurai;
 #[path = "sok/sink_into_takenuma.rs"]
 pub mod sink_into_takenuma;
+#[path = "rav/sins_of_the_past.rs"]
+pub mod sins_of_the_past;
 #[path = "psal/sinstriker_s_will.rs"]
 pub mod sinstriker_s_will;
 #[path = "rav/sisters_of_stone_death.rs"]

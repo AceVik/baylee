@@ -203,6 +203,13 @@ fn harvest_captured(
             }
         }
         if ids.is_empty() {
+            for entry in state.journal.entries().iter().filter(|e| e.seq > since_seq) {
+                if let GameEvent::ControllerChanged { object, .. } = entry.event {
+                    push_unique(&mut ids, object);
+                }
+            }
+        }
+        if ids.is_empty() {
             for &r in &res.subject.found {
                 push_unique(&mut ids, r.object);
             }
@@ -346,6 +353,125 @@ pub(super) fn exec_capture_affected(
         },
     });
     let mut body = flatten(first);
+    body.push(op);
+    let next = res.pc + 1;
+    res.effects.splice(next..next, body);
+    None
+}
+
+/// Entry and exit handler for [`Effect::CaptureMatching`].
+pub(super) fn exec_capture_matching(
+    state: &mut GameState,
+    res: &mut Resolution,
+    filter: &'static Filter,
+    then: &'static [Effect],
+    op: Effect,
+) -> Option<Pending> {
+    let after_len = res.effects.len().saturating_sub(res.pc + 1);
+    let top_matches = res
+        .subject
+        .capture_frames
+        .last()
+        .is_some_and(|frame| frame.tail_from_end == after_len);
+    if top_matches {
+        let frame = res.subject.capture_frames.pop().expect("matched above");
+        res.subject.remembered_objects = frame.saved_remembered;
+        state.resolution_remembered = res
+            .subject
+            .remembered_objects
+            .as_ref()
+            .map(|r| (res.source, Arc::clone(r)));
+        return None;
+    }
+    if then.is_empty() {
+        return None;
+    }
+    let you = res.controller;
+    state.refresh_characteristics();
+    let captured_vec: Vec<RememberedObject> = state
+        .battlefield_seen()
+        .filter_map(|id| {
+            let obj = state.object(id)?;
+            matches_in_resolution(filter, state, obj, you, res, None).then(|| RememberedObject {
+                reference: DamageSourceRef {
+                    object: id,
+                    version: obj.version,
+                },
+                lki: RememberedLki::from_object(state, obj),
+            })
+        })
+        .collect();
+    let captured: Arc<[RememberedObject]> = Arc::from(captured_vec);
+    let saved_remembered = res
+        .subject
+        .remembered_objects
+        .replace(Arc::clone(&captured));
+    state.resolution_remembered = Some((res.source, captured));
+    res.subject.capture_frames.push(CaptureFrame {
+        tail_from_end: after_len,
+        saved_remembered,
+        phase: CapturePhase::RunningThen,
+    });
+    let mut body = flatten(then);
+    body.push(op);
+    let next = res.pc + 1;
+    res.effects.splice(next..next, body);
+    None
+}
+
+/// Entry and exit handler for [`Effect::RememberTargetsThen`].
+pub(super) fn exec_remember_targets_then(
+    state: &mut GameState,
+    res: &mut Resolution,
+    then: &'static [Effect],
+    op: Effect,
+) -> Option<Pending> {
+    let after_len = res.effects.len().saturating_sub(res.pc + 1);
+    let top_matches = res
+        .subject
+        .capture_frames
+        .last()
+        .is_some_and(|frame| frame.tail_from_end == after_len);
+    if top_matches {
+        let frame = res.subject.capture_frames.pop().expect("matched above");
+        res.subject.remembered_objects = frame.saved_remembered;
+        state.resolution_remembered = res
+            .subject
+            .remembered_objects
+            .as_ref()
+            .map(|r| (res.source, Arc::clone(r)));
+        return None;
+    }
+    if then.is_empty() {
+        return None;
+    }
+    state.refresh_characteristics();
+    let captured_vec: Vec<RememberedObject> = res
+        .targets
+        .iter()
+        .filter_map(|&id| {
+            let obj = state.object_or_departed(id)?;
+            Some(RememberedObject {
+                reference: DamageSourceRef {
+                    object: id,
+                    version: obj.version,
+                },
+                lki: RememberedLki::from_object(state, obj),
+            })
+        })
+        .collect();
+    let captured: Arc<[RememberedObject]> = Arc::from(captured_vec);
+    let saved_remembered = res
+        .subject
+        .remembered_objects
+        .replace(Arc::clone(&captured));
+    state.resolution_remembered = Some((res.source, captured));
+    res.subject.capture_frames.push(CaptureFrame {
+        tail_from_end: after_len,
+        saved_remembered,
+        phase: CapturePhase::RunningThen,
+    });
+    let mut body = flatten(then);
     body.push(op);
     let next = res.pc + 1;
     res.effects.splice(next..next, body);

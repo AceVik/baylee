@@ -39,6 +39,8 @@ pub mod arrogant_outlaw;
 pub mod augur_of_autumn;
 #[path = "mic/avacyn_s_memorial.rs"]
 pub mod avacyn_s_memorial;
+#[path = "afc/bag_of_devouring.rs"]
+pub mod bag_of_devouring;
 #[path = "mid/baithook_angler.rs"]
 pub mod baithook_angler;
 #[path = "afr/baleful_beholder.rs"]
@@ -91,6 +93,8 @@ pub mod brimstone_vandal;
 pub mod brood_weaver;
 #[path = "mid/brutal_cathar.rs"]
 pub mod brutal_cathar;
+#[path = "afc/bucknard_s_everfull_purse.rs"]
+pub mod bucknard_s_everfull_purse;
 #[path = "afr/bulette.rs"]
 pub mod bulette;
 #[path = "afr/bull_s_strength.rs"]
@@ -287,6 +291,8 @@ pub mod festival_crasher;
 pub mod fevered_suspicion;
 #[path = "afc/fey_steed.rs"]
 pub mod fey_steed;
+#[path = "afc/fiendlash.rs"]
+pub mod fiendlash;
 #[path = "afr/fifty_feet_of_rope.rs"]
 pub mod fifty_feet_of_rope;
 #[path = "afr/find_the_path.rs"]
@@ -571,6 +577,8 @@ pub mod precipitous_drop;
 pub mod priest_of_ancient_lore;
 #[path = "afr/prosperous_innkeeper.rs"]
 pub mod prosperous_innkeeper;
+#[path = "mic/prowling_geistcatcher.rs"]
+pub mod prowling_geistcatcher;
 #[path = "afr/purple_worm.rs"]
 pub mod purple_worm;
 #[path = "afc/radiant_solar.rs"]
@@ -783,6 +791,8 @@ pub mod werewolf_pack_leader;
 pub mod westgate_regent;
 #[path = "afr/white_dragon.rs"]
 pub mod white_dragon;
+#[path = "afc/wild_magic_sorcerer.rs"]
+pub mod wild_magic_sorcerer;
 #[path = "mid/willow_geist.rs"]
 pub mod willow_geist;
 #[path = "afc/winged_boots.rs"]

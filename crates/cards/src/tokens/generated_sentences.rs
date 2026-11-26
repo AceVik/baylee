@@ -601,4 +601,9 @@ pub(super) static ROWS: &[(&TokenDef, &[&str])] = &[
         &token::BIRD_1_1_BLUE_FLYING_A92C7E842,
         &["This token can block only creatures with flying."],
     ),
+    // Chandra's Regulator / Lightning Rager (sacrificed at end step).
+    (
+        &token::LIGHTNING_RAGER_5_1_RED_HASTE_TRAMPLE_A730DA31D,
+        &["At the beginning of the end step, sacrifice this token."],
+    ),
 ];

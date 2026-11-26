@@ -386,6 +386,7 @@ const fn delayed_when_object(when: &DelayedWhen) -> Option<ObjectId> {
         | DelayedWhen::EachUpkeep
         | DelayedWhen::NextUpkeepOfAnyone
         | DelayedWhen::NextMain
+        | DelayedWhen::NextFirstMain
         | DelayedWhen::NextEndStep
         | DelayedWhen::NextYourEndStep
         | DelayedWhen::EndOfCombat
