@@ -133,6 +133,66 @@ struct Attempt {
 }
 
 impl Attempt {
+    #[allow(clippy::too_many_arguments)]
+    fn pending(
+        object: ObjectId,
+        version: u32,
+        controller: PlayerId,
+        putter: PlayerId,
+        tapped: bool,
+        position: ZonePosition,
+        cause: Cause,
+        modifiers: &'static [EnterModifier],
+        lost: bool,
+    ) -> Self {
+        Self {
+            object,
+            version,
+            controller,
+            putter,
+            applied: Vec::new(),
+            tapped,
+            sacrifices_after: 0,
+            own_first: false,
+            position,
+            cause,
+            modifiers,
+            next: 0,
+            refusal: None,
+            sacrifices: None,
+            chosen_number: None,
+            chosen_mode: None,
+            player_chosen_modes: Vec::new(),
+            chosen_subtype: None,
+            chosen_player: None,
+            second_chosen_player: None,
+            secret_chosen_player: None,
+            secret_chosen_number: None,
+            battle_protector: None,
+            saga_chapter: None,
+            kw_choices: EntryKeywordState::default(),
+            tribute: TributeState::None,
+            counters: Vec::new(),
+            counter_plans: Vec::new(),
+            counters_prepared: false,
+            counter_caps: Vec::new(),
+            next_counter: 0,
+            copy: if lost {
+                CopyStatus::None
+            } else {
+                CopyStatus::Pending
+            },
+            preview_effects: Vec::new(),
+            controller_override: None,
+            instead_destination: None,
+            entry_type_pt: Vec::new(),
+            applied_effects: Vec::new(),
+            applied_self_replace: false,
+            applied_own_control: false,
+            zone_play_rider: baylee_cards_dsl::ZonePlayCastRider::None,
+        }
+    }
+
     const fn is_cancelled(&self) -> bool {
         self.refusal.is_some() || self.instead_destination.is_some()
     }
@@ -637,52 +697,17 @@ pub(crate) fn defer(
     {
         return false;
     }
-    let attempt = Attempt {
-        object: id,
-        version: object.version,
-        controller: projected.controller,
-        putter: state.entries.putter.unwrap_or(object.controller),
-        applied: Vec::new(),
-        tapped: object.status.contains(crate::object::Status::TAPPED),
-        sacrifices_after: 0,
-        own_first: false,
+    let attempt = Attempt::pending(
+        id,
+        object.version,
+        projected.controller,
+        state.entries.putter.unwrap_or(object.controller),
+        object.status.contains(crate::object::Status::TAPPED),
         position,
         cause,
         modifiers,
-        next: 0,
-        refusal: None,
-        sacrifices: None,
-        chosen_number: None,
-        chosen_mode: None,
-        player_chosen_modes: Vec::new(),
-        chosen_subtype: None,
-        chosen_player: None,
-        second_chosen_player: None,
-        secret_chosen_player: None,
-        secret_chosen_number: None,
-        battle_protector: None,
-        saga_chapter: None,
-        kw_choices: EntryKeywordState::default(),
-        tribute: TributeState::None,
-        counters: Vec::new(),
-        counter_plans: Vec::new(),
-        counters_prepared: false,
-        counter_caps: Vec::new(),
-        next_counter: 0,
-        copy: if lost {
-            CopyStatus::None
-        } else {
-            CopyStatus::Pending
-        },
-        preview_effects: Vec::new(),
-        controller_override: None,
-        instead_destination: None,
-        entry_type_pt: Vec::new(),
-        applied_effects: Vec::new(),
-        applied_self_replace: false,
-        applied_own_control: false,
-        zone_play_rider: baylee_cards_dsl::ZonePlayCastRider::None,
-    };
+        lost,
+    );
     state.entries.counter_transaction |= kw_entry;
     state.entries.pending_objects.insert(id);
     state.entries.order_prepared = false;

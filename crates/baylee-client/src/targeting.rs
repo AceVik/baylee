@@ -415,7 +415,39 @@ fn eval_amount_at(view: &PlayerView, amt: &baylee_cards_dsl::Amount, depth: u8) 
         A::Times { base, factor } => {
             eval_amount_at(view, base, depth + 1)?.checked_mul(i32::try_from(*factor).ok()?)
         }
+        A::GreatestPowerAmong(filter) => {
+            if filter_reaches_other_zones(filter) {
+                return None;
+            }
+            let mut greatest: Option<i32> = None;
+            for object in &view.battlefield {
+                if object
+                    .status
+                    .contains(baylee_view::ObjectStatus::PHASED_OUT)
+                {
+                    continue;
+                }
+                if matches_at(view, object, filter, depth + 1)? {
+                    let Some(power) = object.power else {
+                        continue;
+                    };
+                    let clamped = i32::from(power.max(0));
+                    greatest = Some(greatest.map_or(clamped, |cur| cur.max(clamped)));
+                }
+            }
+            Some(greatest.unwrap_or(0))
+        }
         _ => None,
+    }
+}
+
+fn filter_reaches_other_zones(filter: &Filter) -> bool {
+    match filter {
+        Filter::InZone(zone) => !matches!(zone, baylee_cards_dsl::ZoneRef::Battlefield),
+        Filter::ExiledByYou => true,
+        Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_reaches_other_zones),
+        Filter::Not(inner) | Filter::AttachedTo(inner) => filter_reaches_other_zones(inner),
+        _ => false,
     }
 }
 

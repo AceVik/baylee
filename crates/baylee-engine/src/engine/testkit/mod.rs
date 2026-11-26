@@ -1051,7 +1051,7 @@ pub fn placed_face(
         let state = engine
             .dev_state_mut(seat)
             .ok_or("the harness was refused the board")?;
-        if !state.transform(object, def, face) {
+        if !state.turn_over(object, def, face) {
             return Err(format!("refused to turn over to face {face}"));
         }
     }
