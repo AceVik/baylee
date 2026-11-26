@@ -132,11 +132,14 @@ pub(in crate::lobby) fn countdown(
     };
     let line = row(commands, parent, kit);
     let gap = kit.m.px(6.0);
-    commands.entity(line).entry::<Node>().and_modify(move |mut n| {
-        n.width = Val::Auto;
-        n.column_gap = gap;
-        n.flex_wrap = FlexWrap::NoWrap;
-    });
+    commands
+        .entity(line)
+        .entry::<Node>()
+        .and_modify(move |mut n| {
+            n.width = Val::Auto;
+            n.column_gap = gap;
+            n.flex_wrap = FlexWrap::NoWrap;
+        });
     let mark = commands
         .spawn((
             Text::new(glyph::STOPWATCH.to_string()),

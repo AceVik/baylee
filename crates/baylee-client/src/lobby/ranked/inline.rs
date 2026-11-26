@@ -182,9 +182,13 @@ pub(super) fn reveal_focus(
     }
 }
 
+/// What [`patch`] last painted for: the desk, the tile's line, both
+/// revisions and the account's standing.
+type PaintKey = (Option<Entity>, Option<Entity>, u64, u64, Option<OwnRank>);
+
 #[derive(Default)]
 pub(super) struct Painted {
-    key: Option<(Option<Entity>, Option<Entity>, u64, u64, Option<OwnRank>)>,
+    key: Option<PaintKey>,
     queue: Option<queue::Look>,
     caption: String,
     /// Whether the desk stands: only for a Central account. A guest reading
@@ -304,7 +308,11 @@ pub(super) fn patch(
             .entity(root)
             .entry::<Node>()
             .and_modify(move |mut n| {
-                n.display = if eligible { Display::Flex } else { Display::None };
+                n.display = if eligible {
+                    Display::Flex
+                } else {
+                    Display::None
+                };
             });
     }
     if !eligible {

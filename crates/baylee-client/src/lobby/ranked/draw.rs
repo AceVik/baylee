@@ -216,7 +216,11 @@ fn desk_and_board(commands: &mut Commands, page: Entity, kit: Kit, compact: bool
     let desk = surfaces::panel(
         commands,
         kit,
-        if compact { percent(100) } else { kit.m.px(400.0) },
+        if compact {
+            percent(100)
+        } else {
+            kit.m.px(400.0)
+        },
     );
     commands
         .entity(desk)
@@ -508,38 +512,7 @@ fn paint_board(
         .is_some_and(|(r, o, n)| r.as_slice() == entries && *o == offset && *n == notice)
     {
         commands.entity(board.list).despawn_children();
-        match notice {
-            // Rows on their way: skeleton rows at the rows' pitch.
-            Some(Phrase::ChallengeLoading) => {
-                let rows = crate::shellkit::states::skeleton(commands, kit, 6);
-                commands.entity(board.list).add_child(rows);
-            }
-            // Nobody placed in this group yet: the empty state in the
-            // list's middle, under a cup.
-            Some(Phrase::RankedBoardEmpty) => {
-                let empty = crate::shellkit::states::empty(
-                    commands,
-                    kit,
-                    glyph::TROPHY,
-                    Phrase::RankedBoardEmpty.text(lang),
-                    None,
-                );
-                commands.entity(empty).entry::<Node>().and_modify(|mut n| {
-                    n.flex_grow = 1.0;
-                    n.justify_content = JustifyContent::Center;
-                });
-                commands.entity(board.list).add_child(empty);
-            }
-            Some(msg) => label(
-                commands,
-                board.list,
-                kit,
-                msg.text(lang),
-                kit.m.text,
-                tokens::MUTED,
-            ),
-            None => {}
-        }
+        paint_notice(commands, board.list, kit, notice);
         for (i, row) in entries.iter().enumerate() {
             board_row(commands, board.list, kit, row, offset + i + 1, i);
         }
@@ -625,5 +598,41 @@ fn paint_pager(commands: &mut Commands, container: Entity, kit: Kit, pager: &Pag
             orders::item(commands, b, &ORDER, "pager", i);
         }
         commands.entity(container).add_child(b);
+    }
+}
+
+/// What the ladder's list says instead of rows: skeleton rows while they
+/// come, the kit's empty state for a group nobody is placed in yet, a
+/// failure as a line.
+fn paint_notice(commands: &mut Commands, list: Entity, kit: Kit, notice: Option<Phrase>) {
+    let lang = kit.lang();
+    match notice {
+        Some(Phrase::ChallengeLoading) => {
+            let rows = crate::shellkit::states::skeleton(commands, kit, 6);
+            commands.entity(list).add_child(rows);
+        }
+        Some(Phrase::RankedBoardEmpty) => {
+            let empty = crate::shellkit::states::empty(
+                commands,
+                kit,
+                glyph::TROPHY,
+                Phrase::RankedBoardEmpty.text(lang),
+                None,
+            );
+            commands.entity(empty).entry::<Node>().and_modify(|mut n| {
+                n.flex_grow = 1.0;
+                n.justify_content = JustifyContent::Center;
+            });
+            commands.entity(list).add_child(empty);
+        }
+        Some(msg) => label(
+            commands,
+            list,
+            kit,
+            msg.text(lang),
+            kit.m.text,
+            tokens::MUTED,
+        ),
+        None => {}
     }
 }

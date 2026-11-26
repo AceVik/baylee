@@ -97,7 +97,11 @@ pub fn share(month: u64) -> f32 {
 pub fn euros(cents: u64, lang: crate::i18n::Lang) -> String {
     let whole = cents.saturating_add(50) / 100;
     let mut digits = whole.to_string();
-    let mark = if lang == crate::i18n::Lang::De { '.' } else { ',' };
+    let mark = if lang == crate::i18n::Lang::De {
+        '.'
+    } else {
+        ','
+    };
     let mut at = digits.len();
     while at > 3 {
         at -= 3;
@@ -114,8 +118,8 @@ mod tests {
     use super::*;
     use crate::i18n::Lang;
 
-    fn monthly(month: u64, supporters: u64) -> Option<Monthly> {
-        Some(Monthly { month, supporters })
+    fn monthly(month: u64, supporters: u64) -> Monthly {
+        Monthly { month, supporters }
     }
 
     #[test]
@@ -123,8 +127,8 @@ mod tests {
         assert_eq!(covered(&Funding::default()), None);
         let funding = Funding {
             github: None,
-            liberapay: monthly(10_010, 3),
-            kofi: monthly(0, 0),
+            liberapay: Some(monthly(10_010, 3)),
+            kofi: Some(monthly(0, 0)),
             once: None,
         };
         assert_eq!(covered(&funding), Some((10_010, 3)));

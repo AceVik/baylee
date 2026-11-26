@@ -926,7 +926,11 @@ fn a_status_toast_starts_with_a_capital_and_the_lobby_keeps_its_words() {
 fn what_the_player_just_did_raises_no_toast() {
     let mut app = seated();
     let toasts = toast_lanes(&mut app);
-    for quiet in [Phrase::SignedIn, Phrase::PlayingOffline, Phrase::ArrangingTable] {
+    for quiet in [
+        Phrase::SignedIn,
+        Phrase::PlayingOffline,
+        Phrase::ArrangingTable,
+    ] {
         app.world_mut()
             .resource_mut::<LobbyState>()
             .lobby

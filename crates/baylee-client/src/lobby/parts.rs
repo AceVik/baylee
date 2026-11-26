@@ -229,7 +229,13 @@ pub(super) fn marked_line(
 /// A thin bar `share` (0..=1) full, `width` wide: a badge's way to its next
 /// tier, a newcomer's placement games. Drawn once; it never animates its
 /// width, so nothing beside it moves.
-pub(super) fn meter(commands: &mut Commands, kit: Kit, share: f32, width: Val, ink: Color) -> Entity {
+pub(super) fn meter(
+    commands: &mut Commands,
+    kit: Kit,
+    share: f32,
+    width: Val,
+    ink: Color,
+) -> Entity {
     let track = commands
         .spawn((
             Node {

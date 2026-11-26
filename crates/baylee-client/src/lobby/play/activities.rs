@@ -70,12 +70,15 @@ pub(super) fn draw(commands: &mut Commands, parent: Entity, state: &LobbyState, 
         return;
     }
     for card in cards {
-        commands.entity(card).entry::<Node>().and_modify(|mut node| {
-            node.width = Val::Auto;
-            node.flex_grow = 1.0;
-            node.flex_basis = px(0);
-            node.min_width = px(0);
-        });
+        commands
+            .entity(card)
+            .entry::<Node>()
+            .and_modify(|mut node| {
+                node.width = Val::Auto;
+                node.flex_grow = 1.0;
+                node.flex_basis = px(0);
+                node.min_width = px(0);
+            });
     }
 }
 

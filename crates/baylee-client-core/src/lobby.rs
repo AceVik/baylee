@@ -1642,7 +1642,8 @@ impl Lobby {
     /// It still stands on the front door's status line; it is never a toast.
     #[must_use]
     pub fn status_quiet(&self) -> bool {
-        self.status_phrase.is_some_and(|phrase| QUIET.contains(&phrase))
+        self.status_phrase
+            .is_some_and(|phrase| QUIET.contains(&phrase))
     }
 
     /// How that line should read — see [`Tone`].

@@ -15,16 +15,16 @@
 //! face, and its heart's colour breathing slowly (held still under reduced
 //! motion).
 
+use super::super::source;
 #[allow(clippy::wildcard_imports)] // the lobby widget vocabulary
 use super::super::*;
-use super::super::source;
 use super::FrontPress;
 use crate::shellkit::controls::{self, Kit, Live, Weight};
 use crate::shellkit::metrics::px_fixed;
 use crate::shellkit::role::Role;
 use crate::shellkit::{surfaces, tokens};
-use baylee_client_core::funding::{self, Platform};
 use baylee_account::funding::Funding;
+use baylee_client_core::funding::{self, Platform};
 
 /// The heart's colour: a warm rose that stands apart from the kit's teal
 /// accent and gold without shouting.
@@ -164,6 +164,22 @@ pub(super) fn corner(commands: &mut Commands, state: &LobbyState, kit: Kit) -> E
             Pickable::IGNORE,
         ))
         .id();
+    let button = button(commands, state, kit);
+    commands.entity(holder).add_child(button);
+    // The month's bar and its words stand only once a platform has said a
+    // figure: no bar of nothing, and nothing appears later that moves the
+    // button (the holder grows downwards, away from everything else).
+    if let Some(month) = month(state) {
+        let plate = month_plate(commands, kit, lang, month);
+        commands.entity(holder).add_child(plate);
+    }
+    holder
+}
+
+/// The button itself: the rose heart and its words on the cluster's ground,
+/// with the kit's sheen.
+fn button(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity {
+    let lang = state.lobby.lang();
     let h = px_fixed(kit.m.control * 0.78);
     let bg = Color::srgba(0.04, 0.08, 0.13, 0.56);
     let hot = Color::srgba(0.14, 0.09, 0.13, 0.86);
@@ -212,7 +228,7 @@ pub(super) fn corner(commands: &mut Commands, state: &LobbyState, kit: Kit) -> E
         ))
         .id();
     commands.entity(face).add_children(&[heart, words]);
-    let button = controls::hit(
+    controls::hit(
         commands,
         kit,
         face,
@@ -220,51 +236,48 @@ pub(super) fn corner(commands: &mut Commands, state: &LobbyState, kit: Kit) -> E
             Press::Front(FrontPress::Donate),
             crate::shellkit::focus::Stop::new(super::keys::table_of(state).name, "donate"),
         ),
+    )
+}
+
+/// Under the button, on a mist plate: the month's bar and what it covers.
+fn month_plate(commands: &mut Commands, kit: Kit, lang: Lang, month: u64) -> Entity {
+    let bar = crate::lobby::parts::meter(
+        commands,
+        kit,
+        funding::share(month),
+        Val::Percent(100.0),
+        ROSE,
     );
-    commands.entity(holder).add_child(button);
-    // The month's bar and its words stand only once a platform has said a
-    // figure: no bar of nothing, and nothing appears later that moves the
-    // button (the holder grows downwards, away from everything else).
-    if let Some(month) = month(state) {
-        let bar = crate::lobby::parts::meter(
-            commands,
-            kit,
-            funding::share(month),
-            Val::Percent(100.0),
-            ROSE,
-        );
-        let caption = commands
-            .spawn((
-                Text::new(Phrase::DonateCovered.fill(
-                    lang,
-                    &[
-                        &funding::euros(month, lang),
-                        &funding::euros(funding::GOAL, lang),
-                    ],
-                )),
-                crate::hud::tf(kit.fonts, kit.m.small * 0.86),
-                TextColor(tokens::MUTED),
-                TextLayout::justify(Justify::Center),
-                Pickable::IGNORE,
-            ))
-            .id();
-        let under = commands
-            .spawn((
-                Node {
-                    flex_direction: FlexDirection::Column,
-                    row_gap: kit.m.px(4.0),
-                    padding: UiRect::axes(kit.m.px(8.0), kit.m.px(6.0)),
-                    border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
-                    ..default()
-                },
-                BackgroundColor(tokens::MIST),
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(under).add_children(&[bar, caption]);
-        commands.entity(holder).add_child(under);
-    }
-    holder
+    let caption = commands
+        .spawn((
+            Text::new(Phrase::DonateCovered.fill(
+                lang,
+                &[
+                    &funding::euros(month, lang),
+                    &funding::euros(funding::GOAL, lang),
+                ],
+            )),
+            crate::hud::tf(kit.fonts, kit.m.small * 0.86),
+            TextColor(tokens::MUTED),
+            TextLayout::justify(Justify::Center),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let under = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                row_gap: kit.m.px(4.0),
+                padding: UiRect::axes(kit.m.px(8.0), kit.m.px(6.0)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
+                ..default()
+            },
+            BackgroundColor(tokens::MIST),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(under).add_children(&[bar, caption]);
+    under
 }
 
 /// The heart on the button: its colour breathes once every 2.4 seconds.
@@ -359,8 +372,18 @@ pub(super) fn sheet(commands: &mut Commands, root: Entity, state: &LobbyState, k
     goal(commands, pair, state, kit);
     costs(commands, pair, kit, lang);
     ways(commands, dialog, state, kit);
-    let nothing = paragraph(commands, kit, Phrase::DonateNothing.text(lang), tokens::MUTED);
-    let privacy = paragraph(commands, kit, Phrase::DonatePrivacy.text(lang), tokens::MUTED);
+    let nothing = paragraph(
+        commands,
+        kit,
+        Phrase::DonateNothing.text(lang),
+        tokens::MUTED,
+    );
+    let privacy = paragraph(
+        commands,
+        kit,
+        Phrase::DonatePrivacy.text(lang),
+        tokens::MUTED,
+    );
     commands.entity(dialog).add_children(&[nothing, privacy]);
     commands.entity(root).add_child(scrim);
 }
@@ -408,9 +431,7 @@ fn goal(commands: &mut Commands, dialog: Entity, state: &LobbyState, kit: Kit) {
     let title = caption(commands, kit, Phrase::DonateGoalTitle.text(lang));
     let amount = commands
         .spawn((
-            Text::new(
-                Phrase::DonateGoalAmount.fill(lang, &[&funding::euros(funding::GOAL, lang)]),
-            ),
+            Text::new(Phrase::DonateGoalAmount.fill(lang, &[&funding::euros(funding::GOAL, lang)])),
             crate::hud::tf_bold(kit.fonts, kit.m.head),
             TextColor(tokens::INK),
             Pickable::IGNORE,
@@ -423,50 +444,22 @@ fn goal(commands: &mut Commands, dialog: Entity, state: &LobbyState, kit: Kit) {
         .as_ref()
         .and_then(|funding| funding::covered(funding).map(|covered| (funding, covered)));
     let Some((figures, (month, supporters))) = figures else {
-        let none = paragraph(commands, kit, Phrase::DonateNoFigures.text(lang), tokens::MUTED);
+        let none = paragraph(
+            commands,
+            kit,
+            Phrase::DonateNoFigures.text(lang),
+            tokens::MUTED,
+        );
         commands.entity(block).add_child(none);
         commands.entity(dialog).add_child(block);
         return;
     };
-    // One bar, a part for each platform that reports, as wide as its share.
-    let track = commands
-        .spawn((
-            Node {
-                width: Val::Percent(100.0),
-                height: kit.m.px(10.0),
-                border_radius: BorderRadius::all(kit.m.px(5.0)),
-                overflow: Overflow::clip(),
-                ..default()
-            },
-            BackgroundColor(tokens::CONTROL),
-            Pickable::IGNORE,
-        ))
-        .id();
-    let whole = month.max(funding::GOAL);
-    let mut missing = Vec::new();
-    for platform in Platform::ALL {
-        let Some(monthly) = platform.monthly(figures) else {
-            missing.push(platform.name());
-            continue;
-        };
-        #[allow(clippy::cast_precision_loss)] // euro cents a month
-        let part = (monthly.month as f32) / (whole as f32);
-        if part <= 0.0 {
-            continue;
-        }
-        let piece = commands
-            .spawn((
-                Node {
-                    width: Val::Percent(100.0 * part),
-                    height: Val::Percent(100.0),
-                    ..default()
-                },
-                BackgroundColor(colour(platform)),
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(track).add_child(piece);
-    }
+    let track = split_bar(commands, kit, figures, month);
+    let missing: Vec<&str> = Platform::ALL
+        .into_iter()
+        .filter(|platform| platform.monthly(figures).is_none())
+        .map(Platform::name)
+        .collect();
     let line = commands
         .spawn((
             Node {
@@ -501,30 +494,7 @@ fn goal(commands: &mut Commands, dialog: Entity, state: &LobbyState, kit: Kit) {
         ))
         .id();
     commands.entity(line).add_children(&[have, share]);
-    let legend = commands
-        .spawn((
-            Node {
-                flex_wrap: FlexWrap::Wrap,
-                column_gap: kit.m.px(14.0),
-                row_gap: kit.m.px(4.0),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    for platform in Platform::ALL {
-        let Some(monthly) = platform.monthly(figures) else {
-            continue;
-        };
-        let key = crate::lobby::parts::glyph_line(
-            commands,
-            kit,
-            '\u{f111}',
-            &format!("{} · {}", platform.name(), funding::euros(monthly.month, lang)),
-            colour(platform),
-        );
-        commands.entity(legend).add_child(key);
-    }
+    let legend = legend(commands, kit, lang, figures);
     let mut said = if month == 0 && supporters == 0 {
         Phrase::DonateFirst.text(lang).to_string()
     } else {
@@ -609,7 +579,12 @@ fn costs(commands: &mut Commands, dialog: Entity, kit: Kit, lang: Lang) {
 fn ways(commands: &mut Commands, dialog: Entity, state: &LobbyState, kit: Kit) {
     let lang = state.lobby.lang();
     let title = caption(commands, kit, Phrase::DonateWaysTitle.text(lang));
-    let lead = paragraph(commands, kit, Phrase::DonateWaysLead.text(lang), tokens::MUTED);
+    let lead = paragraph(
+        commands,
+        kit,
+        Phrase::DonateWaysLead.text(lang),
+        tokens::MUTED,
+    );
     let row = commands
         .spawn((
             Node {
@@ -713,4 +688,79 @@ fn halve(commands: &mut Commands, block: Entity) {
         n.flex_basis = Val::Px(0.0);
         n.min_width = Val::Px(300.0);
     });
+}
+
+/// One bar of the goal, a part in its colour for each platform that reports,
+/// as wide as its share of the goal (or of the month, where that is more).
+fn split_bar(commands: &mut Commands, kit: Kit, figures: &Funding, month: u64) -> Entity {
+    let track = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                height: kit.m.px(10.0),
+                border_radius: BorderRadius::all(kit.m.px(5.0)),
+                overflow: Overflow::clip(),
+                ..default()
+            },
+            BackgroundColor(tokens::CONTROL),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let whole = month.max(funding::GOAL);
+    for platform in Platform::ALL {
+        let Some(monthly) = platform.monthly(figures) else {
+            continue;
+        };
+        #[allow(clippy::cast_precision_loss)] // euro cents a month
+        let part = (monthly.month as f32) / (whole as f32);
+        if part <= 0.0 {
+            continue;
+        }
+        let piece = commands
+            .spawn((
+                Node {
+                    width: Val::Percent(100.0 * part),
+                    height: Val::Percent(100.0),
+                    ..default()
+                },
+                BackgroundColor(colour(platform)),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(track).add_child(piece);
+    }
+    track
+}
+
+/// The bar's legend: each reporting platform's dot, name and month.
+fn legend(commands: &mut Commands, kit: Kit, lang: Lang, figures: &Funding) -> Entity {
+    let legend = commands
+        .spawn((
+            Node {
+                flex_wrap: FlexWrap::Wrap,
+                column_gap: kit.m.px(14.0),
+                row_gap: kit.m.px(4.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    for platform in Platform::ALL {
+        let Some(monthly) = platform.monthly(figures) else {
+            continue;
+        };
+        let key = crate::lobby::parts::glyph_line(
+            commands,
+            kit,
+            '\u{f111}',
+            &format!(
+                "{} · {}",
+                platform.name(),
+                funding::euros(monthly.month, lang)
+            ),
+            colour(platform),
+        );
+        commands.entity(legend).add_child(key);
+    }
+    legend
 }

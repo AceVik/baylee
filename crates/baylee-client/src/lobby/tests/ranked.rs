@@ -150,5 +150,8 @@ fn the_ranked_tile_opens_a_page_with_the_desk_beside_the_public_ladder() {
     });
     assert_eq!(app.world().resource::<LobbyState>().hub, Hub::Play);
     let tile = press_target(&mut app, open);
-    assert_eq!(app.world().get::<Stop>(tile).map(|stop| stop.id), Some("ranked"));
+    assert_eq!(
+        app.world().get::<Stop>(tile).map(|stop| stop.id),
+        Some("ranked")
+    );
 }

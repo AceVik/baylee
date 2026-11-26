@@ -177,7 +177,13 @@ fn own_rank(commands: &mut Commands, parent: Entity, kit: Kit, look: &Look) {
         n.flex_grow = 1.0;
         n.row_gap = Val::Px(2.0);
     });
-    let name = parts::line(commands, kit, &rank_name(rank, lang), kit.m.head, tokens::INK);
+    let name = parts::line(
+        commands,
+        kit,
+        &rank_name(rank, lang),
+        kit.m.head,
+        tokens::INK,
+    );
     commands
         .entity(name)
         .insert(crate::hud::tf_bold(kit.fonts, kit.m.head));
@@ -193,7 +199,10 @@ fn own_rank(commands: &mut Commands, parent: Entity, kit: Kit, look: &Look) {
                 &[&wins.to_string(), &losses.to_string(), &draws.to_string()],
             )
         });
-        elo.into_iter().chain(record).collect::<Vec<_>>().join(" · ")
+        elo.into_iter()
+            .chain(record)
+            .collect::<Vec<_>>()
+            .join(" · ")
     };
     if !figures.is_empty() {
         label(commands, words, kit, &figures, kit.m.small, tokens::ACCENT);
@@ -397,6 +406,30 @@ struct Settled<'a> {
     deck: &'a str,
 }
 
+/// A rank's small badge, as the result card shows it before and after.
+fn rank_badge(commands: &mut Commands, kit: Kit, rank: api::Rank) -> Entity {
+    let node = commands
+        .spawn((
+            Node {
+                width: kit.m.px(34.0),
+                height: kit.m.px(34.0),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    if let Some(art) = crate::rank_art::RankArt::badge(
+        league_name(rank.league, Lang::En),
+        rank.division,
+        false,
+        rank.champion_place.map(u32::from),
+    ) {
+        commands.entity(node).insert(art);
+    }
+    node
+}
+
 /// The last settled game as a card: the result in its colour, the rank
 /// before and after it, the Elo it moved and where it stands, the deck's line.
 fn result_card(commands: &mut Commands, parent: Entity, kit: Kit, settled: Settled<'_>) {
@@ -440,29 +473,7 @@ fn result_card(commands: &mut Commands, parent: Entity, kit: Kit, settled: Settl
     commands.entity(head).add_children(&[title, grow, format]);
     let line = parts::row(commands, kit, false);
     commands.entity(card).add_child(line);
-    let badge = |commands: &mut Commands, rank: api::Rank| {
-        let node = commands
-            .spawn((
-                Node {
-                    width: kit.m.px(34.0),
-                    height: kit.m.px(34.0),
-                    flex_shrink: 0.0,
-                    ..default()
-                },
-                Pickable::IGNORE,
-            ))
-            .id();
-        if let Some(art) = crate::rank_art::RankArt::badge(
-            league_name(rank.league, Lang::En),
-            rank.division,
-            false,
-            rank.champion_place.map(u32::from),
-        ) {
-            commands.entity(node).insert(art);
-        }
-        node
-    };
-    let from = badge(commands, settled.before);
+    let from = rank_badge(commands, kit, settled.before);
     let arrow = commands
         .spawn((
             Text::new(glyph::ARROW_RIGHT.to_string()),
@@ -471,7 +482,7 @@ fn result_card(commands: &mut Commands, parent: Entity, kit: Kit, settled: Settl
             Pickable::IGNORE,
         ))
         .id();
-    let to = badge(commands, settled.after);
+    let to = rank_badge(commands, kit, settled.after);
     let name = parts::line(
         commands,
         kit,
@@ -480,12 +491,10 @@ fn result_card(commands: &mut Commands, parent: Entity, kit: Kit, settled: Settl
         tokens::INK,
     );
     let grow = parts::grow(commands);
-    let moved = if settled.delta > 0 {
-        tokens::GAIN
-    } else if settled.delta < 0 {
-        tokens::DANGER
-    } else {
-        tokens::MUTED
+    let moved = match settled.delta.cmp(&0) {
+        std::cmp::Ordering::Greater => tokens::GAIN,
+        std::cmp::Ordering::Less => tokens::DANGER,
+        std::cmp::Ordering::Equal => tokens::MUTED,
     };
     let delta = parts::badge(
         commands,
@@ -500,7 +509,14 @@ fn result_card(commands: &mut Commands, parent: Entity, kit: Kit, settled: Settl
     commands
         .entity(line)
         .add_children(&[from, arrow, to, name, grow, delta]);
-    label(commands, card, kit, settled.deck, kit.m.small, tokens::ACCENT);
+    label(
+        commands,
+        card,
+        kit,
+        settled.deck,
+        kit.m.small,
+        tokens::ACCENT,
+    );
 }
 
 fn waiting(commands: &mut Commands, parent: Entity, kit: Kit, format: Format, queued_at: i64) {

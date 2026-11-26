@@ -60,7 +60,11 @@ pub fn elapsed(milliseconds: Option<u64>) -> String {
 #[must_use]
 pub fn minutes_left(now: i64, ends_at: i64) -> Option<i64> {
     let seconds = ends_at.checked_sub(now)?;
-    Some(if seconds > 0 { (seconds - 1) / 60 + 1 } else { 0 })
+    Some(if seconds > 0 {
+        (seconds - 1) / 60 + 1
+    } else {
+        0
+    })
 }
 
 /// How long a task stays open, at `now`, until it closes at `ends_at` (both
@@ -96,7 +100,10 @@ mod tests {
         assert_eq!(left(0, 61, Lang::En).as_deref(), Some("2 min left"));
         assert_eq!(left(0, 3599, Lang::En).as_deref(), Some("1 h left"));
         assert_eq!(left(0, 3600, Lang::De).as_deref(), Some("noch 1 Std."));
-        assert_eq!(left(0, 3601, Lang::De).as_deref(), Some("noch 1 Std. 1 Min."));
+        assert_eq!(
+            left(0, 3601, Lang::De).as_deref(),
+            Some("noch 1 Std. 1 Min.")
+        );
         assert_eq!(
             left(0, 3 * 86_400 + 4 * 3600, Lang::De).as_deref(),
             Some("noch 3 T. 4 Std.")
