@@ -1629,7 +1629,6 @@ impl Effect {
             | Effect::DealDamageToEventSourceOrController { .. }
             | Effect::RedirectNextDamageTo { .. }
             | Effect::MeldPair { .. }
-            | Effect::PlayersChooseMode(_)
             | Effect::BecomeAura { .. }
             | Effect::SetDynamicPT { .. }
             | Effect::Unattach { .. }

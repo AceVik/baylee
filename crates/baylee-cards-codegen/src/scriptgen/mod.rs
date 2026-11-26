@@ -728,9 +728,6 @@ struct Tx<'a> {
     vote_option_idx: Option<u8>,
     /// True while lowering `Effect | ImprintCards$ Targeted` delayed body or its trailing `Cleanup`.
     wave30a_allow_clear_imprinted: bool,
-    /// True while lowering an `AddTrigger$` ability granted to another permanent,
-    /// allowing `Sac<1/OriginalHost>` -> `Effect::SacrificeGrantor`.
-    in_granted_trigger: bool,
     /// True while inspecting optional trigger prices for `Trigger::Dies(&Filter::This)`.
     is_dies_self_trigger: bool,
     /// True while parsing an activated ability's `Cost$` whose `{X}` is
@@ -873,7 +870,6 @@ impl<'a> Tx<'a> {
             remembered_cmc: false,
             vote_option_idx: None,
             wave30a_allow_clear_imprinted: false,
-            in_granted_trigger: false,
             is_dies_self_trigger: false,
             allow_defined_cost_x: false,
             etb_chosen_modes: Vec::new(),
