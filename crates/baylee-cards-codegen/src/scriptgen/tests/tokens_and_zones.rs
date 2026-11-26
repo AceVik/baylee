@@ -2301,9 +2301,10 @@ fn zone_change_remembered_capture_and_conditional_search() {
          SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True | ClearImprinted$ True",
     );
     assert!(
-        summoners_sending.abilities[0].contains("Effect::CaptureAffected")
-            && summoners_sending.abilities[0].contains("Effect::CreateTokenThenCounters")
+        summoners_sending.abilities[0].contains("ThisWay::ExiledFromGraveyard")
             && summoners_sending.abilities[0].contains("Effect::CreateToken {")
+            && summoners_sending.abilities[0].contains("Effect::RepeatEachObject {")
+            && summoners_sending.abilities[0].contains("CounterKind::P1P1")
             && summoners_sending.statics.contains("Filter::CmcAtLeast(4)"),
         "{:?} / {}",
         summoners_sending.abilities,

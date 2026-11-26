@@ -2133,8 +2133,7 @@ fn modifier_reads_cast_origin_zone(modifier: &baylee_cards_dsl::Modifier) -> boo
         | Modifier::ReduceCostIfTargetsCheck {
             spell_filter: filter,
             ..
-        }
-        | Modifier::CantBeTargetedBy(filter) => filter_reads_cast_origin_zone(filter, 0),
+        } => filter_reads_cast_origin_zone(filter, 0),
         _ => false,
     }
 }

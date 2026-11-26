@@ -2569,6 +2569,67 @@ mod tests {
                 filter: &baylee_cards_dsl::Filter::YOUR_CREATURE,
                 generic: 8,
             },
+            Modifier::NextDrawReplace(baylee_cards_dsl::NextDrawReplacement::GainLife(5)),
+            Modifier::ReplaceNextGameLoss {
+                draw: 7,
+                set_life: 1,
+            },
+            Modifier::EnterUnderYourControl(&baylee_cards_dsl::Filter::CREATURE),
+            Modifier::ReplaceBattlefieldEntry {
+                filter: &baylee_cards_dsl::Filter::CREATURE,
+                predicate: baylee_cards_dsl::EntryPredicate::NotCast,
+                destination: baylee_cards_dsl::EntryInsteadZone::Exile,
+            },
+            Modifier::ExileMatchingInsteadOfGraveyard {
+                filter: &baylee_cards_dsl::Filter::CREATURE,
+                origin: Some(baylee_cards_dsl::ZoneRef::Battlefield),
+                controller_lki: None,
+                rider: None,
+            },
+            Modifier::PermanentsEnterTapped(&baylee_cards_dsl::Filter::Any),
+            Modifier::MultiplyTokensCreated {
+                who: baylee_cards_dsl::PlayerRel::You,
+                factor: 2,
+            },
+            Modifier::StealOpponentTokens,
+            Modifier::AddDamageDynamic {
+                sources: &baylee_cards_dsl::Filter::ControlledByYou,
+                extra: baylee_cards_dsl::Amount::Fixed(1),
+                combat_only: false,
+                noncombat_only: true,
+                recipients: baylee_cards_dsl::DamageRecipients::Any,
+            },
+            Modifier::PreventDamageRemovingOneCounter {
+                kind: baylee_cards_dsl::CounterKind::P1P1,
+                require_counter: true,
+            },
+            Modifier::RedirectDamageToAffected {
+                sources: &baylee_cards_dsl::Filter::Any,
+                recipients: baylee_cards_dsl::DamageRecipients::PlayersOrTheirPermanents(
+                    baylee_cards_dsl::PlayerRel::You,
+                ),
+                combat: None,
+            },
+            Modifier::RedirectDamageToAffectedController,
+            Modifier::PreventAllButOneDamage {
+                sources: &baylee_cards_dsl::Filter::Any,
+                recipients: baylee_cards_dsl::DamageRecipients::Players(
+                    baylee_cards_dsl::PlayerRel::You,
+                ),
+                combat: None,
+            },
+            Modifier::ReplaceOrPreventDamageScopedWithThen {
+                sources: &baylee_cards_dsl::Filter::Any,
+                recipients: baylee_cards_dsl::DamageRecipients::Permanents(
+                    &baylee_cards_dsl::Filter::YOUR_CREATURE,
+                ),
+                combat: None,
+                is_replacement: false,
+                only_if_prevented: true,
+                scope: baylee_cards_dsl::DamageRiderScope::PerTarget,
+                then: RIDER,
+            },
+            Modifier::HealOtherDamageWhenDealtDamage,
             Modifier::GrantMiracle(baylee_cards_dsl::MiracleGrant::ManaCostLessGeneric(4)),
             Modifier::GrantForetell { reduce_generic: 2 },
             Modifier::GrantWarp(baylee_cards_dsl::Cost {
@@ -2712,7 +2773,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            316,
+            331,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -2852,7 +2913,7 @@ mod tests {
         // Wave 17c adds GrantsUnearth, GrantsScavengeManaCost, and GrantsDredge on
         // Layer::Ability (+3 locking -> 70) and ten cost/permission modifiers on
         // Layer::Text (+10 rules-only -> 194).
-        assert_eq!((locking, all.len() - locking), (94, 222));
+        assert_eq!((locking, all.len() - locking), (94, 237));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

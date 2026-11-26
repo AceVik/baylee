@@ -359,9 +359,7 @@ fn reads_event(effect: &Effect) -> bool {
             };
             subj_reads || trans_reads || if_cant.iter().any(reads_event)
         }
-        Effect::SacrificeObject { target, .. } | Effect::Unattach { target } => {
-            reads_target(*target)
-        }
+        Effect::Unattach { target } => reads_target(*target),
         Effect::PutAllCountersFrom { donor, target } => {
             matches!(donor, baylee_cards_dsl::CounterDonor::Event) || reads_target(*target)
         }
