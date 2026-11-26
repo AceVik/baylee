@@ -2,9 +2,7 @@
 //! Oracle: As an additional cost to cast this spell, sacrifice all permanents you control and discard your hand.
 //! Oracle: Target player loses 5 life.
 //! Set: VIS #63 — Visions | Scryfall ID: d385b9e5-e13d-4098-ba74-ea55bde164d9 | Oracle ID: 7d69be1e-701a-4bcb-a83e-38b4174f7828
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
-
-// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
+// IMPLEMENTED — mandatory additional costs to sacrifice all permanents and discard hand; target player loses 5 life.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -13,11 +11,21 @@ card!(
     oracle_id = "7d69be1e-701a-4bcb-a83e-38b4174f7828",
     scryfall_id = "d385b9e5-e13d-4098-ba74-ea55bde164d9",
     color_identity = ColorSet::from_slice(&[Color::Black]),
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kaervek's Spite",
         mana_cost = mana!("{B}{B}{B}"),
         types = TypeSet::INSTANT,
+        mandatory_additional_costs = &[
+            CostPart::SacrificeAll(&Filter::ControlledByYou),
+            CostPart::DiscardHand,
+        ],
     ),],
+    abilities = &[spell!(
+        &[Effect::LoseLife {
+            amount: Amount::Fixed(5),
+            target: PlayerRel::Chosen,
+        }],
+        targets = Some(TargetReq::one(TargetSpec::AnyPlayer)),
+    )],
 );
-
-// TODO(card): implement abilities, see docs/card-dsl.md.

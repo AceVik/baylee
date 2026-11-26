@@ -123,6 +123,7 @@ mod story_circle;
 mod sulfuric_vortex;
 mod symbiotic_deployment;
 mod task_mage_assembly;
+mod tectonic_instability;
 mod teferi_s_care;
 mod temur_ascendancy;
 mod thelon_s_chant;

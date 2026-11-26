@@ -81,6 +81,7 @@ mod elvish_bard;
 mod elvish_soultiller;
 mod empress_galina;
 mod endless_wurm;
+mod entropic_specter;
 mod ertai_the_corrupted;
 mod escaped_shapeshifter;
 mod ethereal_champion;

@@ -2,9 +2,7 @@
 //! Oracle: Shadow (This creature can block or be blocked by only creatures with shadow.)
 //! Oracle: Whenever this creature deals damage to a player, destroy target enchantment that player controls.
 //! Set: EXO #20 — Exodus | Scryfall ID: 1a3ae384-7b60-4264-9dc1-1613917168ca | Oracle ID: 7971f5c2-97b7-441f-ad77-954f43ede0a1
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
-
-// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
+// IMPLEMENTED — shadow and trigger on dealing any damage to a player to destroy target enchantment that player controls.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -14,6 +12,8 @@ card!(
     oracle_id = "7971f5c2-97b7-441f-ad77-954f43ede0a1",
     scryfall_id = "1a3ae384-7b60-4264-9dc1-1613917168ca",
     color_identity = ColorSet::from_slice(&[Color::White]),
+    keywords = KeywordSet::SHADOW,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Soltari Visionary",
         mana_cost = mana!("{1}{W}{W}"),
@@ -22,6 +22,16 @@ card!(
         power = Some(2),
         toughness = Some(2),
     ),],
+    abilities = &[triggered!(
+        Trigger::DealsDamageToPlayer {
+            source: &Filter::This,
+            player: PlayerRel::EachPlayer,
+        },
+        &[Effect::destroy(TargetSpec::ObjectOfEventPlayer(
+            &Filter::ENCHANTMENT,
+        ))],
+        targets = Some(TargetReq::one(TargetSpec::ObjectOfEventPlayer(
+            &Filter::ENCHANTMENT,
+        ))),
+    )],
 );
-
-// TODO(card): implement abilities, see docs/card-dsl.md.
