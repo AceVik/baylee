@@ -5236,39 +5236,17 @@ impl Tx<'_> {
                 emit_target()
             }
             "PutCounterAll" => {
-                let target_player_ctrl = targets_here
-                    && matches!(
-                        target,
-                        Some(
-                            "TargetSpec::AnyPlayer"
-                                | "TargetSpec::AnyOpponent"
-                                | "TargetSpec::Player(PlayerRel::Chosen)"
-                        )
-                    );
-                if !target_player_ctrl && (targets_here || (target.is_some() && !prior_target_used))
-                {
+                if targets_here || (target.is_some() && !prior_target_used) {
                     return None;
                 }
                 let valid = p.take("ValidCards")?;
-                if target_player_ctrl
-                    && (valid.contains("Ctrl")
-                        || valid.contains("Own")
-                        || valid.contains("Remembered"))
-                {
-                    return None;
-                }
                 let code = p.take("CounterType")?;
                 let Some(kind) = counter_kind(&code) else {
                     return self.deny(format!("counter `{code}`"));
                 };
                 let n = self.amount_or_count_ext(p.take("CounterNum").as_deref().unwrap_or("1"))?;
                 p.take("IsCurse");
-                let base_expr = self.filter_expr(&valid)?;
-                let expr = if target_player_ctrl {
-                    format!("Filter::And(&[{base_expr}, Filter::ControlledBy(PlayerRel::Chosen)])")
-                } else {
-                    base_expr
-                };
+                let expr = self.filter_expr(&valid)?;
                 let filter = self.body.filter_static("COUNTERS", &expr);
                 vec![format!(
                     "Effect::AddCounterFilter {{ filter: &{filter}, kind: {kind}, amount: {n} }}"
@@ -10729,7 +10707,6 @@ impl Tx<'_> {
             }
             "Phases" => !p.has("WontPhaseInNormal"),
             "DealDamage" => !p.has("DividedAsYouChoose") && !p.has("ExcessSVar"),
-            "PutCounterAll" => Self::slot_put_counter_all_ok(second_spec, p),
             "Effect" => Self::slot_remembered_effect_ok(second_spec, p),
             "Destroy" | "Pump" | "RemoveCounter" | "Tap" | "Untap" | "TapOrUntap" | "Detain"
             | "Goad" | "Animate" | "Regenerate" | "SetState" | "MustBlock" | "Connive"

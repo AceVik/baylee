@@ -7769,33 +7769,22 @@ fn legerdemain_exchange_shared_type_second_target() {
 }
 
 #[test]
-fn twisted_fates_second_target_put_counter_all() {
-    let script = "Name:Twisted Fates\nManaCost:2 W W B\nTypes:Sorcery\n\
+fn twisted_fates_and_contagion_engine_put_counter_all_stay_refused() {
+    // `Effect::AddCounterFilter` resolves via `matches_with_context`, where
+    // `Filter::ControlledBy(PlayerRel::Chosen)` evaluates to `false`.
+    let twisted = "Name:Twisted Fates\nManaCost:2 W W B\nTypes:Sorcery\n\
          A:SP$ Destroy | ValidTgts$ Permanent.nonLand | SubAbility$ DBPutCounterAll\n\
          SVar:DBPutCounterAll:DB$ PutCounterAll | ValidTgts$ Player | ValidCards$ Creature | CounterType$ P1P1 | CounterNum$ 1";
-    let body = read(script);
-    assert!(
-        body.abilities[0].contains("Effect::destroy(TargetSpec::Object(&Filter::NONLAND))")
-            && body.abilities[0].contains("Effect::WithSecondTarget(&[Effect::AddCounterFilter { filter: &COUNTERS1, kind: CounterKind::P1P1, amount: Amount::Fixed(1) }])")
-            && body.abilities[0].contains("second_targets = Some(TargetReq::one(TargetSpec::AnyPlayer))"),
-        "{}",
-        body.abilities[0]
-    );
-    assert!(
-        body.statics
-            .contains("Filter::And(&[Filter::CREATURE, Filter::ControlledBy(PlayerRel::Chosen)])"),
-        "{}",
-        body.statics
-    );
-
-    assert!(refused(&script.replace(
-        "ValidCards$ Creature",
-        "ValidCards$ Creature.YouCtrl"
-    )));
-    assert!(refused(&script.replace(
-        "ValidTgts$ Player",
-        "ValidTgts$ Player | Defined$ ChosenPlayer"
-    )));
+    let contagion = "Name:Contagion Engine\nManaCost:6\nTypes:Artifact\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigPutCounterAll\n\
+         A:AB$ Proliferate | Cost$ 4 T | Amount$ 2\n\
+         SVar:TrigPutCounterAll:DB$ PutCounterAll | ValidTgts$ Player | ValidCards$ Creature | IsCurse$ True | CounterType$ M1M1 | CounterNum$ 1";
+    let meadowboon = "Name:Meadowboon\nManaCost:2 W W\nTypes:Creature Elemental\nPT:3/3\nK:Evoke:3 W\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Any | ValidCard$ Card.Self | Execute$ TrigPutCounterAll\n\
+         SVar:TrigPutCounterAll:DB$ PutCounterAll | ValidTgts$ Player | TgtPrompt$ Select a player | ValidCards$ Creature | CounterType$ P1P1 | CounterNum$ 1";
+    assert!(refused(twisted));
+    assert!(refused(contagion));
+    assert!(refused(meadowboon));
 }
 
 #[test]
