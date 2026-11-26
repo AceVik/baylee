@@ -740,6 +740,52 @@ impl Tx<'_> {
         Some(out)
     }
 
+    fn legacy_double_counters_filter(
+        &mut self,
+        defined: Option<&str>,
+        target: Option<&str>,
+        targets_here: bool,
+        is_single_obj: bool,
+        prior_target_used: bool,
+    ) -> Option<String> {
+        match defined {
+            None if targets_here && is_single_obj => Some("&Filter::Reference".to_string()),
+            Some("Targeted" | "ParentTarget") if !targets_here && is_single_obj => {
+                Some("&Filter::Reference".to_string())
+            }
+            Some("Self") if !self.on_a_spell && !targets_here => Some("&Filter::This".to_string()),
+            Some("Enchanted" | "Equipped") if !self.on_a_spell && !targets_here => {
+                Some("&Filter::AttachedToBySource".to_string())
+            }
+            Some(
+                def @ ("TriggeredCardLKICopy"
+                | "TriggeredCard"
+                | "TriggeredNewCardLKICopy"
+                | "TriggeredNewCard"
+                | "TriggeredAttackerLKICopy"
+                | "TriggeredAttacker"
+                | "TriggeredBlockerLKICopy"
+                | "TriggeredBlocker"
+                | "TriggeredTargetLKICopy"
+                | "TriggeredTarget"
+                | "TriggeredSourceLKICopy"
+                | "TriggeredSource"
+                | "DelayTriggerRemembered"
+                | "DelayTriggerRememberedLKI"),
+            ) if !targets_here => Some(self.triggered_event_filter(def, target)?.to_string()),
+            Some("Remembered") if self.capture_scope.is_some() && !targets_here => {
+                Some("&Filter::IsRemembered".to_string())
+            }
+            Some(def) if !targets_here && (target.is_none() || prior_target_used) => {
+                let valid = def.strip_prefix("Valid ")?.trim();
+                let expr = self.filter_expr(valid)?;
+                let name = self.body.filter_static("DOUBLE", &expr);
+                Some(format!("&{name}"))
+            }
+            _ => None,
+        }
+    }
+
     pub(super) fn multiply_counter_effect(
         &mut self,
         p: &mut Params,
@@ -776,46 +822,13 @@ impl Tx<'_> {
                     "Effect::RememberTargetsThen {{ then: &[Effect::DoubleCountersFilter {{ filter: &Filter::IsRemembered, kind: {kind} }}] }}"
                 )]);
             }
-            let is_single_obj = single_target && is_obj_target;
-            let legacy_filter = match defined.as_deref() {
-                None if targets_here && is_single_obj => Some("&Filter::Reference".to_string()),
-                Some("Targeted" | "ParentTarget") if !targets_here && is_single_obj => {
-                    Some("&Filter::Reference".to_string())
-                }
-                Some("Self") if !self.on_a_spell && !targets_here => {
-                    Some("&Filter::This".to_string())
-                }
-                Some("Enchanted" | "Equipped") if !self.on_a_spell && !targets_here => {
-                    Some("&Filter::AttachedToBySource".to_string())
-                }
-                Some(
-                    def @ ("TriggeredCardLKICopy"
-                    | "TriggeredCard"
-                    | "TriggeredNewCardLKICopy"
-                    | "TriggeredNewCard"
-                    | "TriggeredAttackerLKICopy"
-                    | "TriggeredAttacker"
-                    | "TriggeredBlockerLKICopy"
-                    | "TriggeredBlocker"
-                    | "TriggeredTargetLKICopy"
-                    | "TriggeredTarget"
-                    | "TriggeredSourceLKICopy"
-                    | "TriggeredSource"
-                    | "DelayTriggerRemembered"
-                    | "DelayTriggerRememberedLKI"),
-                ) if !targets_here => Some(self.triggered_event_filter(def, target)?.to_string()),
-                Some("Remembered") if self.capture_scope.is_some() && !targets_here => {
-                    Some("&Filter::IsRemembered".to_string())
-                }
-                Some(def) if !targets_here && (target.is_none() || prior_target_used) => {
-                    let valid = def.strip_prefix("Valid ")?.trim();
-                    let expr = self.filter_expr(valid)?;
-                    let name = self.body.filter_static("DOUBLE", &expr);
-                    Some(format!("&{name}"))
-                }
-                _ => None,
-            };
-            if let Some(filter) = legacy_filter {
+            if let Some(filter) = self.legacy_double_counters_filter(
+                defined.as_deref(),
+                target,
+                targets_here,
+                single_target && is_obj_target,
+                prior_target_used,
+            ) {
                 return Some(vec![format!(
                     "Effect::DoubleCountersFilter {{ filter: {filter}, kind: {kind} }}"
                 )]);

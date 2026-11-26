@@ -2310,6 +2310,16 @@ fn zone_change_remembered_capture_and_conditional_search() {
         summoners_sending.abilities,
         summoners_sending.statics
     );
+}
+
+#[test]
+fn zone_change_conditional_claim_jumper_search() {
+    let extra_cats = cats_zones_extra();
+    let read_extra = |text: &str| {
+        let parsed = parse(text);
+        transcode(&parsed, &extra_cats, None)
+            .unwrap_or_else(|| panic!("refused: {:?}", refusal_reason(&parsed, &extra_cats, None)))
+    };
 
     let claim_jumper = read_extra(
         "Name:Claim Jumper\nManaCost:2 W\nTypes:Creature Rabbit Mercenary\nPT:3/3\n\

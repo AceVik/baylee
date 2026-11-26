@@ -334,7 +334,10 @@ fn post_engine_cost_modifiers_and_refusals() {
         "{:?}",
         liesa.abilities
     );
+}
 
+#[test]
+fn post_engine_target_cost_modifiers_and_refusals() {
     let siege = read_custom(
         "Name:Monastery Siege\nManaCost:2 U\nTypes:Enchantment\n\
          K:ETBReplacement:Other:SiegeChoice\n\
