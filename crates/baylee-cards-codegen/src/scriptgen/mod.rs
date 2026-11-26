@@ -536,6 +536,7 @@ struct Tx<'a> {
     /// Whether the chain being read is a delayed trigger's `Execute$`, where
     /// `Defined$ DelayTriggerRememberedLKI` is the object it remembers.
     in_delayed: bool,
+    in_repeat_each_object: bool,
     /// An earlier unconditional effect in this resolution chain chose a number.
     has_resolution_chosen_number: bool,
     /// This permanent or an earlier effect in this resolution chain chose a color.
@@ -742,6 +743,7 @@ impl<'a> Tx<'a> {
             block_line_one_or_more: false,
             block_half: None,
             in_delayed: false,
+            in_repeat_each_object: false,
             has_resolution_chosen_number: false,
             has_resolution_chosen_color: false,
             has_resolution_chosen_name: false,

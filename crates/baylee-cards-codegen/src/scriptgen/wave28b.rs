@@ -1375,7 +1375,7 @@ impl Tx<'_> {
             );
         }
         if api == "PutCounter"
-            && p.peek("RememberCards") == Some("True")
+            && matches!(p.peek("RememberCards"), None | Some("True"))
             && single_target
             && !targets_a_player
             && target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
@@ -3395,7 +3395,8 @@ impl Tx<'_> {
         let saved_statics = self.body.statics.len();
         let saved_unclaimed = self.unclaimed.borrow().clone();
         let res = (|| {
-            if p.take("RememberCards").as_deref() != Some("True") {
+            let rem_cards = p.take("RememberCards");
+            if !matches!(rem_cards.as_deref(), None | Some("True")) {
                 return None;
             }
             if !matches!(
@@ -3415,8 +3416,13 @@ impl Tx<'_> {
             let (eff_api, mut ep) = Params::parse(&sub_body)?;
             ep.drop_prose();
             let eff_sub = ep.take("SubAbility");
+            let rem_ok = match (rem_cards.as_deref(), ep.take("RememberObjects").as_deref()) {
+                (Some("True"), Some("Remembered")) => true,
+                (None, Some("Targeted" | "ParentTarget")) if !self.in_delayed => true,
+                _ => false,
+            };
             if eff_api != "Effect"
-                || ep.take("RememberObjects").as_deref() != Some("Remembered")
+                || !rem_ok
                 || ep.take("Duration").as_deref() != Some("Permanent")
                 || !matches!(
                     ep.take("ForgetOnMoved")

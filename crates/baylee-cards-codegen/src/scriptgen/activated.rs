@@ -2470,6 +2470,25 @@ impl Tx<'_> {
             .or_else(|| self.inline_valid_count_condition(var.trim(), cmp))
             .or_else(|| self.extra_svar_condition_clause(var, cmp))
             .or_else(|| self.inline_svar_condition(var, cmp))
+            .or_else(|| self.wave16a_turn_scalar_condition(var, cmp))
+    }
+
+    fn wave16a_turn_scalar_condition(&mut self, var: &str, cmp: &str) -> Option<String> {
+        if self.in_delayed {
+            return None;
+        }
+        let raw = self.resolve_svar_or_inline(var)?;
+        let amt = match raw.trim() {
+            "Count$LifeYouLostThisTurn" | "PlayerCountPropertyYou$LifeLostThisTurn" => {
+                "Amount::LifeLostThisTurn(PlayerRel::You)"
+            }
+            "PlayerCountPropertyYou$SacrificedThisTurn Permanent"
+            | "Count$SacrificedThisTurn Permanent" => {
+                "Amount::PermanentsSacrificedThisTurn { who: PlayerRel::You, filter: &Filter::Any }"
+            }
+            _ => return None,
+        };
+        self.amount_bound_condition(amt, count_bound(cmp.trim()), None)
     }
 
     fn optional_cost_svar_condition(&self, def: &str, cmp: &str) -> Option<String> {

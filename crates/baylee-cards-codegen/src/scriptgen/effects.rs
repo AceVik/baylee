@@ -2340,6 +2340,7 @@ impl Tx<'_> {
             }
             Some("UntilEndOfCombat") => "Duration::UntilEndOfCombat",
             Some("UntilYourNextTurn") => "Duration::UntilYourNextTurn",
+            Some("UntilTheEndOfYourNextTurn") => "Duration::UntilEndOfYourNextTurn",
             Some("UntilYourNextUpkeep") => "Duration::UntilYourNextUpkeep",
             Some("Permanent") => "Duration::Indefinitely",
             Some("LeavesPlay" | "UntilHostLeavesPlay") if !self.on_a_spell => {
@@ -3143,6 +3144,32 @@ impl Tx<'_> {
                     "Effect::continuous(&Filter::Any, Modifier::OpponentsCantSearch, {duration})"
                 )])
             }
+            "IgnoreLegendRule" if subject == EffectSubject::Unbound => {
+                if !matches!(
+                    st.take("ValidCard").as_deref(),
+                    Some("Permanent.YouCtrl" | "Card.YouCtrl")
+                ) || !st.exhausted()
+                {
+                    return None;
+                }
+                Some(vec![format!(
+                    "Effect::continuous(&Filter::Any, Modifier::LegendRuleOff, {duration})"
+                )])
+            }
+            "IgnoreHexproof" if subject == EffectSubject::Unbound => {
+                if st.take("Activator").as_deref() != Some("You")
+                    || !matches!(
+                        st.take("ValidEntity").as_deref(),
+                        Some("Opponent,Creature.OppCtrl" | "Creature.OppCtrl,Opponent")
+                    )
+                    || !st.exhausted()
+                {
+                    return None;
+                }
+                Some(vec![format!(
+                    "Effect::continuous(&Filter::Any, Modifier::IgnoreOpponentsHexproof, {duration})"
+                )])
+            }
             "CantPlayLand" if subject == EffectSubject::Unbound => {
                 if !matches!(st.take("Player").as_deref(), None | Some("Player")) || !st.exhausted()
                 {
@@ -3612,6 +3639,9 @@ impl Tx<'_> {
             {
                 EffectSubject::Event
             }
+            Some("Remembered") if self.in_repeat_each_object && target.is_none() => {
+                EffectSubject::Event
+            }
             Some("TriggeredCard" | "TriggeredCardLKICopy")
                 if matches!(
                     self.trigger_mode.as_deref(),
@@ -3629,7 +3659,12 @@ impl Tx<'_> {
                 EffectSubject::Event
             }
             Some("TriggeredBlocker" | "TriggeredBlockerLKICopy")
-                if self.trigger_mode.as_deref() == Some("Blocks") =>
+                if self.trigger_mode.as_deref() == Some("Blocks")
+                    || (self.trigger_mode.as_deref() == Some("AttackerBlockedByCreature")
+                        && self
+                            .block_line
+                            .as_ref()
+                            .is_some_and(|(r, _, _)| *r == super::BlockRole::Blocked)) =>
             {
                 EffectSubject::Event
             }
@@ -3742,10 +3777,30 @@ impl Tx<'_> {
         subject: EffectSubject,
         duration: &str,
     ) -> Option<Vec<String>> {
-        if !matches!(
-            st.take("AffectedZone").as_deref(),
-            None | Some("Battlefield")
-        ) {
+        let affected_zone = st.take("AffectedZone");
+        if affected_zone.as_deref() == Some("Stack") {
+            let affected = st.take("Affected")?;
+            if subject != EffectSubject::Unbound
+                || st.take("AddKeyword").as_deref() != Some("Cascade")
+                || affected.contains("IsRemembered")
+                || affected.contains("EffectSource")
+                || affected.contains("RememberedPlayer")
+                || !st.exhausted()
+            {
+                return None;
+            }
+            let base = self.filter_expr_in_zone(&affected, true)?;
+            let full = if base == "Filter::Any" {
+                "Filter::InZone(ZoneRef::Stack)".to_string()
+            } else {
+                format!("Filter::And(&[Filter::InZone(ZoneRef::Stack), {base}])")
+            };
+            let name = self.body.filter_static("EFFECT", &full);
+            return Some(vec![format!(
+                "Effect::continuous(&{name}, Modifier::GrantCascade(1), {duration})"
+            )]);
+        }
+        if !matches!(affected_zone.as_deref(), None | Some("Battlefield")) {
             return None;
         }
         let affected = st.take("Affected")?;
@@ -3897,6 +3952,40 @@ impl Tx<'_> {
         if let Some(raw_colors) = st.take("AddColor") {
             let cs = Self::parse_copy_colors(&raw_colors)?;
             mods.push(format!("Modifier::AddColor({cs})"));
+        }
+        match st.take("GainControl").as_deref() {
+            None => {}
+            Some("You") => mods.push("Modifier::GainControl".to_string()),
+            Some(_) => return None,
+        }
+        if let Some(svars_raw) = st.take("AddSVar") {
+            for name in svars_raw
+                .split('&')
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
+                if !self.svars.contains_key(name) {
+                    return None;
+                }
+            }
+        }
+        if let Some(raw_ab) = st.take("AddAbility") {
+            for name in raw_ab.split('&').map(str::trim).filter(|s| !s.is_empty()) {
+                match self.build_grant_activated_modifier(name, "AddAbility$", false)? {
+                    super::statics::GrantedActivated::Modifier(m) => mods.push(m),
+                    super::statics::GrantedActivated::SelfTarget { .. } => return None,
+                }
+            }
+        }
+        if let Some(raw_tr) = st.take("AddTrigger") {
+            for name in raw_tr.split('&').map(str::trim).filter(|s| !s.is_empty()) {
+                mods.push(self.build_grant_triggered_modifier(name, "AddTrigger$")?);
+            }
+        }
+        if let Some(raw_st) = st.take("AddStaticAbility") {
+            for name in raw_st.split('&').map(str::trim).filter(|s| !s.is_empty()) {
+                mods.extend(self.grant_static_modifiers_for_animate(name)?);
+            }
         }
         if !st.exhausted() {
             return None;
@@ -10498,6 +10587,7 @@ impl Tx<'_> {
                 "Filter::And(&[Filter::CREATURE, Filter::IsToken, Filter::ControlledByYou])",
             ))
         } else if let Some(choices) = p.take("Choices") {
+            p.take("ChoiceTitle");
             if targets_here
                 || p.has("Defined")
                 || p.has("RandomCopied")

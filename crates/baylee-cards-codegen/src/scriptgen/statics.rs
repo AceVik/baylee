@@ -2860,12 +2860,11 @@ impl Tx<'_> {
         for (key, modifier) in [("AddType", "AddType"), ("RemoveType", "RemoveType")] {
             let Some(raw) = p.take(key) else { continue };
             if raw == "ChosenType" && modifier == "AddType" {
-                let chosen_mod = if filter == "Filter::This"
-                    && self
-                        .body
-                        .enter_modifiers
-                        .iter()
-                        .any(|m| m == "EnterModifier::ChooseBasicLandType")
+                let chosen_mod = if self
+                    .body
+                    .enter_modifiers
+                    .iter()
+                    .any(|m| m == "EnterModifier::ChooseBasicLandType")
                 {
                     "Modifier::AddChosenBasicLandType"
                 } else if self
@@ -3106,23 +3105,28 @@ impl Tx<'_> {
         let prev_statics_len = self.body.statics.len();
         let prev_trigger_mode = self.trigger_mode.take();
         let prev_block_line = self.block_line.take();
+        let prev_block_half = self.block_half.take();
+        let prev_block_one = std::mem::replace(&mut self.block_line_one_or_more, false);
         let prev_on_a_spell = std::mem::replace(&mut self.on_a_spell, false);
         let ok = self.triggered(&line);
         self.on_a_spell = prev_on_a_spell;
         self.trigger_mode = prev_trigger_mode;
-        if ok.is_none()
-            || self.block_line.is_some()
-            || self.body.abilities.len() != prev_abilities_len + 1
-        {
+        let block_ok =
+            ok.is_some() && self.block_line.is_none() && self.block_halves_paired().is_some();
+        if !block_ok || self.body.abilities.len() != prev_abilities_len + 1 {
             self.body.abilities.truncate(prev_abilities_len);
             self.body.statics.truncate(prev_statics_len);
             self.block_line = prev_block_line;
-            if ok.is_some() {
+            self.block_half = prev_block_half;
+            self.block_line_one_or_more = prev_block_one;
+            if ok.is_some() && self.block_line.is_some() {
                 return self.deny("a granted trigger that is not a single ability".to_string());
             }
             return None;
         }
         self.block_line = prev_block_line;
+        self.block_half = prev_block_half;
+        self.block_line_one_or_more = prev_block_one;
         let ability_expr = self.body.abilities.pop()?;
         if (!ability_expr.starts_with("triggered!(")
             && !ability_expr.starts_with("modal_triggered!("))

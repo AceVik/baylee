@@ -1484,7 +1484,11 @@ fn thran_additive_chosen_type_requires_its_own_basic_land_choice() {
         body.abilities,
         ["static_ability!(Filter::This, Modifier::AddChosenBasicLandType)"]
     );
-    assert!(portals_body(&script.replace("Card.Self", "Land.YouCtrl")).is_none());
+    let realmwright = portals_body(&script.replace("Card.Self", "Land.YouCtrl")).unwrap();
+    assert_eq!(
+        realmwright.abilities,
+        ["static_ability!(Filter::YOUR_LAND, Modifier::AddChosenBasicLandType)"]
+    );
     assert!(portals_body(&script.replace("K:ETBReplacement:Other:Pick\n", "")).is_none());
     assert!(
         portals_body(&script.replace("AddType$ ChosenType", "AddType$ ChosenType | Unknown$ True"))
@@ -6054,4 +6058,149 @@ fn destroy_with_a_name_twin_condition_is_checked_only_on_resolution() {
         "Count$Valid Permanent.sharesNameWith Targeted",
         "Count$Valid Creature.sharesNameWith Targeted"
     )));
+}
+
+#[test]
+fn protection_everything_each_color_and_chosen_land_type() {
+    let hexdrinker = read(
+        "Name:Hexdrinker\nManaCost:G\nTypes:Creature Wizard\nPT:2/1\n\
+K:Level up:1\n\
+S:Mode$ Continuous | AffectedDefined$ Self | SetPower$ 4 | SetToughness$ 4 | AddKeyword$ Protection:Instant:instants | IsPresent$ Card.Self+counters_GE3_LEVEL+counters_LT8_LEVEL\n\
+S:Mode$ Continuous | AffectedDefined$ Self | SetPower$ 6 | SetToughness$ 6 | AddKeyword$ Protection from everything | IsPresent$ Card.Self+counters_GE8_LEVEL",
+    );
+    let hex_joined = hexdrinker.abilities.join("\n");
+    assert!(
+        hex_joined.contains("Modifier::ProtectionFrom(&Filter::Any)"),
+        "{hex_joined}"
+    );
+    let each_color = read(
+        "Name:PrismaticWard\nManaCost:2 W\nTypes:Creature Wizard\nPT:2/2\n\
+K:Level up:1\n\
+S:Mode$ Continuous | AffectedDefined$ Self | SetPower$ 4 | SetToughness$ 4 | AddKeyword$ Protection from each color | IsPresent$ Card.Self+counters_GE3_LEVEL",
+    );
+    assert!(
+        each_color
+            .abilities
+            .iter()
+            .any(|a| a.contains("Modifier::ProtectionFrom(") && a.contains("Filter::HasColor(")),
+        "{:?}",
+        each_color.abilities
+    );
+
+    let realmwright = read(
+        "Name:Realmwright\nManaCost:U\nTypes:Creature Wizard\nPT:1/1\n\
+K:ETBReplacement:Other:ChooseType\n\
+SVar:ChooseType:DB$ ChooseType | Defined$ You | Type$ Basic Land\n\
+S:Mode$ Continuous | Affected$ Land.YouCtrl | AddType$ ChosenType",
+    );
+    assert!(
+        realmwright
+            .abilities
+            .iter()
+            .any(|a| a.contains("Filter::YOUR_LAND")
+                && a.contains("Modifier::AddChosenBasicLandType")),
+        "{:?}",
+        realmwright.abilities
+    );
+}
+
+#[test]
+fn ignore_legend_hexproof_effect_duration_stack_cascade_and_repeat_flip() {
+    let hall = read(
+        "Name:Hall of Echoes\nManaCost:no cost\nTypes:Land\n\
+A:AB$ Effect | Cost$ 1 T | StaticAbilities$ LegendPermission | SpellDescription$ Permanents you control aren't legendary this turn.\n\
+SVar:LegendPermission:Mode$ IgnoreLegendRule | ValidCard$ Permanent.YouCtrl",
+    );
+    assert!(
+        hall.abilities[0].contains("Modifier::LegendRuleOff"),
+        "{}",
+        hall.abilities[0]
+    );
+    assert!(refused(
+        "Name:BadLegend\nManaCost:1 U\nTypes:Instant\n\
+A:SP$ Effect | StaticAbilities$ NoLegend\n\
+SVar:NoLegend:Mode$ IgnoreLegendRule | ValidCard$ Permanent.OppCtrl"
+    ));
+
+    let tower = read(
+        "Name:Detection Tower\nManaCost:no cost\nTypes:Land\n\
+A:AB$ Effect | Cost$ 1 T | StaticAbilities$ IgnoreHex | SpellDescription$ Hexproof off.\n\
+SVar:IgnoreHex:Mode$ IgnoreHexproof | Activator$ You | ValidEntity$ Opponent,Creature.OppCtrl",
+    );
+    assert!(
+        tower.abilities[0].contains("Modifier::IgnoreOpponentsHexproof"),
+        "{}",
+        tower.abilities[0]
+    );
+    assert!(refused(
+        "Name:BadHex\nManaCost:1 U\nTypes:Instant\n\
+A:SP$ Effect | StaticAbilities$ IgnoreHex\n\
+SVar:IgnoreHex:Mode$ IgnoreHexproof | ValidEntity$ Opponent,Creature.OppCtrl"
+    ));
+
+    let single_combat = read(
+        "Name:Single Combat\nManaCost:3 W W\nTypes:Sorcery\n\
+A:SP$ Effect | Duration$ UntilTheEndOfYourNextTurn | StaticAbilities$ NoCreatures\n\
+SVar:NoCreatures:Mode$ CantBeCast | ValidCard$ Creature",
+    );
+    assert!(
+        single_combat.abilities[0].contains("Duration::UntilEndOfYourNextTurn"),
+        "{}",
+        single_combat.abilities[0]
+    );
+    assert!(refused(
+        "Name:Peace Talks\nManaCost:1 W\nTypes:Sorcery\n\
+A:SP$ Effect | Duration$ ThisTurnAndNextTurn | StaticAbilities$ NoAttack\n\
+SVar:NoAttack:Mode$ CantAttack | ValidCard$ Creature"
+    ));
+
+    let yidris = read(
+        "Name:Yidris, Maelstrom Wielder\nManaCost:U B R G\nTypes:Creature Wizard\nPT:5/4\n\
+T:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Player | CombatDamage$ True | Execute$ TrigEff | TriggerZones$ Battlefield\n\
+SVar:TrigEff:DB$ Effect | StaticAbilities$ Casc\n\
+SVar:Casc:Mode$ Continuous | AffectedZone$ Stack | Affected$ Card.YouCtrl+YouOwn+wasCastFromHand | AddKeyword$ Cascade",
+    );
+    assert!(
+        yidris.abilities[0].contains("Modifier::GrantCascade(1)"),
+        "{}",
+        yidris.abilities[0]
+    );
+    assert!(refused(
+        "Name:BadCasc\nManaCost:G\nTypes:Instant\n\
+A:SP$ Effect | RememberObjects$ Targeted | ValidTgts$ Card | StaticAbilities$ Casc\n\
+SVar:Casc:Mode$ Continuous | AffectedZone$ Stack | Affected$ Card.IsRemembered | AddKeyword$ Cascade"
+    ));
+
+    let reflexes = read(
+        "Name:Legolas's Quick Reflexes\nManaCost:G\nTypes:Instant\n\
+K:Split second\n\
+A:SP$ Untap | ValidTgts$ Creature | SubAbility$ DBEffect\n\
+SVar:DBEffect:DB$ Effect | RememberObjects$ Targeted | StaticAbilities$ PumpStatic\n\
+SVar:PumpStatic:Mode$ Continuous | AddKeyword$ Hexproof & Reach | AddTrigger$ BecomesTapped | Affected$ Card.IsRemembered\n\
+SVar:BecomesTapped:Mode$ Taps | ValidCard$ Card.Self | Execute$ TrigFight\n\
+SVar:TrigFight:DB$ DealDamage | ValidTgts$ Creature | TargetMin$ 0 | TargetMax$ 1 | NumDmg$ X | DamageSource$ Self\n\
+SVar:X:Count$CardPower",
+    );
+    assert!(
+        reflexes.abilities[0].contains("Effect::ModifyTargets")
+            && reflexes
+                .statics
+                .contains("Trigger::BecomesTapped(&Filter::This)"),
+        "{}",
+        reflexes.statics
+    );
+
+    let chance = read(
+        "Name:Fighting Chance\nManaCost:R\nTypes:Instant\n\
+A:SP$ RepeatEach | RepeatCards$ Creature.blocking | Zone$ Battlefield | RepeatSubAbility$ DBFlip\n\
+SVar:DBFlip:DB$ FlipCoin | WinSubAbility$ DBPreventDmg\n\
+SVar:DBPreventDmg:DB$ Effect | ReplacementEffects$ RPrevent | RememberObjects$ Remembered | ExileOnMoved$ Battlefield\n\
+SVar:RPrevent:Event$ DamageDone | Prevent$ True | IsCombat$ True | ValidSource$ Card.IsRemembered",
+    );
+    assert!(
+        chance.abilities[0].contains("Effect::RepeatEachObject")
+            && chance.abilities[0].contains("Modifier::PreventDamageFromIt"),
+        "{}",
+        chance.abilities[0]
+    );
 }

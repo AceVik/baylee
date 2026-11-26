@@ -5493,10 +5493,14 @@ impl Tx<'_> {
                         self.trigger_mode.as_deref(),
                         Some("DamageDone" | "DamageDoneOnce")
                     ) && target.is_none()
-                        && matches!(
+                        && (matches!(
                             p.peek("Defined"),
                             Some("TriggeredTargetLKICopy" | "TriggeredTarget")
-                        ))
+                        ) || (self.damage_trigger_binds_source
+                            && matches!(
+                                p.peek("Defined"),
+                                Some("TriggeredSourceLKICopy" | "TriggeredSource")
+                            ))))
                     || (matches!(
                         self.trigger_mode.as_deref(),
                         Some(
@@ -8308,6 +8312,51 @@ impl Tx<'_> {
         )])
     }
 
+    /// Compares a player's library count against a single targeted player's library
+    /// (`Amount::LibrarySize(PlayerRel::Chosen)`), e.g. *Jon Irenicus, the Exile*.
+    fn wave24a_player_library_compare(
+        &self,
+        var: &str,
+        cmp: &str,
+        target: Option<&str>,
+        single_target: bool,
+    ) -> Option<String> {
+        if !single_target || !target.is_some_and(|t| t.starts_with("TargetSpec::Player(")) {
+            return None;
+        }
+        let cmp = cmp.trim();
+        if cmp.len() < 3 {
+            return None;
+        }
+        let (op_code, rhs_var) = cmp.split_at(2);
+        let op = match op_code {
+            "GE" => "AmountCmp::AtLeast",
+            "GT" => "AmountCmp::GreaterThan",
+            "LE" => "AmountCmp::AtMost",
+            "LT" => "AmountCmp::LessThan",
+            "EQ" => "AmountCmp::Equal",
+            "NE" => "AmountCmp::NotEqual",
+            _ => return None,
+        };
+        let lib_expr = |svar: &str| -> Option<&'static str> {
+            match self.svars.get(svar.trim())?.trim() {
+                "Count$CardsInYourLibrary" | "Count$ValidLibrary Card.YouOwn" => {
+                    Some("Amount::LibrarySize(PlayerRel::You)")
+                }
+                "Count$ValidLibrary Card.TargetedPlayerOwn"
+                | "Count$ValidLibrary Card.TargetedPlayerCtrl" => {
+                    Some("Amount::LibrarySize(PlayerRel::Chosen)")
+                }
+                _ => None,
+            }
+        };
+        let left = lib_expr(var)?;
+        let right = lib_expr(rhs_var)?;
+        (left != right).then(|| {
+            format!("Condition::AmountCompare {{ left: &{left}, op: {op}, right: &{right} }}")
+        })
+    }
+
     /// Checks that a branch arm (`FalseSubAbility$`) only runs `Defined$ Targeted`
     /// effects so that choosing 0 targets on a `TargetMin$ 0` ability is a no-op.
     fn wave24a_sub_only_acts_on_target(&self, start: &str) -> bool {
@@ -8356,6 +8405,7 @@ impl Tx<'_> {
                 .or_else(|| self.wave7_svar_condition(var, cmp))
                 .or_else(|| Self::wave16_svar_condition(var.trim(), cmp))
                 .or_else(|| self.wave11_amount_compare_condition(var, cmp, true))
+                .or_else(|| self.wave24a_player_library_compare(var, cmp, target, single_target))
         {
             return Some((cond, false));
         }

@@ -1229,3 +1229,21 @@ fn wave28b_p3_honest_refusal_boundaries() {
         assert!(refused(bad), "must refuse: {bad}");
     }
 }
+
+#[test]
+fn shield_broker_put_counter_without_remember_cards_grants_control() {
+    let broker = read(
+        "Name:Shield Broker\nManaCost:3 U U\nTypes:Creature Wizard\nPT:3/4\n\
+T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigPutCounter\n\
+SVar:TrigPutCounter:DB$ PutCounter | ValidTgts$ Creature.!IsCommander+YouDontCtrl | CounterType$ SHIELD | SubAbility$ DBEffect\n\
+SVar:DBEffect:DB$ Effect | RememberObjects$ Targeted | StaticAbilities$ GainControl | ForgetOnMoved$ Battlefield | ForgetCounter$ SHIELD | Duration$ Permanent\n\
+SVar:GainControl:Mode$ Continuous | Affected$ Card.IsRemembered | GainControl$ You",
+    );
+    assert!(
+        broker.abilities[0].contains("Duration::WhileCounterRemains(CounterKind::Shield)")
+            && broker.abilities[0].contains("CounterKind::Shield")
+            && broker.abilities[0].contains("Modifier::GainControl"),
+        "{}",
+        broker.abilities[0]
+    );
+}
