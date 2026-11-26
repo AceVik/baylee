@@ -414,12 +414,12 @@ async fn a_chair_whose_account_went_meanwhile_is_emptied() {
     kept_soon(&gw, &game).await;
     let hash = probe.hash.borrow().expect("the game is built");
     stored_at(&gw, &game, hash).await;
-    let row = || {
+    let row = |gw: &Gateway| {
         gw.text(&format!(
             "SELECT body::text FROM running_game WHERE game_id = '{game}'"
         ))
     };
-    assert!(row().contains(&account), "the row names the player");
+    assert!(row(&gw).contains(&account), "the row names the player");
     gw.crash();
     agent.abort();
     gw.sql("DELETE FROM account WHERE username = 'gus'");
@@ -434,11 +434,11 @@ async fn a_chair_whose_account_went_meanwhile_is_emptied() {
     );
     assert_ne!(status, 200, "the chair of a deleted account opens for nobody");
     for _ in 0..common::WAIT_TRIES {
-        if !row().contains(&account) {
+        if !row(&gw).contains(&account) {
             break;
         }
         tokio::time::sleep(common::WAIT_STEP).await;
     }
-    assert!(!row().contains(&account), "the kept row forgets the account");
+    assert!(!row(&gw).contains(&account), "the kept row forgets the account");
     agent.abort();
 }
