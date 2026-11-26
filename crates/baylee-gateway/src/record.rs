@@ -210,7 +210,7 @@ const RETRY_FIRST: std::time::Duration = std::time::Duration::from_millis(250);
 /// The longest wait between two tries of one write.
 const RETRY_MAX: std::time::Duration = std::time::Duration::from_secs(10);
 /// How long one write is tried before the writer gives the record up.
-const RETRY_FOR: std::time::Duration = std::time::Duration::from_secs(15 * 60);
+const RETRY_FOR: std::time::Duration = std::time::Duration::from_mins(15);
 
 /// One write's tries: how long to wait before the next, and whether the
 /// game's record has been said to be failing, which is said once a write
@@ -391,7 +391,7 @@ pub(crate) async fn flush_all(state: &crate::Shared, within: std::time::Duration
         lobby
             .running()
             .filter(|game| !crate::report::flushes_nothing(game))
-            .filter(|game| !game.ranked.is_some_and(|binding| binding.replica.is_some()))
+            .filter(|game| game.ranked.is_none_or(|binding| binding.replica.is_none()))
             .filter_map(|game| game.engine.clone().map(|engine| (game.id.clone(), engine)))
             .collect()
     };
