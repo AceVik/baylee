@@ -626,7 +626,7 @@ own.
   - a finished game goes 1 h after it ended (`OVER_GRACE_SECS`), unless a
     rematch room still points at it;
   - a restart loses all of it but the running games below.
-- **Running games across a restart** (`keep.rs`,
+- **Running games across a restart** (`crates/baylee-gateway/src/keep/`,
   `docs/proposals/games-survive-restarts.md`): a running casual game is
   also written to gateway Postgres `running_game`, one row a game: the
   table's fields above (host, name, password hash, format, ban list copy)

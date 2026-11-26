@@ -399,3 +399,46 @@ async fn a_game_that_ends_is_let_go() {
     );
     agent.abort();
 }
+
+/// An account deleted while its gateway was down does not come back with its
+/// game: the chair is emptied before the game is resumed, as the deletion
+/// would have emptied it in a running gateway, its seat token opens nothing,
+/// and the kept row stops naming it.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_chair_whose_account_went_meanwhile_is_emptied() {
+    let mut gw = spawn_gateway_with("restart-gone", &[]);
+    let (agent, probe) = common::attach_agent_recording(&gw).await;
+    let token = login(gw.port, "gus", "GusGone");
+    let account = gw.text("SELECT id::text FROM account WHERE username = 'gus'");
+    let (game, seat_token, _ws, _) = a_game(gw.port, &token).await;
+    kept_soon(&gw, &game).await;
+    let hash = probe.hash.borrow().expect("the game is built");
+    stored_at(&gw, &game, hash).await;
+    let row = || {
+        gw.text(&format!(
+            "SELECT body::text FROM running_game WHERE game_id = '{game}'"
+        ))
+    };
+    assert!(row().contains(&account), "the row names the player");
+    gw.crash();
+    agent.abort();
+    gw.sql("DELETE FROM account WHERE username = 'gus'");
+
+    gw.restart();
+    let (agent, probe) = common::attach_agent_recording(&gw).await;
+    at(&probe, hash).await;
+    let (status, _) = common::ask_ticket(
+        gw.port,
+        &seat_token,
+        &format!("{{\"socket\":\"seat\",\"game\":\"{game}\"}}"),
+    );
+    assert_ne!(status, 200, "the chair of a deleted account opens for nobody");
+    for _ in 0..common::WAIT_TRIES {
+        if !row().contains(&account) {
+            break;
+        }
+        tokio::time::sleep(common::WAIT_STEP).await;
+    }
+    assert!(!row().contains(&account), "the kept row forgets the account");
+    agent.abort();
+}

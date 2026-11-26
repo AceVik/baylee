@@ -162,7 +162,7 @@ pub(super) struct AppState {
     /// Reports waiting for a game's engine to send its record as it stands
     /// (#323); see `record.rs`.
     pub(super) record_flushes: record::Flushes,
-    /// The running games kept in the database across a restart (`keep.rs`).
+    /// The running games kept in the database across a restart (`keep/`).
     pub(super) keeper: keep::Keeper,
     /// The unspent tickets a socket may be opened with (#294), in memory
     /// only; `BAYLEE_WS_TICKET_SECS` says how long each lives.

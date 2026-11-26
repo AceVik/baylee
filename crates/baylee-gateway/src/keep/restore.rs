@@ -49,6 +49,9 @@ pub(crate) async fn restore(state: &Shared) {
             return;
         }
     };
+    // The writer owns every row read: one whose game does not come back
+    // goes at its first sweep, whatever stops it here.
+    state.keeper.found(rows.iter().map(|row| row.game_id.clone()));
     let mut games = Vec::new();
     for kept in rows {
         match one(state, &kept).await {

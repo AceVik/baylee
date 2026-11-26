@@ -55,6 +55,9 @@ pub(crate) struct Keeper {
     tx: mpsc::UnboundedSender<Ask>,
     rx: Mutex<Option<mpsc::UnboundedReceiver<Ask>>>,
     frozen: AtomicBool,
+    /// Every row the start read, resumed or not: the writer has each, and
+    /// its first sweep forgets those whose game is not in the lobby.
+    found: Mutex<Vec<String>>,
 }
 
 impl Default for Keeper {
@@ -64,6 +67,7 @@ impl Default for Keeper {
             tx,
             rx: Mutex::new(Some(rx)),
             frozen: AtomicBool::new(false),
+            found: Mutex::new(Vec::new()),
         }
     }
 }
@@ -104,6 +108,11 @@ impl Keeper {
         self.freeze();
     }
 
+    /// The rows the start read ([`restore`]), for the writer to own.
+    fn found(&self, ids: impl IntoIterator<Item = String>) {
+        self.found.lock().extend(ids);
+    }
+
     /// Writes nothing more.
     fn freeze(&self) {
         self.frozen.store(true, Ordering::Release);
@@ -131,8 +140,12 @@ struct Written {
 
 async fn run(state: Shared, mut rx: mpsc::UnboundedReceiver<Ask>) {
     let mut written = Written::default();
-    // The games restored at the start are kept already.
-    for id in restore::restored_ids(&state) {
+    // Every row the start read is the writer's: a game restored is kept
+    // already, and the row of one that was not (it did not read, or the
+    // start could not check its accounts) goes at the first sweep, which
+    // runs at once, rather than coming back at the next restart.
+    let found = std::mem::take(&mut *state.keeper.found.lock());
+    for id in found.into_iter().chain(restore::restored_ids(&state)) {
         written.rows.insert(id, 0);
     }
     let mut sweep = tokio::time::interval(SWEEP);

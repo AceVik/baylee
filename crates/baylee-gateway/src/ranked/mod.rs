@@ -103,6 +103,19 @@ pub(crate) struct Binding {
     pub(crate) replica: Option<replica_table::Role>,
 }
 
+#[cfg(test)]
+impl Binding {
+    /// A single-host duel's binding, for a test that needs a ranked table.
+    pub(crate) const fn single_host(id: Uuid) -> Self {
+        Self {
+            id,
+            format: Format::Standard,
+            decks: [[0; 32]; 2],
+            replica: None,
+        }
+    }
+}
+
 impl Binding {
     /// Single-host tables retain their normal admission. Replicas expose seats
     /// only while this primary's locally measured Central lease still stands.

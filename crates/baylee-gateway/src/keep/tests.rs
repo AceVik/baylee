@@ -128,6 +128,8 @@ fn only_a_running_casual_game_is_kept() {
     tower.execution = Some(identity(Variant::Tower));
     let mut challenge = running();
     challenge.challenge = Some([1; 16]);
+    let mut ranked = running();
+    ranked.ranked = Some(crate::ranked::Binding::single_host(uuid::Uuid::now_v7()));
     let mut cut = running();
     cut.kept = Kept::Cut;
     let mut unordered = running();
@@ -137,6 +139,7 @@ fn only_a_running_casual_game_is_kept() {
         ("a game that is over", over),
         ("a Tower run", tower),
         ("a challenge", challenge),
+        ("a ranked duel", ranked),
         ("a cut record", cut),
         ("a game with no engine ordered", unordered),
     ] {

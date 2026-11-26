@@ -2640,9 +2640,11 @@ on the same engine build (`docs/proposals/games-survive-restarts.md`
 §"Step 3b"). From its record's first stored piece until it ends, the gateway
 keeps each running casual game in `running_game`: the room and who may open
 each chair (seat token hashes, the session key each chair is bound to), at
-most five seconds behind the lobby (`keep.rs`). A reissued seat token
+most five seconds behind the lobby (`crates/baylee-gateway/src/keep/`). A reissued seat token
 (`POST /lobby/games/{id}/seat`) is kept before it is handed out, and the
-route answers `503` when it could not be. A stop writes every game once
+route answers `503` when it could not be; the write is tried again at
+every sweep, and until it goes through a restart restores the token before
+the reissue. A stop writes every game once
 more after the holds and then nothing. Ranked duels, Tower runs, challenges,
 and a game whose record stopped being stored are not kept.
 

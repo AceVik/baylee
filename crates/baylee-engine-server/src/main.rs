@@ -1054,6 +1054,25 @@ mod tests {
         );
     }
 
+    /// The link an attached engine dials takes a `GameSetup` carrying the
+    /// largest record the gateway stores (64 MiB, its `MAX_RECORD_BYTES`)
+    /// and a preset beside it: a game resumed after a restart is sent its
+    /// record whole. Only that link: what a stranger can reach keeps the
+    /// budget above.
+    #[test]
+    fn the_gateway_link_takes_the_largest_stored_record() {
+        let link = attached::link_config();
+        assert_eq!(link.max_message_size, Some(attached::MAX_LINK_MESSAGE));
+        assert_eq!(link.max_frame_size, Some(attached::MAX_LINK_MESSAGE));
+        assert!(attached::MAX_LINK_MESSAGE >= (64 << 20) + (4 << 20));
+        assert_eq!(
+            link.read_buffer_size,
+            ws_config().read_buffer_size,
+            "everything else as on every socket"
+        );
+        assert_eq!(ws_config().max_message_size, Some(4 << 20));
+    }
+
     /// The port file (#279) holds the port and a newline, replaces what an
     /// earlier run left, and leaves no half-written file behind it.
     #[test]

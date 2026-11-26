@@ -160,13 +160,19 @@ engine's execution identity are read from the record's header, never stored
 twice. The row is versioned and a golden test holds its shape.
 
 - Ranked duels, Tower runs, challenges and replica jobs get no row.
-- The row is written once the engine has attached and the record is opened,
-  since there is nothing to resume before the first piece.
-- A change to what opens a chair (a seat token rotated, a chair handed to a
-  bridge, a participation ended, an account deleted) is written before the
-  route answers, and the route fails when the write fails. Restoring an
-  older seat token hash would reopen a chair that was taken back. A write
-  that failed takes the game out of what is restored.
+- The row is written once the record's first piece is stored, since there
+  is nothing to resume before it.
+- A seat token reissued in a running game (`POST /lobby/games/{id}/seat`,
+  the one way a running chair gets a new token; a chair is handed to a seat
+  bridge only while the room waits) is written before the route answers,
+  and the route answers `503` when the write fails. Restoring an older seat
+  token hash would reopen a chair that was taken back. A write that failed
+  is tried again at every sweep; until it goes through, a restart restores
+  the token before the reissue, which the reissue's caller never received.
+- Everything else (a participation that ended, an account deleted, a team
+  or a bridge's readiness) is written at the next sweep, at most five
+  seconds later. A deleted account is checked again at the restore, so its
+  chair never comes back.
 - One task writes the rows, the current state of a game each time, so a
   later state is never overwritten by an earlier one.
 - The row goes when the game ends: in the same transaction that completes
