@@ -36,7 +36,7 @@ pub async fn run(attach: Attach) -> Result<(), Box<dyn std::error::Error + Send 
         let (ws, _) = tokio_tungstenite::client_async_with_config(
             "ws://localhost/engine/ws",
             socket,
-            Some(ws_config()),
+            Some(link_config()),
         )
         .await?;
         #[cfg(not(feature = "tower"))]
@@ -78,6 +78,22 @@ fn foresight()
     Ok(host)
 }
 
+/// The most one message from the gateway may be: a `GameSetup` that carries
+/// the stored record of a game resumed after a restart (`resume_record`),
+/// which the gateway keeps to 64 MiB (`MAX_RECORD_BYTES` there), and its
+/// preset beside it.
+const MAX_LINK_MESSAGE: usize = 72 << 20;
+
+/// The link to the gateway: [`ws_config`] with room for a resumed record.
+/// Only on this side: the peer is the gateway its agent named, which
+/// already decides every game this process plays, not a stranger, and an
+/// ordinary message stays as small as before.
+fn link_config() -> tokio_tungstenite::tungstenite::protocol::WebSocketConfig {
+    ws_config()
+        .max_message_size(Some(MAX_LINK_MESSAGE))
+        .max_frame_size(Some(MAX_LINK_MESSAGE))
+}
+
 /// Dials the gateway over TCP with Nagle's algorithm off (`TCP_NODELAY`).
 ///
 /// An engine sends its frames in bursts (a view, then the question about
@@ -91,7 +107,7 @@ pub(super) async fn dial(
     tokio_tungstenite::tungstenite::Error,
 > {
     let (ws, _) =
-        tokio_tungstenite::connect_async_with_config(url, Some(ws_config()), true).await?;
+        tokio_tungstenite::connect_async_with_config(url, Some(link_config()), true).await?;
     Ok(ws)
 }
 

@@ -122,7 +122,7 @@ pub use start::start_engine;
 pub(crate) use start::start_replica;
 
 /// Tells whoever is running a game that it can stop.
-fn stop_engine(state: &Shared, game_id: &str) {
+pub(crate) fn stop_engine(state: &Shared, game_id: &str) {
     let (agent_id, job) = {
         let mut lobby = state.lobby.lock();
         let Some(game) = lobby.games.get_mut(game_id) else {
@@ -314,6 +314,8 @@ async fn run_agent_socket(
         })),
     };
     if send(&mut socket, &welcome).await.is_ok() {
+        // A game restored after a restart may be waiting for this agent.
+        crate::keep::order_restored(&state);
         pump_agent(&state, &agent_id, &mut socket, &mut rx).await;
     }
     let (lost, last) = {
@@ -552,6 +554,8 @@ pub(crate) fn end_game(state: &Shared, game_id: &str) {
             game.finish(auth::now_secs());
         }
     }
+    // Not kept any more: a restart must not bring it back.
+    state.keeper.touch(game_id);
     state.lobby_moved();
     stop_engine(state, game_id);
 }

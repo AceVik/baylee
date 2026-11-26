@@ -12,16 +12,28 @@ async fn a_running_game_is_kept_from_its_first_piece_until_its_last() {
     let game = Uuid::now_v7().to_string();
 
     assert!(
-        !running::keep(db, &game, 1, r#"{"seats":[]}"#).await.unwrap(),
+        !running::keep(db, &game, 1, r#"{"seats":[]}"#)
+            .await
+            .unwrap(),
         "a game whose record is not started is not kept: there is nothing to resume"
     );
     records::open(db, &game, &[records::Seat::default()])
         .await
         .unwrap();
-    assert!(records::append(db, &game, 0, b"head".to_vec(), false).await.unwrap());
-    assert!(running::keep(db, &game, 1, r#"{"seats":[]}"#).await.unwrap());
     assert!(
-        running::keep(db, &game, 2, r#"{"seats":[1]}"#).await.unwrap(),
+        records::append(db, &game, 0, b"head".to_vec(), false)
+            .await
+            .unwrap()
+    );
+    assert!(
+        running::keep(db, &game, 1, r#"{"seats":[]}"#)
+            .await
+            .unwrap()
+    );
+    assert!(
+        running::keep(db, &game, 2, r#"{"seats":[1]}"#)
+            .await
+            .unwrap(),
         "a later write replaces the row"
     );
     assert_eq!(
@@ -37,13 +49,19 @@ async fn a_running_game_is_kept_from_its_first_piece_until_its_last() {
         Some(&b"head"[..])
     );
 
-    assert!(records::append(db, &game, 1, b"end".to_vec(), true).await.unwrap());
+    assert!(
+        records::append(db, &game, 1, b"end".to_vec(), true)
+            .await
+            .unwrap()
+    );
     assert!(
         running::all(db).await.unwrap().is_empty(),
         "the last piece takes the row with it"
     );
     assert!(
-        !running::keep(db, &game, 2, r#"{"seats":[]}"#).await.unwrap(),
+        !running::keep(db, &game, 2, r#"{"seats":[]}"#)
+            .await
+            .unwrap(),
         "a write that comes after the end does not bring the game back"
     );
     sandbox.close().await;
@@ -55,7 +73,11 @@ async fn what_an_older_gateway_left_is_cleared_and_a_gap_is_refused() {
     let db = &sandbox.db;
     let game = Uuid::now_v7().to_string();
     records::open(db, &game, &[]).await.unwrap();
-    assert!(records::append(db, &game, 0, b"a".to_vec(), false).await.unwrap());
+    assert!(
+        records::append(db, &game, 0, b"a".to_vec(), false)
+            .await
+            .unwrap()
+    );
     assert!(running::keep(db, &game, 1, "{}").await.unwrap());
     // A row beside a complete record, as no gateway of this build leaves
     // one: it is not read, and the sweep removes it.
@@ -70,13 +92,25 @@ async fn what_an_older_gateway_left_is_cleared_and_a_gap_is_refused() {
 
     let gap = Uuid::now_v7().to_string();
     records::open(db, &gap, &[]).await.unwrap();
-    assert!(records::append(db, &gap, 0, b"a".to_vec(), false).await.unwrap());
-    assert!(records::append(db, &gap, 2, b"c".to_vec(), false).await.unwrap());
+    assert!(
+        records::append(db, &gap, 0, b"a".to_vec(), false)
+            .await
+            .unwrap()
+    );
+    assert!(
+        records::append(db, &gap, 2, b"c".to_vec(), false)
+            .await
+            .unwrap()
+    );
     assert!(
         records::stored_pieces(db, &gap).await.is_err(),
         "a record missing a piece is not resumed from"
     );
-    assert!(records::append(db, &gap, 1, b"b".to_vec(), false).await.unwrap());
+    assert!(
+        records::append(db, &gap, 1, b"b".to_vec(), false)
+            .await
+            .unwrap()
+    );
     assert_eq!(
         records::stored_pieces(db, &gap).await.unwrap(),
         Some((b"abc".to_vec(), 3))

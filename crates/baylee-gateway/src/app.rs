@@ -1,7 +1,7 @@
 //! Shared gateway state, independent of startup and route assembly.
 use super::{
     Arc, IpAddr, Lobby, Mutex, admission, art, auth, authmode, banlists, blocks, central,
-    cosmetics, engine, metrics, namebook, poolfacts, presence, record, registration, replays,
+    cosmetics, engine, keep, metrics, namebook, poolfacts, presence, record, registration, replays,
     report, seathost, sessions, social, terms, texts, tower, wsticket,
 };
 
@@ -162,6 +162,8 @@ pub(super) struct AppState {
     /// Reports waiting for a game's engine to send its record as it stands
     /// (#323); see `record.rs`.
     pub(super) record_flushes: record::Flushes,
+    /// The running games kept in the database across a restart (`keep.rs`).
+    pub(super) keeper: keep::Keeper,
     /// The unspent tickets a socket may be opened with (#294), in memory
     /// only; `BAYLEE_WS_TICKET_SECS` says how long each lives.
     pub(super) tickets: wsticket::Tickets,

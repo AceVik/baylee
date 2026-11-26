@@ -120,6 +120,9 @@ struct Database {
     game_id: String,
     opening: baylee_db::records::Opening,
     seats: Vec<(baylee_db::records::Seat, baylee_db::records::SeatFacts)>,
+    /// Told once a piece is stored: the game can be resumed from then on,
+    /// and the gateway keeps it (`keep`).
+    first_stored: Option<oneshot::Sender<()>>,
 }
 
 impl Store for Database {
@@ -152,8 +155,11 @@ impl Store for Database {
     async fn append(&mut self, piece: v1::GameRecordChunk) -> Result<(), String> {
         baylee_db::records::append(&self.db, &self.game_id, piece.seq, piece.data, piece.last)
             .await
-            .map(|_| ())
-            .map_err(|e| e.to_string())
+            .map_err(|e| e.to_string())?;
+        if let Some(first) = self.first_stored.take() {
+            let _ = first.send(());
+        }
+        Ok(())
     }
 
     async fn compact(&mut self) -> Result<(), String> {
@@ -319,20 +325,36 @@ pub struct Sink {
 impl Sink {
     /// Starts the game's record with who sits where (nobody for a chair the
     /// house plays; the host for its seat bridge's) and the task that writes
-    /// it.
+    /// it. `first_stored` is told once a piece is stored.
     pub fn open(
         db: sea_orm::DatabaseConnection,
         game_id: &str,
         opening: baylee_db::records::Opening,
         seats: Vec<(baylee_db::records::Seat, baylee_db::records::SeatFacts)>,
+        first_stored: oneshot::Sender<()>,
     ) -> Self {
         let store = Database {
             db,
             game_id: game_id.to_owned(),
             opening,
             seats,
+            first_stored: Some(first_stored),
         };
         Self::writing(game_id, store)
+    }
+
+    /// Whether the record stopped being stored before its end: at its bound,
+    /// or at a piece out of order. What is stored is then not the whole game.
+    pub const fn cut(&self) -> bool {
+        self.full
+    }
+
+    /// A record resumed after a restart (`keep`): `pieces` pieces of
+    /// `bytes` bytes are stored, and the engine goes on at the next.
+    pub fn go_on_from(&mut self, pieces: u32, bytes: usize) {
+        self.next_seq = pieces;
+        self.taken = bytes;
+        self.full = bytes > MAX_RECORD_BYTES;
     }
 
     /// A sink whose task writes into `store`.
@@ -474,11 +496,16 @@ pub(crate) async fn flush_all(state: &crate::Shared, within: std::time::Duration
 /// running games' records are stored ([`flush_all`]), and then the process
 /// ends, as the signal would have ended it. Before this a stop ended the
 /// gateway at once and whatever an engine had not yet sent was lost.
+/// The rows of the running games (`keep`) are then written as they stand
+/// and nothing more is written, so the games the next start resumes are
+/// the ones the stop held, and a link that closes as the process ends
+/// takes none of them along.
 pub(crate) fn flush_on_stop(state: crate::Shared) {
     tokio::spawn(async move {
         stopped().await;
         let answered = flush_all(&state, FLUSH_ON_STOP).await;
         tracing::info!(answered, "stopping: the running games' records are stored");
+        state.keeper.settle().await;
         std::process::exit(0);
     });
 }

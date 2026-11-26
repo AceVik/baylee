@@ -179,7 +179,7 @@ pub struct NewDeck {
 }
 
 /// A player's deck (card names; resolved against the registry at use).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Deck {
     /// Deck id (`UUIDv7`).
     pub id: String,
