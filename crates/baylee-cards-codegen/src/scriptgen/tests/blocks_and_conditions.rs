@@ -2022,3 +2022,63 @@ fn wave22d_computed_pt_and_static_refusals() {
         assert!(refused(bad), "must refuse:\n{bad}");
     }
 }
+
+#[test]
+fn continuous_check_svar_turn_and_linked_exile_unlocks() {
+    let blast_runner = read(
+        "Name:Goblin Blast-Runner\nManaCost:R\nTypes:Creature Goblin\nPT:1/2\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Menace | AddPower$ 2 | CheckSVar$ SaccThisTurn\n\
+         SVar:SaccThisTurn:PlayerCountPropertyYou$SacrificedThisTurn Permanent",
+    );
+    assert!(
+        blast_runner.abilities.iter().any(|a| a.contains("Modifier::ModifyPT(2, 0)")
+            && a.contains("Condition::AmountAtLeast(Amount::PermanentsSacrificedThisTurn { who: PlayerRel::You, filter: &Filter::Any }, 1)")),
+        "{:?}",
+        blast_runner.abilities
+    );
+    assert!(
+        blast_runner
+            .abilities
+            .iter()
+            .any(|a| a.contains("Modifier::AddKeyword(KeywordSet::MENACE)")),
+        "{:?}",
+        blast_runner.abilities
+    );
+
+    let survivor = read(
+        "Name:Veteran Survivor\nManaCost:W\nTypes:Creature Human\nPT:2/1\n\
+         T:Mode$ Phase | Phase$ Main | PhaseCount$ 2 | ValidPlayer$ You | PresentDefined$ Self | IsPresent$ Card.tapped | TriggerZones$ Battlefield | Execute$ Trig\n\
+         SVar:Trig:DB$ ChangeZone | Origin$ Graveyard | Destination$ Exile | ValidTgts$ Card | TargetMin$ 0 | TargetMax$ 1\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddPower$ 3 | AddToughness$ 3 | AddKeyword$ Hexproof | CheckSVar$ X | SVarCompare$ GE3\n\
+         SVar:X:ExiledWith$Amount",
+    );
+    assert!(
+        survivor.abilities.iter().any(|a| a.contains("Modifier::ModifyPT(3, 3)")
+            && a.contains("Condition::AmountCompare { left: &Amount::CountOf { filter: &Filter::Any, zone: ZoneSel::LinkedExile }, op: AmountCmp::AtLeast, right: &Amount::Fixed(3) }")),
+        "{:?}",
+        survivor.abilities
+    );
+
+    let life_lost_static = read(
+        "Name:LifeLostStatic\nManaCost:1 W\nTypes:Creature\nPT:2/1\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Flying | CheckSVar$ X\n\
+         SVar:X:PlayerCountPropertyYou$LifeLostThisTurn",
+    );
+    assert!(
+        life_lost_static.abilities[0]
+            .contains("Condition::AmountAtLeast(Amount::LifeLostThisTurn(PlayerRel::You), 1)"),
+        "{:?}",
+        life_lost_static.abilities
+    );
+
+    for bad in [
+        "Name:BadSacSelf\nTypes:Creature\nPT:1/1\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Flying | CheckSVar$ S\n\
+         SVar:S:PlayerCountPropertyYou$SacrificedThisTurn Permanent.Self",
+        "Name:BadOppLowestLife\nTypes:Creature\nPT:2/1\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Haste | CheckSVar$ X | SVarCompare$ LE10\n\
+         SVar:X:PlayerCountOpponents$LowestLifeTotal",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
+}
