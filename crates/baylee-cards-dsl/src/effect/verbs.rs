@@ -1409,6 +1409,9 @@ impl Effect {
             | Effect::RandomGraveyardToHand { .. }
             | Effect::MoveCounter { .. }
             | Effect::MoveCounterToEvent { .. }
+            | Effect::MultiplyCounters { .. }
+            | Effect::MoveCounters { .. }
+            | Effect::RemoveCounters { .. }
             | Effect::ReconfigureAttach
             | Effect::DetachSource
             | Effect::CreateTokenN { .. }

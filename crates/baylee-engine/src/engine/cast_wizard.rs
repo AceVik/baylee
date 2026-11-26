@@ -3180,6 +3180,12 @@ pub(super) fn spend_for(
             Some(CastModeKind::Disguise) => Some(casting::SpellForm::Disguise),
             Some(CastModeKind::Bestow) => face.bestow.map(casting::SpellForm::Bestow),
             Some(CastModeKind::Blitz) => Some(casting::SpellForm::Blitz),
+            Some(CastModeKind::Flashback) => Some(casting::SpellForm::Flashback(
+                face.flashback.unwrap_or(ManaCost::ZERO),
+            )),
+            Some(CastModeKind::Dash) => Some(casting::SpellForm::Dash(
+                face.dash.unwrap_or(ManaCost::ZERO),
+            )),
             Some(CastModeKind::Plot) => Some(casting::SpellForm::Plot),
             Some(CastModeKind::Impending) => face
                 .impending
@@ -3211,6 +3217,14 @@ pub(super) fn spend_for(
         Some(CastModeKind::Blitz) => {
             casting::SpendFor::SpellAs(wizard.card, casting::SpellForm::Blitz)
         }
+        Some(CastModeKind::Flashback) => casting::SpendFor::SpellAs(
+            wizard.card,
+            casting::SpellForm::Flashback(face.flashback.unwrap_or(ManaCost::ZERO)),
+        ),
+        Some(CastModeKind::Dash) => casting::SpendFor::SpellAs(
+            wizard.card,
+            casting::SpellForm::Dash(face.dash.unwrap_or(ManaCost::ZERO)),
+        ),
         Some(CastModeKind::Foretell) => casting::SpendFor::SpellAs(
             wizard.card,
             casting::SpellForm::Foretell(

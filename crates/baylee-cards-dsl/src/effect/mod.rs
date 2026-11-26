@@ -6757,6 +6757,48 @@ pub struct SecretNumberChoice {
     /// resolution player-memory so [`crate::Condition::YouAreRememberedPlayer`]
     /// holds afterward (*Menacing Ogre*).
     pub remember_highest: bool,
+    /// Multiply the number of counters of `kind` (or each counter kind present
+    /// when `kind` is `None`) on `subject` by `factor` (`CR 701.9e`: places
+    /// `(factor - 1) * count` counters through replacement effects). Appended
+    /// to preserve replay identities.
+    MultiplyCounters {
+        /// Permanent(s) or player(s) whose counters are multiplied.
+        subject: CounterSubject,
+        /// Specific counter kind, or `None` for each kind present.
+        kind: Option<CounterKind>,
+        /// Multiplier (`2` to double).
+        factor: u16,
+    },
+    /// Move counters from `from` onto `to` (`CR 122.5`), supporting fixed
+    /// counts, all counters, any number of counters, one of each kind not on
+    /// destination (*Goldberry*), filtered sources (*Slippery Bogbonder*,
+    /// *Aetherborn Marauder*, *Spike Cannibal*), and distribution among
+    /// filtered destinations (*Forgotten Ancient*). Appended to preserve replay
+    /// identities.
+    MoveCounters {
+        /// Source object(s) losing counters.
+        from: MoveCounterSource,
+        /// Destination object(s) receiving counters.
+        to: MoveCounterDest,
+        /// Specific counter kind, or `None` for any kind present.
+        kind: Option<CounterKind>,
+        /// How many counters to move.
+        count: MoveCounterCount,
+    },
+    /// Remove counters of `kind` (or any kind when `kind` is `None`) from
+    /// `subject` (`CR 122`), supporting exact amounts, up-to amounts, any
+    /// number, all counters, player counters, and non-targeted permanent
+    /// choices (*Ferropede*, *Hex Parasite*, *Thornmantle Striker*, *Rhys, the
+    /// Evermore*, *Eventide's Shadow*, *Mister Hyde*, *Final Act*). Appended
+    /// to preserve replay identities.
+    RemoveCounters {
+        /// Permanent(s) or player(s) losing counters.
+        subject: RemoveCounterSubject,
+        /// Specific counter kind, or `None` for any kind present.
+        kind: Option<CounterKind>,
+        /// How many counters to remove.
+        count: RemoveCounterCount,
+    },
 }
 
 /// Non-mana unless-cost offered to any player in APNAP order by [`Effect::AnyPlayerMayPayCost`].
@@ -6836,6 +6878,104 @@ pub enum CounterDonor {
     Source,
     /// The triggering event object (or its LKI if it died or left the battlefield).
     Event,
+}
+
+/// Subject whose counters are multiplied by [`Effect::MultiplyCounters`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum CounterSubject {
+    /// Every legal permanent target in the resolving target list.
+    Targets,
+    /// The resolving ability's source permanent.
+    Source,
+    /// The permanent the resolving Aura/Equipment is attached to.
+    Attached,
+    /// The triggering event object.
+    EventObject,
+    /// Player(s) matching `PlayerRel`.
+    Player(PlayerRel),
+}
+
+/// Source permanent(s) losing counters in [`Effect::MoveCounters`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum MoveCounterSource {
+    /// Explicit target slot (`TargetSlot::First`, etc.).
+    Slot(TargetSlot),
+    /// First object target (`res.targets[0]`).
+    FirstTarget,
+    /// The resolving ability's source permanent.
+    Source,
+    /// All battlefield permanents matching `Filter` (e.g. *Aetherborn Marauder*,
+    /// *Slippery Bogbonder*, *Spike Cannibal*).
+    Filter(&'static Filter),
+}
+
+/// Destination permanent(s) receiving counters in [`Effect::MoveCounters`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum MoveCounterDest {
+    /// Explicit target slot (`TargetSlot::Second`, etc.).
+    Slot(TargetSlot),
+    /// Second object target (`res.second_targets[0]` or `res.targets[1]`).
+    SecondTarget,
+    /// First object target (`res.targets[0]`).
+    FirstTarget,
+    /// The resolving ability's source permanent.
+    Source,
+    /// The permanent the resolving Aura/Equipment is attached to.
+    Attached,
+    /// The triggering event object.
+    EventObject,
+    /// Distribute moved counters among any number of battlefield permanents
+    /// matching `Filter` (*Forgotten Ancient*).
+    DistributeAmong(&'static Filter),
+}
+
+/// Quantity rule for [`Effect::MoveCounters`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum MoveCounterCount {
+    /// Move exactly `u16` counters (or choose one kind when `kind` is `None`).
+    Exact(u16),
+    /// Move all counters of the matching kind(s).
+    All,
+    /// Choose any number of matching counters to move (`min_one: true` requires
+    /// at least one if able, e.g. *Goldberry* `{U}, {T}` ability).
+    AnyNumber {
+        /// Whether at least one counter must be moved when legal.
+        min_one: bool,
+    },
+    /// Move one counter of each kind on `from` that is not currently on `to`
+    /// (*Goldberry, River-Daughter*).
+    OneOfEachKindNotOnDest,
+}
+
+/// Subject losing counters in [`Effect::RemoveCounters`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum RemoveCounterSubject {
+    /// Legal target permanents (or players when `Player` targets exist).
+    Targets,
+    /// The permanent the resolving Aura/Equipment is attached to.
+    Attached,
+    /// The resolving ability's source permanent.
+    Source,
+    /// Player(s) matching `PlayerRel`.
+    Player(PlayerRel),
+    /// Choose permanent(s) on the battlefield matching `Filter` without
+    /// targeting (*Mister Hyde*, *Eventide's Shadow*).
+    Choice(&'static Filter),
+    /// All battlefield permanents matching `Filter` (*Aether Snap*).
+    Filter(&'static Filter),
+}
+
+/// Quantity rule for [`Effect::RemoveCounters`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum RemoveCounterCount {
+    /// Remove exactly `Amount` counters (clamped to available counters, CR 609.3).
+    Exact(Amount),
+    /// Remove up to `Amount` counters.
+    UpTo(Amount),
+    /// Remove any number of counters.
+    AnyNumber,
+    /// Remove all counters of the matching kind(s).
+    All,
 }
 
 #[cfg(test)]

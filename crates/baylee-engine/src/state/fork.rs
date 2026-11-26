@@ -117,6 +117,7 @@ impl GameState {
             game_end: _,
             day_night: _,
             previous_turn: _,
+            last_turn_attacked_players: _,
             starting_player: _,
             // Rewritten: entries naming a dealt card's old id are dropped.
             ability_fires: _,

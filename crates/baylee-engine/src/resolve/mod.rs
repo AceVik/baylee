@@ -845,6 +845,14 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
                         acc.saturating_add(obj.characteristics().mana_value())
                     })
             }),
+        Amount::AttachedPower => eval::attached_for_ability(
+            state,
+            res.source,
+            source_version(state, res),
+            source_attachment_lki(state, res.on_stack),
+        )
+        .and_then(|host| host.characteristics().power)
+        .map_or(0, |power| u32::try_from(power.max(0)).unwrap_or(0)),
         Amount::EventPower => {
             let Some(source) = res.event_object else {
                 return 0;
@@ -1618,6 +1626,30 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             }
             u32::try_from(seen.len()).unwrap_or(u32::MAX)
         }
+        Amount::DistinctCardTypesInZone { zone, filter } => {
+            let require_card = !matches!(zone, baylee_cards_dsl::ZoneSel::Battlefield);
+            let candidates = wave12a::snapshot_zone_candidates(state, res, *zone);
+            let mut seen = baylee_core::types::TypeSet::EMPTY;
+            for id in candidates {
+                if let Some(o) = state.object(id)
+                    && (!require_card || o.is_card())
+                    && matches_in_resolution(filter, state, o, you, res, None)
+                {
+                    seen = seen.union(o.characteristics().types);
+                }
+            }
+            seen.intersection(remembered::PAPER_CARD_TYPES)
+                .bits()
+                .count_ones()
+        }
+        Amount::DistinctSacrificedCardTypesThisTurn(who) => {
+            let seats = players_of(*who, state, you, res);
+            eval::distinct_sacrificed_card_types_for_seats(state, &seats)
+        }
+        Amount::EnergyRemovedThisTurn(who) => {
+            let seats = players_of(*who, state, you, res);
+            eval::energy_removed_for_seats(state, &seats)
+        }
         other => eval::amount_with_context(other, state, you, res.rule_context(), res.x),
     }
 }
@@ -1779,6 +1811,12 @@ pub(super) fn amount_for_player(
         }
         Amount::DistinctCardTypesCastThisTurn(PlayerRel::Recipient) => {
             eval::distinct_card_types_cast_for_seats(state, &[player])
+        }
+        Amount::DistinctSacrificedCardTypesThisTurn(PlayerRel::Recipient) => {
+            eval::distinct_sacrificed_card_types_for_seats(state, &[player])
+        }
+        Amount::EnergyRemovedThisTurn(PlayerRel::Recipient) => {
+            eval::energy_removed_for_seats(state, &[player])
         }
         Amount::CreaturesAttackedThisTurn {
             filter,
@@ -2069,7 +2107,9 @@ fn amount_reads_resolution_player_at(amount: &baylee_cards_dsl::Amount, depth: u
         | A::ManaExpendedOnSpellsThisTurn(r)
         | A::CommanderCasts(r)
         | A::HighestCardsDrawnThisTurn(r)
-        | A::DistinctCardTypesCastThisTurn(r) => rel_needs_res(*r),
+        | A::DistinctCardTypesCastThisTurn(r)
+        | A::DistinctSacrificedCardTypesThisTurn(r)
+        | A::EnergyRemovedThisTurn(r) => rel_needs_res(*r),
         A::ControlledCount { who, filter }
         | A::EnteredThisTurn {
             owner_or_ctrl: who,
@@ -2100,7 +2140,8 @@ fn amount_reads_resolution_player_at(amount: &baylee_cards_dsl::Amount, depth: u
         A::DistinctManaValuesInZone { zone, filter }
         | A::DistinctNames { zone, filter }
         | A::TotalManaValueInZone { zone, filter }
-        | A::DistinctExactManaCostsInZone { zone, filter } => {
+        | A::DistinctExactManaCostsInZone { zone, filter }
+        | A::DistinctCardTypesInZone { zone, filter } => {
             matches!(
                 zone,
                 baylee_cards_dsl::ZoneSel::GraveyardOf(r)

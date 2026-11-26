@@ -418,6 +418,13 @@ pub struct PerTurn {
     pub attacked_players: PerTurnAttackedPlayers,
     /// Whether any card in this game reads `PlayerFilter::OpponentNotAttackedBySourceLastCombat`.
     pub track_last_combat_attacked: PerTurnTrackedFlag,
+    /// Energy counters paid or lost per player this turn (`Amount::EnergyRemovedThisTurn`).
+    pub energy_removed: PerTurnTracked<EnergyRemovedRecord>,
+    /// Distinct `(attacker, defender)` pairs attacked directly this turn
+    /// (`Amount::OpponentsAttackedThisTurn`).
+    pub opponents_attacked: PerTurnTracked<OpponentAttackedRecord>,
+    /// Activated abilities activated this turn (`Modifier::FirstActivatedAbilityEachTurnCostLess`).
+    pub activated_abilities_this_turn: PerTurnTracked<ActivatedAbilityRecord>,
 }
 
 /// One discarded card recorded this turn ([`PerTurn::discard_history`]).
@@ -512,6 +519,84 @@ impl std::hash::Hash for SpellCastRecord {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         (372_u16, self.spell, self.caster).hash(state);
         super::hash::sacrifice_snapshot_digest(&self.snapshot).hash(state);
+    }
+}
+
+/// One activated ability activated this turn
+/// ([`PerTurn::activated_abilities_this_turn`]).
+#[derive(Clone, Debug)]
+pub struct ActivatedAbilityRecord {
+    /// Player who activated the ability.
+    pub activator: PlayerId,
+    /// Source permanent incarnation whose ability was activated.
+    pub source: baylee_core::ids::DamageSourceRef,
+    /// Frozen snapshot of the source permanent when activated.
+    pub snapshot: std::sync::Arc<crate::object::GameObject>,
+    /// Activation-time frozen snapshots of object targets chosen across all
+    /// target slots (`targets`, `second_targets`, `third_targets`).
+    pub target_snapshots: Vec<std::sync::Arc<crate::object::GameObject>>,
+}
+
+impl std::hash::Hash for ActivatedAbilityRecord {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (
+            603_u16,
+            self.activator,
+            self.source,
+            self.target_snapshots.len(),
+        )
+            .hash(state);
+        super::hash::sacrifice_snapshot_digest(&self.snapshot).hash(state);
+        for snap in &self.target_snapshots {
+            snap.id.hash(state);
+            super::hash::sacrifice_snapshot_digest(snap).hash(state);
+        }
+    }
+}
+
+/// Tagged energy counter loss this turn ([`PerTurn::energy_removed`]).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct EnergyRemovedRecord {
+    /// Player who paid or lost energy.
+    pub player: PlayerId,
+    /// Energy counters removed.
+    pub amount: u32,
+}
+
+impl std::hash::Hash for EnergyRemovedRecord {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (601_u16, self.player, self.amount).hash(state);
+    }
+}
+
+/// Tagged attacker->defender pair this turn ([`PerTurn::opponents_attacked`]).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct OpponentAttackedRecord {
+    /// Attacking player.
+    pub attacker: PlayerId,
+    /// Defending player attacked directly.
+    pub defender: PlayerId,
+}
+
+impl std::hash::Hash for OpponentAttackedRecord {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (602_u16, self.attacker, self.defender).hash(state);
+    }
+}
+
+/// Tagged attacker->defender pair from a player's most recent completed turn
+/// ([`crate::state::GameState::last_turn_attacked_players`]).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct LastTurnAttackedRecord {
+    /// Player whose last completed turn this records.
+    pub attacker: PlayerId,
+    /// Player attacked directly during that turn.
+    pub defender: PlayerId,
+}
+
+impl std::hash::Hash for LastTurnAttackedRecord {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (604_u16, self.attacker, self.defender).hash(state);
     }
 }
 
@@ -874,6 +959,9 @@ impl PerTurn {
             extra_draw_occurred: PerTurnExtraDraws::default(),
             attacked_players: PerTurnAttackedPlayers::default(),
             track_last_combat_attacked: PerTurnTrackedFlag::default(),
+            energy_removed: PerTurnTracked::default(),
+            opponents_attacked: PerTurnTracked::default(),
+            activated_abilities_this_turn: PerTurnTracked::default(),
         }
     }
 
@@ -1049,6 +1137,9 @@ impl PerTurn {
         self.discard_history.items.clear();
         self.extra_draw_occurred.seats.clear();
         self.attacked_players.items.clear();
+        self.energy_removed.items.clear();
+        self.opponents_attacked.items.clear();
+        self.activated_abilities_this_turn.items.clear();
     }
 
     /// Resets all counters (called at every turn start).
@@ -1132,6 +1223,9 @@ impl PerTurn {
             extra_draw_occurred: _,
             attacked_players: _,
             track_last_combat_attacked: _,
+            energy_removed: _,
+            opponents_attacked: _,
+            activated_abilities_this_turn: _,
         } = self;
         *untapped_lands_at_start = 0;
         *hand_size_at_start = 0;

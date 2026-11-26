@@ -629,6 +629,7 @@ pub fn reduction_amount(
 pub fn mana_cost_reduction(
     state: &GameState,
     reduction: Option<baylee_cards_dsl::CostReduction>,
+    player: PlayerId,
     source: ObjectId,
 ) -> Option<ManaCost> {
     match reduction {
@@ -641,6 +642,12 @@ pub fn mana_cost_reduction(
             }
             let own = object.characteristics().mana_cost.with_x(0);
             (own != ManaCost::ZERO).then_some(own)
+        }
+        Some(baylee_cards_dsl::CostReduction::IfMana { condition, mana })
+            if mana != ManaCost::ZERO
+                && crate::eval::condition_holds(state, player, source, condition) =>
+        {
+            Some(mana)
         }
         _ => None,
     }
@@ -677,10 +684,14 @@ pub fn commander_tax(state: &GameState, player: PlayerId, card: ObjectId) -> u32
 /// Generic and colored adjustments combine before clamping: increases first (CR 601.2f).
 #[derive(Clone, Copy, Debug, Default)]
 #[doc(hidden)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct SpellAdjustment {
     pub increase: u32,
     pub eligible_increase: u32,
     pub life_increase: u32,
+    /// Whether the commander mana tax (`{2}` per prior cast) has already been
+    /// replaced with life on this adjustment.
+    pub commander_tax_replaced: bool,
     pub reduction: u32,
     pub mana_increase: ManaCost,
     pub mana_reduction: ManaCost,
@@ -838,19 +849,38 @@ const fn is_spell_cost_modifier(modifier: baylee_cards_dsl::Modifier) -> bool {
             | baylee_cards_dsl::Modifier::FirstSpellEachTurnCostAdjust { .. }
             | baylee_cards_dsl::Modifier::GrantAffinity(_)
             | baylee_cards_dsl::Modifier::CastCostIncreaseUnlessTargets { .. }
+            | baylee_cards_dsl::Modifier::SpellsCostLessPerSharedCardTypeWithExiled { .. }
+            | baylee_cards_dsl::Modifier::FirstSpellEachTurnCostAdjustByAmount { .. }
+            | baylee_cards_dsl::Modifier::CommanderTaxReplacedWithLife { .. }
+            | baylee_cards_dsl::Modifier::RaiseCostIfTargetsYouOrPermanent { .. }
+            | baylee_cards_dsl::Modifier::AdjustSpellCostBeyondFirstTarget { .. }
+            | baylee_cards_dsl::Modifier::ReduceCostIfTargetsCheck { .. }
     )
 }
 
 #[must_use]
+fn face_has_target_cost_reduction(face: &baylee_cards_dsl::FaceDef) -> bool {
+    matches!(
+        face.cost_reduction,
+        Some(baylee_cards_dsl::CostReduction::IfTargetsMatch { .. })
+    )
+}
+
 pub(crate) fn card_has_self_spell_cost_statics(def: &baylee_cards_dsl::CardDef) -> bool {
     (0..def.faces.len()).any(|face| {
-        def.abilities_for_face(face).iter().any(|ability| {
-            matches!(
-                ability,
-                baylee_cards_dsl::AbilityDef::Static(sa)
-                    if Zone::Stack.matches_ref(sa.source_zone) && is_spell_cost_modifier(sa.modifier)
-            )
-        })
+        face_has_target_cost_reduction(&def.faces[face])
+            || def.abilities_for_face(face).iter().any(|ability| {
+                matches!(
+                    ability,
+                    baylee_cards_dsl::AbilityDef::Static(sa)
+                        if (Zone::Stack.matches_ref(sa.source_zone)
+                            || (matches!(
+                                sa.modifier,
+                                baylee_cards_dsl::Modifier::CommanderTaxReplacedWithLife { .. }
+                            ) && Zone::Command.matches_ref(sa.source_zone)))
+                            && is_spell_cost_modifier(sa.modifier)
+                )
+            })
     })
 }
 
@@ -1027,6 +1057,94 @@ fn spell_cast_metric_units(
     }
 }
 
+fn spell_targets_player(spell: &crate::object::GameObject, seat: PlayerId) -> bool {
+    spell.target_players.contains(seat)
+        || spell.chosen_player == Some(seat)
+        || spell.second_target_players().contains(seat)
+        || spell
+            .extra_target_instances()
+            .iter()
+            .any(|inst| inst.players.contains(seat))
+}
+
+fn target_object_satisfies_check(
+    state: &GameState,
+    tid: ObjectId,
+    you: PlayerId,
+    check: baylee_cards_dsl::TargetCostCheck,
+    context: crate::text_changes::RuleContext,
+) -> bool {
+    let Some(target) = state.object(tid) else {
+        return false;
+    };
+    match check {
+        baylee_cards_dsl::TargetCostCheck::TargetControllerGraveyardAtLeast(min_gy) => {
+            let p = if matches!(target.zone, Zone::Battlefield | Zone::Stack) {
+                target.controller
+            } else {
+                target.zone_owner.unwrap_or(target.owner)
+            };
+            state.zones.list(ZoneLocation::Graveyard(p)).len()
+                >= usize::try_from(min_gy).unwrap_or(usize::MAX)
+        }
+        baylee_cards_dsl::TargetCostCheck::TargetedStackTargetsYouControl(filter) => {
+            if target.zone != Zone::Stack {
+                return false;
+            }
+            target
+                .targets
+                .iter()
+                .chain(target.second_targets().iter())
+                .chain(
+                    target
+                        .extra_target_instances()
+                        .iter()
+                        .flat_map(|inst| inst.targets.iter()),
+                )
+                .any(|&sub_tid| {
+                    state.object(sub_tid).is_some_and(|perm| {
+                        perm.controller == you
+                            && crate::eval::matches_with_context(filter, state, perm, you, context)
+                    })
+                })
+        }
+    }
+}
+
+fn spell_targets_satisfy_check(
+    state: &GameState,
+    spell: &crate::object::GameObject,
+    you: PlayerId,
+    check: baylee_cards_dsl::TargetCostCheck,
+    context: crate::text_changes::RuleContext,
+) -> bool {
+    let obj_hit = spell
+        .targets
+        .iter()
+        .chain(spell.second_targets().iter())
+        .chain(
+            spell
+                .extra_target_instances()
+                .iter()
+                .flat_map(|inst| inst.targets.iter()),
+        )
+        .any(|&tid| target_object_satisfies_check(state, tid, you, check, context));
+    if obj_hit {
+        return true;
+    }
+    if let baylee_cards_dsl::TargetCostCheck::TargetControllerGraveyardAtLeast(min_gy) = check {
+        let min_len = usize::try_from(min_gy).unwrap_or(usize::MAX);
+        return spell
+            .target_players
+            .iter()
+            .any(|p| state.zones.list(ZoneLocation::Graveyard(p)).len() >= min_len)
+            || spell
+                .chosen_player
+                .is_some_and(|p| state.zones.list(ZoneLocation::Graveyard(p)).len() >= min_len);
+    }
+    false
+}
+
 fn spell_targets_matching(
     state: &GameState,
     spell: &crate::object::GameObject,
@@ -1079,6 +1197,38 @@ fn spell_cost_effect_applies(
 }
 
 #[allow(clippy::too_many_arguments)]
+fn is_first_matching_spell_this_turn(
+    state: &GameState,
+    player: PlayerId,
+    spell: &crate::object::GameObject,
+    controller: PlayerId,
+    context: crate::text_changes::RuleContext,
+    filter: &'static baylee_cards_dsl::Filter,
+) -> bool {
+    let already_cast = if state.per_turn.cast_spells_this_turn.tracked {
+        state
+            .per_turn
+            .cast_spells_this_turn
+            .items
+            .iter()
+            .any(|rec| {
+                rec.controller == player
+                    && !(rec.source.object == spell.id && rec.source.version == spell.version)
+                    && crate::eval::matches_with_context(
+                        filter,
+                        state,
+                        &rec.snapshot,
+                        controller,
+                        context,
+                    )
+            })
+    } else {
+        *filter == baylee_cards_dsl::Filter::Any && state.per_turn.spells_cast_by(player) > 0
+    };
+    !already_cast
+}
+
+#[allow(clippy::too_many_arguments)]
 fn apply_first_spell_cost_adjust(
     state: &GameState,
     player: PlayerId,
@@ -1100,27 +1250,7 @@ fn apply_first_spell_cost_adjust(
     {
         return;
     }
-    let already_cast = if state.per_turn.cast_spells_this_turn.tracked {
-        state
-            .per_turn
-            .cast_spells_this_turn
-            .items
-            .iter()
-            .any(|rec| {
-                rec.controller == player
-                    && !(rec.source.object == spell.id && rec.source.version == spell.version)
-                    && crate::eval::matches_with_context(
-                        filter,
-                        state,
-                        &rec.snapshot,
-                        controller,
-                        context,
-                    )
-            })
-    } else {
-        *filter == baylee_cards_dsl::Filter::Any && state.per_turn.spells_cast_by(player) > 0
-    };
-    if already_cast {
+    if !is_first_matching_spell_this_turn(state, player, spell, controller, context, filter) {
         return;
     }
     if increase {
@@ -1352,6 +1482,179 @@ fn apply_dynamic_spell_cost_modifier(
             colored_only,
             adjustment,
         ),
+        baylee_cards_dsl::Modifier::FirstSpellEachTurnCostAdjustByAmount {
+            who,
+            filter,
+            amount,
+            increase,
+        } => {
+            if crate::eval::players_for_source(who, state, controller, source)
+                .is_some_and(|players| !players.contains(&player))
+                || !crate::eval::matches_with_context(filter, state, spell, controller, context)
+                || !is_first_matching_spell_this_turn(
+                    state, player, spell, controller, context, filter,
+                )
+            {
+                return;
+            }
+            let Some(_guard) = SpellCostDepthGuard::enter() else {
+                return;
+            };
+            let value = crate::eval::amount_with_context(
+                &amount,
+                state,
+                controller,
+                context,
+                Some(spell.x_value),
+            );
+            if value == 0 {
+                return;
+            }
+            if increase {
+                adjustment.increase = adjustment.increase.saturating_add(value);
+                if super::effect_is_un(state, source) {
+                    adjustment.eligible_increase =
+                        adjustment.eligible_increase.saturating_add(value);
+                }
+            } else {
+                adjustment.reduction = adjustment.reduction.saturating_add(value);
+            }
+        }
+        baylee_cards_dsl::Modifier::SpellsCostLessPerSharedCardTypeWithExiled { who } => {
+            if !crate::eval::players_for_source(who, state, controller, source)
+                .is_some_and(|players| players.contains(&player))
+            {
+                return;
+            }
+            let exiled_ids = crate::eval::linked_exile_cards(
+                state,
+                controller,
+                context,
+                None,
+                &baylee_cards_dsl::Filter::Any,
+            );
+            let mut exiled_types = TypeSet::EMPTY;
+            for id in exiled_ids {
+                if let Some(exiled) = state.object(id) {
+                    exiled_types = exiled_types.union(exiled.characteristics().types);
+                }
+            }
+            let shared = spell
+                .characteristics()
+                .types
+                .intersection(exiled_types)
+                .intersection(crate::resolve::remembered::PAPER_CARD_TYPES)
+                .bits()
+                .count_ones();
+            adjustment.reduction = adjustment.reduction.saturating_add(shared);
+        }
+        baylee_cards_dsl::Modifier::CommanderTaxReplacedWithLife { life_per_tax } => {
+            if !adjustment.commander_tax_replaced {
+                let tax = commander_tax(state, player, spell.id);
+                if tax > 0 {
+                    let casts = tax / 2;
+                    adjustment.commander_tax_replaced = true;
+                    adjustment.increase = adjustment.increase.saturating_sub(tax);
+                    adjustment.life_increase = adjustment
+                        .life_increase
+                        .saturating_add(casts.saturating_mul(life_per_tax));
+                }
+            }
+        }
+        baylee_cards_dsl::Modifier::RaiseCostIfTargetsYouOrPermanent {
+            who,
+            spell_filter,
+            permanent_filter,
+            extra_mana,
+            extra_life,
+        } => {
+            if (extra_mana == ManaCost::ZERO && extra_life == 0)
+                || !crate::eval::players_for_source(who, state, controller, source)
+                    .is_some_and(|players| players.contains(&player))
+                || !crate::eval::matches_with_context(
+                    spell_filter,
+                    state,
+                    spell,
+                    controller,
+                    context,
+                )
+            {
+                return;
+            }
+            adjustment.has_target_conditional_tax = true;
+            if spell_targets_player(spell, controller)
+                || spell_targets_matching(state, spell, permanent_filter, controller, context)
+            {
+                adjustment.mana_increase = adjustment.mana_increase.combine(&extra_mana);
+                adjustment.life_increase = adjustment.life_increase.saturating_add(extra_life);
+            }
+        }
+        baylee_cards_dsl::Modifier::AdjustSpellCostBeyondFirstTarget {
+            who,
+            spell_filter,
+            mana_per_extra_target,
+        } => {
+            if mana_per_extra_target == ManaCost::ZERO
+                || !crate::eval::players_for_source(who, state, controller, source)
+                    .is_some_and(|players| players.contains(&player))
+                || !crate::eval::matches_with_context(
+                    spell_filter,
+                    state,
+                    spell,
+                    controller,
+                    context,
+                )
+            {
+                return;
+            }
+            adjustment.has_target_conditional_tax = true;
+            let distinct = spell_cast_metric_units(
+                state,
+                player,
+                spell,
+                controller,
+                source,
+                context,
+                baylee_cards_dsl::SpellCastMetric::DistinctTargets,
+            );
+            if distinct > 1 {
+                let extra_count = distinct - 1;
+                let mut added =
+                    ManaCost::ZERO.combine_n(&mana_per_extra_target, extra_count.min(64));
+                if extra_count > 64 && mana_per_extra_target.generic_total() > 0 {
+                    added = added.with_more_generic(
+                        mana_per_extra_target
+                            .generic_total()
+                            .saturating_mul(extra_count - 64),
+                    );
+                }
+                adjustment.mana_increase = adjustment.mana_increase.combine(&added);
+            }
+        }
+        baylee_cards_dsl::Modifier::ReduceCostIfTargetsCheck {
+            who,
+            spell_filter,
+            reduction,
+            check,
+        } => {
+            if reduction == ManaCost::ZERO
+                || !crate::eval::players_for_source(who, state, controller, source)
+                    .is_some_and(|players| players.contains(&player))
+                || !crate::eval::matches_with_context(
+                    spell_filter,
+                    state,
+                    spell,
+                    controller,
+                    context,
+                )
+            {
+                return;
+            }
+            adjustment.has_target_conditional_reduction = true;
+            if spell_targets_satisfy_check(state, spell, player, check, context) {
+                adjustment.mana_reduction = adjustment.mana_reduction.combine(&reduction);
+            }
+        }
         _ => {}
     }
 }
@@ -1441,6 +1744,12 @@ fn apply_spell_cost_modifier(
         | baylee_cards_dsl::Modifier::RaiseCostIfTargets { .. }
         | baylee_cards_dsl::Modifier::AdjustSpellCostByAmount { .. }
         | baylee_cards_dsl::Modifier::FirstSpellEachTurnCostAdjust { .. }
+        | baylee_cards_dsl::Modifier::FirstSpellEachTurnCostAdjustByAmount { .. }
+        | baylee_cards_dsl::Modifier::SpellsCostLessPerSharedCardTypeWithExiled { .. }
+        | baylee_cards_dsl::Modifier::CommanderTaxReplacedWithLife { .. }
+        | baylee_cards_dsl::Modifier::RaiseCostIfTargetsYouOrPermanent { .. }
+        | baylee_cards_dsl::Modifier::AdjustSpellCostBeyondFirstTarget { .. }
+        | baylee_cards_dsl::Modifier::ReduceCostIfTargetsCheck { .. }
         | baylee_cards_dsl::Modifier::CastCostIncreaseUnlessTargets { .. } => {
             let context = crate::text_changes::RuleContext {
                 source: source.unwrap_or(spell.id),
@@ -1478,6 +1787,7 @@ pub fn spell_adjustment_with_def(
         increase: commander_tax(state, player, object.id),
         eligible_increase: 0,
         life_increase: 0,
+        commander_tax_replaced: false,
         reduction: state
             .per_turn
             .next_spell_cost_reduction
@@ -1522,7 +1832,12 @@ pub fn spell_adjustment_with_def(
                 ..
             }
             | baylee_cards_dsl::Modifier::AdjustSpellCostByAmount { who, .. }
-            | baylee_cards_dsl::Modifier::FirstSpellEachTurnCostAdjust { who, .. } => {
+            | baylee_cards_dsl::Modifier::FirstSpellEachTurnCostAdjust { who, .. }
+            | baylee_cards_dsl::Modifier::FirstSpellEachTurnCostAdjustByAmount { who, .. }
+            | baylee_cards_dsl::Modifier::SpellsCostLessPerSharedCardTypeWithExiled { who }
+            | baylee_cards_dsl::Modifier::RaiseCostIfTargetsYouOrPermanent { who, .. }
+            | baylee_cards_dsl::Modifier::AdjustSpellCostBeyondFirstTarget { who, .. }
+            | baylee_cards_dsl::Modifier::ReduceCostIfTargetsCheck { who, .. } => {
                 spell_cost_effect_applies(state, effect, who, player, &spell)
             }
             _ => crate::effects::applies_to(state, effect, &spell),
@@ -1551,7 +1866,12 @@ pub fn spell_adjustment_with_def(
             let baylee_cards_dsl::AbilityDef::Static(sa) = ability else {
                 continue;
             };
-            if !Zone::Stack.matches_ref(sa.source_zone) || !is_spell_cost_modifier(sa.modifier) {
+            let zone_ok = Zone::Stack.matches_ref(sa.source_zone)
+                || (matches!(
+                    sa.modifier,
+                    baylee_cards_dsl::Modifier::CommanderTaxReplacedWithLife { .. }
+                ) && Zone::Command.matches_ref(sa.source_zone));
+            if !zone_ok || !is_spell_cost_modifier(sa.modifier) {
                 continue;
             }
             // Avoid double-counting if this object is already in a zone whose
@@ -1585,6 +1905,55 @@ pub fn spell_adjustment_with_def(
             }
         }
     }
+    if let Some(def) = def
+        && !object.status.contains(crate::object::Status::FACE_DOWN)
+        && spell.characteristics().abilities_lost.is_none()
+        && !spell.characteristics().rules_text_lost
+    {
+        let face_idx = usize::from(spell.face_index).min(def.faces.len().saturating_sub(1));
+        if let Some(cr) = def.faces[face_idx].cost_reduction {
+            match cr {
+                baylee_cards_dsl::CostReduction::IfMana { condition, mana }
+                    if mana != ManaCost::ZERO
+                        && crate::eval::condition_holds(state, player, spell.id, condition) =>
+                {
+                    adjustment.mana_reduction = adjustment.mana_reduction.combine(&mana);
+                }
+                baylee_cards_dsl::CostReduction::IfTargetsMatch {
+                    filter,
+                    min_count,
+                    amount,
+                } => {
+                    adjustment.has_target_conditional_reduction = true;
+                    let ctx = crate::eval::live_context(state, spell.id);
+                    let mut seen = smallvec::SmallVec::<[ObjectId; 4]>::new();
+                    for &tid in spell
+                        .targets
+                        .iter()
+                        .chain(spell.second_targets().iter())
+                        .chain(
+                            spell
+                                .extra_target_instances()
+                                .iter()
+                                .flat_map(|inst| inst.targets.iter()),
+                        )
+                    {
+                        if !seen.contains(&tid)
+                            && state.object(tid).is_some_and(|o| {
+                                crate::eval::matches_with_context(filter, state, o, player, ctx)
+                            })
+                        {
+                            seen.push(tid);
+                        }
+                    }
+                    if seen.len() >= usize::from(min_count) {
+                        adjustment.reduction = adjustment.reduction.saturating_add(amount);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
     adjustment
 }
 
@@ -1604,6 +1973,7 @@ pub fn face_adjustment(
             increase: commander_tax(state, player, card),
             eligible_increase: 0,
             life_increase: 0,
+            commander_tax_replaced: false,
             reduction: state
                 .per_turn
                 .next_spell_cost_reduction
@@ -2294,6 +2664,137 @@ fn face_matches_target_filter(
     }
 }
 
+/// Evaluates whether a previewed spell cast can (`achievable`) or must
+/// (`guaranteed`) choose at least one target counted by `count_matching` across
+/// its object and player target pools.
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+fn face_matches_preview_predicate(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    def: &'static baylee_cards_dsl::CardDef,
+    face_idx: usize,
+    kind: PreviewCastKind,
+    count_matching: &dyn Fn(&[ObjectId], &[PlayerId]) -> usize,
+) -> (bool, bool) {
+    let eval_clause_group =
+        |f_idx: usize, clauses: &[baylee_cards_dsl::TargetReq]| -> (bool, bool) {
+            let wall_only = crate::eval::target_domain::wall_requirements(clauses.iter().copied());
+            let mut any_achievable = false;
+            let mut any_guaranteed = false;
+            for &req in clauses {
+                let ClauseTargets {
+                    min,
+                    max,
+                    objects,
+                    players,
+                } = clause_preview_targets(state, player, card, def, f_idx, req, wall_only);
+                let total = objects.len() + players.len();
+                if total < usize::from(req.min) || min > max || max == 0 {
+                    continue;
+                }
+                let matching = count_matching(&objects, &players);
+                if matching > 0 {
+                    any_achievable = true;
+                }
+                let min_usize = usize::try_from(min).unwrap_or(usize::MAX);
+                if min_usize > 0 && total.saturating_sub(matching) < min_usize {
+                    any_guaranteed = true;
+                }
+            }
+            (any_achievable, any_guaranteed)
+        };
+    match kind {
+        PreviewCastKind::Bestow => eval_clause_group(face_idx, &[super::BESTOW_TARGET_REQ]),
+        PreviewCastKind::Mutate => eval_clause_group(face_idx, &[super::MUTATE_TARGET_REQ]),
+        PreviewCastKind::Face | PreviewCastKind::Kicked | PreviewCastKind::Fused => {
+            let face_range = if kind == PreviewCastKind::Fused {
+                0..def.faces.len().min(2)
+            } else {
+                face_idx..face_idx + 1
+            };
+            let mut any_ach = false;
+            let mut any_guar = false;
+            for f in face_range {
+                let Some(face_def) = def.faces.get(f) else {
+                    continue;
+                };
+                if let Some((first, second, third)) =
+                    def.abilities_for_face(f).iter().find_map(|a| match a {
+                        baylee_cards_dsl::AbilityDef::Spell {
+                            targets,
+                            second_targets,
+                            third_targets,
+                            ..
+                        } => Some((*targets, *second_targets, *third_targets)),
+                        _ => None,
+                    })
+                {
+                    let eff_first = if kind == PreviewCastKind::Kicked {
+                        face_def.kicked_targets.or(first)
+                    } else {
+                        first
+                    };
+                    let mut clauses: smallvec::SmallVec<[baylee_cards_dsl::TargetReq; 3]> =
+                        smallvec::SmallVec::new();
+                    clauses.extend(eff_first);
+                    clauses.extend(second);
+                    clauses.extend(third);
+                    let (a, g) = eval_clause_group(f, &clauses);
+                    any_ach |= a;
+                    any_guar |= g;
+                } else if let Some((modes, ..)) = def
+                    .abilities_for_face(f)
+                    .iter()
+                    .find_map(baylee_cards_dsl::AbilityDef::modal_spell)
+                {
+                    let mut m_ach = false;
+                    let mut any_mode = false;
+                    let mut all_guar = true;
+                    for mode in modes {
+                        let w =
+                            crate::eval::target_domain::walls(mode.targets, mode.second_targets);
+                        if !super::requirement_is_reachable_for(
+                            mode.targets,
+                            state,
+                            player,
+                            card,
+                            Some((def, f)),
+                            w,
+                        ) || !super::requirement_is_reachable_for(
+                            mode.second_targets,
+                            state,
+                            player,
+                            card,
+                            Some((def, f)),
+                            w,
+                        ) {
+                            continue;
+                        }
+                        any_mode = true;
+                        let mut clauses: smallvec::SmallVec<[baylee_cards_dsl::TargetReq; 2]> =
+                            smallvec::SmallVec::new();
+                        clauses.extend(mode.targets);
+                        clauses.extend(mode.second_targets);
+                        let (a, g) = eval_clause_group(f, &clauses);
+                        m_ach |= a;
+                        all_guar &= g;
+                    }
+                    any_ach |= m_ach;
+                    any_guar |= any_mode && all_guar;
+                } else if kind == PreviewCastKind::Kicked
+                    && let Some(req) = face_def.kicked_targets
+                {
+                    let (a, g) = eval_clause_group(f, &[req]);
+                    any_ach |= a;
+                    any_guar |= g;
+                }
+            }
+            (any_ach, any_guar)
+        }
+    }
+}
+
 /// Computes preview dynamic cost bounds (`DistinctTargets`, `XPaid`, and
 /// `ReduceCostIfTargets`) for `card`'s `face` before targets or `X` are
 /// selected.
@@ -2484,6 +2985,170 @@ pub(crate) fn preview_cast_metric_bounds_for(
                 out.min_mana_reduction = out.min_mana_reduction.combine(&rule.reduction);
             }
         }
+        if let Some(object) = state.object(card)
+            && !matches!(form, Some(SpellForm::Disguise))
+        {
+            if let Some(baylee_cards_dsl::CostReduction::IfTargetsMatch {
+                filter,
+                min_count,
+                amount,
+            }) = def.faces.get(face_idx).and_then(|f| f.cost_reduction)
+                && amount > 0
+            {
+                let ctx = crate::eval::live_context(state, card);
+                let probe_rule = TargetConditionalRule {
+                    controller: player,
+                    context: ctx,
+                    target_filter: filter,
+                    reduction: ManaCost::ZERO,
+                };
+                let (achievable, guaranteed) = face_matches_target_filter(
+                    state,
+                    player,
+                    card,
+                    def,
+                    face_idx,
+                    kind,
+                    &probe_rule,
+                );
+                let (min_d, _, _) =
+                    preview_distinct_target_bounds(state, player, card, def, face_idx, face);
+                if achievable {
+                    out.max_reduction = out.max_reduction.saturating_add(amount);
+                }
+                if guaranteed && min_d >= u32::from(min_count) {
+                    out.min_reduction = out.min_reduction.saturating_add(amount);
+                }
+            }
+            let mut raw = object.clone();
+            if kind != PreviewCastKind::Fused {
+                raw.base = std::sync::Arc::new(crate::object::Characteristics::from_face(
+                    def,
+                    face_idx,
+                    object.base.name,
+                ));
+                raw.cache.clear();
+                raw.face_index = u8::try_from(face_idx).unwrap_or(0);
+            }
+            if let Some(form) = form {
+                raw = form.project(&raw);
+            }
+            let spell = projected_spell(state, player, &raw);
+            let check_preview_clauses = |check: baylee_cards_dsl::TargetCostCheck,
+                                         ctx: crate::text_changes::RuleContext|
+             -> (bool, bool) {
+                face_matches_preview_predicate(
+                    state,
+                    player,
+                    card,
+                    def,
+                    face_idx,
+                    kind,
+                    &|objects, players| {
+                        let mut matching = objects
+                            .iter()
+                            .filter(|&&id| {
+                                target_object_satisfies_check(state, id, player, check, ctx)
+                            })
+                            .count();
+                        if let baylee_cards_dsl::TargetCostCheck::TargetControllerGraveyardAtLeast(
+                            min_gy,
+                        ) = check
+                        {
+                            let min_len = usize::try_from(min_gy).unwrap_or(usize::MAX);
+                            matching += players
+                                .iter()
+                                .filter(|p| {
+                                    state.zones.list(ZoneLocation::Graveyard(**p)).len() >= min_len
+                                })
+                                .count();
+                        }
+                        matching
+                    },
+                )
+            };
+            for effect in state.effects.iter() {
+                let baylee_cards_dsl::Modifier::ReduceCostIfTargetsCheck {
+                    who,
+                    spell_filter,
+                    reduction,
+                    check,
+                } = effect.modifier
+                else {
+                    continue;
+                };
+                if reduction == ManaCost::ZERO
+                    || !spell_cost_effect_applies(state, effect, who, player, &spell)
+                    || !crate::eval::players_for_source(
+                        who,
+                        state,
+                        effect.controller,
+                        effect.source,
+                    )
+                    .is_some_and(|ps| ps.contains(&player))
+                {
+                    continue;
+                }
+                let ctx = crate::text_changes::RuleContext {
+                    source: effect.source.unwrap_or(spell.id),
+                    text: state.effect_text(effect),
+                    resolved_name: None,
+                    resolved_subtype: effect.filter.chosen_subtype(),
+                    reference: None,
+                };
+                if crate::eval::matches_with_context(
+                    spell_filter,
+                    state,
+                    &spell,
+                    effect.controller,
+                    ctx,
+                ) {
+                    let (ach, guar) = check_preview_clauses(check, ctx);
+                    if ach {
+                        out.max_mana_reduction = out.max_mana_reduction.combine(&reduction);
+                    }
+                    if guar {
+                        out.min_mana_reduction = out.min_mana_reduction.combine(&reduction);
+                    }
+                }
+            }
+            if !matches!(form, Some(SpellForm::Disguise)) && card_has_self_spell_cost_statics(def) {
+                let ctx = crate::eval::live_context(state, spell.id);
+                for ability in def.abilities_for_face(face_idx) {
+                    if let baylee_cards_dsl::AbilityDef::Static(sa) = ability
+                        && Zone::Stack.matches_ref(sa.source_zone)
+                        && let baylee_cards_dsl::Modifier::ReduceCostIfTargetsCheck {
+                            who,
+                            spell_filter,
+                            reduction,
+                            check,
+                        } = sa.modifier
+                        && reduction != ManaCost::ZERO
+                        && crate::eval::players_for_source(who, state, player, Some(spell.id))
+                            .is_some_and(|ps| ps.contains(&player))
+                        && sa.condition.is_none_or(|c| {
+                            crate::eval::condition_holds_with_context(state, player, ctx, c)
+                        })
+                        && crate::eval::matches_with_context(&sa.filter, state, &spell, player, ctx)
+                        && crate::eval::matches_with_context(
+                            spell_filter,
+                            state,
+                            &spell,
+                            player,
+                            ctx,
+                        )
+                    {
+                        let (ach, guar) = check_preview_clauses(check, ctx);
+                        if ach {
+                            out.max_mana_reduction = out.max_mana_reduction.combine(&reduction);
+                        }
+                        if guar {
+                            out.min_mana_reduction = out.min_mana_reduction.combine(&reduction);
+                        }
+                    }
+                }
+            }
+        }
     }
     if adjustment.has_filtered_target_metric {
         let (_, max_d, count_is_x) =
@@ -2663,6 +3328,114 @@ pub(crate) fn preview_cast_metric_bounds_for(
                     );
                     if achievable {
                         out.max_reduction = out.max_reduction.saturating_add(u32::from(generic));
+                    }
+                }
+                baylee_cards_dsl::Modifier::RaiseCostIfTargetsYouOrPermanent {
+                    who,
+                    spell_filter,
+                    permanent_filter,
+                    extra_mana,
+                    extra_life,
+                } => {
+                    if (extra_mana == ManaCost::ZERO && extra_life == 0)
+                        || !spell_cost_effect_applies(state, effect, who, player, &spell)
+                        || !crate::eval::players_for_source(
+                            who,
+                            state,
+                            effect.controller,
+                            effect.source,
+                        )
+                        .is_some_and(|ps| ps.contains(&player))
+                    {
+                        continue;
+                    }
+                    let context = crate::text_changes::RuleContext {
+                        source: effect.source.unwrap_or(spell.id),
+                        text: state.effect_text(effect),
+                        resolved_name: None,
+                        resolved_subtype: effect.filter.chosen_subtype(),
+                        reference: None,
+                    };
+                    if !crate::eval::matches_with_context(
+                        spell_filter,
+                        state,
+                        &spell,
+                        effect.controller,
+                        context,
+                    ) {
+                        continue;
+                    }
+                    let (_, target_guar) = face_matches_preview_predicate(
+                        state,
+                        player,
+                        card,
+                        def,
+                        face_idx,
+                        kind,
+                        &|objects, players| {
+                            let matching_objs = objects
+                                .iter()
+                                .filter(|&&id| {
+                                    state.object(id).is_some_and(|o| {
+                                        crate::eval::matches_with_context(
+                                            permanent_filter,
+                                            state,
+                                            o,
+                                            effect.controller,
+                                            context,
+                                        )
+                                    })
+                                })
+                                .count();
+                            let matching_player = usize::from(players.contains(&effect.controller));
+                            matching_objs + matching_player
+                        },
+                    );
+                    if target_guar {
+                        out.min_mana_increase = out.min_mana_increase.combine(&extra_mana);
+                        out.min_life_increase = out.min_life_increase.saturating_add(extra_life);
+                    }
+                }
+                baylee_cards_dsl::Modifier::AdjustSpellCostBeyondFirstTarget {
+                    who,
+                    spell_filter,
+                    mana_per_extra_target,
+                } => {
+                    if mana_per_extra_target == ManaCost::ZERO
+                        || !spell_cost_effect_applies(state, effect, who, player, &spell)
+                        || !crate::eval::players_for_source(
+                            who,
+                            state,
+                            effect.controller,
+                            effect.source,
+                        )
+                        .is_some_and(|ps| ps.contains(&player))
+                    {
+                        continue;
+                    }
+                    let context = crate::text_changes::RuleContext {
+                        source: effect.source.unwrap_or(spell.id),
+                        text: state.effect_text(effect),
+                        resolved_name: None,
+                        resolved_subtype: effect.filter.chosen_subtype(),
+                        reference: None,
+                    };
+                    if crate::eval::matches_with_context(
+                        spell_filter,
+                        state,
+                        &spell,
+                        effect.controller,
+                        context,
+                    ) {
+                        let (min_d, _, _) = preview_distinct_target_bounds(
+                            state, player, card, def, face_idx, face,
+                        );
+                        if min_d > 1 {
+                            out.min_mana_increase = out.min_mana_increase.combine(
+                                &ManaCost::ZERO
+                                    .combine_n(&mana_per_extra_target, (min_d - 1).min(64)),
+                            );
+                        }
                     }
                 }
                 _ => {}

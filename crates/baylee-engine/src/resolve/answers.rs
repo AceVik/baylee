@@ -177,6 +177,18 @@ pub(super) fn resume_with_number_inner(
         res.pc += 1;
         return run(state, res);
     }
+    if matches!(res.awaiting, Some(AwaitingOp::MoveCounters(_))) {
+        let Some(AwaitingOp::MoveCounters(plan)) = res.awaiting.take() else {
+            unreachable!("just matched MoveCounters")
+        };
+        return counter_move::resume_multi_number(state, res, *plan, number);
+    }
+    if matches!(res.awaiting, Some(AwaitingOp::RemoveCountersChoice(_))) {
+        let Some(AwaitingOp::RemoveCountersChoice(plan)) = res.awaiting.take() else {
+            unreachable!("just matched RemoveCountersChoice")
+        };
+        return counter_removal::resume_generic_number(state, res, *plan, number);
+    }
     if matches!(
         res.awaiting,
         Some(AwaitingOp::RemoveUpToCountersTarget { .. })
@@ -1779,6 +1791,22 @@ pub fn resume_effect_choice(state: &mut GameState, res: &mut Resolution, index: 
     }
     if matches!(res.awaiting, Some(AwaitingOp::MoveCounter { .. })) {
         let flow = counter_move::resume(state, res, index);
+        subjects::flush(state, res);
+        return flow;
+    }
+    if matches!(res.awaiting, Some(AwaitingOp::MoveCounters(_))) {
+        let Some(AwaitingOp::MoveCounters(plan)) = res.awaiting.take() else {
+            unreachable!("just matched MoveCounters")
+        };
+        let flow = counter_move::resume_multi_mode(state, res, *plan, index);
+        subjects::flush(state, res);
+        return flow;
+    }
+    if matches!(res.awaiting, Some(AwaitingOp::RemoveCountersChoice(_))) {
+        let Some(AwaitingOp::RemoveCountersChoice(plan)) = res.awaiting.take() else {
+            unreachable!("just matched RemoveCountersChoice")
+        };
+        let flow = counter_removal::resume_generic_mode(state, res, *plan, index);
         subjects::flush(state, res);
         return flow;
     }

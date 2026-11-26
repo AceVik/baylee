@@ -34,6 +34,7 @@ mod command_and_combat_wave3;
 mod control;
 mod cost_reductions_and_kicker;
 mod costs;
+mod costs_hexproof_counters;
 mod counter_payment;
 mod counter_removal;
 mod crew_saddle;

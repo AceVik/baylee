@@ -532,6 +532,8 @@ impl HeuristicAgent {
             | Filter::WasCast
             | Filter::WasCastByYou
             | Filter::CastFromZone(_)
+            | Filter::CastForFlashback
+            | Filter::CastForDash
             | Filter::HasManaAbility
             | Filter::HasNonManaActivatedAbility
             | Filter::AttachedToBySource

@@ -1059,6 +1059,8 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::CouldHaveAttackedThisTurn
         | Filter::ControllerControls(_)
         | Filter::TappedToPayForSourceThisTurn
+        | Filter::CastForFlashback
+        | Filter::CastForDash
         | Filter::UnCard => false,
     }
 }
@@ -1422,8 +1424,20 @@ fn apply(
         | Modifier::AdjustLoyaltyCost { .. }
         | Modifier::EquipCostsLessIfTargets { .. }
         | Modifier::ForetellActionCostsLess { .. }
+        | Modifier::PlotActionCostsLess { .. }
+        | Modifier::MorphTurnFaceUpCostsMore { .. }
         | Modifier::MayForetellAnyTurn { .. }
         | Modifier::UnlockCostsLess { .. }
+        | Modifier::ActivatedAbilitiesCostAdditional { .. }
+        | Modifier::SpellsCostLessPerSharedCardTypeWithExiled { .. }
+        | Modifier::FirstSpellEachTurnCostAdjustByAmount { .. }
+        | Modifier::FirstActivatedAbilityEachTurnCostLess { .. }
+        | Modifier::ActivatedAbilitiesWithKeywordCostLess { .. }
+        | Modifier::EquipCostsLessByTargetAmount { .. }
+        | Modifier::CommanderTaxReplacedWithLife { .. }
+        | Modifier::RaiseCostIfTargetsYouOrPermanent { .. }
+        | Modifier::AdjustSpellCostBeyondFirstTarget { .. }
+        | Modifier::ReduceCostIfTargetsCheck { .. }
         | Modifier::MayCastFromGraveyardUsingAlt(_)
         | Modifier::GrantsUnearth(_)
         | Modifier::GrantsScavengeManaCost
@@ -1569,6 +1583,11 @@ fn apply(
         | Modifier::BlockableWithoutLandwalk(_)
         | Modifier::BlockableWithoutAnyLandwalk
         | Modifier::IgnoreOpponentsHexproof
+        | Modifier::IgnoreOpponentsHexproofMatching { .. }
+        | Modifier::HexproofFrom(_)
+        | Modifier::HexproofFromOwnColors
+        | Modifier::HexproofFromAbilities
+        | Modifier::PlayerHexproofFrom { .. }
         | Modifier::WardDoesntTrigger
         | Modifier::CanBeTargetedAsThoughNoHexproof
         | Modifier::CounterMaximum { .. }

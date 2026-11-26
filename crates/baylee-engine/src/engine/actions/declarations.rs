@@ -404,6 +404,18 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             .push(declared_entry);
                     }
                 }
+                if let baylee_core::ids::Defender::Player(defender) = defending
+                    && (self.state.per_turn.opponents_attacked.tracked
+                        || self.state.last_turn_attacked_players.tracked)
+                {
+                    let rec = crate::state::per_turn::OpponentAttackedRecord {
+                        attacker: player,
+                        defender,
+                    };
+                    if !self.state.per_turn.opponents_attacked.items.contains(&rec) {
+                        self.state.per_turn.opponents_attacked.items.push(rec);
+                    }
+                }
                 self.state.combat.participants.push((creature, version));
                 crate::combat::remember_attack(&mut self.state, creature, defending);
             }

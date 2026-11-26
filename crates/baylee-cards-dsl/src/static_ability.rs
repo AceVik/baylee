@@ -2310,6 +2310,175 @@ pub enum Modifier {
         /// Filter each tapped permanent must satisfy.
         filter: &'static Filter,
     },
+    /// Hexproof from `[quality]` (`CR 702.11d`): affected permanent on the
+    /// battlefield can't be the target of spells your opponents control matching
+    /// `Filter`, or abilities your opponents control from sources matching
+    /// `Filter`. Respects `LoseAllAbilities`, `CantHaveKeywords(HEXPROOF)`, and
+    /// ignore-hexproof effects (`CR 702.11f`). Appended to preserve replay
+    /// identities.
+    HexproofFrom(&'static Filter),
+    /// Affected permanent on the battlefield has hexproof from each of its
+    /// colors (`CR 702.11d`; *Tam, Mindful First-Year*). Appended to preserve
+    /// replay identities.
+    HexproofFromOwnColors,
+    /// Affected permanent on the battlefield has hexproof from activated and
+    /// triggered abilities your opponents control (`CR 702.11d`; *Volatile
+    /// Stormdrake*). Appended to preserve replay identities.
+    HexproofFromAbilities,
+    /// Affected player matching `who` has hexproof from spells/sources matching
+    /// `from` controlled by opponents (`CR 702.11d`; *Veil of Summer*).
+    /// Appended to preserve replay identities.
+    PlayerHexproofFrom {
+        /// Protected player(s).
+        who: crate::effect::PlayerRel,
+        /// Quality filter on opposing spells or ability sources.
+        from: &'static Filter,
+    },
+    /// Opponents' permanents matching `permanent_filter` (and opponents
+    /// themselves when `players` is `true`) with hexproof (including hexproof
+    /// from `[quality]`) can be the targets of spells and abilities `effect.controller`
+    /// controls as though they didn't have hexproof (*Glaring Spotlight*, *Kaya,
+    /// Bane of the Dead*, `CR 702.11f`). Appended to preserve replay identities.
+    IgnoreOpponentsHexproofMatching {
+        /// Filter matched against opponents' permanents whose hexproof is ignored.
+        permanent_filter: &'static Filter,
+        /// Whether opponents' player hexproof is also ignored.
+        players: bool,
+    },
+    /// Plotting cards from `who`'s hand costs `{amount}` less generic mana
+    /// (`CR 702.170a`; *Doc Aurlock, Grizzled Genius*). Appended to preserve
+    /// replay identities.
+    PlotActionCostsLess {
+        /// Whose plot special actions are discounted.
+        who: crate::effect::PlayerRel,
+        /// Generic mana subtracted from the plot cost.
+        amount: u8,
+    },
+    /// Turning face-down creatures face up costs `{amount}` more generic mana
+    /// (`CR 702.37e`, `CR 702.168e`; *Exiled Doomsayer*). Appended to preserve
+    /// replay identities.
+    MorphTurnFaceUpCostsMore {
+        /// Generic mana added to morph/disguise/manifest turn-face-up costs.
+        amount: u8,
+    },
+    /// Activated abilities of permanents matching `filter` activated by `who`
+    /// cost an additional non-mana `cost` to activate (`CR 602.2b`; *Brutal
+    /// Suppression*). Appended to preserve replay identities.
+    ActivatedAbilitiesCostAdditional {
+        /// Whose activations pay the additional cost.
+        who: crate::effect::PlayerRel,
+        /// Permanent source filter.
+        filter: &'static Filter,
+        /// Additional non-mana cost part required.
+        cost: crate::CostPart,
+    },
+    /// Spells `who` casts cost `{1}` less to cast for each card type shared
+    /// between the spell and cards exiled with the source (*Cemetery Prowler*).
+    /// Appended to preserve replay identities.
+    SpellsCostLessPerSharedCardTypeWithExiled {
+        /// Whose spells receive the reduction.
+        who: crate::effect::PlayerRel,
+    },
+    /// First spell matching `filter` cast by `who` each turn costs `amount`
+    /// less (or more when `increase` is `true`) generic mana (`CR 601.2f`;
+    /// *Zimone, Infinite Analyst*). Appended to preserve replay identities.
+    FirstSpellEachTurnCostAdjustByAmount {
+        /// Whose first matching spell each turn is adjusted.
+        who: crate::effect::PlayerRel,
+        /// Spell filter matched against the spell and earlier cast spells this turn.
+        filter: &'static Filter,
+        /// Dynamic generic mana delta evaluated on cost determination.
+        amount: crate::Amount,
+        /// `false` for reduction, `true` for tax.
+        increase: bool,
+    },
+    /// First activated ability matching `source_filter` (and targeting
+    /// `target_filter` when not `Filter::Any`) activated by `who` each turn
+    /// (restricted to `who`'s turn when `your_turn_only` is `true`) costs
+    /// `{amount}` less generic mana (`CR 602.2b`; *Professor Hojo*, *Tezzeret,
+    /// Betrayer of Flesh*). Appended to preserve replay identities.
+    FirstActivatedAbilityEachTurnCostLess {
+        /// Whose first matching activation each turn is discounted.
+        who: crate::effect::PlayerRel,
+        /// Source permanent filter.
+        source_filter: &'static Filter,
+        /// Chosen/preview target filter (`Filter::Any` for untargeted).
+        target_filter: &'static Filter,
+        /// Generic mana subtracted from the activation cost.
+        amount: u32,
+        /// When `true`, applies only during `who`'s turn.
+        your_turn_only: bool,
+    },
+    /// Activated keyword abilities of kind `keyword` (`Boast`, `Ninjutsu`)
+    /// activated by `who` cost `amount` less generic mana (`CR 602.2b`;
+    /// *Dragonkin Berserker*, *Silver-Fur Master*). Appended to preserve
+    /// replay identities.
+    ActivatedAbilitiesWithKeywordCostLess {
+        /// Whose keyword activations receive the discount.
+        who: crate::effect::PlayerRel,
+        /// Activated ability keyword category.
+        keyword: ActivatedAbilityKind,
+        /// Generic mana reduction evaluated dynamically.
+        amount: crate::Amount,
+    },
+    /// Equip abilities `who` activates cost `{X}` less generic mana where X is
+    /// `metric` read from the equip target (`CR 702.6a`; *Belt of Giant
+    /// Strength*, *Dragonfire Blade*, *Warrior's Blades*). Appended to preserve
+    /// replay identities.
+    EquipCostsLessByTargetAmount {
+        /// Whose equip activations receive the discount.
+        who: crate::effect::PlayerRel,
+        /// Target property determining the generic reduction.
+        metric: EquipTargetMetric,
+    },
+    /// Self-cost replacement for casting from the command zone (*Liesa, Shroud
+    /// of Dusk*): reduces `{2}` generic mana per previous command-zone cast and
+    /// adds `life_per_tax` life per previous command-zone cast. Appended to
+    /// preserve replay identities.
+    CommanderTaxReplacedWithLife {
+        /// Life paid in place of each `{2}` commander tax increment.
+        life_per_tax: u32,
+    },
+    /// Spells cast by `who` matching `spell_filter` that target `effect.controller`
+    /// or a permanent matching `permanent_filter` cost additional `extra_mana`
+    /// and/or `extra_life` (*Monastery Siege* — Dragons). Appended to preserve
+    /// replay identities.
+    RaiseCostIfTargetsYouOrPermanent {
+        /// Whose spells are taxed.
+        who: crate::effect::PlayerRel,
+        /// Filter matched against the spell.
+        spell_filter: &'static Filter,
+        /// Filter matched against chosen object targets.
+        permanent_filter: &'static Filter,
+        /// Additional mana cost added when targeting `you` or a matching permanent.
+        extra_mana: baylee_core::mana::ManaCost,
+        /// Additional life payment added when targeting `you` or a matching permanent.
+        extra_life: u32,
+    },
+    /// Spells cast by `who` matching `spell_filter` cost `mana_per_extra_target`
+    /// more for each target beyond the first (*Fireball*, *Officious
+    /// Interrogation*). Appended to preserve replay identities.
+    AdjustSpellCostBeyondFirstTarget {
+        /// Whose spells are taxed.
+        who: crate::effect::PlayerRel,
+        /// Filter matched against the spell.
+        spell_filter: &'static Filter,
+        /// Mana cost added for each chosen target after the first.
+        mana_per_extra_target: baylee_core::mana::ManaCost,
+    },
+    /// Spells cast by `who` matching `spell_filter` cost `reduction` less when
+    /// chosen target(s) satisfy `check` (*Lullmage's Domination*, *Not of This
+    /// World*). Appended to preserve replay identities.
+    ReduceCostIfTargetsCheck {
+        /// Whose spells receive the reduction.
+        who: crate::effect::PlayerRel,
+        /// Filter matched against the spell.
+        spell_filter: &'static Filter,
+        /// Mana cost reduction applied when `check` holds.
+        reduction: baylee_core::mana::ManaCost,
+        /// Target-dependent predicate evaluated at `CR 601.2f`.
+        check: TargetCostCheck,
+    },
 }
 
 /// Which defenders an attack-tax static ability protects (`CR 508.1h`).
@@ -2326,6 +2495,38 @@ pub enum AttackTaxTarget {
     YouOrYourPlaneswalkers,
     /// Any defender (*Cowed by Wisdom*).
     AnyDefender,
+}
+
+
+/// Keyword ability family matched by [`Modifier::ActivatedAbilitiesWithKeywordCostLess`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ActivatedAbilityKind {
+    /// Boast abilities (`CR 702.142a`).
+    Boast,
+    /// Ninjutsu / Commander ninjutsu abilities (`CR 702.49a`).
+    Ninjutsu,
+}
+
+/// Target characteristic read by [`Modifier::EquipCostsLessByTargetAmount`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum EquipTargetMetric {
+    /// Target creature's power, floored at 0 (*Belt of Giant Strength*).
+    Power,
+    /// Number of colors on the target creature (*Dragonfire Blade*).
+    ColorCount,
+    /// Number of counters of `CounterKind` on the target creature (*Warrior's Blades*).
+    Counters(crate::CounterKind),
+}
+
+/// Target-dependent condition read by [`Modifier::ReduceCostIfTargetsCheck`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum TargetCostCheck {
+    /// At least one chosen target's controller has at least `u32` cards in
+    /// their graveyard (*Lullmage's Domination*).
+    TargetControllerGraveyardAtLeast(u32),
+    /// At least one chosen stack target (spell or ability) targets a permanent
+    /// matching `Filter` controlled by the spell's caster (*Not of This World*).
+    TargetedStackTargetsYouControl(&'static Filter),
 }
 
 /// Keyword alternative-cost modes opened from a graveyard by
@@ -2759,6 +2960,9 @@ impl Modifier {
             // ability-adding effect, and so is granting a trigger.
             | Self::ProtectionFrom(_)
             | Self::ProtectionFromExiledWithSourceTypes
+            | Self::HexproofFrom(_)
+            | Self::HexproofFromOwnColors
+            | Self::HexproofFromAbilities
             | Self::GrantTriggered { .. }
             | Self::GrantTriggeredUpToOne { .. }
             | Self::GrantTriggeredDefinition(_)
@@ -3001,14 +3205,28 @@ impl Modifier {
             | Self::PreventAllButOneDamage { .. }
             | Self::ReplaceOrPreventDamageScopedWithThen { .. }
             | Self::HealOtherDamageWhenDealtDamage
-            | Self::ZonePlayGrant(_) => Layer::Text,
+            | Self::ZonePlayGrant(_)
             | Self::UntapDuringUntapStep { .. }
             | Self::AttackManaTax { .. }
             | Self::AttackPhyrexianTax { .. }
             | Self::CantAttackUnlessYouReturn { .. }
             | Self::CantAttackUnlessYouTap { .. }
             | Self::BlockManaTax { .. }
-            | Self::CantBlockUnlessYouTap { .. } => Layer::Text,
+            | Self::CantBlockUnlessYouTap { .. }
+            | Self::PlayerHexproofFrom { .. }
+            | Self::IgnoreOpponentsHexproofMatching { .. }
+            | Self::PlotActionCostsLess { .. }
+            | Self::MorphTurnFaceUpCostsMore { .. }
+            | Self::ActivatedAbilitiesCostAdditional { .. }
+            | Self::SpellsCostLessPerSharedCardTypeWithExiled { .. }
+            | Self::FirstSpellEachTurnCostAdjustByAmount { .. }
+            | Self::FirstActivatedAbilityEachTurnCostLess { .. }
+            | Self::ActivatedAbilitiesWithKeywordCostLess { .. }
+            | Self::EquipCostsLessByTargetAmount { .. }
+            | Self::CommanderTaxReplacedWithLife { .. }
+            | Self::RaiseCostIfTargetsYouOrPermanent { .. }
+            | Self::AdjustSpellCostBeyondFirstTarget { .. }
+            | Self::ReduceCostIfTargetsCheck { .. } => Layer::Text,
         }
     }
 }
@@ -3900,6 +4118,9 @@ mod tests {
             (Modifier::CantActivateArtifacts, Layer::Ability),
             // The two that moved. Layer 6 by CR 613.1f, not layer 3.
             (Modifier::ProtectionFrom(&Filter::CREATURE), Layer::Ability),
+            (Modifier::HexproofFrom(&Filter::INSTANT), Layer::Ability),
+            (Modifier::HexproofFromOwnColors, Layer::Ability),
+            (Modifier::HexproofFromAbilities, Layer::Ability),
             (
                 Modifier::GrantTriggered {
                     trigger: crate::ability::Trigger::ETB,
@@ -4511,6 +4732,68 @@ mod tests {
             Modifier::CantBlockUnlessYouTap {
                 count: 1,
                 filter: &Filter::CREATURE,
+            },
+            Modifier::PlayerHexproofFrom {
+                who: crate::PlayerRel::You,
+                from: &Filter::INSTANT,
+            },
+            Modifier::IgnoreOpponentsHexproofMatching {
+                permanent_filter: &Filter::CREATURE,
+                players: false,
+            },
+            Modifier::PlotActionCostsLess {
+                who: crate::PlayerRel::You,
+                amount: 2,
+            },
+            Modifier::MorphTurnFaceUpCostsMore { amount: 2 },
+            Modifier::ActivatedAbilitiesCostAdditional {
+                who: crate::PlayerRel::EachPlayer,
+                filter: &Filter::CREATURE,
+                cost: crate::CostPart::Sacrifice(&Filter::LAND),
+            },
+            Modifier::SpellsCostLessPerSharedCardTypeWithExiled {
+                who: crate::PlayerRel::You,
+            },
+            Modifier::FirstSpellEachTurnCostAdjustByAmount {
+                who: crate::PlayerRel::You,
+                filter: &Filter::Any,
+                amount: crate::Amount::Fixed(1),
+                increase: false,
+            },
+            Modifier::FirstActivatedAbilityEachTurnCostLess {
+                who: crate::PlayerRel::You,
+                source_filter: &Filter::ARTIFACT,
+                target_filter: &Filter::Any,
+                amount: 2,
+                your_turn_only: false,
+            },
+            Modifier::ActivatedAbilitiesWithKeywordCostLess {
+                who: crate::PlayerRel::You,
+                keyword: ActivatedAbilityKind::Boast,
+                amount: crate::Amount::Fixed(1),
+            },
+            Modifier::EquipCostsLessByTargetAmount {
+                who: crate::PlayerRel::You,
+                metric: EquipTargetMetric::Power,
+            },
+            Modifier::CommanderTaxReplacedWithLife { life_per_tax: 2 },
+            Modifier::RaiseCostIfTargetsYouOrPermanent {
+                who: crate::PlayerRel::EachOpponent,
+                spell_filter: &Filter::Any,
+                permanent_filter: &Filter::Any,
+                extra_mana: baylee_core::mana::ManaCost::parse("{2}"),
+                extra_life: 0,
+            },
+            Modifier::AdjustSpellCostBeyondFirstTarget {
+                who: crate::PlayerRel::You,
+                spell_filter: &Filter::This,
+                mana_per_extra_target: baylee_core::mana::ManaCost::parse("{1}"),
+            },
+            Modifier::ReduceCostIfTargetsCheck {
+                who: crate::PlayerRel::You,
+                spell_filter: &Filter::This,
+                reduction: baylee_core::mana::ManaCost::parse("{3}"),
+                check: TargetCostCheck::TargetControllerGraveyardAtLeast(8),
             },
         ] {
             assert_eq!(

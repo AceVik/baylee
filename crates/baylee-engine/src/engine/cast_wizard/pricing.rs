@@ -31,7 +31,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         frozen.allowance.reduced(selected)
     }
 
+    pub(in crate::engine) fn sync_wizard_reduction(&self, wizard: &mut CastWizard) {
+        let (frozen, life_inc) = self.frozen_spell_reduction_and_life(wizard);
+        wizard.reduction = Some(frozen);
+        wizard.target_life_increase = wizard.target_life_increase.max(life_inc);
+    }
+
     pub(in crate::engine) fn frozen_spell_reduction(&self, wizard: &CastWizard) -> FrozenReduction {
+        self.frozen_spell_reduction_and_life(wizard).0
+    }
+
+    fn frozen_spell_reduction_and_life(&self, wizard: &CastWizard) -> (FrozenReduction, u32) {
         let def = self
             .state
             .object(wizard.card)
@@ -93,7 +103,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             }
             casting::spell_adjustment_with_def(&self.state, wizard.player, &object, Some(def))
         };
-        self.frozen_spell_reduction_from(wizard, def, &adjustment)
+        (
+            self.frozen_spell_reduction_from(wizard, def, &adjustment),
+            adjustment.life_increase,
+        )
     }
 
     fn frozen_spell_reduction_from(
@@ -297,9 +310,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .with_less_mana(&without.mana_increase, true)
                 .with_more_generic(with_targets.increase.saturating_sub(without.increase)),
         );
-        wizard.target_life_increase = with_targets
-            .life_increase
-            .saturating_sub(without.life_increase);
+        wizard.target_life_increase = with_targets.life_increase;
         let extra_colored_only = with_targets
             .colored_only_reduction
             .with_less_mana(&without.colored_only_reduction, true);

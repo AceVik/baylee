@@ -21,9 +21,9 @@
 pub(crate) mod counter_order;
 mod counters;
 #[cfg(feature = "test-support")]
-pub use counters::{can_move_counter, move_counter};
+pub use counters::{can_move_counter, move_counter, move_counters};
 #[cfg(not(feature = "test-support"))]
-pub(crate) use counters::{can_move_counter, move_counter};
+pub(crate) use counters::{can_move_counter, move_counters};
 pub use counters::{
     counter_multiplier, put_counters, put_counters_bounded_by, put_counters_by, record_counters,
     record_counters_by, remove_counters, remove_counters_by,

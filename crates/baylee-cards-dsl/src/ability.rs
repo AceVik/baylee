@@ -844,6 +844,23 @@ pub enum Condition {
     /// resolution (e.g. tied for highest number on *Menacing Ogre*). Appended
     /// to preserve replay identities.
     YouAreRememberedPlayer,
+    /// At least one opponent still in the game has zero cards in hand
+    /// (*Avatar of Will*). Appended to preserve replay identities.
+    OpponentHasNoCardsInHand,
+    /// At least one player still in the game has life less than or equal to
+    /// half their starting life total, rounded down (*Game Over*). Appended to
+    /// preserve replay identities.
+    AnyPlayerLifeAtMostHalfStarting,
+    /// You control at least `u32` creatures that share a creature type
+    /// (*Synchronized Eviction*). Appended to preserve replay identities.
+    YouControlSharingCreatureType(u32),
+    /// A player attacked you during their most recently completed turn
+    /// (*Avenge*). Appended to preserve replay identities.
+    PlayerAttackedYouLastTurn,
+    /// It is currently night (`CR 730.2`). Appended to preserve replay identities.
+    IsNight,
+    /// It is currently day (`CR 730.2`). Appended to preserve replay identities.
+    IsDay,
 }
 
 /// Trigger conditions for triggered abilities.

@@ -161,6 +161,8 @@ pub struct SubjectContext {
     pub(crate) damaged_object: Option<ObjectId>,
     /// Incarnation version of the event damage source for CR 608.2h LKI inside damage riders.
     pub(crate) event_source_version: Option<u32>,
+    /// Counters moved during this resolution (`ThisWay::CountersMoved`, CR 122.5).
+    pub(crate) counters_moved: u32,
     /// Stashed opponent copy target during `Effect::Demonstrate` (`CR 702.148a`).
     pub(crate) demonstrate_opp: Option<(DamageSourceRef, baylee_core::ids::PlayerId)>,
     /// Running sum accumulated by `Effect::AccumulateChosenNumber` (Join forces).
@@ -342,6 +344,7 @@ impl SubjectContext {
             damage_prevented: 0,
             damaged_object: None,
             event_source_version: None,
+            counters_moved: 0,
             demonstrate_opp: None,
             accumulated_number: 0,
             remembered_players: smallvec::SmallVec::new(),
@@ -560,6 +563,15 @@ impl SubjectContext {
                 .wrapping_mul(31)
                 .wrapping_add(crate::state::structural_fingerprint(&(
                     255_u8, 585_u16, 1_u8, ver,
+                )));
+        }
+        if self.counters_moved > 0 {
+            h = h
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    255_u8,
+                    598_u16,
+                    self.counters_moved,
                 )));
         }
         if let Some(vq) = &self.vote_queue {

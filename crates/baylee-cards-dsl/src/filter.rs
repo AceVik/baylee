@@ -646,6 +646,14 @@ pub enum Filter {
     /// Has the alternative characteristics of an Omen, including copies (CR 720).
     /// Appended to preserve replay identities.
     HasOmen,
+    /// Spell currently being cast (or cast-spell snapshot) whose flashback
+    /// alternative cost was chosen (`CR 702.34a`; *Catalyst Stone*).
+    /// Appended to preserve replay identities.
+    CastForFlashback,
+    /// Spell currently being cast (or cast-spell snapshot) whose dash
+    /// alternative cost was chosen (`CR 702.109a`; *Warbringer*).
+    /// Appended to preserve replay identities.
+    CastForDash,
 }
 
 /// Zone references for filters (engine zones, DSL view).

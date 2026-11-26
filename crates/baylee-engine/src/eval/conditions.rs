@@ -875,6 +875,28 @@ pub fn condition_holds_with_context(
                 })
             })
         }
+        Condition::OpponentHasNoCardsInHand => state.players.iter().any(|p| {
+            !p.has_lost()
+                && state.is_opponent(p.id, you)
+                && state
+                    .zones
+                    .list(crate::zone::ZoneLocation::Hand(p.id))
+                    .is_empty()
+        }),
+        Condition::AnyPlayerLifeAtMostHalfStarting => state
+            .players
+            .iter()
+            .any(|p| !p.has_lost() && p.life <= p.starting_life.div_euclid(2)),
+        Condition::YouControlSharingCreatureType(min_count) => {
+            you_control_sharing_creature_type(state, you, min_count)
+        }
+        Condition::PlayerAttackedYouLastTurn => state
+            .last_turn_attacked_players
+            .items
+            .iter()
+            .any(|rec| rec.defender == you),
+        Condition::IsNight => state.day_night == Some(crate::turn::DayNight::Night),
+        Condition::IsDay => state.day_night == Some(crate::turn::DayNight::Day),
         Condition::TriggerOnly(inner) => condition_holds_with_context(state, you, context, *inner),
     }
 }
@@ -1573,4 +1595,43 @@ pub(crate) fn counters_placed_on_source_this_turn(
             .counter_placements
             .contains(&(reference, kind))
     }
+}
+
+/// Whether `you` control at least `min_count` creatures on the battlefield
+/// that all share at least one creature subtype.
+fn you_control_sharing_creature_type(state: &GameState, you: PlayerId, min_count: u32) -> bool {
+    let min = usize::try_from(min_count).unwrap_or(usize::MAX);
+    if min == 0 {
+        return true;
+    }
+    let mut types_per_creature: smallvec::SmallVec<[baylee_core::types::SubtypeSet; 8]> =
+        smallvec::SmallVec::new();
+    for id in state.battlefield_seen() {
+        let Some(obj) = state.object(id) else {
+            continue;
+        };
+        if obj.controller == you
+            && obj
+                .characteristics()
+                .types
+                .contains(baylee_core::types::TypeSet::CREATURE)
+        {
+            types_per_creature.push(obj.characteristics().subtypes);
+        }
+    }
+    if types_per_creature.len() < min {
+        return false;
+    }
+    if min == 1 {
+        return true;
+    }
+    let mut candidate_types = baylee_core::types::SubtypeSet::EMPTY;
+    for &subtypes in &types_per_creature[..=types_per_creature.len() - min] {
+        candidate_types.union_with(subtypes);
+    }
+    let all_creature_types = baylee_core::generated::subtypes::ALL_CREATURE_TYPES;
+    candidate_types.iter().any(|t| {
+        all_creature_types.contains(t)
+            && types_per_creature.iter().filter(|s| s.contains(t)).count() >= min
+    })
 }

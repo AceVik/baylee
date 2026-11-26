@@ -418,6 +418,26 @@ pub enum CostReduction {
     /// colored spillover into generic) if this permanent entered the
     /// battlefield this turn. Appended to preserve replay identities.
     OwnManaCostIfEnteredThisTurn,
+    /// Reduces the activation cost by `mana` when `condition` holds
+    /// (*Flying Drone*, *Kami of Jealous Thirst*). Appended to preserve
+    /// replay identities.
+    IfMana {
+        /// Intervening condition checked at activation cost determination.
+        condition: crate::Condition,
+        /// Mana cost subtracted when `condition` holds.
+        mana: ManaCost,
+    },
+    /// Reduces an activated ability's generic cost by `amount` when at least
+    /// `min_count` chosen targets match `filter` (*Raft Security Officer*,
+    /// *Wayta, Trainer Prodigy*). Appended to preserve replay identities.
+    IfTargetsMatch {
+        /// Filter each qualifying chosen target must match.
+        filter: &'static Filter,
+        /// Minimum number of matching targets required.
+        min_count: u8,
+        /// Generic mana reduction applied when the threshold is met.
+        amount: u32,
+    },
 }
 
 /// When an alternative cost may be used.

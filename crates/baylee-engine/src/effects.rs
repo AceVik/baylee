@@ -169,6 +169,9 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::SetName(_)
         | Modifier::ProtectionFrom(_)
         | Modifier::ProtectionFromExiledWithSourceTypes
+        | Modifier::HexproofFrom(_)
+        | Modifier::HexproofFromOwnColors
+        | Modifier::HexproofFromAbilities
         | Modifier::BecomeCopyOf(_)
         | Modifier::GrantsFlashback
         | Modifier::GrantsFlashbackCost(_)
@@ -468,7 +471,21 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::RedirectDamageToAffectedController
         | Modifier::PreventAllButOneDamage { .. }
         | Modifier::ReplaceOrPreventDamageScopedWithThen { .. }
-        | Modifier::HealOtherDamageWhenDealtDamage => false,
+        | Modifier::HealOtherDamageWhenDealtDamage
+        | Modifier::PlayerHexproofFrom { .. }
+        | Modifier::IgnoreOpponentsHexproofMatching { .. }
+        | Modifier::PlotActionCostsLess { .. }
+        | Modifier::MorphTurnFaceUpCostsMore { .. }
+        | Modifier::ActivatedAbilitiesCostAdditional { .. }
+        | Modifier::SpellsCostLessPerSharedCardTypeWithExiled { .. }
+        | Modifier::FirstSpellEachTurnCostAdjustByAmount { .. }
+        | Modifier::FirstActivatedAbilityEachTurnCostLess { .. }
+        | Modifier::ActivatedAbilitiesWithKeywordCostLess { .. }
+        | Modifier::EquipCostsLessByTargetAmount { .. }
+        | Modifier::CommanderTaxReplacedWithLife { .. }
+        | Modifier::RaiseCostIfTargetsYouOrPermanent { .. }
+        | Modifier::AdjustSpellCostBeyondFirstTarget { .. }
+        | Modifier::ReduceCostIfTargetsCheck { .. } => false,
     }
 }
 
@@ -892,6 +909,12 @@ impl EffectTable {
                     | Modifier::GrantEvoke(_)
                     | Modifier::GrantMadnessManaCost
                     | Modifier::CastCostIncreaseUnlessTargets { .. }
+                    | Modifier::SpellsCostLessPerSharedCardTypeWithExiled { .. }
+                    | Modifier::FirstSpellEachTurnCostAdjustByAmount { .. }
+                    | Modifier::CommanderTaxReplacedWithLife { .. }
+                    | Modifier::RaiseCostIfTargetsYouOrPermanent { .. }
+                    | Modifier::AdjustSpellCostBeyondFirstTarget { .. }
+                    | Modifier::ReduceCostIfTargetsCheck { .. }
             ),
         );
         self.hints.insert_if(
@@ -922,6 +945,11 @@ impl EffectTable {
                     | Modifier::PlayerCantActivateNonMana { .. }
                     | Modifier::CantActivateArtifacts
                     | Modifier::ChosenNameCantActivate
+                    | Modifier::MorphTurnFaceUpCostsMore { .. }
+                    | Modifier::ActivatedAbilitiesCostAdditional { .. }
+                    | Modifier::FirstActivatedAbilityEachTurnCostLess { .. }
+                    | Modifier::ActivatedAbilitiesWithKeywordCostLess { .. }
+                    | Modifier::EquipCostsLessByTargetAmount { .. }
             ),
         );
         self.hints.insert_if(
@@ -2581,6 +2609,71 @@ mod tests {
             Modifier::GrantBloodthirst(3),
             Modifier::GrantSunburst,
             Modifier::SetName("Moon"),
+            Modifier::HexproofFrom(&baylee_cards_dsl::Filter::CREATURE),
+            Modifier::HexproofFromOwnColors,
+            Modifier::HexproofFromAbilities,
+            Modifier::PlayerHexproofFrom {
+                who: baylee_cards_dsl::PlayerRel::You,
+                from: &baylee_cards_dsl::Filter::CREATURE,
+            },
+            Modifier::IgnoreOpponentsHexproofMatching {
+                permanent_filter: &baylee_cards_dsl::Filter::OPPONENT_CREATURE,
+                players: false,
+            },
+            Modifier::PlotActionCostsLess {
+                who: baylee_cards_dsl::PlayerRel::You,
+                amount: 1,
+            },
+            Modifier::MorphTurnFaceUpCostsMore { amount: 2 },
+            Modifier::ActivatedAbilitiesCostAdditional {
+                who: baylee_cards_dsl::PlayerRel::EachPlayer,
+                filter: &baylee_cards_dsl::Filter::CREATURE,
+                cost: baylee_cards_dsl::CostPart::PayLife(2),
+            },
+            Modifier::SpellsCostLessPerSharedCardTypeWithExiled {
+                who: baylee_cards_dsl::PlayerRel::You,
+            },
+            Modifier::FirstSpellEachTurnCostAdjustByAmount {
+                who: baylee_cards_dsl::PlayerRel::You,
+                filter: &baylee_cards_dsl::Filter::Any,
+                amount: baylee_cards_dsl::Amount::Fixed(1),
+                increase: false,
+            },
+            Modifier::FirstActivatedAbilityEachTurnCostLess {
+                who: baylee_cards_dsl::PlayerRel::You,
+                source_filter: &baylee_cards_dsl::Filter::Any,
+                target_filter: &baylee_cards_dsl::Filter::Any,
+                amount: 1,
+                your_turn_only: false,
+            },
+            Modifier::ActivatedAbilitiesWithKeywordCostLess {
+                who: baylee_cards_dsl::PlayerRel::You,
+                keyword: baylee_cards_dsl::ActivatedAbilityKind::Boast,
+                amount: baylee_cards_dsl::Amount::Fixed(1),
+            },
+            Modifier::EquipCostsLessByTargetAmount {
+                who: baylee_cards_dsl::PlayerRel::You,
+                metric: baylee_cards_dsl::EquipTargetMetric::Power,
+            },
+            Modifier::CommanderTaxReplacedWithLife { life_per_tax: 3 },
+            Modifier::RaiseCostIfTargetsYouOrPermanent {
+                who: baylee_cards_dsl::PlayerRel::Opponent,
+                spell_filter: &baylee_cards_dsl::Filter::Any,
+                permanent_filter: &baylee_cards_dsl::Filter::Any,
+                extra_mana: baylee_core::mana::ManaCost::parse("{2}"),
+                extra_life: 0,
+            },
+            Modifier::AdjustSpellCostBeyondFirstTarget {
+                who: baylee_cards_dsl::PlayerRel::EachPlayer,
+                spell_filter: &baylee_cards_dsl::Filter::Any,
+                mana_per_extra_target: baylee_core::mana::ManaCost::parse("{1}"),
+            },
+            Modifier::ReduceCostIfTargetsCheck {
+                who: baylee_cards_dsl::PlayerRel::You,
+                spell_filter: &baylee_cards_dsl::Filter::Any,
+                reduction: baylee_core::mana::ManaCost::parse("{1}"),
+                check: baylee_cards_dsl::TargetCostCheck::TargetControllerGraveyardAtLeast(8),
+            },
         ]
     }
 
@@ -2619,7 +2712,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            299,
+            316,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -2759,7 +2852,7 @@ mod tests {
         // Wave 17c adds GrantsUnearth, GrantsScavengeManaCost, and GrantsDredge on
         // Layer::Ability (+3 locking -> 70) and ten cost/permission modifiers on
         // Layer::Text (+10 rules-only -> 194).
-        assert_eq!((locking, all.len() - locking), (91, 208));
+        assert_eq!((locking, all.len() - locking), (94, 222));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole
