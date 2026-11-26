@@ -84,6 +84,11 @@ fn foresight()
 /// preset beside it.
 pub(super) const MAX_LINK_MESSAGE: usize = 72 << 20;
 
+const _: () = assert!(
+    MAX_LINK_MESSAGE >= (64 << 20) + (4 << 20),
+    "a stored record and a preset fit in one message"
+);
+
 /// The link to the gateway: [`ws_config`] with room for a resumed record.
 /// Only on this side: the peer is the gateway its agent named, which
 /// already decides every game this process plays, not a stranger, and an

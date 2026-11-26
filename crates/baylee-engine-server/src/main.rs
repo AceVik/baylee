@@ -1064,7 +1064,6 @@ mod tests {
         let link = attached::link_config();
         assert_eq!(link.max_message_size, Some(attached::MAX_LINK_MESSAGE));
         assert_eq!(link.max_frame_size, Some(attached::MAX_LINK_MESSAGE));
-        assert!(attached::MAX_LINK_MESSAGE >= (64 << 20) + (4 << 20));
         assert_eq!(
             link.read_buffer_size,
             ws_config().read_buffer_size,
