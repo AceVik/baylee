@@ -942,3 +942,21 @@ Un-sets/Acorn and Alchemy/digital-only cards; zero stub downgrades).
 Whole pool after Wave 16 (`xtask validate`): **25,939 definitions** —
 **25,275 finished** (**2,782 hand-owned `Implemented`** and **22,493
 machine-owned `Generated`**) and **664 stubs**.
+
+## Wave 17 + Codegen Wave 29 pure-paper expansion (2026-11-26)
+
+Implemented Engine Wave 17a/b/c (`TriggerMultiplierMatching` / `TriggerCause`,
+cast provenance queries `WasCast`/`WasCastByYou`/`CastFromZone`/`SourceWasCast`,
+`Effect::Learn`, `Effect::Empower`, Coven `DistinctPowersAmong`, dynamic
+`K:etbCounter` + `PutAllCountersFrom`, `K:Mayhem`, `SpellsCostLessManaByAmount`,
+graveyard grants `Unearth`/`Scavenge`/`Dredge`/`MayCastFromGraveyardUsingAlt`,
+`OneOrMoreCardsDiscarded`, `Effect::DoublePT`), Codegen Wave 29a–d multi-pass
+readers, and client/AI/train targeting preflight coverage (`Enchanted`,
+`Equipped`, `HasAnyCounter`, `eval_amount_at` public zone counts & life totals,
+and `FaceDef.mayhem` feature enumeration), promoting **+35 machine-owned stubs**
+and adding **+465 pure-paper cards** (`0` Un-sets/Acorn, `0` Alchemy/digital-only,
+`0` stub downgrades).
+
+Whole pool after Wave 17 (`xtask validate`): **26,404 definitions** —
+**25,775 finished** (**2,782 hand-owned `Implemented`** and **22,993
+machine-owned `Generated`**) and **629 stubs**.
