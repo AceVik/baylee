@@ -4032,6 +4032,7 @@ impl Tx<'_> {
         if !matches!(body.take("Defined").as_deref(), None | Some("You"))
             || !matches!(body.take("DestinationZone").as_deref(), None | Some("Hand"))
             || !matches!(body.take("ChangeNum").as_deref(), None | Some("1"))
+            || !matches!(body.take("ChangeValid").as_deref(), None | Some("Card"))
             || !matches!(body.take("NoReveal").as_deref(), None | Some("True"))
             || body.has("Reveal")
         {
@@ -4078,7 +4079,8 @@ impl Tx<'_> {
         let num_ok = body.take("DigNum").as_deref() == Some("1")
             && matches!(body.take("ChangeNum").as_deref(), Some("1" | "All"))
             && body.take("DestinationZone").as_deref() == Some("Exile")
-            && matches!(body.take("ExileWithSource").as_deref(), None | Some("True"));
+            && matches!(body.take("ExileWithSource").as_deref(), None | Some("True"))
+            && matches!(body.take("NoReveal").as_deref(), None | Some("True"));
         let Some(face_down) = parse_face_down_flag(&mut body) else {
             return self.deny("replacement `R: Event$ Draw`".to_string());
         };

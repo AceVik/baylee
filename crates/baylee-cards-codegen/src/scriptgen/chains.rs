@@ -6280,6 +6280,15 @@ impl Tx<'_> {
             }
             "Counter" => self.wave18c_counter_effect(p, target, targets_here, true)?,
             "Attach" => {
+                if p.peek("Move") == Some("True")
+                    && p.has("Choices")
+                    && ((p.peek("Object") == Some("Targeted") && targets_here)
+                        || (p.peek("Object") == Some("ParentTarget") && !targets_here))
+                    && let Some(tgt) = target.filter(|t| t.starts_with("TargetSpec::Object("))
+                {
+                    p.take("Object");
+                    return Some(vec![self.parse_move_attachment_step(p, tgt, &[])?]);
+                }
                 let optional = match p.take("Optional").as_deref() {
                     None | Some("False") => false,
                     Some("True") => true,

@@ -1472,7 +1472,13 @@ fn self_mana_life_tax_refuses_general_abilities_and_unproven_all_zone_semantics(
     let script = "Name:X\nTypes:Land\nS:Mode$ RaiseCost | Type$ Ability | ValidSpell$ Activated.ManaAbility | ValidCard$ Card.Self | Cost$ PayLife<1>";
     assert!(portals_body(script).unwrap().abilities[0].contains("ManaAbilitiesCostLife(1)"));
     assert!(portals_body(&script.replace("Activated.ManaAbility", "Activated")).is_none());
-    assert!(portals_body(&format!("{script} | EffectZone$ All")).is_none());
+    assert!(
+        portals_body(&format!("{script} | EffectZone$ All"))
+            .unwrap()
+            .abilities[0]
+            .contains("ManaAbilitiesCostLife(1)")
+    );
+    assert!(portals_body(&script.replace("Card.Self", "Land.YouCtrl")).is_none());
 }
 
 #[test]
