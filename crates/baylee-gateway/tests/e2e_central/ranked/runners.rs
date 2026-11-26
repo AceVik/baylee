@@ -287,10 +287,11 @@ fn agreed(one: &MatchReport, two: &MatchReport) {
             "the table and Central agree on the result"
         );
         let stats = &report.played.stats;
-        // Two decks of sixty Forests end when a library runs out, and no
+        // Two decks of sixty Forests end when a library runs out (turn 114
+        // in the run of 26.11.2026, a clock forfeit far sooner), and no
         // question is left to its clock.
         assert!(
-            stats.turns >= 10,
+            stats.turns >= 100,
             "a whole game, not a forfeit: {} turns, {result:?}",
             stats.turns
         );
