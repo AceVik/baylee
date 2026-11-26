@@ -1,6 +1,6 @@
 //! Reading multi-layer animation effects.
 
-use super::{Params, Tx, card_type_const, color_const, keyword_const};
+use super::{Chain, Params, Tx, card_type_const, color_const, keyword_const};
 
 impl Tx<'_> {
     /// `Animate`: the manland sentence — "until end of turn, this land
@@ -35,6 +35,91 @@ impl Tx<'_> {
     /// battlefield", `Duration::WhileSourceOnBattlefield`.
     /// `AnimateAll`: "All lands become 2/2 creatures until end of turn.
     /// They're still lands." (Natural Affinity).
+    /// Lower Licid / animate-to-Aura chain `Animate | ... | SubAbility$ DBAttach`
+    /// into [`Effect::BecomeAura`].
+    pub(super) fn try_become_aura_chain(
+        &mut self,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        chain: &mut Chain,
+    ) -> Option<Vec<String>> {
+        if chain.target.is_some()
+            || self.on_a_spell
+            || !matches!(p.peek("Defined"), None | Some("Self"))
+            || p.peek("Duration") != Some("Permanent")
+            || p.peek("RemoveCardTypes") != Some("True")
+        {
+            return None;
+        }
+        let sub_name = sub.as_deref()?.to_string();
+        let body = self.svars.get(sub_name.trim())?.clone();
+        let (s_api, mut sp) = Params::parse(&body)?;
+        sp.drop_prose();
+        if s_api != "Attach"
+            || !matches!(sp.take("Defined").as_deref(), None | Some("Self"))
+            || !matches!(sp.take("Object").as_deref(), None | Some("Self"))
+            || sp.has("Choices")
+            || sp.has("Optional")
+            || sp.has("Move")
+            || sp.has("Chooser")
+            || sp.has("PlayerChoices")
+            || sp.has("RememberAttached")
+            || sp.has("TargetMin")
+            || sp.has("TargetMax")
+            || sp.has("TargetUnique")
+            || sp.has("UnlessCost")
+            || sp.has("ReplaceDyingDefined")
+            || sp.has("AtEOT")
+            || sp.entries.iter().any(|(k, _)| k.starts_with("Condition"))
+        {
+            return None;
+        }
+        let mut probe = p.clone();
+        probe.take("Defined");
+        probe.take("Duration");
+        probe.take("RemoveCardTypes");
+        let types_raw = probe.take("Types")?;
+        let type_mods = self.become_types_modifiers(&mut probe, &types_raw, &[',', '&'])?;
+        if type_mods.as_slice()
+            != [
+                "Modifier::BecomeTypes { types: TypeSet::ENCHANTMENT, subtypes: &[subtypes::enchantment::AURA] }",
+            ]
+        {
+            return None;
+        }
+        let kw_raw = probe.take("Keywords")?;
+        let enchant_rest = kw_raw.trim().strip_prefix("Enchant:")?;
+        if enchant_rest.contains('&') {
+            return None;
+        }
+        let enchant = self.enchant_target_spec(enchant_rest)?;
+        let lose_this_ability = self.take_true_flag(&mut probe, "RemoveThisAbility")?;
+        let revert_cost = match probe.take("RevertCost") {
+            Some(raw) => {
+                let mana = self.parse_fixed_mana_cost(&raw, "RevertCost")?;
+                format!("Some(ManaCost::parse({mana:?}))")
+            }
+            None => "None".to_string(),
+        };
+        if !probe.exhausted() {
+            return None;
+        }
+        sp.claim_label("ValidTgtsDesc", "ValidTgts");
+        let valid = sp.take("ValidTgts")?;
+        let graveyard_desc = sp.take("GraveyardDescription");
+        let next_sub = sp.take("SubAbility");
+        self.chain_target("Attach", &mut sp, &valid, chain, graveyard_desc.as_deref())?;
+        let target = chain.target.as_deref()?.to_string();
+        if !target.starts_with("TargetSpec::Object(") || !sp.exhausted() {
+            return None;
+        }
+        *p = probe;
+        *sub = next_sub;
+        Some(vec![format!(
+            "Effect::BecomeAura {{ target: {target}, enchant: {enchant}, lose_this_ability: {lose_this_ability}, revert_cost: {revert_cost} }}"
+        )])
+    }
+
     pub(super) fn animate_all_effect(
         &mut self,
         p: &mut Params,
@@ -56,7 +141,60 @@ impl Tx<'_> {
         };
         let expr = self.filter_expr(&valid)?;
         let filter = format!("&{}", self.body.filter_static("ANIMATE_ALL", &expr));
-        self.animate_for_filter(p, &filter, controlled_by, false, false, true)
+        self.animate_for_filter(p, &filter, target, controlled_by, false, true, false)
+    }
+
+    fn animate_spellcast_modify_event(&mut self, p: &mut Params) -> Option<Vec<String>> {
+        let effs =
+            self.animate_for_filter(p, "&Filter::Reference", None, None, false, false, true)?;
+        effs.into_iter()
+            .map(|eff| {
+                let inner = eff
+                    .strip_prefix("Effect::continuous(&Filter::Reference, ")?
+                    .strip_suffix(')')?;
+                let (modifier, duration) = inner.rsplit_once(", ")?;
+                if !modifier.starts_with("Modifier::") || !duration.starts_with("Duration::") {
+                    return None;
+                }
+                Some(format!(
+                    "Effect::ModifyEvent {{ modifier: {modifier}, duration: {duration} }}"
+                ))
+            })
+            .collect()
+    }
+
+    fn animate_qualified_subject(
+        &mut self,
+        p: &mut Params,
+        def: &str,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        let (prefix, qual) = def.split_once('.')?;
+        match (prefix, target) {
+            ("Targeted" | "ParentTarget" | "ParentTargeted", Some(t))
+                if !t.starts_with("TargetSpec::Player(") =>
+            {
+                let cond_filter = self.animate_subject_guard_filter(qual)?;
+                let _ = self.take_true_flag(p, "IfDesc")?;
+                let inner =
+                    self.animate_for_filter(p, "&Filter::This", target, None, false, false, false)?;
+                Some(vec![format!(
+                    "Effect::IfTargetMatches {{ filter: {cond_filter}, then: &[{}] }}",
+                    inner.join(", ")
+                )])
+            }
+            ("Self", None) if !self.on_a_spell => {
+                let cond_filter = self.animate_subject_guard_filter(qual)?;
+                let _ = self.take_true_flag(p, "IfDesc")?;
+                let inner =
+                    self.animate_for_filter(p, "&Filter::This", None, None, true, true, false)?;
+                Some(vec![format!(
+                    "Effect::IfCondition {{ condition: Condition::SourceMatches({cond_filter}), then: &[{}], otherwise: &[] }}",
+                    inner.join(", ")
+                )])
+            }
+            _ => None,
+        }
     }
 
     pub(super) fn animate_effect(
@@ -77,41 +215,40 @@ impl Tx<'_> {
                     .into(),
             );
         }
+        if target.is_none()
+            && matches!(
+                defined.as_deref(),
+                Some("TriggeredCard" | "TriggeredCardLKICopy" | "TriggeredSpellAbility")
+            )
+            && matches!(
+                self.trigger_mode.as_deref(),
+                Some("SpellCast" | "SpellCastOrCopy")
+            )
+        {
+            return self.animate_spellcast_modify_event(p);
+        }
         if let Some(def) = defined.as_deref() {
             if let Some(valid) = def.strip_prefix("Valid ")
                 && target.is_none()
             {
                 let expr = self.filter_expr(valid.trim())?;
                 let filter = format!("&{}", self.body.filter_static("ANIMATE_ALL", &expr));
-                return self.animate_for_filter(p, &filter, None, false, false, false);
+                return self.animate_for_filter(p, &filter, None, None, false, false, false);
             }
-            if let Some((prefix, qual)) = def.split_once('.') {
-                match (prefix, target) {
-                    ("Targeted" | "ParentTarget" | "ParentTargeted", Some(t))
-                        if !t.starts_with("TargetSpec::Player(") =>
-                    {
-                        let cond_filter = self.animate_subject_guard_filter(qual)?;
-                        let _ = self.take_true_flag(p, "IfDesc")?;
-                        let inner =
-                            self.animate_for_filter(p, "&Filter::This", None, true, false, false)?;
-                        return Some(vec![format!(
-                            "Effect::IfTargetMatches {{ filter: {cond_filter}, then: &[{}] }}",
-                            inner.join(", ")
-                        )]);
-                    }
-                    ("Self", None) if !self.on_a_spell => {
-                        let cond_filter = self.animate_subject_guard_filter(qual)?;
-                        let _ = self.take_true_flag(p, "IfDesc")?;
-                        let inner =
-                            self.animate_for_filter(p, "&Filter::This", None, false, true, true)?;
-                        return Some(vec![format!(
-                            "Effect::IfCondition {{ condition: Condition::SourceMatches({cond_filter}), then: &[{}], otherwise: &[] }}",
-                            inner.join(", ")
-                        )]);
-                    }
-                    _ => {}
-                }
+            if let Some(effs) = self.animate_qualified_subject(p, def, target) {
+                return Some(effs);
             }
+        }
+        if defined.as_deref() == Some("Self") && target.is_some() && !self.on_a_spell {
+            let effs =
+                self.animate_for_filter(p, "&Filter::This", target, None, true, false, false)?;
+            if effs
+                .iter()
+                .all(|e| e.starts_with("Effect::SetDynamicPT { subject: TargetSpec::ThisObject,"))
+            {
+                return Some(effs);
+            }
+            return None;
         }
         let (filter, source_only) = match (defined.as_deref(), target) {
             (None | Some("Self"), None) if !self.on_a_spell => ("&Filter::This", true),
@@ -129,7 +266,7 @@ impl Tx<'_> {
                 return None;
             }
         };
-        self.animate_for_filter(p, filter, None, target.is_some(), source_only, source_only)
+        self.animate_for_filter(p, filter, target, None, source_only, source_only, false)
     }
 
     fn animate_subject_guard_filter(&mut self, qual: &str) -> Option<String> {
@@ -209,40 +346,56 @@ impl Tx<'_> {
         }
     }
 
-    #[allow(clippy::fn_params_excessive_bools)]
+    fn animate_duration(&self, p: &mut Params) -> Option<&'static str> {
+        match p.take("Duration").as_deref() {
+            None | Some("UntilEndOfTurn") => Some("Duration::UntilEndOfTurn"),
+            Some("Permanent") => Some("Duration::Indefinitely"),
+            Some("UntilEndOfCombat") => Some("Duration::UntilEndOfCombat"),
+            Some("UntilYourNextTurn") => Some("Duration::UntilYourNextTurn"),
+            Some("UntilYourNextUpkeep") => Some("Duration::UntilYourNextUpkeep"),
+            Some("UntilTheEndOfYourNextUpkeep") => Some("Duration::UntilEndOfYourNextUpkeep"),
+            Some("UntilTheEndOfYourNextTurn") => Some("Duration::UntilEndOfYourNextTurn"),
+            Some("UntilHostLeavesPlay" | "AsLongAsInPlay") => {
+                Some("Duration::WhileSourceOnBattlefield")
+            }
+            Some("AsLongAsControl") => Some("Duration::WhileYouControlSource"),
+            Some("UntilUntaps") => {
+                Some("Duration::WhileSourceTapped { control: false, power_limited: false }")
+            }
+            Some(other) => {
+                self.note(format!("`Animate` lasting `{other}`"));
+                None
+            }
+        }
+    }
+
+    #[allow(clippy::fn_params_excessive_bools, clippy::too_many_arguments)]
     fn animate_for_filter(
         &mut self,
         p: &mut Params,
         filter: &str,
+        target: Option<&str>,
         controlled_by: Option<&str>,
-        has_target: bool,
         source_only: bool,
         allow_general_static: bool,
+        allow_stack_enter_grants: bool,
     ) -> Option<Vec<String>> {
         let _ = self.take_true_flag(p, "IsCurse")?;
         let optional = self.take_true_flag(p, "Optional")?;
         if optional {
             p.take("OptionQuestion");
         }
-        let duration = match p.take("Duration").as_deref() {
-            None | Some("UntilEndOfTurn") => "Duration::UntilEndOfTurn",
-            Some("Permanent") => "Duration::Indefinitely",
-            Some("UntilEndOfCombat") => "Duration::UntilEndOfCombat",
-            Some("UntilYourNextTurn") => "Duration::UntilYourNextTurn",
-            Some("UntilYourNextUpkeep") => "Duration::UntilYourNextUpkeep",
-            Some("UntilTheEndOfYourNextUpkeep") => "Duration::UntilEndOfYourNextUpkeep",
-            Some("UntilTheEndOfYourNextTurn") => "Duration::UntilEndOfYourNextTurn",
-            Some("UntilHostLeavesPlay" | "AsLongAsInPlay") => "Duration::WhileSourceOnBattlefield",
-            Some("AsLongAsControl") => "Duration::WhileYouControlSource",
-            Some("UntilUntaps") => {
-                "Duration::WhileSourceTapped { control: false, power_limited: false }"
-            }
-            Some(other) => {
-                self.note(format!("`Animate` lasting `{other}`"));
-                return None;
-            }
-        };
+        let duration = self.animate_duration(p)?;
         let mut out = Vec::new();
+        if let Some(raw_name) = p.take("Name") {
+            let modifier = Self::set_name_modifier(&raw_name)?;
+            out.push(Self::animate_modifier_expr(
+                filter,
+                controlled_by,
+                &modifier,
+                duration,
+            ));
+        }
         self.animate_types_block(p, filter, controlled_by, duration, &mut out)?;
         // Emit `LoseAllAbilities` before granted statics/keywords/abilities/triggers so
         // each resolving instruction gets a strictly later timestamp (CR 613.7).
@@ -269,8 +422,36 @@ impl Tx<'_> {
                 &mut out,
             )?;
         }
-        self.animate_colors_and_keywords(p, filter, controlled_by, duration, &mut out)?;
-        self.animate_pt_block(p, filter, controlled_by, has_target, duration, &mut out)?;
+        self.animate_colors_and_keywords(
+            p,
+            filter,
+            controlled_by,
+            duration,
+            allow_stack_enter_grants,
+            &mut out,
+        )?;
+        let dynamic_subject = if source_only {
+            Some("TargetSpec::ThisObject")
+        } else {
+            match filter {
+                "&Filter::This" => target.filter(|t| t.starts_with("TargetSpec::Object(")),
+                "&Filter::Reference" => Some("TargetSpec::EventObject"),
+                "&Filter::AttachedToBySource" => {
+                    Some("TargetSpec::Object(&Filter::AttachedToBySource)")
+                }
+                _ => None,
+            }
+        };
+        self.animate_pt_block(
+            p,
+            filter,
+            controlled_by,
+            target.is_some(),
+            source_only && target.is_some(),
+            dynamic_subject,
+            duration,
+            &mut out,
+        )?;
         if out.is_empty() {
             self.note("`Animate` that changes nothing".to_string());
             return None;
@@ -284,22 +465,28 @@ impl Tx<'_> {
         Some(out)
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn animate_pt_block(
         &mut self,
         p: &mut Params,
         filter: &str,
         controlled_by: Option<&str>,
         has_target: bool,
+        force_this_dynamic_pt: bool,
+        dynamic_subject: Option<&str>,
         duration: &str,
         out: &mut Vec<String>,
     ) -> Option<()> {
         // Layer 7b: the printed P/T it takes on. Fixed single-sided P or T maps
         // cleanly to `Modifier::SetPower` / `Modifier::SetToughness`; dynamic
-        // two-sided values lock on resolution via `Effect::SetPTFilter` (CR 608.2h).
+        // two-sided values without explicit offsets preserve `Effect::SetPTFilter`
+        // unless targeting `ThisObject`, and single-sided or offset dynamic P/T
+        // emits `Effect::SetDynamicPT` (CR 608.2h).
         match (p.take("Power"), p.take("Toughness")) {
             (Some(power), Some(toughness)) => {
                 if let (Ok(p_val), Ok(t_val)) =
                     (power.trim().parse::<i16>(), toughness.trim().parse::<i16>())
+                    && !force_this_dynamic_pt
                 {
                     out.push(Self::animate_modifier_expr(
                         filter,
@@ -308,6 +495,7 @@ impl Tx<'_> {
                         duration,
                     ));
                 } else if controlled_by.is_none()
+                    && !force_this_dynamic_pt
                     && let (Some(p_amt), Some(t_amt)) = (
                         self.animate_pt_amount(&power, has_target),
                         self.animate_pt_amount(&toughness, has_target),
@@ -316,37 +504,117 @@ impl Tx<'_> {
                     out.push(format!(
                         "Effect::SetPTFilter {{ filter: {filter}, power: {p_amt}, toughness: {t_amt}, duration: {duration} }}"
                     ));
+                } else if controlled_by.is_none()
+                    && let Some(subject) = dynamic_subject
+                    && let (Some((p_amt, p_off)), Some((t_amt, t_off))) = (
+                        self.animate_pt_amount_offset(&power, has_target),
+                        self.animate_pt_amount_offset(&toughness, has_target),
+                    )
+                {
+                    out.push(format!(
+                        "Effect::SetDynamicPT {{ subject: {subject}, power: Some({p_amt}), toughness: Some({t_amt}), power_offset: {p_off}, toughness_offset: {t_off}, duration: {duration} }}"
+                    ));
                 } else {
                     return None;
                 }
             }
             (Some(power), None) => {
-                let Ok(p_val) = power.trim().parse::<i16>() else {
+                if let Ok(p_val) = power.trim().parse::<i16>()
+                    && !force_this_dynamic_pt
+                {
+                    out.push(Self::animate_modifier_expr(
+                        filter,
+                        controlled_by,
+                        &format!("Modifier::SetPower({p_val})"),
+                        duration,
+                    ));
+                } else if controlled_by.is_none()
+                    && let Some(subject) = dynamic_subject
+                    && let Some((p_amt, p_off)) = self.animate_pt_amount_offset(&power, has_target)
+                {
+                    out.push(format!(
+                        "Effect::SetDynamicPT {{ subject: {subject}, power: Some({p_amt}), toughness: None, power_offset: {p_off}, toughness_offset: 0, duration: {duration} }}"
+                    ));
+                } else {
                     self.note("`Animate` setting only one of power and toughness".to_string());
                     return None;
-                };
-                out.push(Self::animate_modifier_expr(
-                    filter,
-                    controlled_by,
-                    &format!("Modifier::SetPower({p_val})"),
-                    duration,
-                ));
+                }
             }
             (None, Some(toughness)) => {
-                let Ok(t_val) = toughness.trim().parse::<i16>() else {
+                if let Ok(t_val) = toughness.trim().parse::<i16>()
+                    && !force_this_dynamic_pt
+                {
+                    out.push(Self::animate_modifier_expr(
+                        filter,
+                        controlled_by,
+                        &format!("Modifier::SetToughness({t_val})"),
+                        duration,
+                    ));
+                } else if controlled_by.is_none()
+                    && let Some(subject) = dynamic_subject
+                    && let Some((t_amt, t_off)) =
+                        self.animate_pt_amount_offset(&toughness, has_target)
+                {
+                    out.push(format!(
+                        "Effect::SetDynamicPT {{ subject: {subject}, power: None, toughness: Some({t_amt}), power_offset: 0, toughness_offset: {t_off}, duration: {duration} }}"
+                    ));
+                } else {
                     self.note("`Animate` setting only one of power and toughness".to_string());
                     return None;
-                };
-                out.push(Self::animate_modifier_expr(
-                    filter,
-                    controlled_by,
-                    &format!("Modifier::SetToughness({t_val})"),
-                    duration,
-                ));
+                }
             }
             (None, None) => {}
         }
         Some(())
+    }
+
+    fn animate_pt_amount_offset(&mut self, raw: &str, has_target: bool) -> Option<(String, i16)> {
+        self.animate_pt_offset_depth(raw, has_target, 0)
+    }
+
+    fn animate_pt_offset_depth(
+        &mut self,
+        raw: &str,
+        has_target: bool,
+        depth: u8,
+    ) -> Option<(String, i16)> {
+        if depth > 4 {
+            return None;
+        }
+        let trimmed = raw.trim();
+        let def = if trimmed.starts_with("Count$")
+            || trimmed.starts_with("Targeted$")
+            || trimmed.starts_with("Triggered")
+            || trimmed.starts_with("Sacrificed$")
+            || trimmed.starts_with("Discarded$")
+        {
+            trimmed.to_string()
+        } else {
+            self.svars.get(trimmed)?.trim().to_string()
+        };
+        if let Some((lhs, rhs)) = def.rsplit_once("/Plus.")
+            && let Ok(delta) = rhs.trim().parse::<i16>()
+            && delta >= 0
+        {
+            let base_raw = lhs
+                .trim()
+                .strip_prefix("SVar$")
+                .map_or(lhs.trim(), str::trim);
+            let (base, base_off) = self.animate_pt_offset_depth(base_raw, has_target, depth + 1)?;
+            return Some((base, base_off.checked_add(delta)?));
+        }
+        if let Some((lhs, rhs)) = def.rsplit_once("/Minus.")
+            && let Ok(delta) = rhs.trim().parse::<i16>()
+            && delta >= 0
+        {
+            let base_raw = lhs
+                .trim()
+                .strip_prefix("SVar$")
+                .map_or(lhs.trim(), str::trim);
+            let (base, base_off) = self.animate_pt_offset_depth(base_raw, has_target, depth + 1)?;
+            return Some((base, base_off.checked_sub(delta)?));
+        }
+        Some((self.animate_pt_amount_depth(trimmed, has_target, depth)?, 0))
     }
 
     fn animate_static_abilities(
@@ -418,7 +686,12 @@ impl Tx<'_> {
         if trimmed == "Count$LastDieRoll" {
             return Some("Amount::LastDieRoll".to_string());
         }
-        let def = if trimmed.starts_with("Count$") {
+        let def = if trimmed.starts_with("Count$")
+            || trimmed.starts_with("Targeted$")
+            || trimmed.starts_with("Triggered")
+            || trimmed.starts_with("Sacrificed$")
+            || trimmed.starts_with("Discarded$")
+        {
             trimmed.to_string()
         } else {
             self.svars.get(trimmed)?.trim().to_string()
@@ -513,6 +786,10 @@ impl Tx<'_> {
             }
             "Count$LastDieRoll" => Some("Amount::LastDieRoll".to_string()),
             "Count$CardPower" => Some("Amount::SourcePower".to_string()),
+            "Count$CardToughness" => Some("Amount::SourceToughness".to_string()),
+            "Discarded$CardManaCost" if self.cost_discards_single_for_cost => {
+                Some("Amount::DiscardedManaValue".to_string())
+            }
             "Count$Party" => Some("Amount::PartySize(PlayerRel::You)".to_string()),
             "Count$CreaturesDiedThisTurn" => Some("Amount::CreaturesDiedThisTurn".to_string()),
             "Count$TotalManaSpent" => Some("Amount::ManaSpentToCast".to_string()),
@@ -571,7 +848,21 @@ impl Tx<'_> {
             "Sacrificed$TotalCardPower" => Some("Amount::SacrificedTotalPower".to_string()),
             "Sacrificed$TotalCardToughness" => Some("Amount::SacrificedTotalToughness".to_string()),
             "Sacrificed$TotalCardManaCost" => Some("Amount::SacrificedTotalManaValue".to_string()),
-            _ => None,
+            _ => {
+                if let Some(valid) = def.strip_prefix("Count$ValidGraveyard ")
+                    && let Some(gy_amt) =
+                        self.dynamic_filter_counted_atom(&format!("Count$ValidGraveyard {valid}"))
+                    && let Some(inner) = gy_amt.strip_prefix("Amount::CountOf { filter: &")
+                    && let Some((expr, rest)) = inner.rsplit_once(", zone: ")
+                    && let Some(zone) = rest.strip_suffix(" }")
+                {
+                    let filter_static = self.body.filter_static("ANIMATE_GY", expr);
+                    return Some(format!(
+                        "Amount::CountOf {{ filter: &{filter_static}, zone: {zone} }}"
+                    ));
+                }
+                None
+            }
         }
     }
 
@@ -757,6 +1048,7 @@ impl Tx<'_> {
         filter: &str,
         controlled_by: Option<&str>,
         duration: &str,
+        allow_stack_enter_grants: bool,
         out: &mut Vec<String>,
     ) -> Option<()> {
         // Layer 5: colour. Without `OverwriteColors$ True` the card keeps
@@ -789,21 +1081,16 @@ impl Tx<'_> {
                 ));
             }
         }
-        // Layer 6: keywords it gains.
+        // Layer 6: keywords it gains (including parameterized Enchant / Bloodthirst / Sunburst).
         if let Some(raw) = p.take("Keywords") {
-            let each: Option<Vec<&str>> = raw.split('&').map(|k| keyword_const(k.trim())).collect();
-            let Some(each) = each else {
-                self.note(format!("`Animate` granting `{raw}`"));
-                return None;
-            };
-            let joined =
-                each.join(".union(") + &")".repeat(raw.split('&').count().saturating_sub(1));
-            out.push(Self::animate_modifier_expr(
+            self.animate_keywords_grants(
+                &raw,
                 filter,
                 controlled_by,
-                &format!("Modifier::AddKeyword({joined})"),
                 duration,
-            ));
+                allow_stack_enter_grants,
+                out,
+            )?;
         }
         if let Some(raw) = p.take("HiddenKeywords") {
             let modifier = self.animate_hidden_keywords(&raw)?;
@@ -854,6 +1141,55 @@ impl Tx<'_> {
                     duration,
                 ));
             }
+        }
+        Some(())
+    }
+
+    fn animate_keywords_grants(
+        &mut self,
+        raw: &str,
+        filter: &str,
+        controlled_by: Option<&str>,
+        duration: &str,
+        allow_stack_enter_grants: bool,
+        out: &mut Vec<String>,
+    ) -> Option<()> {
+        let mut kw_bits: Vec<&str> = Vec::new();
+        let mut extra_mods: Vec<String> = Vec::new();
+        for atom in raw.split('&').map(str::trim).filter(|s| !s.is_empty()) {
+            if let Some(rest) = atom.strip_prefix("Enchant:") {
+                let spec = self.enchant_target_spec(rest)?;
+                extra_mods.push(format!("Modifier::GrantEnchant({spec})"));
+            } else if let Some(rest) = atom.strip_prefix("Bloodthirst:")
+                && allow_stack_enter_grants
+                && let Ok(n) = rest.trim().parse::<u8>()
+            {
+                extra_mods.push(format!("Modifier::GrantBloodthirst({n})"));
+            } else if atom == "Sunburst" && allow_stack_enter_grants {
+                extra_mods.push("Modifier::GrantSunburst".to_string());
+            } else if let Some(bit) = keyword_const(atom) {
+                kw_bits.push(bit);
+            } else {
+                self.note(format!("`Animate` granting `{raw}`"));
+                return None;
+            }
+        }
+        if !kw_bits.is_empty() {
+            let joined = kw_bits.join(".union(") + &")".repeat(kw_bits.len().saturating_sub(1));
+            out.push(Self::animate_modifier_expr(
+                filter,
+                controlled_by,
+                &format!("Modifier::AddKeyword({joined})"),
+                duration,
+            ));
+        }
+        for modifier in extra_mods {
+            out.push(Self::animate_modifier_expr(
+                filter,
+                controlled_by,
+                &modifier,
+                duration,
+            ));
         }
         Some(())
     }
@@ -958,6 +1294,14 @@ impl Tx<'_> {
     /// No layer is passed in because none is written out: `Effect::continuous`
     /// derives it from the modifier the way CR 613.1 does, so the emitter
     /// cannot name a layer that disagrees with what it is applying.
+    pub(super) fn set_name_modifier(raw: &str) -> Option<String> {
+        let trimmed = raw.trim();
+        if trimmed.is_empty() || trimmed.contains(['$', '{']) {
+            return None;
+        }
+        Some(format!("Modifier::SetName({trimmed:?})"))
+    }
+
     pub(super) fn animate_expr(modifier: &str, duration: &str) -> String {
         Self::animate_expr_for("&Filter::This", modifier, duration)
     }

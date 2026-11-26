@@ -3616,27 +3616,31 @@ impl Tx<'_> {
     ///
     /// A third field is the printed wording — "creature you control" — and
     /// this side takes the printed wording from Scryfall, so it is prose.
-    pub(super) fn enchant(&mut self, rest: &str) -> Option<()> {
+    pub(super) fn enchant_target_spec(&mut self, rest: &str) -> Option<String> {
         let valid = rest.split(':').next().unwrap_or(rest).trim();
-        let target_spec = match valid {
-            "Player" => "TargetSpec::AnyPlayer".to_string(),
+        match valid {
+            "Player" => Some("TargetSpec::AnyPlayer".to_string()),
             "Opponent" | "Player.Opponent" | "Player.OppCtrl" => {
-                "TargetSpec::AnyOpponent".to_string()
+                Some("TargetSpec::AnyOpponent".to_string())
             }
-            "Player.You" | "You" => "TargetSpec::Player(PlayerRel::You)".to_string(),
+            "Player.You" | "You" => Some("TargetSpec::Player(PlayerRel::You)".to_string()),
             _ if valid.split(',').any(|alt| {
                 let head = alt.split(['.', '+']).next().unwrap_or(alt).trim();
                 matches!(head, "Player" | "Opponent" | "You")
             }) =>
             {
-                return self.deny(format!("an `Enchant {valid}` player qualifier"));
+                self.deny(format!("an `Enchant {valid}` player qualifier"))
             }
             _ => {
                 let expr = self.filter_expr(valid)?;
                 let name = self.body.filter_static("ENCHANT", &expr);
-                format!("TargetSpec::Object(&{name})")
+                Some(format!("TargetSpec::Object(&{name})"))
             }
-        };
+        }
+    }
+
+    pub(super) fn enchant(&mut self, rest: &str) -> Option<()> {
+        let target_spec = self.enchant_target_spec(rest)?;
         self.body.abilities.push(format!(
             "spell!(&[Effect::AttachSelf {{ target: {target_spec} }}], \
              targets = Some(TargetReq::one({target_spec})))"

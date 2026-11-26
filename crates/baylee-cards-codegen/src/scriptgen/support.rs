@@ -278,6 +278,7 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "Fight",
     "Poison",
     "Attach",
+    "Unattach",
     "MustBlock",
     "RevealHand",
     "CopySpellAbility",

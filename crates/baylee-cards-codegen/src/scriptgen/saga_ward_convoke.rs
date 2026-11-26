@@ -249,7 +249,7 @@ impl Tx<'_> {
         Some(())
     }
 
-    fn parse_fixed_mana_cost(&self, raw: &str, kind: &str) -> Option<String> {
+    pub(super) fn parse_fixed_mana_cost(&self, raw: &str, kind: &str) -> Option<String> {
         let tokens = cost_parts(raw);
         if tokens.is_empty() {
             return self.deny(format!("an empty `{kind}` cost"));
@@ -2428,6 +2428,12 @@ impl Tx<'_> {
         self.pt_modifiers(&mut p, &filter, &mut out)?;
         self.color_modifiers(&mut p, &filter, &mut out)?;
         self.keyword_modifiers(&mut p, &filter, &mut out)?;
+        if let Some(raw_name) = p.take("SetName") {
+            let Some(modifier) = Self::set_name_modifier(&raw_name) else {
+                return self.deny(format!("`Continuous.SetName$ {raw_name}`"));
+            };
+            out.push(Self::static_expr(&filter, &modifier));
+        }
         let mut self_granted = false;
         self.grant_modifiers(&mut p, &filter, false, &cond, &mut out, &mut self_granted)?;
         let _ = self.strip_ai_hint_add_svar(&mut p);
