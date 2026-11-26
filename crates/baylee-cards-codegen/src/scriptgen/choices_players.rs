@@ -6,6 +6,11 @@ use super::atoms::{Bound, amount, count_bound, static_wave14_amount};
 use super::saga_ward_convoke::ExtraOutcome;
 use super::{Params, Tx, counter_kind};
 
+enum ChosenStep<'a> {
+    Continue(Option<&'a str>),
+    HandOff,
+}
+
 impl Tx<'_> {
     /// Returns `true` for *Territorial Hellkite*'s Forge-internal `Static$ True`
     /// triggers tracking last-combat defending players, which the engine already
@@ -748,24 +753,7 @@ impl Tx<'_> {
             let inner = self.svars.get(trimmed_var)?.trim();
             return self.choices_pure_amount_expr(inner, depth + 1);
         }
-        if let Some((lhs, rhs)) = def.rsplit_once("/Minus.") {
-            let base = if let Some(var) = lhs.trim().strip_prefix("SVar$") {
-                self.choices_pure_amount_expr(self.svars.get(var.trim())?, depth + 1)?
-            } else {
-                self.choices_pure_amount_expr(lhs.trim(), depth + 1)?
-            };
-            let sub = if let Ok(n) = rhs.trim().parse::<u32>() {
-                format!("Amount::Fixed({n})")
-            } else {
-                let rhs_def = self.svars.get(rhs.trim())?.trim();
-                self.choices_pure_amount_expr(rhs_def, depth + 1)
-                    .or_else(|| static_wave14_amount(rhs_def, self.svars))
-                    .or_else(|| self.fallback_valid_count(rhs_def))?
-            };
-            return Some(format!(
-                "Amount::Subtract {{ base: &{base}, subtract: &{sub} }}"
-            ));
-        }
+
         if def == "PlayerCountPropertyYou$RingTemptedYou" {
             return Some("Amount::RingTemptedCount(PlayerRel::You)".to_string());
         }
@@ -789,31 +777,6 @@ impl Tx<'_> {
             return Some(format!(
                 "Amount::PlayerCounters {{ player: {player}, kind: {kind} }}"
             ));
-        }
-        if self.in_chosen_player
-            && let Some(expr) = self.fallback_valid_count(def)
-        {
-            return Some(expr);
-        }
-        None
-    }
-
-    fn fallback_valid_count(&self, def: &str) -> Option<String> {
-        let valid = def.trim().strip_prefix("Count$Valid ")?;
-        if valid.contains('$') {
-            return None;
-        }
-        if valid == "Land.YouCtrl" {
-            return Some(
-                "Amount::CountOf { filter: &Filter::YOUR_LAND, zone: ZoneSel::Battlefield }"
-                    .to_string(),
-            );
-        }
-        if valid == "Land.ChosenCtrl" && self.in_chosen_player {
-            return Some(
-                "Amount::CountOf { filter: &Filter::And(&[Filter::LAND, Filter::ControlledBy(PlayerRel::Chosen)]), zone: ZoneSel::Battlefield }"
-                    .to_string(),
-            );
         }
         None
     }
@@ -959,7 +922,6 @@ impl Tx<'_> {
     // -------------------------------------------------------------------------
 
     /// Lowers `ChoosePlayer` chains using `Effect::ChoosePlayerEx`:
-    /// - `Choices$ Player.Opponent+withMoreLandsThanYou` (*Boreas Charger*)
     /// - `Choices$ Player.Opponent+lifeEQX` (*The Master, Gallifrey's End*, *The Mighty Will Fall*)
     /// - `Choices$ Player.!IsRemembered` with `RememberChosen$ True` (*Gluntch*)
     /// - `Choices$ Player` / `Opponent` / `Player.Other` with `Random$ True` or
@@ -1016,6 +978,12 @@ impl Tx<'_> {
             {
                 return None;
             }
+            chain.could_add_mana |= none_chain.could_add_mana
+                && !none_chain
+                    .effects
+                    .iter()
+                    .any(|e| e.contains("AddManaChoiceFor"));
+            chain.moves_library |= none_chain.moves_library;
             none_chain.effects
         } else {
             Vec::new()
@@ -1023,7 +991,7 @@ impl Tx<'_> {
 
         let saved_in_chosen = self.in_chosen_player;
         self.in_chosen_player = true;
-        let then_res = self.lower_choices_subchain(&then_sub, chain, true);
+        let then_res = self.lower_choices_subchain(&then_sub, chain);
         self.in_chosen_player = saved_in_chosen;
         let (then_effects, trailing) = then_res?;
         if then_effects.is_empty() {
@@ -1045,9 +1013,6 @@ impl Tx<'_> {
                 Some("PlayerFilter::Among(PlayerRel::EachOpponent)")
             }
             Some("Player.Other") => Some("PlayerFilter::Among(PlayerRel::EachOtherPlayer)"),
-            Some("Player.Opponent+withMoreLandsThanYou") => {
-                Some("PlayerFilter::OpponentWithMoreLandsThanYou")
-            }
             Some("Player.!IsRemembered") => Some("PlayerFilter::NotYetRemembered"),
             Some("Player.Opponent+!IsRemembered")
                 if self
@@ -1067,21 +1032,41 @@ impl Tx<'_> {
         }
     }
 
+    pub(super) fn line_moves_library(api: &str, p: &Params) -> bool {
+        matches!(
+            api,
+            "Draw" | "Mill" | "Surveil" | "DigUntil" | "PeekAndReveal" | "Clash"
+        ) || (api == "Play" && p.peek("ValidZone") == Some("Library"))
+            || (matches!(api, "ChangeZone" | "ChangeZoneAll")
+                && (p
+                    .peek("Origin")
+                    .is_some_and(|zones| zones.split(',').any(|zone| zone == "Library"))
+                    != (p.peek("Destination") == Some("Library"))))
+    }
+
+    fn effect_adds_mana_for_rule(eff: &str) -> bool {
+        eff.starts_with("Effect::AddMana {")
+            || eff.starts_with("Effect::AddCombatMana")
+            || eff.starts_with("Effect::Firebend")
+            || eff.starts_with("Effect::AddManaUnlessAnyPlayerPays")
+            || eff.starts_with("Effect::AddManaFor")
+            || eff.starts_with("Effect::AddManaAmountFor")
+            || eff.starts_with("Effect::AddManaLikeEvent")
+            || eff.starts_with("Effect::ManaForColorsAmong")
+    }
+
     fn lower_choices_subchain(
         &mut self,
         start: &str,
-        outer: &Chain,
-        consume_chosen_steps: bool,
+        outer: &mut Chain,
     ) -> Option<(Vec<String>, Option<String>)> {
         let mut cursor = Some(start.to_string());
         let mut out = Vec::new();
         let mut consumed = false;
-        let mut steps = 0usize;
-        while let Some(name) = cursor {
-            steps += 1;
-            if steps > 8 {
-                return None;
-            }
+        for _ in 0..8 {
+            let Some(name) = cursor.take() else {
+                break;
+            };
             let body = self.svars.get(name.trim())?.clone();
             let (api, mut p) = Params::parse(&body)?;
             p.drop_prose();
@@ -1101,10 +1086,7 @@ impl Tx<'_> {
             }
             let next_sub = p.take("SubAbility");
             if matches!(api.as_str(), "Branch" | "ChoosePlayer" | "VillainousChoice") {
-                if !body.contains("ChosenPlayer")
-                    && !body.contains("Player.Chosen")
-                    && !body.contains("ChosenCtrl")
-                {
+                if !body.contains("ChosenPlayer") && !body.contains("Player.Chosen") {
                     return None;
                 }
                 let mut single_chain = Chain {
@@ -1116,62 +1098,89 @@ impl Tx<'_> {
                 if single_chain.effects.is_empty() || single_chain.target != outer.target {
                     return None;
                 }
+                outer.could_add_mana |= single_chain.could_add_mana
+                    && !single_chain
+                        .effects
+                        .iter()
+                        .any(|e| e.contains("AddManaChoiceFor"));
+                outer.moves_library |= single_chain.moves_library;
                 consumed = true;
                 out.extend(single_chain.effects);
-                cursor = None;
                 break;
             }
 
-            let mut target_hint = outer.target.as_deref();
-            if consume_chosen_steps {
-                if api == "DealDamage"
-                    && p.peek("Defined") == Some("ChosenPlayer")
-                    && self
-                        .oracle
-                        .to_ascii_lowercase()
-                        .contains("that player or a planeswalker")
-                {
-                    return None;
-                }
-                let mut rewrote = false;
-                for (k, v) in &mut p.entries {
-                    if matches!(k.as_str(), "Defined" | "DefinedPlayer" | "TokenOwner")
-                        && matches!(v.as_str(), "ChosenPlayer" | "Player.Chosen")
-                    {
-                        *v = "Targeted".to_string();
-                        rewrote = true;
-                    }
-                }
-                if rewrote {
-                    target_hint = Some("TargetSpec::Player(PlayerRel::Chosen)");
-                    consumed = true;
-                } else if api == "Effect"
-                    && p.peek("StaticAbilities")
-                        .and_then(|sa| self.svars.get(sa.trim()))
-                        .is_some_and(|b| b.contains("ChosenPlayer"))
-                {
-                    consumed = true;
-                } else if !consumed
-                    || p.entries.iter().any(|(_, v)| {
-                        v.contains("ChosenPlayer")
-                            || v.contains("Player.Chosen")
-                            || v.contains("ChosenCtrl")
-                    })
-                {
-                    return None;
-                } else {
+            let target_hint = match self.rewrite_chosen_player_step(
+                &api,
+                &mut p,
+                outer.target.as_deref(),
+                &mut consumed,
+            )? {
+                ChosenStep::Continue(hint) => hint,
+                ChosenStep::HandOff => {
                     cursor = Some(name);
                     break;
                 }
-            }
+            };
+            let step_moves_lib = Self::line_moves_library(&api, &p);
             let step_effs = self.effect_of(&api, &mut p, target_hint, false, false)?;
             if !p.exhausted() || step_effs.is_empty() {
                 return None;
             }
+            outer.could_add_mana |= step_effs.iter().any(|e| Self::effect_adds_mana_for_rule(e));
+            outer.moves_library |= step_moves_lib;
             out.extend(step_effs);
             cursor = next_sub;
         }
         consumed.then_some((out, cursor))
+    }
+
+    fn rewrite_chosen_player_step<'a>(
+        &self,
+        api: &str,
+        p: &mut Params,
+        outer_target: Option<&'a str>,
+        consumed: &mut bool,
+    ) -> Option<ChosenStep<'a>> {
+        if api == "DealDamage"
+            && p.peek("Defined") == Some("ChosenPlayer")
+            && self
+                .oracle
+                .to_ascii_lowercase()
+                .contains("that player or a planeswalker")
+        {
+            return None;
+        }
+        let mut rewrote = false;
+        for (k, v) in &mut p.entries {
+            if matches!(k.as_str(), "Defined" | "DefinedPlayer" | "TokenOwner")
+                && matches!(v.as_str(), "ChosenPlayer" | "Player.Chosen")
+            {
+                *v = "Targeted".to_string();
+                rewrote = true;
+            }
+        }
+        if rewrote {
+            *consumed = true;
+            return Some(ChosenStep::Continue(Some(
+                "TargetSpec::Player(PlayerRel::Chosen)",
+            )));
+        }
+        if api == "Effect"
+            && p.peek("StaticAbilities")
+                .and_then(|sa| self.svars.get(sa.trim()))
+                .is_some_and(|b| b.contains("ChosenPlayer"))
+        {
+            *consumed = true;
+            return Some(ChosenStep::Continue(outer_target));
+        }
+        if !*consumed
+            || p.entries
+                .iter()
+                .any(|(_, v)| v.contains("ChosenPlayer") || v.contains("Player.Chosen"))
+        {
+            return None;
+        }
+        Some(ChosenStep::HandOff)
     }
 
     /// Lowers `ChooseNumber` variants not covered by `wave16c_choose_number_chain`:
@@ -1312,37 +1321,12 @@ impl Tx<'_> {
             return None;
         }
 
-        let mut lower_arm = |arm: Option<String>, bind_event_player: bool| -> Option<Vec<String>> {
-            let Some(name) = arm else {
-                return Some(Vec::new());
-            };
-            let body = self.svars.get(name.trim())?.clone();
-            let saved_num = self.has_resolution_chosen_number;
-            let saved_rep = self.in_repeat_player;
-            self.has_resolution_chosen_number = true;
-            if bind_event_player {
-                self.in_repeat_player = true;
-            }
-            let mut inner = Chain {
-                target: chain.target.clone(),
-                ..Chain::default()
-            };
-            let r = self.chain(&body, &mut inner);
-            self.has_resolution_chosen_number = saved_num;
-            self.in_repeat_player = saved_rep;
-            r?;
-            if inner.effects.is_empty() || inner.target != chain.target {
-                return None;
-            }
-            Some(inner.effects)
-        };
-
-        let on_each = lower_arm(each_sub, true)?;
-        let on_highest = lower_arm(high_sub, true)?;
-        let on_lowest = lower_arm(low_sub, true)?;
-        let on_not_lowest = lower_arm(not_low_sub, true)?;
-        let on_matched = lower_arm(matched_sub, false)?;
-        let on_unmatched = lower_arm(unmatched_sub, false)?;
+        let on_each = self.lower_secret_number_arm(each_sub.as_deref(), true, chain)?;
+        let on_highest = self.lower_secret_number_arm(high_sub.as_deref(), true, chain)?;
+        let on_lowest = self.lower_secret_number_arm(low_sub.as_deref(), true, chain)?;
+        let on_not_lowest = self.lower_secret_number_arm(not_low_sub.as_deref(), true, chain)?;
+        let on_matched = self.lower_secret_number_arm(matched_sub.as_deref(), false, chain)?;
+        let on_unmatched = self.lower_secret_number_arm(unmatched_sub.as_deref(), false, chain)?;
 
         chain.effects.push(format!(
             "Effect::SecretChooseNumbers(SecretNumberChoice {{ \
@@ -1373,9 +1357,42 @@ impl Tx<'_> {
             if post_chain.target != chain.target {
                 return None;
             }
+            chain.could_add_mana |= post_chain.could_add_mana;
+            chain.moves_library |= post_chain.moves_library;
             chain.effects.extend(post_chain.effects);
         }
         Some(())
+    }
+
+    fn lower_secret_number_arm(
+        &mut self,
+        arm: Option<&str>,
+        bind_event_player: bool,
+        outer: &mut Chain,
+    ) -> Option<Vec<String>> {
+        let Some(name) = arm else {
+            return Some(Vec::new());
+        };
+        let body = self.svars.get(name.trim())?.clone();
+        let saved_num = self.has_resolution_chosen_number;
+        let saved_rep = self.in_repeat_player;
+        self.has_resolution_chosen_number = true;
+        if bind_event_player {
+            self.in_repeat_player = true;
+        }
+        let mut inner = Chain {
+            target: outer.target.clone(),
+            ..Chain::default()
+        };
+        let r = self.chain(&body, &mut inner);
+        self.has_resolution_chosen_number = saved_num;
+        self.in_repeat_player = saved_rep;
+        r?;
+        if inner.effects.is_empty() || inner.target != outer.target {
+            return None;
+        }
+        outer.moves_library |= inner.moves_library;
+        Some(inner.effects)
     }
 
     fn choices_secret_number_guess(
@@ -1413,9 +1430,9 @@ impl Tx<'_> {
         if (wrong_sub.is_none() && correct_sub.is_none()) || !p.exhausted() {
             return None;
         }
-        let mut lower_guess_arm = |arm: Option<String>| -> Option<Vec<String>> {
+        let mut lower_guess_arm = |arm: Option<String>| -> Option<(Vec<String>, bool, bool)> {
             let Some(name) = arm else {
-                return Some(Vec::new());
+                return Some((Vec::new(), false, false));
             };
             let body = self.svars.get(name.trim())?.clone();
             let saved_num = self.has_resolution_chosen_number;
@@ -1433,10 +1450,12 @@ impl Tx<'_> {
             if inner.effects.is_empty() || inner.target != chain.target {
                 return None;
             }
-            Some(inner.effects)
+            Some((inner.effects, inner.could_add_mana, inner.moves_library))
         };
-        let on_correct = lower_guess_arm(correct_sub)?;
-        let on_wrong = lower_guess_arm(wrong_sub)?;
+        let (on_correct, c_mana, c_lib) = lower_guess_arm(correct_sub)?;
+        let (on_wrong, w_mana, w_lib) = lower_guess_arm(wrong_sub)?;
+        chain.could_add_mana |= c_mana || w_mana;
+        chain.moves_library |= c_lib || w_lib;
         chain.effects.push(format!(
             "Effect::SecretNumberGuess {{ min: {min}, max: {max}, \
              track_used_on_source: {track_used_on_source}, guesser: {guesser}, \

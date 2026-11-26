@@ -80,15 +80,7 @@ impl Tx<'_> {
             };
         p.drop_prose();
         chain.could_add_mana |= api == "Mana";
-        chain.moves_library |= matches!(
-            api.as_str(),
-            "Draw" | "Mill" | "Surveil" | "DigUntil" | "PeekAndReveal" | "Clash"
-        ) || (api == "Play" && p.peek("ValidZone") == Some("Library"))
-            || (matches!(api.as_str(), "ChangeZone" | "ChangeZoneAll")
-                && (p
-                    .peek("Origin")
-                    .is_some_and(|zones| zones.split(',').any(|zone| zone == "Library"))
-                    != (p.peek("Destination") == Some("Library"))));
+        chain.moves_library |= Self::line_moves_library(&api, &p);
         if api == "UntapAll"
             && p.peek("RememberUntapped") == Some("True")
             && chain.target.is_none()

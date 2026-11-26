@@ -1551,7 +1551,7 @@ impl Tx<'_> {
                 Some("You") => {
                     *p = probe;
                     return Some(vec![format!(
-                        "Effect::continuous(&Filter::Any, Modifier::PlayerProtectionFrom {{                          who: PlayerRel::You, from: &{chosen_ctrl} }}, {duration})"
+                        "Effect::continuous(&Filter::Any, Modifier::PlayerProtectionFrom {{ who: PlayerRel::You, from: &{chosen_ctrl} }}, {duration})"
                     )]);
                 }
                 _ => return None,

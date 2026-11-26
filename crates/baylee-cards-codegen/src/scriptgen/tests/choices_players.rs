@@ -308,7 +308,8 @@ fn choices_players_effects_secret_join_forces_and_conditions() {
          SVar:DBMana:DB$ Mana | Produced$ Any | Defined$ ChosenPlayer",
     );
     assert!(
-        searchlight.abilities[0].contains("Effect::ChoosePlayerEx")
+        searchlight.abilities[0].starts_with("activated!(")
+            && searchlight.abilities[0].contains("Effect::ChoosePlayerEx")
             && searchlight.abilities[0].contains("Effect::AddManaChoiceFor"),
         "{:?}",
         searchlight.abilities
@@ -549,4 +550,22 @@ fn choices_players_honest_refusal_guards() {
             "missing refusal reason for:\n{bad}"
         );
     }
+}
+
+#[test]
+fn choices_players_victory_chimes_mana_ability() {
+    let chimes = read(
+        "Name:Victory Chimes\nManaCost:3\nTypes:Artifact\n\
+         A:AB$ ChoosePlayer | Cost$ T | Defined$ You | Choices$ Player | SubAbility$ DBMana\n\
+         SVar:DBMana:DB$ Mana | Produced$ C | Defined$ ChosenPlayer",
+    );
+    assert!(
+        chimes.abilities[0].starts_with("mana_ability!(")
+            && chimes.abilities[0].contains("Effect::ChoosePlayerEx")
+            && chimes.abilities[0].contains(
+                "Effect::AddManaFor { who: PlayerRel::Chosen, color: ManaColor::Colorless, amount: 1 }"
+            ),
+        "{:?}",
+        chimes.abilities
+    );
 }
