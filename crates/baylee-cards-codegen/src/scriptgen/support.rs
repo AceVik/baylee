@@ -277,6 +277,8 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "Radiation",
     "ExchangeControl",
     "MoveCounter",
+    "EachDamage",
+    "SwitchBlock",
     "LosesGame",
     "SkipPhase",
     "TwoPiles",

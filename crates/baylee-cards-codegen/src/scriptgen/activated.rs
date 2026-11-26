@@ -1618,6 +1618,13 @@ impl Tx<'_> {
                 None => String::new(),
             };
             let stripped = kept_parts.join(" | ");
+            if !allow_divided_counters
+                && let Some((api, dp)) = Params::parse(&stripped)
+                && matches!(api.as_str(), "PutCounter" | "DealDamage")
+                && dp.has("DividedAsYouChoose")
+            {
+                return self.deny("a multi-mode charm mode with `DividedAsYouChoose$`".to_string());
+            }
             if allow_divided_counters
                 && let Some((api, dp)) = Params::parse(&stripped)
                 && api == "PutCounter"

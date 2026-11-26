@@ -2043,3 +2043,136 @@ fn wave23b_create_token_sized_refusals() {
         assert!(refused_sized(bad), "must refuse: {bad}");
     }
 }
+
+#[test]
+fn w20_target_only_group_followups() {
+    let silence = read(
+        "Name:Silence the Believers\nManaCost:2 B B\nTypes:Instant\nK:Strive:2 B\n\
+         A:SP$ TargetOnly | ValidTgts$ Creature | TargetMin$ 0 | TargetMax$ MaxTgts | IsCurse$ True | RememberTargets$ True | SubAbility$ DBExile\n\
+         SVar:DBExile:DB$ ChangeZoneAll | ChangeType$ Card.IsRemembered,Aura.AttachedTo Targeted | Origin$ Battlefield | Destination$ Exile | UseAllOriginZones$ True | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:MaxTgts:Count$Valid Creature",
+    );
+    assert!(
+        silence.abilities.len() == 2
+            && silence.abilities[0].contains("AbilityDef::strive(")
+            && silence.abilities[1]
+                .contains("Effect::RememberTargetsThen { then: &[Effect::ExileAll")
+            && silence.abilities[1]
+                .contains("TargetReq::up_to(TargetSpec::Object(&Filter::CREATURE), 255)"),
+        "{:?}",
+        silence.abilities
+    );
+
+    let wild_swing = read(
+        "Name:Wild Swing\nManaCost:3 R\nTypes:Sorcery\n\
+         A:SP$ TargetOnly | ValidTgts$ Permanent.nonEnchantment | TargetMin$ 3 | TargetMax$ 3 | IsCurse$ True | SubAbility$ DBChooseRandom\n\
+         SVar:DBChooseRandom:DB$ ChooseCard | Defined$ You | Amount$ 1 | AtRandom$ True | DefinedCards$ Targeted | SubAbility$ DBDestroy\n\
+         SVar:DBDestroy:DB$ Destroy | Defined$ ChosenCard",
+    );
+    assert!(
+        wild_swing.abilities[0]
+            .contains("Effect::RememberTargetsThen { then: &[Effect::DestroyRandom")
+            && wild_swing.abilities[0].contains("TargetReq::exactly(TargetSpec::Object(&"),
+        "{}",
+        wild_swing.abilities[0]
+    );
+
+    let incriminate = read(
+        "Name:Incriminate\nManaCost:1 B\nTypes:Sorcery\n\
+         A:SP$ TargetOnly | ValidTgts$ Creature | TargetMin$ 2 | TargetMax$ 2 | TargetUnique$ True | TargetsWithSameController$ True | IsCurse$ True | SubAbility$ DBSac\n\
+         SVar:DBSac:DB$ Sacrifice | Defined$ TargetedController | SacValid$ Card.targetedBy",
+    );
+    assert!(
+        incriminate.abilities[0].contains("TargetReq::exactly(TargetSpec::Object(&Filter::CREATURE), 2).with_constraint(TargetConstraint::SameController)")
+            && incriminate.abilities[0].contains("Effect::ChooseCardEx")
+            && incriminate.abilities[0].contains("then: &[Effect::SacrificeEvent]")
+            && incriminate.abilities[0].contains("for_unchosen: &[]"),
+        "{}",
+        incriminate.abilities[0]
+    );
+
+    let barrins = read(
+        "Name:Barrin's Spite\nManaCost:2 U B\nTypes:Sorcery\n\
+         A:SP$ TargetOnly | ValidTgts$ Creature | TargetMin$ 2 | TargetMax$ 2 | TargetUnique$ True | TargetsWithSameController$ True | IsCurse$ True | SubAbility$ DBChooseSac\n\
+         SVar:DBChooseSac:DB$ ChooseCard | Mandatory$ True | DefinedCards$ Targeted | Defined$ TargetedController | ChoiceTitle$ Choose one to sacrifice | SubAbility$ DBSac | AILogic$ WorstCard\n\
+         SVar:DBSac:DB$ SacrificeAll | Defined$ ChosenCard | SubAbility$ DBBounce\n\
+         SVar:DBBounce:DB$ ChangeZone | Defined$ Targeted.!ChosenCard | Origin$ Battlefield | Destination$ Hand",
+    );
+    assert!(
+        barrins.abilities[0].contains("TargetReq::exactly(TargetSpec::Object(&Filter::CREATURE), 2).with_constraint(TargetConstraint::SameController)")
+            && barrins.abilities[0].contains("then: &[Effect::SacrificeEvent]")
+            && barrins.abilities[0].contains(
+                "for_unchosen: &[Effect::ReturnToHand { target: TargetSpec::EventObject }]"
+            ),
+        "{}",
+        barrins.abilities[0]
+    );
+
+    let mut deliver_cats = cats();
+    deliver_cats.planeswalker.push("Bolas".into());
+    deliver_cats.normalize();
+    let deliver_script = parse(
+        "Name:Deliver Unto Evil\nManaCost:2 B\nTypes:Sorcery\n\
+         A:SP$ TargetOnly | ValidTgts$ Card.YouCtrl | TargetMin$ 0 | TargetMax$ 4 | TgtZone$ Graveyard | SubAbility$ DBBranch\n\
+         SVar:DBBranch:DB$ Branch | BranchConditionSVar$ X | TrueSubAbility$ DBChangeZone | FalseSubAbility$ DBChooseOpp | SubAbility$ DBExile\n\
+         SVar:X:Count$Valid Planeswalker.Bolas+YouCtrl\n\
+         SVar:DBChangeZone:DB$ ChangeZone | Defined$ Targeted | Origin$ Graveyard | Destination$ Hand\n\
+         SVar:DBChooseOpp:DB$ ChoosePlayer | Choices$ Player.Opponent | SubAbility$ DBChoose\n\
+         SVar:DBChoose:DB$ ChooseCard | DefinedCards$ Targeted | ChoiceZone$ Graveyard | Amount$ 2 | Mandatory$ True | Defined$ ChosenPlayer | SubAbility$ DBReturn\n\
+         SVar:DBReturn:DB$ ChangeZone | Defined$ Targeted.!ChosenCard | Origin$ Graveyard | Destination$ Hand\n\
+         SVar:DBExile:DB$ ChangeZone | Origin$ Stack | Destination$ Exile",
+    );
+    let deliver = transcode(&deliver_script, &deliver_cats, None).expect("Deliver Unto Evil reads");
+    assert!(
+        deliver.abilities[0].contains("Effect::IfCondition")
+            && deliver.abilities[0]
+                .contains("Effect::ChoosePlayerFrom { among: PlayerRel::Opponent")
+            && deliver.abilities[0].contains("Effect::RememberTargetsThen")
+            && deliver.abilities[0].contains("Effect::ChooseCardEx")
+            && deliver.abilities[0].contains("Effect::ExileSource"),
+        "{}",
+        deliver.abilities[0]
+    );
+}
+
+#[test]
+fn w20_switch_block_and_target_only_refusals() {
+    let sorrows = read(
+        "Name:Sorrow's Path\nManaCost:no cost\nTypes:Land\n\
+         A:AB$ SwitchBlock | Cost$ T | TargetMin$ 2 | TargetMax$ 2 | ValidTgts$ Creature.blocking+OppCtrl | TargetsWithSameController$ True | DefinedAttacker$ Valid Creature.blockedByValidThisTurn Targeted | DefinedBlocker$ Targeted | RemoveFromCombat$ True\n\
+         T:Mode$ Taps | ValidCard$ Card.Self | TriggerZones$ Battlefield | Execute$ TrigDamage\n\
+         SVar:TrigDamage:DB$ DamageAll | ValidCards$ Creature.YouCtrl | ValidPlayers$ You | NumDmg$ 2",
+    );
+    assert!(
+        sorrows.abilities.len() == 2
+            && sorrows.abilities[0].contains("Effect::SwapBlockers")
+            && sorrows.abilities[0].contains("TargetConstraint::SameController"),
+        "{:?}",
+        sorrows.abilities
+    );
+
+    // Honest refusal boundaries for Wave 20 multi-target / TargetOnly / SwitchBlock:
+    for bad in [
+        // Cannibalize / Retribution (`AddCounter` only handles single `res.targets`)
+        "Name:CannibalizeLike\nManaCost:1 B\nTypes:Sorcery\n\
+         A:SP$ TargetOnly | ValidTgts$ Creature | TargetMin$ 2 | TargetMax$ 2 | TargetsWithSameController$ True | IsCurse$ True | SubAbility$ DBChoose\n\
+         SVar:DBChoose:DB$ ChooseCard | DefinedCards$ Targeted | Amount$ 1 | Mandatory$ True | SubAbility$ DBExile\n\
+         SVar:DBExile:DB$ ChangeZone | Defined$ ChosenCard | Origin$ Battlefield | Destination$ Exile | SubAbility$ DBCounters\n\
+         SVar:DBCounters:DB$ PutCounter | Defined$ Targeted.!ChosenCard | CounterType$ P1P1 | CounterNum$ 2",
+        // Bioshift (`MoveCounter` with `TargetMin$ 2 | TargetMax$ 2 | TargetsWithSameController$ True | CounterNum$ Any`)
+        "Name:Bioshift\nManaCost:GU\nTypes:Instant\n\
+         A:SP$ MoveCounter | ValidTgts$ Creature | TargetMin$ 2 | TargetMax$ 2 | TargetsWithSameController$ True | CounterType$ P1P1 | CounterNum$ Any",
+        // Single-target TargetOnly with TargetUnique$ True cannot skip second-slot restriction
+        "Name:SingleTargetUnique\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ TargetOnly | ValidTgts$ Creature | TargetUnique$ True | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw | Defined$ You | NumCards$ 1",
+        // Spell-based SwitchBlock or SwitchBlock missing TargetsWithSameController$ True
+        "Name:SpellSwitchBlock\nManaCost:1 W\nTypes:Instant\n\
+         A:SP$ SwitchBlock | TargetMin$ 2 | TargetMax$ 2 | ValidTgts$ Creature.blocking+OppCtrl | TargetsWithSameController$ True | DefinedAttacker$ Valid Creature.blockedByValidThisTurn Targeted | DefinedBlocker$ Targeted | RemoveFromCombat$ True",
+        "Name:UnsameCtrlSwitchBlock\nManaCost:no cost\nTypes:Land\n\
+         A:AB$ SwitchBlock | Cost$ T | TargetMin$ 2 | TargetMax$ 2 | ValidTgts$ Creature.blocking | DefinedAttacker$ Valid Creature.blockedByValidThisTurn Targeted | DefinedBlocker$ Targeted | RemoveFromCombat$ True",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
+}
