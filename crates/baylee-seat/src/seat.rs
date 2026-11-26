@@ -117,6 +117,24 @@ pub struct BridgeConfig {
     pub stops: Vec<(RailSide, RailRow)>,
     /// The house the bridge falls back on.
     pub house: AIProfile,
+    /// Where the seat is labelled as what plays it: on its chair's name
+    /// (a lobby table), or on the account it plays as (a ranked seat).
+    pub labelled: Labelled,
+}
+
+/// Where a seat's AI label is: what [`SeatCore`] holds the table to before
+/// it plays (`docs/llm-seat.md` §"The ranked runner").
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Labelled {
+    /// The chair's name must start with the mind's prefix
+    /// ([`Disclosure::names`]): a lobby table, whose chairs players name.
+    #[default]
+    Chair,
+    /// The account the seat plays as carries the label, checked before it
+    /// queues (`ranked::Player::sign_in`): a ranked host names its chairs
+    /// itself (`Seat A`, `Seat B`), and no name of the seat's choosing
+    /// reaches the table.
+    Account,
 }
 
 impl Default for BridgeConfig {
@@ -129,6 +147,7 @@ impl Default for BridgeConfig {
             allow_blitz: false,
             stops: MIND_STOPS.to_vec(),
             house: AIProfile::default(),
+            labelled: Labelled::Chair,
         }
     }
 }
@@ -778,7 +797,7 @@ impl SeatCore {
                 .seats
                 .get(usize::from(statics.your_seat.get()))
                 .map_or("", |seat| seat.display_name.as_str());
-            if !self.disclosure.names(name) {
+            if self.config.labelled == Labelled::Chair && !self.disclosure.names(name) {
                 let why = format!(
                     "this chair is called «{name}», and a chair a mind plays must be called {}…",
                     self.disclosure.prefix()

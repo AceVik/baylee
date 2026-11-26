@@ -38,9 +38,43 @@ use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 /// An open seat socket.
 pub type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
-/// How a seat files its game's bug report ([`SeatLink::reporter`]).
+/// What a bridge plays through ([`crate::bridge::play`]): the way to one
+/// seat's socket, dialled again when it drops, and asked whether the game
+/// is still on. A lobby chair's is [`SeatLink`]; a ranked seat's, through
+/// Baylee Central's relay, is [`crate::ranked::RankedLink`].
+pub trait Table: Send + Sync {
+    /// Holds reconnection open at least until the table's window has passed.
+    fn hold_for(&mut self, window: Window);
+
+    /// Opens the socket, dialling again until it opens or the way gives up;
+    /// `None` when the game is gone.
+    fn connect(&mut self) -> impl Future<Output = anyhow::Result<Option<Socket>>> + Send;
+
+    /// Whether the game has closed for this seat; `false` where that cannot
+    /// be told: a seat does not leave a table on a guess.
+    fn room_closed(&mut self) -> impl Future<Output = bool> + Send;
+
+    /// The deck the table chose for this seat after it sat down, where it
+    /// chose one (a host's delegated chair); `None` for a seat that brought
+    /// its own.
+    fn selected_deck(
+        &self,
+    ) -> impl Future<Output = anyhow::Result<Option<crate::mind::DeckList>>> + Send;
+
+    /// Where the game's reports are filed; `None` where this way has no
+    /// route for them (they stay in the reports file).
+    fn reporter(&self) -> Option<Reporter<'_>>;
+
+    /// The seat's own secret, which no report may carry.
+    fn seat_secret(&self) -> &str;
+
+    /// Sockets opened so far.
+    fn dials(&self) -> u32;
+}
+
+/// How a seat files its game's bug report ([`Table::reporter`]).
 #[derive(Clone, Copy)]
-pub(crate) enum Reporter<'a> {
+pub enum Reporter<'a> {
     /// Under its own session, as a player does (`POST /reports`).
     Session(&'a Lobby, &'a Session),
     /// On its chair's seat token, the chair taken on its host's ticket
@@ -311,6 +345,42 @@ impl SeatLink {
             };
         }
     }
+}
+
+impl Table for SeatLink {
+    fn hold_for(&mut self, window: Window) {
+        Self::hold_for(self, window);
+    }
+
+    async fn connect(&mut self) -> anyhow::Result<Option<Socket>> {
+        Self::connect(self).await
+    }
+
+    async fn room_closed(&mut self) -> bool {
+        Self::room_closed(self).await
+    }
+
+    async fn selected_deck(&self) -> anyhow::Result<Option<crate::mind::DeckList>> {
+        Self::selected_deck(self).await
+    }
+
+    fn reporter(&self) -> Option<Reporter<'_>> {
+        Some(Self::reporter(self))
+    }
+
+    fn seat_secret(&self) -> &str {
+        &self.chair.seat_token
+    }
+
+    fn dials(&self) -> u32 {
+        Self::dials(self)
+    }
+}
+
+/// Opens a socket at `url` with Nagle's algorithm off: [`open`], for another
+/// way to a table ([`crate::ranked::RankedLink`]).
+pub(crate) async fn open_socket(url: &str) -> Result<Socket, String> {
+    open(url).await.map_err(|e| describe(&e))
 }
 
 /// Opens a seat socket with Nagle's algorithm off (`TCP_NODELAY`), as the

@@ -26,7 +26,10 @@
 //!   spend book that holds its caps across games (`docs/llm-seat.md`);
 //! - [`reports`] and [`lookup`]: the rules or engine errors a language
 //!   model reports, and the card text it may read before it answers
-//!   (`docs/llm-protocol.md` §"Reports and lookups").
+//!   (`docs/llm-protocol.md` §"Reports and lookups");
+//! - [`ranked`]: an AI account that plays Ranked through Baylee Central,
+//!   as a person's native client does (`docs/llm-seat.md` §"The ranked
+//!   runner").
 //!
 //! [`bridge::play`] runs them all against a gateway.
 
@@ -49,6 +52,7 @@ pub mod lookup;
 pub mod memory;
 pub mod mind;
 pub mod narrator;
+pub mod ranked;
 pub mod referee;
 pub mod reports;
 pub mod scripted;
@@ -67,6 +71,6 @@ pub use mind::{
     MindError, Readiness, Refusal, RefusedBy, Request, Thinking,
 };
 pub use scripted::ScriptedMind;
-pub use seat::{BridgeConfig, By, SeatCore, Stats, Step};
+pub use seat::{BridgeConfig, By, Labelled, SeatCore, Stats, Step};
 pub use transcript::Transcript;
 pub use wake::WakeFilter;

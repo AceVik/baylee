@@ -1402,6 +1402,94 @@ HTTP), `BAYLEE_SEAT_BIN` beside it by default. On `SIGTERM` it reports
 every profile `disabled`, refuses new chairs, and exits when its bridges'
 games are over.
 
+## The ranked runner
+
+`baylee-seat ranked` (`baylee_seat::ranked`) plays Ranked as an AI account,
+the first stage of AI players (`docs/proposals/ai-players.md`
+§"Stages"). It is the same bridge with another way to its table: it signs
+in to Baylee Central as the native client does, takes its matches from a
+source, and plays each through Central's relay. Today it plays with the
+house at a fair level; a language model is a `Pilot` like any other mind,
+still to be wired up with its spend book.
+
+```text
+baylee-seat ranked --username <AI account> --deck <its deck id>
+    (--password-file <path> | --password-key <name>)
+    [--central live|http://127.0.0.1:<port>] [--format standard] [--level expert]
+    [--accept-host <origin>]… [--games <n>] [--search-secs <n>]
+    [--min-think-ms 1500] [--transcripts <dir>]
+```
+
+- **The account and its label.** An ordinary Central account. A ranked
+  host names its chairs itself (`Seat A`, `Seat B`), so the seat cannot
+  carry the `HOUSE-` prefix a lobby chair must (`docs/protocol.md` §"Who
+  answers a seat, as it says"; above, §"A language model at your
+  table"). The account carries the label instead: the runner signs in and
+  refuses to play unless the account's public name starts with `KI-`, the
+  prefix Central's design reserves for AI accounts (`KI-Haus-Expert`;
+  baylee-central `docs/ai-players.md` §6), or with its mind's own
+  (`HOUSE-Expert`). The seat is then held to the account's label rather
+  than the chair's (`BridgeConfig::labelled`, `Labelled::Account`). Once
+  Central flags AI accounts, the flag and its badge are the label.
+- **Its password** comes from the operator, never from an argument, a URL,
+  the environment or a log: a file only the runner's service can read
+  (`--password-file`, a systemd credential under `LoadCredential=`, as
+  Central's design has it), or this machine's credential store
+  (`--password-key <name>`, kept with `baylee-seat key set --key-env <name>
+  --host <central>`, the password on stdin; §"Where a key is kept"). Either
+  is read afresh at each sign-in.
+- **One session per account.** A second native sign-in ends the first and
+  the account's seats at their hosts, so one session serves every match.
+  The runner renews it every ten minutes (it lasts thirty after a renewal),
+  signs in again at a moment it plays no match once the session is eight
+  hours old (Central ends it at twelve), and signs in again at once when
+  Central will not renew it.
+- **The deck** is one of the account's own private decks (`--deck <id>`),
+  frozen once as the native client freezes it: notes dropped, the rows the
+  commitment binds, the mind told the same deck.
+- **Where matches come from** is a source (`ranked::Assignments`), asked
+  every two seconds while the runner wants another match; it names the
+  account's live matches, each with its deck, and the runner plays every
+  one it has not played yet as a task of its own. Today's source is the
+  person's queue (`ranked::Queue`): a match Central already holds for the
+  account comes first (a runner that restarted resumes it); else it joins
+  and waits, for `--search-secs` at most. A stopped runner leaves a search
+  that is still waiting, never a match already assigned. Central's design
+  for AI accounts replaces it with standing deck offers and a read of the
+  account's live matches, several at once (baylee-central
+  `docs/ai-players.md` §4: an AI account may not join the queue); that is
+  one more source, and nothing else changes.
+- **A match.** The relay takes the match-bound admission for the account
+  (`POST /auth/ranked/login` at the host), hands the host the frozen deck
+  (`POST /ranked/{match}/play`, asked again with the same admission while
+  the host answers `202`), and trades the seat for a one-use ticket to
+  Central's `/v1/ranked/socket`. The runner never dials the host itself.
+  A dropped socket is replaced the same way, the host given the game's id
+  (`{"game": …}`) instead of the deck, and the seat asks for what it
+  missed. While the game runs, the admission is renewed at the
+  `renew_in` the host gave. After the game the runner reads Central's
+  receipt (the outcome, the Elo and its change), and stops after
+  `--games`.
+- **Host terms.** Central asks every participant to approve the hosts of a
+  match and their terms. The runner approves only a match whose hosts are
+  all on the operator's list (`--accept-host <origin>`, repeatable) and
+  declines any other, which releases the match without a score.
+- **Single-host only.** Every ranked game runs on one host today, and the
+  runner plays that path: ordinary seat frames, answers on the socket, and
+  no presence reports (the native client sends none there either). A match
+  replicated across two hosts (certified projections, answers as journal
+  entries at Central, presence every five seconds) is refused in one
+  sentence; that link is still to be built.
+- **Reports.** A ranked seat has no session at its host and the relay no
+  route for reports, so a language model's reports stay in its reports
+  file (`route: "none"` in the transcript).
+
+`cargo dev central integration --ai-players-only` proves it end to end:
+two synthetic AI accounts, each a runner with the house at `expert`, find
+each other in Central's queue and finish a ranked game on one verified
+host, and both runners' results agree with Central's receipts
+(`crates/baylee-gateway/tests/e2e_central/ranked/runners.rs`).
+
 ## A dev table
 
 `cargo run -p xtask -- dev-table --bridge profile:<name>` seats the bridge

@@ -2369,6 +2369,7 @@ version = "0.2.0-beta.o1"
 dependencies = [
  "anyhow",
  "axum",
+ "baylee-account",
  "baylee-ai",
  "baylee-cards",
  "baylee-cards-dsl",
@@ -2397,7 +2398,9 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "ureq",
+ "url",
  "uuid",
+ "zeroize",
 ]
 
 [[package]]
