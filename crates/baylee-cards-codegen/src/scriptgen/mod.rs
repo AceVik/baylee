@@ -61,6 +61,7 @@ mod imprison;
 mod keywords;
 mod kicker;
 mod mana;
+mod names;
 mod prevention;
 mod protection52;
 mod regeneration;
@@ -551,6 +552,8 @@ struct Tx<'a> {
     has_resolution_chosen_color: bool,
     /// An earlier effect in this resolution chain chose a card name.
     has_resolution_chosen_name: bool,
+    /// Whether the script declares a static ability reading `NamedCard`.
+    has_named_card_static: bool,
     /// Whether the activated ability being read sacrifices `CARDNAME` in its cost.
     cost_sacrifices_self: bool,
     /// Whether the activated ability being read sacrifices another object in its cost.
@@ -783,6 +786,10 @@ impl<'a> Tx<'a> {
             has_resolution_chosen_number: false,
             has_resolution_chosen_color: false,
             has_resolution_chosen_name: false,
+            has_named_card_static: script
+                .rules
+                .iter()
+                .any(|(k, s)| *k == 'S' && s.contains("NamedCard")),
             cost_sacrifices_self: false,
             cost_sacrifices_other: false,
             cost_discards_single_for_cost: false,

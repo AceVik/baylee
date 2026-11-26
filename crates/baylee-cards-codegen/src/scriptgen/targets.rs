@@ -2438,6 +2438,9 @@ impl Tx<'_> {
             "TriggeredCardOwner" | "TriggeredCardController" if trigger == Some("Discarded") => {
                 "PlayerRel::EventPlayer"
             }
+            "TriggeredCauseController" if trigger == Some("Discarded") && self.trigger_is_self => {
+                "PlayerRel::EventPlayer"
+            }
             "TriggeredDefendingPlayer" | "DefendingPlayer"
                 if matches!(
                     trigger,

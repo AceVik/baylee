@@ -17,6 +17,7 @@ mod effects;
 mod hand_and_draw;
 mod imprison;
 mod kicker;
+mod names;
 mod prevention_rules;
 mod reader_unlocks;
 mod reading;
