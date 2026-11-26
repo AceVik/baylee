@@ -139,6 +139,7 @@ enum Answer {
 
 /// What the sheet stands on, and what it shows.
 #[derive(Resource)]
+#[allow(clippy::struct_excessive_bools)] // four independent facts, not a state machine
 pub(crate) struct Invites {
     open: bool,
     /// The sheet closed this frame: the key that closed it is still its.
@@ -317,52 +318,7 @@ fn act(
                     sheet.days = days;
                 }
             }
-            Action::Create => {
-                if sheet.made.is_some() || sheet.busy().is_some() || sheet.full() {
-                    continue;
-                }
-                let mut ask = NewInvite {
-                    label: None,
-                    note: None,
-                    email: None,
-                    lang: state
-                        .as_deref()
-                        .map_or("en", |s| s.lobby.lang().code())
-                        .to_owned(),
-                    days: sheet.days,
-                };
-                for (field, which) in &fields {
-                    let value = Some(field.value.clone());
-                    match which {
-                        Field::Label => ask.label = value,
-                        Field::Note => ask.note = value,
-                        Field::Email => ask.email = value,
-                    }
-                }
-                if ask
-                    .email
-                    .as_deref()
-                    .map(str::trim)
-                    .is_some_and(|a| !a.is_empty() && !baylee_account::plausible_email(a))
-                {
-                    sheet.said = Some(ChatPhrase::InviteRefused);
-                    continue;
-                }
-                sheet.said = None;
-                let email = ask
-                    .email
-                    .as_deref()
-                    .map(str::trim)
-                    .filter(|a| !a.is_empty())
-                    .map(str::to_owned);
-                start(
-                    &mut sheet,
-                    state.as_deref(),
-                    Kind::Create,
-                    Job::Create(ask),
-                    email,
-                );
-            }
+            Action::Create => create(&mut sheet, state.as_deref(), &fields),
             Action::Copy => {
                 if let (Some(made), Some(clipboard)) = (sheet.made.as_ref(), clipboard.as_mut()) {
                     let _ = clipboard.set_text(made.url.as_str().to_owned());
@@ -399,6 +355,45 @@ fn act(
             }
         }
     }
+}
+
+/// "Create link": the form's fields as a new invite, sent to Central, unless
+/// a link stands, a request runs or every invite the account may have open
+/// is open. An address that is no address is refused here, before Central.
+fn create(sheet: &mut Invites, state: Option<&LobbyState>, fields: &Query<(&ShellField, &Field)>) {
+    if sheet.made.is_some() || sheet.busy().is_some() || sheet.full() {
+        return;
+    }
+    let mut ask = NewInvite {
+        label: None,
+        note: None,
+        email: None,
+        lang: state.map_or("en", |s| s.lobby.lang().code()).to_owned(),
+        days: sheet.days,
+    };
+    for (field, which) in fields {
+        let value = Some(field.value.clone());
+        match which {
+            Field::Label => ask.label = value,
+            Field::Note => ask.note = value,
+            Field::Email => ask.email = value,
+        }
+    }
+    let email = ask
+        .email
+        .as_deref()
+        .map(str::trim)
+        .filter(|a| !a.is_empty())
+        .map(str::to_owned);
+    if email
+        .as_deref()
+        .is_some_and(|a| !baylee_account::plausible_email(a))
+    {
+        sheet.said = Some(ChatPhrase::InviteRefused);
+        return;
+    }
+    sheet.said = None;
+    start(sheet, state, Kind::Create, Job::Create(ask), email);
 }
 
 /// How long "Copied" stands under the link, in seconds.

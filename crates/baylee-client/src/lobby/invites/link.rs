@@ -41,13 +41,16 @@ impl Asked {
     }
 }
 
+/// Where an answer from the account worker arrives.
+type Inbox<T> = Mutex<mpsc::Receiver<T>>;
+
 /// What the lobby waits for from Central.
 #[derive(Default)]
 pub(crate) struct Flow {
-    /// The preview asked for, on the account worker.
-    looking: Option<Mutex<mpsc::Receiver<(InviteLink, Result<FriendInvitePreview, Error>)>>>,
+    /// The preview asked for, on the account worker, with its link.
+    looking: Option<Inbox<(InviteLink, Result<FriendInvitePreview, Error>)>>,
     /// The invite being taken up.
-    taking: Option<Mutex<mpsc::Receiver<Result<Person, Error>>>>,
+    taking: Option<Inbox<Result<Person, Error>>>,
 }
 
 impl Flow {
@@ -88,45 +91,76 @@ pub(in crate::lobby) fn answers(
 ) {
     // A worker that stopped (a sign-out) dropped its sender: that is an
     // answer too, so nothing waits for ever.
-    if let Some(taken) = state.invite_link.taking.as_ref().and_then(delivered) {
-        state.invite_link.taking = None;
-        took(state, taken.unwrap_or(Err(Error::Unavailable)));
+    match state
+        .invite_link
+        .taking
+        .as_ref()
+        .map_or(Polled::Waiting, polled)
+    {
+        Polled::Waiting => {}
+        Polled::Answered(taken) => {
+            state.invite_link.taking = None;
+            took(state, taken);
+        }
+        Polled::Gone => {
+            state.invite_link.taking = None;
+            took(state, Err(Error::Unavailable));
+        }
     }
     if !may_ask {
         return;
     }
-    if let Some(looked) = state.invite_link.looking.as_ref().and_then(delivered) {
-        state.invite_link.looking = None;
-        let Some((link, preview)) = looked else {
+    let (link, preview) = match state
+        .invite_link
+        .looking
+        .as_ref()
+        .map_or(Polled::Waiting, polled)
+    {
+        Polled::Waiting => return,
+        Polled::Answered(looked) => {
+            state.invite_link.looking = None;
+            looked
+        }
+        Polled::Gone => {
+            state.invite_link.looking = None;
             state.lobby.tell_refusal(Phrase::InviteLinkFailed, &[]);
             return;
-        };
-        let mine = own_tag(state);
-        let friends = friend_tags(host);
-        match decide(link, preview, mine.as_deref(), &friends, now()) {
-            Decision::Ask(asked) => {
-                state.confirmation = Some(confirm::Destructive::FriendInvite(asked));
-            }
-            Decision::Tell(phrase, player) => {
-                state
-                    .lobby
-                    .tell_refusal(phrase, &[player.as_deref().unwrap_or("")]);
-            }
+        }
+    };
+    let mine = own_tag(state);
+    let friends = friend_tags(host);
+    match decide(link, preview, mine.as_deref(), &friends, now()) {
+        Decision::Ask(asked) => {
+            state.confirmation = Some(confirm::Destructive::FriendInvite(asked));
+        }
+        Decision::Tell(phrase, player) => {
+            state
+                .lobby
+                .tell_refusal(phrase, &[player.as_deref().unwrap_or("")]);
         }
     }
 }
 
-/// What a worker sent, `Some(None)` once it is gone without an answer, and
-/// `None` while it is still at work.
-fn delivered<T>(receive: &Mutex<mpsc::Receiver<T>>) -> Option<Option<T>> {
+/// What an inbox holds.
+enum Polled<T> {
+    /// The worker is still at it.
+    Waiting,
+    /// Its answer.
+    Answered(T),
+    /// The worker is gone without an answer.
+    Gone,
+}
+
+/// What the worker behind `receive` sent, if it has.
+fn polled<T>(receive: &Inbox<T>) -> Polled<T> {
     match receive
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .try_recv()
     {
-        Ok(answer) => Some(Some(answer)),
-        Err(mpsc::TryRecvError::Empty) => None,
-        Err(mpsc::TryRecvError::Disconnected) => Some(None),
+        Ok(answer) => Polled::Answered(answer),
+        Err(mpsc::TryRecvError::Empty) => Polled::Waiting,
+        Err(mpsc::TryRecvError::Disconnected) => Polled::Gone,
     }
 }
 
@@ -233,7 +267,7 @@ fn own_tag(state: &LobbyState) -> Option<String> {
 /// The tags of the account's friends, as the chat knows them.
 fn friend_tags(host: Option<&SocialHost>) -> Vec<String> {
     host.and_then(SocialHost::machine)
-        .map(|machine| {
+        .map_or_default(|machine| {
             machine
                 .contacts()
                 .friends
@@ -241,7 +275,6 @@ fn friend_tags(host: Option<&SocialHost>) -> Vec<String> {
                 .map(|friend| friend.person.tag.clone())
                 .collect()
         })
-        .unwrap_or_default()
 }
 
 /// The wall clock in Unix seconds.

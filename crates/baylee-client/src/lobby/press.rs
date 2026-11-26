@@ -93,6 +93,7 @@ pub(super) struct Cx<'a, 'l, 'p, 's, 'c> {
 
 impl SharedPress {
     /// What a click on this control does.
+    #[allow(clippy::too_many_lines)] // one arm per press
     pub(super) fn handle(self, cx: Cx<'_, '_, '_, '_, '_>) {
         let Cx {
             state,

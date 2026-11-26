@@ -67,8 +67,11 @@ pub(super) struct Pop {
 #[derive(Component)]
 pub(super) struct Copied;
 
-/// What each part was last drawn from.
+/// What each part was last drawn from: `None` before it is drawn at all, so
+/// a part drawn from nothing (no mail answer yet, no new link, no question)
+/// is told apart from a part not drawn yet.
 #[derive(Default)]
+#[allow(clippy::option_option)] // not drawn yet, or drawn from nothing
 pub(super) struct Drawn {
     shell: Option<(Lang, ShellMetrics)>,
     days: Option<u8>,
@@ -294,6 +297,7 @@ pub(super) fn draw(
 /// greeting fields with what was `kept` in them, and the empty slots its
 /// other parts are drawn into. Answers the first field, which takes the
 /// keys, and the slots.
+#[allow(clippy::too_many_lines)] // the frame, one slot after another
 fn shell(
     commands: &mut Commands,
     kit: Kit,
@@ -597,6 +601,7 @@ fn act(commands: &mut Commands, at: Entity, kit: Kit, lang: Lang, sheet: &Invite
 /// The new link: its code for a phone, the address in full, Copy and Make
 /// another, "Copied" while it stands, until when it holds, that it is shown
 /// once, and whether the mail went out.
+#[allow(clippy::too_many_lines)] // one line of the card after another
 fn made_link(commands: &mut Commands, at: Entity, kit: Kit, lang: Lang, made: &super::Made) {
     let row = commands
         .spawn((
@@ -841,6 +846,50 @@ fn list(commands: &mut Commands, at: Entity, kit: Kit, lang: Lang, sheet: &Invit
     }
 }
 
+/// An invite's mark: the disc of who took it up, else a round plate with a
+/// link (open), a struck circle (withdrawn) or an hourglass (expired).
+fn mark(commands: &mut Commands, kit: Kit, invite: &FriendInviteSummary, open: bool) -> Entity {
+    if let (Some(person), FriendInviteStatus::Redeemed) = (&invite.redeemed_by, invite.status) {
+        return avatar::disc(
+            commands,
+            kit.fonts,
+            &model::handle(person),
+            kit.m.scaled(34.0),
+        );
+    }
+    let (glyph, ink, ground) = if open {
+        (glyph::LINK, tokens::ACCENT, tokens::ACCENT.with_alpha(0.14))
+    } else if invite.status == FriendInviteStatus::Revoked {
+        (glyph::BAN, tokens::MUTED, tokens::SKELETON)
+    } else {
+        (glyph::HOURGLASS, tokens::MUTED, tokens::SKELETON)
+    };
+    let size = kit.m.px(34.0);
+    commands
+        .spawn((
+            Node {
+                width: size,
+                height: size,
+                flex_shrink: 0.0,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(Val::Percent(50.0)),
+                ..default()
+            },
+            BackgroundColor(ground),
+            BorderColor::all(ink.with_alpha(0.35)),
+            Pickable::IGNORE,
+        ))
+        .with_child((
+            Text::new(glyph.to_string()),
+            icon_tf(kit.fonts, kit.m.small),
+            TextColor(ink),
+            Pickable::IGNORE,
+        ))
+        .id()
+}
+
 /// One invite: its mark, its name and state, and Withdraw while it is open.
 fn row(
     commands: &mut Commands,
@@ -867,47 +916,7 @@ fn row(
             Pickable::IGNORE,
         ))
         .id();
-    let size = kit.m.px(34.0);
-    let mark = match (&invite.redeemed_by, invite.status) {
-        (Some(person), FriendInviteStatus::Redeemed) => avatar::disc(
-            commands,
-            kit.fonts,
-            &model::handle(person),
-            kit.m.scaled(34.0),
-        ),
-        _ => {
-            let (glyph, ink, ground) = if open {
-                (glyph::LINK, tokens::ACCENT, tokens::ACCENT.with_alpha(0.14))
-            } else if invite.status == FriendInviteStatus::Revoked {
-                (glyph::BAN, tokens::MUTED, tokens::SKELETON)
-            } else {
-                (glyph::HOURGLASS, tokens::MUTED, tokens::SKELETON)
-            };
-            commands
-                .spawn((
-                    Node {
-                        width: size,
-                        height: size,
-                        flex_shrink: 0.0,
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::Center,
-                        border: UiRect::all(px_fixed(1.0)),
-                        border_radius: BorderRadius::all(Val::Percent(50.0)),
-                        ..default()
-                    },
-                    BackgroundColor(ground),
-                    BorderColor::all(ink.with_alpha(0.35)),
-                    Pickable::IGNORE,
-                ))
-                .with_child((
-                    Text::new(glyph.to_string()),
-                    icon_tf(kit.fonts, kit.m.small),
-                    TextColor(ink),
-                    Pickable::IGNORE,
-                ))
-                .id()
-        }
-    };
+    let mark = mark(commands, kit, invite, open);
     let mut state = model::state_words(invite, now, offset, lang);
     if let Some(address) = invite.invited_email.as_deref() {
         state = format!("{state} · {address}");
@@ -1049,7 +1058,7 @@ fn question(
 
 /// Moves what opens and closes, fades "Copied", and lets a sheet that left
 /// go. Writes nothing once everything rests.
-#[allow(clippy::type_complexity)] // the movers and what they move
+#[allow(clippy::type_complexity, clippy::too_many_arguments)] // a Bevy system: the movers and what they move
 pub(super) fn animate(
     mut commands: Commands,
     time: Option<Res<Time>>,
