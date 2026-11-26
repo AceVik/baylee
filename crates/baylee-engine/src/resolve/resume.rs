@@ -1955,6 +1955,13 @@ pub(super) fn resume_inner(
         | AwaitingOp::GuessNamedCardInHand { .. }
         | AwaitingOp::ChooseNumber
         | AwaitingOp::ChooseNumberEx { .. }
+        | AwaitingOp::ChoosePlayerEx { .. }
+        | AwaitingOp::SecretNumbers { .. }
+        | AwaitingOp::SecretGuessPickGuesser { .. }
+        | AwaitingOp::SecretGuessChoose { .. }
+        | AwaitingOp::SecretGuessAnswer { .. }
+        | AwaitingOp::RepeatPayUntilNone { .. }
+        | AwaitingOp::ManaChoiceFor { .. }
         | AwaitingOp::RemoveCountersSelfCreateTokens { .. }
         | AwaitingOp::DungeonPlay(_)
         | AwaitingOp::Dungeon { .. }

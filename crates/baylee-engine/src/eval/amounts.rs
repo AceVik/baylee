@@ -540,7 +540,8 @@ pub(crate) fn amount_with_version(
         | Amount::SacrificedTotalPower
         | Amount::SacrificedTotalToughness
         | Amount::SacrificedTotalManaValue
-        | Amount::SacrificedDistinctColors => 0,
+        | Amount::SacrificedDistinctColors
+        | Amount::ResolutionAccumulatedNumber => 0,
         Amount::ResolutionChosenNumber => state
             .resolution_chosen_number
             .filter(|(src, _)| *src == this)
@@ -672,6 +673,44 @@ pub(crate) fn amount_with_version(
                     .max()
                     .unwrap_or(0)
             }),
+        Amount::Domain(who) => super::players_for_source(*who, state, you, Some(context.source))
+            .map_or(0, |seats| {
+                seats
+                    .into_iter()
+                    .map(|seat| domain_for_player(state, seat))
+                    .max()
+                    .unwrap_or(0)
+            }),
+        Amount::TotalCountersOnSubject => state
+            .damage_source(context.source, None)
+            .or_else(|| state.object_or_departed(context.source))
+            .map_or(0, |obj| {
+                obj.counters
+                    .iter()
+                    .map(|(_, n)| u32::from(n))
+                    .fold(0_u32, u32::saturating_add)
+            }),
+        Amount::PlayerCounters { player, kind } => {
+            super::players_for_source(*player, state, you, Some(context.source)).map_or(0, |seats| {
+                seats.into_iter().fold(0_u32, |acc, seat| {
+                    acc.saturating_add(player_counter_count(state, seat, *kind))
+                })
+            })
+        }
+        Amount::RingTemptedCount(who) => {
+            super::players_for_source(*who, state, you, Some(context.source)).map_or(0, |seats| {
+                seats
+                    .into_iter()
+                    .map(|seat| {
+                        state
+                            .players
+                            .get(usize::from(seat.get()))
+                            .map_or(0, |p| u32::from(p.ring_temptations))
+                    })
+                    .max()
+                    .unwrap_or(0)
+            })
+        }
         Amount::SpellsCastThisTurn(who) => {
             super::players_for_source(*who, state, you, Some(context.source)).map_or(0, |seats| {
                 seats
@@ -1204,6 +1243,57 @@ fn source_object_for_version(
     match source_version {
         Some(v) => state.damage_source(this, Some(v)),
         None => state.object(this),
+    }
+}
+
+/// Number of distinct basic land types among lands `seat` controls (CR 305.6).
+#[must_use]
+pub(crate) fn domain_for_player(state: &GameState, seat: PlayerId) -> u32 {
+    use baylee_core::generated::subtypes::land;
+    use baylee_core::types::TypeSet;
+    const BASICS: [baylee_core::ids::SubtypeId; 5] = [
+        land::PLAINS,
+        land::ISLAND,
+        land::SWAMP,
+        land::MOUNTAIN,
+        land::FOREST,
+    ];
+    let mut seen = [false; 5];
+    for id in state.battlefield_seen() {
+        let Some(obj) = state.object(id) else {
+            continue;
+        };
+        if obj.controller != seat {
+            continue;
+        }
+        let c = obj.characteristics();
+        if !c.types.contains(TypeSet::LAND) {
+            continue;
+        }
+        for (slot, basic) in seen.iter_mut().zip(BASICS) {
+            if c.subtypes.contains(basic) {
+                *slot = true;
+            }
+        }
+    }
+    seen.into_iter().filter(|&b| b).count() as u32
+}
+
+/// Number of `kind` counters currently on `seat`.
+#[must_use]
+pub(crate) fn player_counter_count(
+    state: &GameState,
+    seat: PlayerId,
+    kind: baylee_cards_dsl::CounterKind,
+) -> u32 {
+    let Some(p) = state.players.get(usize::from(seat.get())) else {
+        return 0;
+    };
+    match kind {
+        baylee_cards_dsl::CounterKind::Poison => u32::from(p.poison),
+        baylee_cards_dsl::CounterKind::Energy => u32::from(p.energy),
+        baylee_cards_dsl::CounterKind::Rad => u32::from(p.rad),
+        _ => 0,
     }
 }
 

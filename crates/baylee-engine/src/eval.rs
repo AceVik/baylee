@@ -1192,7 +1192,7 @@ pub(crate) fn matches_projected_with_choices(
             let Some(chosen) = state
                 .object(this)
                 .or_else(|| state.damage_source(this, None))
-                .and_then(crate::object::GameObject::chosen_number)
+                .and_then(crate::object::GameObject::chosen_number_for_rules)
             else {
                 return false;
             };
@@ -1772,3 +1772,6 @@ pub(crate) fn object_was_cast_from_zone(
 
 #[cfg(test)]
 mod tests;
+
+pub(crate) use amounts::{domain_for_player, player_counter_count};
+pub(crate) use conditions::{object_spent_treasure_mana, object_was_foretold, object_was_sneaked};

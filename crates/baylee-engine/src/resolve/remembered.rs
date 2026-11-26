@@ -478,7 +478,7 @@ pub(super) fn exec_remember_targets_then(
     None
 }
 
-fn remembered_item_matches_filter(
+pub(super) fn remembered_item_matches_filter(
     filter: &'static Filter,
     state: &GameState,
     res: &Resolution,

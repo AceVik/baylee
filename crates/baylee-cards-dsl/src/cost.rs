@@ -379,6 +379,11 @@ pub enum CostPart {
     /// Waterbend {X} (`CR 701.67a`, `CR 107.3`): pay `{X}` generic mana using
     /// Waterbend. Appended to preserve replay identities.
     WaterbendX,
+    /// Reveal the player secretly chosen as this permanent entered (`CR 118.3`,
+    /// `CR 701.20a`; *Guardian Archon*, *Emissary of Grudges*, *Stalking Leonin*).
+    /// Payable only while the source permanent still holds an unrevealed secret
+    /// chosen player. Appended to preserve replay identities.
+    RevealChosenPlayer,
 }
 
 /// A cost reduction printed on a card (Surgical Metamorph) or on one of its

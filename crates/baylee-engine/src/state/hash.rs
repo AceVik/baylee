@@ -334,6 +334,23 @@ impl GameState {
                 hash_characteristics(&mut h, base);
             }
         }
+        if per_turn.track_last_combat_attacked.0 {
+            if !combat.declared_against_players.is_empty() {
+                h.u8(255);
+                h.u16(555);
+                h.u8(3);
+                combat.declared_against_players.hash(&mut h);
+            }
+            for p in players {
+                if !p.last_combat_attacked.is_empty() {
+                    h.u8(255);
+                    h.u16(555);
+                    h.u8(2);
+                    h.u8(p.id.get());
+                    p.last_combat_attacked.hash(&mut h);
+                }
+            }
+        }
         h.finish()
     }
 
@@ -563,6 +580,27 @@ impl GameState {
             h.u32(position(b.blocker));
             h.u32(position(b.attacker));
         }
+        if self.per_turn.track_last_combat_attacked.0
+            && !self.combat.declared_against_players.is_empty()
+        {
+            let mut pairs: Vec<_> = self
+                .combat
+                .declared_against_players
+                .iter()
+                .filter(|(reference, _)| {
+                    self.object(reference.object)
+                        .is_some_and(|object| object.version == reference.version)
+                })
+                .map(|(reference, opp)| (position(reference.object), opp.get()))
+                .collect();
+            pairs.sort_unstable();
+            if !pairs.is_empty() {
+                h.u8(255);
+                h.u16(555);
+                h.u8(3);
+                pairs.hash(h);
+            }
+        }
     }
 
     fn hash_loop_players(&self, h: &mut Hasher, position: &impl Fn(ObjectId) -> u32) {
@@ -658,6 +696,33 @@ impl GameState {
                     blocked.hash(h);
                 }
             }
+            if self.per_turn.track_last_combat_attacked.0 && !player.last_combat_attacked.is_empty()
+            {
+                let mut pairs: Vec<_> = player
+                    .last_combat_attacked
+                    .iter()
+                    .filter(|(reference, _)| {
+                        self.object(reference.object)
+                            .is_some_and(|object| object.version == reference.version)
+                    })
+                    .map(|(reference, opp)| (position(reference.object), opp.get()))
+                    .collect();
+                pairs.sort_unstable();
+                if !pairs.is_empty() {
+                    h.u8(255);
+                    h.u16(555);
+                    h.u8(2);
+                    pairs.hash(h);
+                }
+            }
+        }
+        if self.per_turn.attacked_players.tracked
+            && !self.per_turn.attacked_players.items.is_empty()
+        {
+            h.u8(255);
+            h.u16(555);
+            h.u8(1);
+            self.per_turn.attacked_players.items.hash(h);
         }
     }
 
@@ -1702,7 +1767,7 @@ fn hash_object_situation(
     obj.deck_choices.hash(h);
     hash_copy_decisions(h, obj);
     h.u8(obj.doors.bits());
-    h.u8(obj.chosen_opponent().map_or(255, PlayerId::get));
+    h.u8(obj.chosen_opponent_for_rules().map_or(255, PlayerId::get));
     h.boolean(obj.prototyped);
     match &obj.card {
         Some(c) => {
@@ -2144,6 +2209,37 @@ fn hash_cast_keyword_rider(h: &mut Hasher, rider: &crate::object::Rider) {
             h.u8(203);
             count.hash(h);
         }
+        crate::object::Rider::TreasureManaSpent => {
+            h.u8(255);
+            h.u16(551);
+            h.u8(1);
+        }
+        crate::object::Rider::SecondChosenPlayer(p) => {
+            h.u8(255);
+            h.u16(551);
+            h.u8(2);
+            h.u8(p.get());
+        }
+        crate::object::Rider::SecretChosenPlayer { player, revealed } => {
+            h.u8(255);
+            h.u16(551);
+            h.u8(3);
+            h.u8(player.get());
+            revealed.hash(h);
+        }
+        crate::object::Rider::SecretChosenNumber { number, revealed } => {
+            h.u8(255);
+            h.u16(551);
+            h.u8(4);
+            h.u8(*number);
+            revealed.hash(h);
+        }
+        crate::object::Rider::UsedChosenNumbers(mask) => {
+            h.u8(255);
+            h.u16(551);
+            h.u8(5);
+            h.u32(*mask);
+        }
         crate::object::Rider::Monstrous => h.u8(211),
         crate::object::Rider::ClassLevel(level) => {
             h.u8(255);
@@ -2341,6 +2437,11 @@ pub(crate) fn provenance_digest(
     restriction.rider.hash(&mut one);
     restriction.restricts.hash(&mut one);
     restriction.until_end_of_turn.hash(&mut one);
+    if provenance.from_treasure {
+        255_u8.hash(&mut one);
+        556_u16.hash(&mut one);
+        true.hash(&mut one);
+    }
     one.finish()
 }
 
@@ -2454,6 +2555,7 @@ fn hash_player(h: &mut Hasher, player: &Player) {
         turns_to_skip,
         combats_to_skip,
         last_turn_attackers,
+        last_combat_attacked: _,
         blocked_since_upkeep,
         blocked_before_upkeep,
         // Read off the turn clock as an upkeep begins, so they follow from
@@ -3117,6 +3219,37 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u16(508);
                 h.u8(player.get());
                 h.u8(*mode);
+            }
+            Rider::TreasureManaSpent => {
+                h.u8(255);
+                h.u16(551);
+                h.u8(1);
+            }
+            Rider::SecondChosenPlayer(p) => {
+                h.u8(255);
+                h.u16(551);
+                h.u8(2);
+                h.u8(p.get());
+            }
+            Rider::SecretChosenPlayer { player, revealed } => {
+                h.u8(255);
+                h.u16(551);
+                h.u8(3);
+                h.u8(player.get());
+                revealed.hash(h);
+            }
+            Rider::SecretChosenNumber { number, revealed } => {
+                h.u8(255);
+                h.u16(551);
+                h.u8(4);
+                h.u8(*number);
+                revealed.hash(h);
+            }
+            Rider::UsedChosenNumbers(mask) => {
+                h.u8(255);
+                h.u16(551);
+                h.u8(5);
+                h.u32(*mask);
             }
             Rider::CraftMaterial(mat) => {
                 h.u8(192);

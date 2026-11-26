@@ -3901,6 +3901,7 @@ impl HeuristicAgent {
                 | CostPart::Behold(_)
                 | CostPart::BeholdAndExile(_)
                 | CostPart::RevealSelfFromHand
+                | CostPart::RevealChosenPlayer
                 | CostPart::WaterbendX => 0,
                 CostPart::RevealFromHand(filter) => {
                     if view
@@ -4210,8 +4211,13 @@ impl HeuristicAgent {
         use baylee_cards_dsl::RepeatDomain;
         let Evaluation { origin, aim, x, .. } = *evaluation;
         match domain {
-            RepeatDomain::EachPlayer | RepeatDomain::EachOpponent => {
-                let rel = if matches!(domain, RepeatDomain::EachPlayer) {
+            RepeatDomain::EachPlayer
+            | RepeatDomain::EachPlayerStartingWithYou
+            | RepeatDomain::EachOpponent => {
+                let rel = if matches!(
+                    domain,
+                    RepeatDomain::EachPlayer | RepeatDomain::EachPlayerStartingWithYou
+                ) {
                     PlayerRel::EachPlayer
                 } else {
                     PlayerRel::EachOpponent

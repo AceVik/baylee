@@ -157,6 +157,9 @@ pub struct Player {
     pub combats_to_skip: u32,
     /// Exact attackers from this seat's most recently completed actual turn.
     pub last_turn_attackers: Vec<baylee_core::ids::DamageSourceRef>,
+    /// Exact `(attacker_ref, attacked_player)` pairs from this seat's most
+    /// recently completed combat phase (*Territorial Hellkite*).
+    pub last_combat_attacked: Vec<(baylee_core::ids::DamageSourceRef, PlayerId)>,
     /// Exact incarnations that blocked or became blocked since this player's latest upkeep.
     pub blocked_since_upkeep: Vec<baylee_core::ids::DamageSourceRef>,
     /// The completed interval retained during the player's current upkeep.

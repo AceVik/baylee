@@ -195,9 +195,57 @@ fn reads_event(effect: &Effect) -> bool {
         }
         Effect::PayManaToPreventDamage { player, amount, .. }
         | Effect::ScryFor { player, amount, .. }
-        | Effect::CreateTokensFor { player, amount, .. } => {
-            reads_player(*player) || reads_amount(*amount)
+        | Effect::CreateTokensFor { player, amount, .. }
+        | Effect::AddManaChoiceFor {
+            who: player,
+            amount,
+            ..
+        } => reads_player(*player) || reads_amount(*amount),
+        Effect::ChoosePlayerEx {
+            chooser,
+            filter,
+            if_none,
+            then,
+            ..
+        } => {
+            reads_player(*chooser)
+                || match filter {
+                    baylee_cards_dsl::PlayerFilter::Among(rel)
+                    | baylee_cards_dsl::PlayerFilter::NotYetRemembered(rel) => reads_player(*rel),
+                    baylee_cards_dsl::PlayerFilter::OpponentControlsMoreThanYou(_)
+                    | baylee_cards_dsl::PlayerFilter::OpponentWithGreatestLife
+                    | baylee_cards_dsl::PlayerFilter::OpponentNotAttackedBySourceLastCombat => {
+                        false
+                    }
+                }
+                || refers_to_event(if_none)
+                || refers_to_event(then)
         }
+        Effect::ChooseNumberAtRandom { min, max, then } => {
+            reads_amount(*min) || reads_amount(*max) || refers_to_event(then)
+        }
+        Effect::SecretChooseNumbers(spec) => {
+            reads_player(spec.players)
+                || reads_amount(spec.min)
+                || reads_amount(spec.max)
+                || refers_to_event(spec.on_each)
+                || refers_to_event(spec.on_highest)
+                || refers_to_event(spec.on_lowest)
+                || refers_to_event(spec.on_not_lowest)
+                || refers_to_event(spec.on_matched)
+                || refers_to_event(spec.on_unmatched)
+        }
+        Effect::SecretNumberGuess {
+            guesser,
+            on_correct,
+            on_wrong,
+            ..
+        } => reads_player(*guesser) || refers_to_event(on_correct) || refers_to_event(on_wrong),
+        Effect::RepeatEachPlayerPayUntilNone {
+            max_per_player,
+            then_per_player,
+            ..
+        } => reads_amount(*max_per_player) || refers_to_event(then_per_player),
         Effect::LoseLifeAtNextDrawUnlessPaidBefore { player, .. }
         | Effect::LoseHalfLife { player }
         | Effect::SacrificeChosenByOpponent { player, .. }

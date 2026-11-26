@@ -130,7 +130,8 @@ fn cost_moves_library(part: &CostPart) -> bool {
         | CostPart::RevealSelfFromHand
         | CostPart::BeholdAndExile(_)
         | CostPart::Waterbend(_)
-        | CostPart::WaterbendX => false,
+        | CostPart::WaterbendX
+        | CostPart::RevealChosenPlayer => false,
         CostPart::Either(a, b) => {
             a.parts.iter().any(cost_moves_library) || b.parts.iter().any(cost_moves_library)
         }

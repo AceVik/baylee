@@ -77,6 +77,59 @@ pub(super) fn resume_with_number_inner(
             state, res, chooser, pay_cost, then, number,
         );
     }
+    if matches!(
+        res.awaiting,
+        Some(
+            AwaitingOp::SecretNumbers { .. }
+                | AwaitingOp::SecretGuessAnswer { .. }
+                | AwaitingOp::RepeatPayUntilNone { .. }
+        )
+    ) {
+        return match res.awaiting.take().expect("checked above") {
+            AwaitingOp::SecretNumbers {
+                current,
+                remaining,
+                chosen,
+                min,
+                max,
+                spec,
+                op,
+            } => super::player_number_choices::resume_secret_numbers(
+                state, res, number, current, remaining, chosen, min, max, spec, op,
+            ),
+            AwaitingOp::SecretGuessAnswer {
+                guesser,
+                secret,
+                on_correct,
+                on_wrong,
+            } => super::player_number_choices::resume_secret_guess_answer(
+                state, res, number, guesser, secret, on_correct, on_wrong,
+            ),
+            AwaitingOp::RepeatPayUntilNone {
+                current,
+                paid_any_in_cycle,
+                remaining_in_cycle,
+                totals,
+                kind,
+                max_per_player,
+                then_per_player,
+                op,
+            } => super::player_number_choices::resume_repeat_pay_until_none(
+                state,
+                res,
+                number,
+                current,
+                paid_any_in_cycle,
+                remaining_in_cycle,
+                totals,
+                kind,
+                max_per_player,
+                then_per_player,
+                op,
+            ),
+            _ => unreachable!("matched numeric player-choice continuation"),
+        };
+    }
     if matches!(res.awaiting, Some(AwaitingOp::TapEnergy(_))) {
         let Some(AwaitingOp::TapEnergy(selection)) = res.awaiting.take() else {
             unreachable!("energy payment continuation")
@@ -241,6 +294,41 @@ pub(super) fn resume_with_color_inner(
     }
     if let AwaitingOp::ProtectionColor { target, duration } = awaiting {
         grant_protection_from(state, res, target, color, duration);
+        res.pc += 1;
+        return run(state, res);
+    }
+    if let AwaitingOp::ManaChoiceFor {
+        recipient,
+        colors,
+        distinct,
+        remaining,
+        per_pick,
+        by_color,
+        restriction,
+        next_recipients,
+        source,
+        amount,
+        distribution,
+    } = awaiting
+    {
+        if let Some(pending) = mana::resume_mana_choice_for(
+            state,
+            res,
+            color,
+            recipient,
+            colors,
+            distinct,
+            remaining,
+            per_pick,
+            by_color,
+            restriction,
+            next_recipients,
+            source,
+            amount,
+            distribution,
+        ) {
+            return Flow::Wait(pending);
+        }
         res.pc += 1;
         return run(state, res);
     }
@@ -1792,6 +1880,34 @@ pub fn resume_effect_choice(state: &mut GameState, res: &mut Resolution, index: 
         } else {
             run_fallback(state, res, otherwise)
         };
+        subjects::flush(state, res);
+        return flow;
+    }
+    if matches!(res.awaiting, Some(AwaitingOp::SecretGuessChoose { .. })) {
+        let Some(AwaitingOp::SecretGuessChoose {
+            guesser,
+            min,
+            max,
+            allowed,
+            track_used_on_source,
+            on_correct,
+            on_wrong,
+        }) = res.awaiting.take()
+        else {
+            unreachable!()
+        };
+        let flow = super::player_number_choices::resume_secret_guess_choose(
+            state,
+            res,
+            index,
+            guesser,
+            min,
+            max,
+            &allowed,
+            track_used_on_source,
+            on_correct,
+            on_wrong,
+        );
         subjects::flush(state, res);
         return flow;
     }

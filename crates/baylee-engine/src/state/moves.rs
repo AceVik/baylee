@@ -810,6 +810,13 @@ impl GameState {
         let track_mana_types = self.per_turn.track_mana_types_spent.0;
         let track_exilers = self.per_turn.track_exilers.0;
         let active_exiler = self.active_exiler;
+        let spent_treasure = from_zone == Zone::Stack
+            && to.zone() == Zone::Battlefield
+            && self
+                .arena
+                .get(id)
+                .and_then(|o| o.paid.as_ref())
+                .is_some_and(|p| crate::mana_provenance::paid_spent_treasure_mana(self, p));
         {
             let obj = self.object_mut(id).expect("checked above");
             if !(from_zone == Zone::Stack && to.zone() == Zone::Battlefield) {
@@ -924,6 +931,14 @@ impl GameState {
                 // again, and nothing in between names anything.
                 obj.chosen_name = None;
                 obj.set_chosen_opponent(None);
+                obj.set_second_chosen_player(None);
+                obj.riders.retain(|r| {
+                    !matches!(
+                        r,
+                        crate::object::Rider::SecretChosenNumber { .. }
+                            | crate::object::Rider::UsedChosenNumbers(_)
+                    )
+                });
                 // A Room's designations are the permanent's (CR 709.5c), and
                 // its face was the half they left showing. The card that
                 // arrives is the card, left half first, and `original_base`
@@ -971,6 +986,7 @@ impl GameState {
                             | crate::object::Rider::WarpedSpell
                             | crate::object::Rider::RevealedFromOpeningHand
                             | crate::object::Rider::SnowManaSpent(_)
+                            | crate::object::Rider::TreasureManaSpent
                             | crate::object::Rider::ManaTypesSpent(_)
                             | crate::object::Rider::ConvokedCount(_)
                             | crate::object::Rider::Sneaked
@@ -1042,6 +1058,9 @@ impl GameState {
                 let snow = paid.snow_mana_spent();
                 if snow > 0 {
                     obj.riders.push(crate::object::Rider::SnowManaSpent(snow));
+                }
+                if spent_treasure {
+                    obj.riders.push(crate::object::Rider::TreasureManaSpent);
                 }
                 if track_mana_types && paid.mana_types_spent.iter().any(|&n| n > 0) {
                     let types = paid

@@ -95,6 +95,28 @@ impl Hash for PerTurnTrackedFlag {
 /// `ModalRestriction::OncePerTurn`, CR 700.2i), keyed by `(incarnation, ability_index)`.
 /// Writes nothing into [`Hash`] while empty so existing snapshot hashes are preserved;
 /// tags populated maps with disjoint hash tag `361_u16`.
+/// Per-turn `(attacker_player, attacked_player)` records for
+/// `Condition::PlayerAttackedYouThisTurn`. Emits zero bytes into [`Hash`]
+/// while untracked or empty; tags populated tracked entries with `555_u16`.
+#[derive(Clone, Default, PartialEq, Eq, Debug)]
+pub struct PerTurnAttackedPlayers {
+    /// Whether any card in this game reads `Condition::PlayerAttackedYouThisTurn`.
+    pub tracked: bool,
+    /// Distinct `(attacking_player, attacked_player)` pairs declared this turn.
+    pub items: Vec<(PlayerId, PlayerId)>,
+}
+
+impl Hash for PerTurnAttackedPlayers {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        if self.tracked && !self.items.is_empty() {
+            255_u8.hash(state);
+            555_u16.hash(state);
+            1_u8.hash(state);
+            self.items.as_slice().hash(state);
+        }
+    }
+}
+
 #[derive(Clone, Default, PartialEq, Eq, Debug)]
 pub struct PerTurnModalMasks(
     pub std::collections::BTreeMap<(baylee_core::ids::DamageSourceRef, u32), u64>,
@@ -391,6 +413,11 @@ pub struct PerTurn {
     pub discard_history: PerTurnTracked<DiscardHistoryRecord>,
     /// Seats that already had a non-(first-in-draw-step) draw this turn.
     pub extra_draw_occurred: PerTurnExtraDraws,
+    /// `(attacking_player, attacked_player)` pairs declared this turn
+    /// (`Condition::PlayerAttackedYouThisTurn`).
+    pub attacked_players: PerTurnAttackedPlayers,
+    /// Whether any card in this game reads `PlayerFilter::OpponentNotAttackedBySourceLastCombat`.
+    pub track_last_combat_attacked: PerTurnTrackedFlag,
 }
 
 /// One discarded card recorded this turn ([`PerTurn::discard_history`]).
@@ -845,6 +872,8 @@ impl PerTurn {
             cards_foretold: PerTurnTracked::default(),
             discard_history: PerTurnTracked::default(),
             extra_draw_occurred: PerTurnExtraDraws::default(),
+            attacked_players: PerTurnAttackedPlayers::default(),
+            track_last_combat_attacked: PerTurnTrackedFlag::default(),
         }
     }
 
@@ -1019,6 +1048,7 @@ impl PerTurn {
         self.cards_foretold.items.clear();
         self.discard_history.items.clear();
         self.extra_draw_occurred.seats.clear();
+        self.attacked_players.items.clear();
     }
 
     /// Resets all counters (called at every turn start).
@@ -1100,6 +1130,8 @@ impl PerTurn {
             cards_foretold: _,
             discard_history: _,
             extra_draw_occurred: _,
+            attacked_players: _,
+            track_last_combat_attacked: _,
         } = self;
         *untapped_lands_at_start = 0;
         *hand_size_at_start = 0;

@@ -1389,6 +1389,7 @@ fn part_named(part: &CostPart, lower: &str) -> Option<bool> {
         // nothing about either.
         CostPart::TapSelf | CostPart::UntapSelf => true,
         CostPart::ExertSelf => lower.contains("exert"),
+        CostPart::RevealChosenPlayer => lower.contains("reveal"),
         CostPart::PayLife(n) => lower.contains(&format!("pay {n} life")),
         CostPart::TapN { count, .. } => {
             let word = match *count {

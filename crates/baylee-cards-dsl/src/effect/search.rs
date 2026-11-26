@@ -214,6 +214,11 @@ pub enum RepeatDomain {
     EachMatchingPermanent(&'static Filter),
     /// A bounded count evaluated once as the loop begins (CR 608.2h).
     Times(super::Amount),
+    /// Each living player in turn order starting with the resolving controller
+    /// (Join forces: *Alliance of Arms*, *Collective Voyage*, *Mana-Charged
+    /// Dragon*, *Minds Aglow*, *Shared Trauma*), binding `PlayerRel::EventPlayer`
+    /// on each pass. Appended to preserve replay identities.
+    EachPlayerStartingWithYou,
 }
 
 /// Which zone [`super::Effect::ChooseCard`] or [`super::Effect::ChooseCardEx`]

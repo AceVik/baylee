@@ -6603,6 +6603,160 @@ pub enum Effect {
         /// Instructions executed only if the attachment actually moved (`CR 701.3b`).
         then_if_moved: &'static [Effect],
     },
+    /// Choose a player satisfying `filter` (chosen by `chooser`, or uniformly at
+    /// random when `random` is `true`), optionally recording that player in
+    /// resolution player-memory (`remember`), then execute `then` with
+    /// `PlayerRel::Chosen` bound — or execute `if_none` when no legal candidate
+    /// exists (`CR 608.2d`; *Boreas Charger*, *Gluntch, the Bestower*, *The
+    /// Master, Gallifrey's End*, *Your Inescapable Doom*, *Territorial
+    /// Hellkite*). Appended to preserve replay identities.
+    ChoosePlayerEx {
+        /// Player making the choice (ignored when `random` is `true`).
+        chooser: PlayerRel,
+        /// Candidate player filter evaluated at resolution.
+        filter: PlayerFilter,
+        /// When `true`, pick uniformly at random from candidates using `state.rng`.
+        random: bool,
+        /// When `true`, record the chosen player in resolution player-memory so
+        /// subsequent [`PlayerFilter::NotYetRemembered`] steps exclude them.
+        remember: bool,
+        /// Instructions executed when zero candidates satisfy `filter`.
+        if_none: &'static [Effect],
+        /// Instructions executed when a player is chosen (`PlayerRel::Chosen` bound).
+        then: &'static [Effect],
+    },
+    /// Choose a number in `min..=max` uniformly at random using `state.rng`,
+    /// bind [`Amount::ResolutionChosenNumber`], and run `then` (*Hapato's Might*,
+    /// *Murgish Cemetery*, *Saji's Torrent*, *Tibalt's Trickery*). Appended
+    /// to preserve replay identities.
+    ChooseNumberAtRandom {
+        /// Inclusive minimum bound.
+        min: Amount,
+        /// Inclusive maximum bound.
+        max: Amount,
+        /// Instructions executed with `Amount::ResolutionChosenNumber` bound.
+        then: &'static [Effect],
+    },
+    /// Simultaneous secret numeric choice among `players` (`CR 101.4`,
+    /// `CR 107.1`; *Wheel of Misfortune*, *Goblin Game*, *Menacing Ogre*,
+    /// *Expert-Level Safe*). Choices are collected in APNAP order without
+    /// exposing earlier answers, then revealed simultaneously and dispatched to
+    /// the configured outcome branches. Appended to preserve replay identities.
+    SecretChooseNumbers(SecretNumberChoice),
+    /// Secretly choose a number in `min..=max` (optionally excluding numbers
+    /// already recorded on the source permanent), then have a player matching
+    /// `guesser` guess a number in `min..=max`; run `on_correct` on a match or
+    /// `on_wrong` otherwise with `PlayerRel::Chosen` = guesser and
+    /// `Amount::ResolutionChosenNumber` = guessed number (*The Toymaker's
+    /// Trap*). Appended to preserve replay identities.
+    SecretNumberGuess {
+        /// Inclusive lower bound.
+        min: u8,
+        /// Inclusive upper bound.
+        max: u8,
+        /// When `true`, record each chosen secret number on the source permanent
+        /// and exclude already-used numbers; if none remain, do nothing.
+        track_used_on_source: bool,
+        /// Opponent/player domain that chooses the guess (chosen by controller
+        /// if multiple opponents exist).
+        guesser: PlayerRel,
+        /// Instructions run when the guess matches the secret number.
+        on_correct: &'static [Effect],
+        /// Instructions run when the guess does not match.
+        on_wrong: &'static [Effect],
+    },
+    /// Add the current [`Amount::ResolutionChosenNumber`] to the current
+    /// resolution's running accumulator readable via
+    /// [`Amount::ResolutionAccumulatedNumber`] (Join forces). Appended to
+    /// preserve replay identities.
+    AccumulateChosenNumber,
+    /// Starting with the resolving controller, each living player in turn order
+    /// may pay any amount (`0..=max_per_player`) of `kind`; repeat full passes
+    /// until an entire pass sees zero payments, then run `then_per_player` once
+    /// per player in turn order starting with controller with
+    /// `PlayerRel::EventPlayer` = that player and
+    /// `Amount::ResolutionChosenNumber` = that player's total paid (*Plague of
+    /// Vermin*). Appended to preserve replay identities.
+    RepeatEachPlayerPayUntilNone {
+        /// Variable resource paid on each turn of the loop.
+        kind: VariablePayKind,
+        /// Maximum payable on each choice (clamped to affordable resources).
+        max_per_player: Amount,
+        /// Instructions executed once per player after payments finish.
+        then_per_player: &'static [Effect],
+    },
+    /// Add mana to each player matching `who` (e.g. `PlayerRel::Chosen` for
+    /// *Spectral Searchlight* and *Stadium Vendors*), letting each recipient
+    /// choose the color(s) when `source` requires a color choice. Appended to
+    /// preserve replay identities.
+    AddManaChoiceFor {
+        /// Recipient player(s), relative to the resolving controller.
+        who: PlayerRel,
+        /// Which color(s) of mana are produced.
+        source: ManaSource,
+        /// How much mana is added.
+        amount: Amount,
+        /// How multi-color amounts are distributed.
+        distribution: ManaDistribution,
+        /// Optional spending restriction/rider on the produced mana.
+        restriction: Option<ManaRestriction>,
+    },
+}
+
+/// Candidate player filter evaluated at resolution by [`Effect::ChoosePlayerEx`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum PlayerFilter {
+    /// Any living player matching `PlayerRel`.
+    Among(PlayerRel),
+    /// Any living opponent controlling strictly more permanents matching
+    /// `filter` than the resolving controller (*Boreas Charger*).
+    OpponentControlsMoreThanYou(&'static Filter),
+    /// Any living opponent tied for the greatest life total among living
+    /// opponents (*The Master, Gallifrey's End*, *Your Inescapable Doom*).
+    OpponentWithGreatestLife,
+    /// Any living player matching `PlayerRel` not yet recorded in the current
+    /// resolution's remembered players (*Gluntch, the Bestower*).
+    NotYetRemembered(PlayerRel),
+    /// Any living opponent whom the source permanent did not attack during its
+    /// controller's most recent combat phase (*Territorial Hellkite*).
+    OpponentNotAttackedBySourceLastCombat,
+}
+
+/// Simultaneous secret numeric choice specification for [`Effect::SecretChooseNumbers`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct SecretNumberChoice {
+    /// Players who secretly choose a number (collected in APNAP order).
+    pub players: PlayerRel,
+    /// Inclusive minimum permitted choice.
+    pub min: Amount,
+    /// Inclusive maximum permitted choice (`Amount::Fixed(u32::MAX)` for unbounded).
+    pub max: Amount,
+    /// Run once per choosing player in APNAP order with `PlayerRel::EventPlayer`
+    /// = player and `Amount::ResolutionChosenNumber` = that player's number
+    /// (*Goblin Game*).
+    pub on_each: &'static [Effect],
+    /// Run once per player tied for the highest revealed number, with
+    /// `PlayerRel::EventPlayer` = player and `Amount::ResolutionChosenNumber` =
+    /// highest number (*Wheel of Misfortune*, *Menacing Ogre*).
+    pub on_highest: &'static [Effect],
+    /// Run once per player tied for the lowest revealed number, with
+    /// `PlayerRel::EventPlayer` = player and `Amount::ResolutionChosenNumber` =
+    /// lowest number (*Goblin Game*).
+    pub on_lowest: &'static [Effect],
+    /// Run once per player who did NOT choose the lowest revealed number, with
+    /// `PlayerRel::EventPlayer` = player and `Amount::ResolutionChosenNumber` =
+    /// that player's number (*Wheel of Misfortune*).
+    pub on_not_lowest: &'static [Effect],
+    /// Run once if all choosing players revealed the same number (requires >= 2
+    /// players; *Expert-Level Safe*).
+    pub on_matched: &'static [Effect],
+    /// Run once if choosing players did not all reveal the same number
+    /// (*Expert-Level Safe*).
+    pub on_unmatched: &'static [Effect],
+    /// When `true`, record the player(s) tied for the highest number in
+    /// resolution player-memory so [`crate::Condition::YouAreRememberedPlayer`]
+    /// holds afterward (*Menacing Ogre*).
+    pub remember_highest: bool,
 }
 
 /// Non-mana unless-cost offered to any player in APNAP order by [`Effect::AnyPlayerMayPayCost`].

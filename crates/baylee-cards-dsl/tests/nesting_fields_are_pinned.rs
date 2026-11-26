@@ -123,7 +123,7 @@
 // PreventNextFromChosenSourceWithThen (`then: DamageRider`) adds one walker-tested body.
 // SetState (`if_cant`) adds one walker-tested body.
 // AttachChosenThen (`then_if_attached`) and RelocateAttachment (`then_if_moved`) add 2 bodies.
-const NESTING_FIELDS: usize = 138;
+const NESTING_FIELDS: usize = 144;
 
 /// How many variants contain those fields.
 ///
@@ -221,7 +221,7 @@ const NESTING_FIELDS: usize = 138;
 // PreventNextFromChosenSourceWithThen brings carrying variants to 119.
 /// `SetState` (`if_cant`) brings total carrying variants to 119.
 /// `AttachChosenThen` + `RelocateAttachment` bring total carrying variants to 120.
-const CARRYING_VARIANTS: usize = 122;
+const CARRYING_VARIANTS: usize = 126;
 
 /// The floor under the reader itself.
 ///

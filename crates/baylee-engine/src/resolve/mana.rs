@@ -60,6 +60,31 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        Effect::AddManaChoiceFor {
+            who,
+            source,
+            amount,
+            distribution,
+            restriction,
+        } => {
+            let mut next_recipients = std::collections::VecDeque::new();
+            for p in
+                super::wave12a::apnap_seats_of(state, players_of(who, state, res.controller, res))
+            {
+                if !state.has_left(p) && !next_recipients.contains(&p) {
+                    next_recipients.push_back(p);
+                }
+            }
+            add_mana_choice_for_queue(
+                state,
+                res,
+                next_recipients,
+                source,
+                amount,
+                distribution,
+                restriction,
+            )
+        }
         Effect::AddManaAmountFor { who, color, amount } => {
             let you = res.controller;
             for player in players_of(who, state, you, res) {
@@ -108,6 +133,122 @@ pub(super) fn add_combat_mana(
     }
 }
 
+/// Walks `next_recipients` in APNAP order for [`Effect::AddManaChoiceFor`],
+/// crediting deterministic recipients synchronously and suspending under
+/// [`AwaitingOp::ManaChoiceFor`] whenever more recipients remain.
+pub(super) fn add_mana_choice_for_queue(
+    state: &mut GameState,
+    res: &mut Resolution,
+    mut next_recipients: std::collections::VecDeque<PlayerId>,
+    source: ManaSource,
+    amount: Amount,
+    distribution: ManaDistribution,
+    restriction: Option<ManaRestriction>,
+) -> Option<Pending> {
+    while let Some(recipient) = next_recipients.pop_front() {
+        if state.has_left(recipient) {
+            continue;
+        }
+        if let Some(pending) = add_mana_for_recipient(
+            state,
+            res,
+            recipient,
+            source,
+            &amount,
+            distribution,
+            restriction,
+        ) {
+            if !next_recipients.is_empty()
+                && let Some(AwaitingOp::ManaChoice {
+                    recipient,
+                    colors,
+                    distinct,
+                    remaining,
+                    per_pick,
+                    by_color,
+                    restriction,
+                }) = res.awaiting.take()
+            {
+                res.awaiting = Some(AwaitingOp::ManaChoiceFor {
+                    recipient,
+                    colors,
+                    distinct,
+                    remaining,
+                    per_pick,
+                    by_color,
+                    restriction,
+                    next_recipients,
+                    source,
+                    amount,
+                    distribution,
+                });
+            }
+            return Some(pending);
+        }
+    }
+    None
+}
+
+/// Resumes [`AwaitingOp::ManaChoiceFor`] after `recipient` chooses `color`.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn resume_mana_choice_for(
+    state: &mut GameState,
+    res: &mut Resolution,
+    color: ManaColor,
+    recipient: PlayerId,
+    mut colors: Vec<ManaColor>,
+    distinct: bool,
+    remaining: u16,
+    per_pick: u16,
+    by_color: Option<[u16; 6]>,
+    restriction: Option<ManaRestriction>,
+    next_recipients: std::collections::VecDeque<PlayerId>,
+    source: ManaSource,
+    amount: Amount,
+    distribution: ManaDistribution,
+) -> Option<Pending> {
+    debug_assert!(colors.contains(&color));
+    add_to(
+        state,
+        res,
+        recipient,
+        color,
+        by_color.map_or(per_pick, |amounts| amounts[color.index()]),
+        restriction,
+    );
+    if distinct {
+        colors.retain(|available| *available != color);
+    }
+    if remaining > 1 && !colors.is_empty() {
+        res.awaiting = Some(AwaitingOp::ManaChoiceFor {
+            recipient,
+            colors: colors.clone(),
+            distinct,
+            remaining: remaining - 1,
+            per_pick,
+            by_color,
+            restriction,
+            next_recipients,
+            source,
+            amount,
+            distribution,
+        });
+        return Some(Pending::ChooseColor {
+            player: recipient,
+            options: colors,
+        });
+    }
+    add_mana_choice_for_queue(
+        state,
+        res,
+        next_recipients,
+        source,
+        amount,
+        distribution,
+        restriction,
+    )
+}
+
 /// Adds the mana, asking for a color first when there is more than one.
 fn add_mana(
     state: &mut GameState,
@@ -117,7 +258,27 @@ fn add_mana(
     distribution: ManaDistribution,
     restriction: Option<ManaRestriction>,
 ) -> Option<Pending> {
-    let you = res.controller;
+    add_mana_for_recipient(
+        state,
+        res,
+        res.controller,
+        source,
+        amount,
+        distribution,
+        restriction,
+    )
+}
+
+fn add_mana_for_recipient(
+    state: &mut GameState,
+    res: &mut Resolution,
+    recipient: PlayerId,
+    source: ManaSource,
+    amount: &Amount,
+    distribution: ManaDistribution,
+    restriction: Option<ManaRestriction>,
+) -> Option<Pending> {
+    let you = recipient;
     if source == ManaSource::NotedActivationMana {
         add_noted_activation_mana(state, res, restriction);
         return None;
@@ -131,7 +292,14 @@ fn add_mana(
         match options.as_slice() {
             [] => return None,
             [only] => {
-                add(state, res, *only, amounts[only.index()], restriction);
+                add_to(
+                    state,
+                    res,
+                    recipient,
+                    *only,
+                    amounts[only.index()],
+                    restriction,
+                );
                 return None;
             }
             _ => {}
@@ -150,7 +318,13 @@ fn add_mana(
             options,
         });
     }
-    let Ok(n) = u16::try_from(amount2(amount, state, you, res)) else {
+    let Ok(n) = u16::try_from(super::amount_for_player(
+        amount,
+        state,
+        res.controller,
+        res,
+        recipient,
+    )) else {
         state.numeric_failure = Some("one mana-production instruction exceeds u16 units");
         return None;
     };
@@ -166,7 +340,7 @@ fn add_mana(
             } else {
                 n
             };
-            add(state, res, only, amount, restriction);
+            add_to(state, res, recipient, only, amount, restriction);
             return None;
         }
         _ => {}

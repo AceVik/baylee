@@ -135,7 +135,7 @@ pub use build::{
 };
 pub use cost::{AltCondition, AlternativeCost, Cost, CostPart, CostReduction};
 pub use effect::{
-    Amount, AnyPlayerCost, AttachHost, AttachmentSource, ChooseMove, ChooseZone, ColorSubject, CombatWatchEvent, CopyCleanup, CounterDestination, CounterDonor, CounterKind, CounterScope, DamageRedirectTo, DamageRider, DamageTo, DefinedObjects, DelayedDuration, DelayedObservation, DelayedStep, DelayedTriggerWhen, DivisionAmount, DoublePtSubject, Effect, ExileMana, ExilePermission, ExilePlay, ExileUntil, FaceDownSpec, Find, LookRest, ManaDistribution, ManaRestriction, ManaSource, ManaUse, ManaValueBound, ManaValueCmp, ModalRestriction, MoveSubject, MultiPlayerChoice, MultiPlayerChoiceAggregate, NumberChoiceKind, PeekPickDest, PeekRestDest, PlayCostMode, PlayCount, PlaySource, PlayWindow, PlayerRel, ReflexiveEvent, ReflexiveWhen, RepeatDomain, RevealUntilFound, RevealUntilRest, SearchDest, SourceLeaveAction, SpendRider, StateSubject, StateTransition, TargetChooser, TargetConstraint, TargetReq, TargetSlot, TargetSpec, ThisWay, TokenDef, TriggerRemember, VariablePayKind, VoteObjectAction, VoteOption, VoteOutcome, ZoneSel,
+        Amount, AnyPlayerCost, AttachHost, AttachmentSource, ChooseMove, ChooseZone, ColorSubject, CombatWatchEvent, CopyCleanup, CounterDestination, CounterDonor, CounterKind, CounterScope, DamageRedirectTo, DamageRider, DamageTo, DefinedObjects, DelayedDuration, DelayedObservation, DelayedStep, DelayedTriggerWhen, DivisionAmount, DoublePtSubject, Effect, ExileMana, ExilePermission, ExilePlay, ExileUntil, FaceDownSpec, Find, LookRest, ManaDistribution, ManaRestriction, ManaSource, ManaUse, ManaValueBound, ManaValueCmp, ModalRestriction, MoveSubject, MultiPlayerChoice, MultiPlayerChoiceAggregate, NumberChoiceKind, PeekPickDest, PeekRestDest, PlayCostMode, PlayCount, PlaySource, PlayWindow, PlayerFilter, PlayerRel, ReflexiveEvent, ReflexiveWhen, RepeatDomain, RevealUntilFound, RevealUntilRest, SearchDest, SecretNumberChoice, SourceLeaveAction, SpendRider, StateSubject, StateTransition, TargetChooser, TargetConstraint, TargetReq, TargetSlot, TargetSpec, ThisWay, TokenDef, TriggerRemember, VariablePayKind, VoteObjectAction, VoteOption, VoteOutcome, ZoneSel,
 };
 pub use filter::{Filter, OriginalExpansion, ZoneRef, ZoneRef as ZoneKind};
 pub use manaread::{
@@ -151,12 +151,7 @@ pub use baylee_core::mana;
 pub use baylee_core::mana::{ManaColor, ManaCost};
 pub use baylee_core::types::{SupertypeSet, TypeSet};
 pub use static_ability::{
-    AbilityDonorZone, AltCastPrice, AltCastZones, CounterReplaceOp, DamageAmountReplacement,
-    DamageRecipients, DamageRiderScope, DamagedByScope, Duration, EntryInsteadZone, EntryPredicate,
-    GraveyardAltKind, GraveyardExileRider, GraveyardRedirectDest, LAYERS, Layer, LifeGainOp,
-    MiracleGrant, Modifier, MultiDrawReplacementKind, NextDrawReplacement, PtCount,
-    ReplacementRule, SpellCastMetric, StaticAbility, TriggerCause, ZonePlayCastRider,
-    ZonePlayGrant, ZonePlayManaSpending,
+        AbilityDonorZone, AltCastPrice, AltCastZones, AttackTaxTarget, CounterReplaceOp, DamageAmountReplacement, DamageRecipients, DamageRiderScope, DamagedByScope, Duration, EntryInsteadZone, EntryPredicate, GraveyardAltKind, GraveyardExileRider, GraveyardRedirectDest, LAYERS, Layer, LifeGainOp, MiracleGrant, Modifier, MultiDrawReplacementKind, NextDrawReplacement, PtCount, ReplacementRule, SpellCastMetric, StaticAbility, TriggerCause, ZonePlayCastRider, ZonePlayGrant, ZonePlayManaSpending,
 };
 
 /// A compiled card definition: zero-cost, `'static`, registry-resident.
@@ -1414,14 +1409,7 @@ pub enum EnterModifier {
     /// "As this enters, each player chooses [mode0] or [mode1]..." (`CR 614.12`:
     /// *Archangel of Strife*). Appended to preserve replay identities.
     EachPlayerChooseMode(&'static [&'static str]),
-    /// "This permanent enters under the control of an opponent of your choice"
-    /// (`CR 614.1c`, `CR 614.12`: *Xantcha, Sleeper Agent*, *Captive Audience*,
-    /// *Pendant of Prosperity*). Appended to preserve replay identities.
-    EntersUnderChosenOpponentControl,
-    /// "As this enters, turn all [filter] permanents face down" (`CR 614.1c`,
-    /// `CR 708.2`: *Ixidron*). Applied as the permanent enters before SBAs
-    /// check `*/*` characteristic-defining P/T. Appended to preserve replay identities.
-    TurnMatchingFaceDown(&'static Filter),
+        "As, "This, (`CR, (e.g., (prompting, *Bitter, *Callous, *Captive, *Emissary, *Favored, *Guardian, *Haktos, *Ixidron*)., *Ominous, *Pendant, *Sower, *Stalking, *Xantcha, ///, 614.12`:, 614.12`;, 614.1c`, 708.2`:, Agent*, Appended, Applied, Archon*, Audience*, ChooseNumberAtRandom, ChooseTwoPlayers, Discord*)., Enemy*)., EntersUnderChosenOpponentControl, Feud*, Filter), Grudges*, Highest, Leonin*)., Lockbox*)., Lowest, NoteMostPrevalentCreatureTypeInOpponentLibrary, OpponentChoosesCreatureType, Oppressor*)., P/T., Prompts, Prosperity*)., SBAs, SecretlyChooseNumber, SecretlyChooseOpponent, Sleeper, Stored, Stores, TurnMatchingFaceDown(&'static, Unscarred*)., [`CostPart::RevealChosenPlayer`])., [`PlayerRel::ChosenBySource`], [`PlayerRel::SecondChosenBySource`]., [filter], `*/*`, `CR, `max`, `max`", `min`, a, accessible, all, an, and, as, at, before, between, characteristic-defining, check, choice, choice", choose, chooses, chosen, control, controller, creature, distinct, down", enters, exist, face, from, hidden, identities., in, inclusive., library, library", max:, min:, most, multiple, note, number, of, on, opponent, opponent", opponent's, other, permanent, permanent's, permanents, permitted, players, players", players', preserve, prevalent, prompts, random", records, replay, revealed, revealed., secretly, subtype, subtype., that, the, then, this, ties), to, turn, two, type, type", u8, under, until, via, views, when, your, {, },
 }
 
 impl EnterModifier {

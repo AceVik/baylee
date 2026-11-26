@@ -667,6 +667,33 @@ pub enum Amount {
     /// Mana value of the card discarded to pay this spell or ability's cost
     /// (`CR 608.2h`; *Slumbering Tora*). Appended to preserve replay identities.
     DiscardedManaValue,
+    /// Number of distinct basic land types among lands controlled by `who`
+    /// (`Domain`, `CR 305.6`; *Collective Restraint*). Appended to preserve
+    /// replay identities.
+    Domain(super::PlayerRel),
+    /// Total number of counters of all kinds on the subject object (the
+    /// prospective attacker for [`crate::Modifier::AttackManaTax`] on *Nils,
+    /// Discipline Enforcer*, or the source object elsewhere). Appended to
+    /// preserve replay identities.
+    TotalCountersOnSubject,
+    /// Number of counters of `kind` on player(s) matching `player`
+    /// (*Bring the Ending* poison counters, *Vexing Radgull* rad counters).
+    /// Appended to preserve replay identities.
+    PlayerCounters {
+        /// Player(s) whose counters are read.
+        player: super::PlayerRel,
+        /// Counter kind counted (e.g. `CounterKind::Poison`, `CounterKind::Rad`).
+        kind: super::CounterKind,
+    },
+    /// Total number of times the Ring has tempted `player` this game
+    /// (`CR 701.54`; *Frodo, Sauron's Bane*). Appended to preserve replay
+    /// identities.
+    RingTemptedCount(super::PlayerRel),
+    /// Cumulative sum accumulated during this resolution by
+    /// [`super::Effect::AccumulateChosenNumber`] (Join forces: *Alliance of
+    /// Arms*, *Collective Voyage*, *Mana-Charged Dragon*, *Minds Aglow*,
+    /// *Shared Trauma*). Appended to preserve replay identities.
+    ResolutionAccumulatedNumber,
 }
 
 /// The recipient [`Amount::DamageThisTurn`] counts.

@@ -1643,6 +1643,13 @@ fn apply(
         | Modifier::CantBlockUnlessPayManaPerCounter(_)
         | Modifier::CantBlockMatchingUnlessPayMana { .. }
         | Modifier::CantAttackUnlessYouSacrifice { .. }
+        | Modifier::UntapDuringUntapStep { .. }
+        | Modifier::AttackManaTax { .. }
+        | Modifier::AttackPhyrexianTax { .. }
+        | Modifier::CantAttackUnlessYouReturn { .. }
+        | Modifier::CantAttackUnlessYouTap { .. }
+        | Modifier::BlockManaTax { .. }
+        | Modifier::CantBlockUnlessYouTap { .. }
         | Modifier::DamageToItCantBePreventedOrRedirected
         | Modifier::CantEnterBattlefield(_)
         | Modifier::SpellsCostMoreMana(_)

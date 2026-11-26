@@ -138,6 +138,7 @@ mod meld;
 pub(crate) mod mutate;
 mod permissions;
 mod piles;
+mod player_number_choices;
 mod private_hand;
 #[cfg(test)]
 mod private_hand_tests;
@@ -1249,6 +1250,39 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .map(|seat| crate::layers::counts::live_party_size(state, seat))
             .max()
             .unwrap_or(0),
+        Amount::Domain(who) => players_of(*who, state, you, res)
+            .into_iter()
+            .map(|seat| eval::domain_for_player(state, seat))
+            .max()
+            .unwrap_or(0),
+        Amount::TotalCountersOnSubject => {
+            let subject_id = res.targets.first().copied().unwrap_or(res.source);
+            state
+                .object(subject_id)
+                .or_else(|| state.damage_source(subject_id, None))
+                .map_or(0, |obj| {
+                    obj.counters
+                        .iter()
+                        .map(|(_, n)| u32::from(n))
+                        .fold(0_u32, u32::saturating_add)
+                })
+        }
+        Amount::PlayerCounters { player, kind } => players_of(*player, state, you, res)
+            .into_iter()
+            .fold(0_u32, |acc, seat| {
+                acc.saturating_add(eval::player_counter_count(state, seat, *kind))
+            }),
+        Amount::RingTemptedCount(who) => players_of(*who, state, you, res)
+            .into_iter()
+            .map(|seat| {
+                state
+                    .players
+                    .get(usize::from(seat.get()))
+                    .map_or(0, |p| u32::from(p.ring_temptations))
+            })
+            .max()
+            .unwrap_or(0),
+        Amount::ResolutionAccumulatedNumber => res.subject.accumulated_number,
         Amount::SpellsCastThisTurn(who) => players_of(*who, state, you, res)
             .into_iter()
             .fold(0_u32, |acc, p| {
@@ -1661,6 +1695,15 @@ pub(super) fn amount_for_player(
         Amount::LifeTotal(PlayerRel::Recipient) => {
             u32::try_from(state.players[usize::from(player.get())].life).unwrap_or(0)
         }
+        Amount::Domain(PlayerRel::Recipient) => eval::domain_for_player(state, player),
+        Amount::PlayerCounters {
+            player: PlayerRel::Recipient,
+            kind,
+        } => eval::player_counter_count(state, player, *kind),
+        Amount::RingTemptedCount(PlayerRel::Recipient) => state
+            .players
+            .get(usize::from(player.get()))
+            .map_or(0, |p| u32::from(p.ring_temptations)),
         Amount::StartingLifeTotal(PlayerRel::Recipient) => {
             u32::try_from(state.players[usize::from(player.get())].starting_life).unwrap_or(0)
         }
@@ -2225,15 +2268,42 @@ pub(super) fn players_of(
             .collect(),
         PlayerRel::ChosenBySource => state
             .damage_source(res.source, source_version(state, res))
-            .and_then(crate::object::GameObject::chosen_opponent)
+            .and_then(crate::object::GameObject::chosen_opponent_for_rules)
             .or_else(|| {
                 state
                     .object_or_departed(res.source)
-                    .and_then(crate::object::GameObject::chosen_opponent)
+                    .and_then(crate::object::GameObject::chosen_opponent_for_rules)
             })
             .filter(|p| !state.has_left(*p))
             .into_iter()
             .collect(),
+        PlayerRel::SecondChosenBySource => state
+            .damage_source(res.source, source_version(state, res))
+            .and_then(crate::object::GameObject::second_chosen_player)
+            .or_else(|| {
+                state
+                    .object_or_departed(res.source)
+                    .and_then(crate::object::GameObject::second_chosen_player)
+            })
+            .filter(|p| !state.has_left(*p))
+            .into_iter()
+            .collect(),
+        PlayerRel::YouAndTargetOpponent => {
+            let mut out = Vec::with_capacity(2);
+            if !state.has_left(you) {
+                out.push(you);
+            }
+            if let Some(opp) = res
+                .target_players
+                .iter()
+                .chain(res.chosen_player.iter().copied())
+                .find(|&p| state.is_opponent(p, you) && !state.has_left(p))
+                && !out.contains(&opp)
+            {
+                out.push(opp);
+            }
+            out
+        }
         PlayerRel::Chosen => res.chosen_player.into_iter().collect(),
         // Only an instruction applying to each player names one, and it
         // reads its amounts through `amount_for_player`.
@@ -2894,6 +2964,10 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::DrawIfGuessWrong
         | Effect::ChooseNumber { .. }
         | Effect::ChooseNumberEx { .. }
+        | Effect::ChoosePlayerEx { .. }
+        | Effect::SecretChooseNumbers(_)
+        | Effect::SecretNumberGuess { .. }
+        | Effect::RepeatEachPlayerPayUntilNone { .. }
         | Effect::MoveAttachment { .. }
         | Effect::AttachChosen { .. }
         | Effect::MoveAllAttachments { .. }

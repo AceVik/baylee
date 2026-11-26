@@ -918,7 +918,18 @@ impl Effect {
             }
             | Effect::MayPayEnergyEqualToTargetCmcThen { then }
             | Effect::CaptureMatching { filter: _, then }
-            | Effect::RememberTargetsThen { then } => (then, NONE),
+            | Effect::RememberTargetsThen { then }
+            | Effect::ChooseNumberAtRandom {
+                min: _,
+                max: _,
+                then,
+            }
+            | Effect::RepeatEachPlayerPayUntilNone {
+                kind: _,
+                max_per_player: _,
+                then_per_player: then,
+            }
+ => (then, NONE),
             Effect::PreventNextDamageWithThen { then, .. }
             | Effect::PreventNextFromChosenSourceWithThen { then, .. } => {
                 (then.instruction(), NONE)
@@ -998,6 +1009,22 @@ impl Effect {
             | Effect::CaptureAffected {
                 first: then,
                 then: otherwise,
+            }
+            | Effect::ChoosePlayerEx {
+                chooser: _,
+                filter: _,
+                random: _,
+                remember: _,
+                if_none: otherwise,
+                then,
+            }
+            | Effect::SecretNumberGuess {
+                min: _,
+                max: _,
+                track_used_on_source: _,
+                guesser: _,
+                on_correct: then,
+                on_wrong: otherwise,
             } => (then, otherwise),
             // A single effect, not a list: the branch taken when the player
             // declines the price. `from_ref` is what makes it one shape with
@@ -1227,6 +1254,9 @@ impl Effect {
             | Effect::SearchLibraryAttachedToEvent { .. }
             | Effect::CreepingDread { .. }
             | Effect::TaintedPact
+            | Effect::SecretChooseNumbers(_)
+            | Effect::AccumulateChosenNumber
+            | Effect::AddManaChoiceFor { .. }
             | Effect::ExileHand { .. }
             | Effect::ReturnSelfDuringNextUntap
             | Effect::OwnerPutsOnTopOrBottom { .. }
@@ -1639,6 +1669,13 @@ impl Effect {
                 for branch in choice.branches {
                     Self::walk(branch, seen, visit);
                 }
+            } else if let Effect::SecretChooseNumbers(spec) = effect {
+                Self::walk(spec.on_each, seen, visit);
+                Self::walk(spec.on_highest, seen, visit);
+                Self::walk(spec.on_lowest, seen, visit);
+                Self::walk(spec.on_not_lowest, seen, visit);
+                Self::walk(spec.on_matched, seen, visit);
+                Self::walk(spec.on_unmatched, seen, visit);
             }
             let (then, otherwise) = effect.branches();
             Self::walk(then, seen, visit);

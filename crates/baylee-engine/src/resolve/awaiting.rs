@@ -1137,6 +1137,117 @@ pub enum AwaitingOp {
     HandToBottom,
     /// The player `Effect::ChoosePlayerFrom` asked for.
     ChoosePlayerFrom,
+    /// Filtered player choice with remember & follow-up (`Effect::ChoosePlayerEx`).
+    ChoosePlayerEx {
+        /// Whether the chosen seat is appended to `SubjectContext::remembered_players`.
+        remember: bool,
+        /// Follow-up effects run with `PlayerRel::Chosen` bound to the chosen player.
+        then: &'static [Effect],
+    },
+    /// Simultaneous secret number choices (`Effect::SecretChooseNumbers`).
+    SecretNumbers {
+        /// Player currently choosing their secret number.
+        current: PlayerId,
+        /// Remaining players yet to choose in APNAP order.
+        remaining: std::collections::VecDeque<PlayerId>,
+        /// Secret choices already collected from earlier seats.
+        chosen: Vec<(PlayerId, u32)>,
+        /// Inclusive lower bound of the offered choice range.
+        min: u32,
+        /// Inclusive upper bound of the offered choice range.
+        max: u32,
+        /// Outcome branches and memory settings.
+        spec: baylee_cards_dsl::SecretNumberChoice,
+        /// Original instruction re-queued while draining follow-up steps.
+        op: Effect,
+    },
+    /// Choosing which opponent guesses (`Effect::SecretNumberGuess`).
+    SecretGuessPickGuesser {
+        /// Inclusive lower bound of the secret range.
+        min: u8,
+        /// Inclusive upper bound of the secret range.
+        max: u8,
+        /// Whether chosen numbers are recorded on the source permanent.
+        track_used_on_source: bool,
+        /// Effects run if the guess matches.
+        on_correct: &'static [Effect],
+        /// Effects run if the guess does not match.
+        on_wrong: &'static [Effect],
+    },
+    /// Controller secretly chooses an unused number (`Effect::SecretNumberGuess`).
+    SecretGuessChoose {
+        /// Opponent who will guess the chosen number.
+        guesser: PlayerId,
+        /// Inclusive lower bound of the guesser's range.
+        min: u8,
+        /// Inclusive upper bound of the guesser's range.
+        max: u8,
+        /// Unused numbers available for the controller to pick.
+        allowed: Vec<u8>,
+        /// Whether chosen numbers are recorded on the source permanent.
+        track_used_on_source: bool,
+        /// Effects run if the guess matches.
+        on_correct: &'static [Effect],
+        /// Effects run if the guess does not match.
+        on_wrong: &'static [Effect],
+    },
+    /// Guesser guesses the secretly chosen number (`Effect::SecretNumberGuess`).
+    SecretGuessAnswer {
+        /// Opponent guessing the secret number.
+        guesser: PlayerId,
+        /// Secret number chosen by the controller.
+        secret: u8,
+        /// Effects run if the guess matches.
+        on_correct: &'static [Effect],
+        /// Effects run if the guess does not match.
+        on_wrong: &'static [Effect],
+    },
+    /// Cyclic repeat-pay-until-none (`Effect::RepeatEachPlayerPayUntilNone`, *Plague of Vermin*).
+    RepeatPayUntilNone {
+        /// Player currently choosing an amount to pay.
+        current: PlayerId,
+        /// Whether any player has paid a nonzero amount in the current full cycle.
+        paid_any_in_cycle: bool,
+        /// Remaining seats in the current cycle.
+        remaining_in_cycle: std::collections::VecDeque<PlayerId>,
+        /// Cumulative amounts paid by each seat across all cycles.
+        totals: Vec<(PlayerId, u32)>,
+        /// Resource kind paid on each turn of the loop.
+        kind: baylee_cards_dsl::VariablePayKind,
+        /// Optional per-choice ceiling evaluated per player.
+        max_per_player: Option<Amount>,
+        /// Effects executed once per player who paid a positive total.
+        then_per_player: &'static [Effect],
+        /// Original instruction re-queued while draining follow-up steps.
+        op: Effect,
+    },
+    /// Multi-recipient mana color choice (`Effect::AddManaChoiceFor`), continuing
+    /// through remaining living recipients in APNAP order once the current
+    /// recipient finishes their picks.
+    ManaChoiceFor {
+        /// Player currently choosing color(s) and receiving mana.
+        recipient: PlayerId,
+        /// Remaining colors available for the current recipient's picks.
+        colors: Vec<ManaColor>,
+        /// Whether each pick for the current recipient must be a distinct color.
+        distinct: bool,
+        /// Picks remaining for the current recipient (including the one pending).
+        remaining: u16,
+        /// Mana added per pick when `by_color` is `None`.
+        per_pick: u16,
+        /// Per-color devotion totals when `amount` is `Amount::DevotionToManaColor`.
+        by_color: Option<[u16; 6]>,
+        /// Optional spending restriction on the produced mana.
+        restriction: Option<baylee_cards_dsl::effect::ManaRestriction>,
+        /// Subsequent living recipients to process in APNAP order.
+        next_recipients: std::collections::VecDeque<PlayerId>,
+        /// Mana source definition for subsequent recipients.
+        source: baylee_cards_dsl::effect::ManaSource,
+        /// Amount expression re-evaluated per subsequent recipient.
+        amount: Amount,
+        /// Mana distribution rule for subsequent recipients.
+        distribution: baylee_cards_dsl::effect::ManaDistribution,
+    },
     /// Choosing an opponent to clash with (`Effect::Clash`, CR 701.30a).
     ClashOpponent {
         /// Instructions executed when the resolving controller wins the clash.
@@ -2479,6 +2590,120 @@ impl AwaitingOp {
                 sources,
                 combat_only,
                 then,
+            ))
+            .max(1),
+            Self::ChoosePlayerEx { remember, then } => {
+                crate::state::structural_fingerprint(&(255_u8, 550_u16, 1_u8, remember, then))
+                    .max(1)
+            }
+            Self::SecretNumbers {
+                current,
+                remaining,
+                chosen,
+                min,
+                max,
+                spec,
+                op,
+            } => crate::state::structural_fingerprint(&(
+                255_u8, 550_u16, 2_u8, current, remaining, chosen, min, max, spec, op,
+            ))
+            .max(1),
+            Self::SecretGuessPickGuesser {
+                min,
+                max,
+                track_used_on_source,
+                on_correct,
+                on_wrong,
+            } => crate::state::structural_fingerprint(&(
+                255_u8,
+                550_u16,
+                3_u8,
+                min,
+                max,
+                track_used_on_source,
+                on_correct,
+                on_wrong,
+            ))
+            .max(1),
+            Self::SecretGuessChoose {
+                guesser,
+                min,
+                max,
+                allowed,
+                track_used_on_source,
+                on_correct,
+                on_wrong,
+            } => crate::state::structural_fingerprint(&(
+                255_u8,
+                550_u16,
+                4_u8,
+                guesser,
+                min,
+                max,
+                allowed,
+                track_used_on_source,
+                on_correct,
+                on_wrong,
+            ))
+            .max(1),
+            Self::SecretGuessAnswer {
+                guesser,
+                secret,
+                on_correct,
+                on_wrong,
+            } => crate::state::structural_fingerprint(&(
+                255_u8, 550_u16, 5_u8, guesser, secret, on_correct, on_wrong,
+            ))
+            .max(1),
+            Self::RepeatPayUntilNone {
+                current,
+                paid_any_in_cycle,
+                remaining_in_cycle,
+                totals,
+                kind,
+                max_per_player,
+                then_per_player,
+                op,
+            } => crate::state::structural_fingerprint(&(
+                255_u8,
+                550_u16,
+                6_u8,
+                current,
+                paid_any_in_cycle,
+                remaining_in_cycle,
+                totals,
+                kind,
+                max_per_player,
+                then_per_player,
+                op,
+            ))
+            .max(1),
+            Self::ManaChoiceFor {
+                recipient,
+                colors,
+                distinct,
+                remaining,
+                per_pick,
+                by_color,
+                restriction,
+                next_recipients,
+                source,
+                amount,
+                distribution,
+            } => crate::state::structural_fingerprint(&(
+                255_u8,
+                550_u16,
+                7_u8,
+                (
+                    recipient,
+                    colors,
+                    distinct,
+                    remaining,
+                    per_pick,
+                    by_color,
+                    restriction,
+                ),
+                (next_recipients, source, amount, distribution),
             ))
             .max(1),
             _ => 0,

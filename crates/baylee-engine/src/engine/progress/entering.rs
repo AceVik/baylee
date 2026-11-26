@@ -301,7 +301,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     | EnterModifier::Tribute(_)
                     | EnterModifier::ChooseMode(_)
                     | EnterModifier::EachPlayerChooseMode(_)
-                    | EnterModifier::EntersUnderChosenOpponentControl => {}
+                    | EnterModifier::EntersUnderChosenOpponentControl
+                    | EnterModifier::ChooseNumberAtRandom { .. }
+                    | EnterModifier::SecretlyChooseNumber { .. }
+                    | EnterModifier::SecretlyChooseOpponent
+                    | EnterModifier::ChooseTwoPlayers
+                    | EnterModifier::OpponentChoosesCreatureType
+                    | EnterModifier::NoteMostPrevalentCreatureTypeInOpponentLibrary => {}
                     EnterModifier::TappedUnlessCondition(condition) => {
                         if !eval::condition_holds(&self.state, controller, id, *condition) {
                             self.state.set_tapped(id, true);

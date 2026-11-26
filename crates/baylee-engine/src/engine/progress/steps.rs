@@ -218,6 +218,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 }
             )
         });
+        let active_seat = usize::from(self.state.turn.active.get());
+        self.state.players[active_seat].last_combat_attacked =
+            std::mem::take(&mut self.state.combat.declared_against_players);
         self.state.combat = crate::combat::CombatState::default();
         self.state
             .per_turn

@@ -743,6 +743,11 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::EvokedGrant
         | Rider::GrantDeathExileAndGainLife(_)
         | Rider::GrantLeaveExileReplacement
-        | Rider::TurnedFaceDown => None,
+        | Rider::TurnedFaceDown
+        | Rider::TreasureManaSpent
+        | Rider::SecondChosenPlayer(_)
+        | Rider::SecretChosenPlayer { .. }
+        | Rider::SecretChosenNumber { .. }
+        | Rider::UsedChosenNumbers(_) => None,
     }
 }

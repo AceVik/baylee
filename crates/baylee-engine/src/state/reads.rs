@@ -3727,3 +3727,216 @@ pub(crate) fn card_reads_first_extra_draw(def: &CardDef) -> bool {
         })
     })
 }
+
+pub(crate) fn card_reads_attacked_players(def: &CardDef) -> bool {
+    (0..def.faces.len().max(1)).any(|face| {
+        def.abilities_for_face(face)
+            .iter()
+            .any(ability_reads_attacked_players)
+    })
+}
+
+fn ability_reads_attacked_players(ability: &baylee_cards_dsl::AbilityDef) -> bool {
+    use baylee_cards_dsl::AbilityDef;
+    match ability {
+        AbilityDef::Triggered {
+            effects, condition, ..
+        }
+        | AbilityDef::Spell {
+            effects, condition, ..
+        } => {
+            condition
+                .as_ref()
+                .is_some_and(|c| condition_reads_attacked_players(c, 0))
+                || effects_read_attacked_players(effects)
+        }
+        AbilityDef::ModalTriggered {
+            modes, condition, ..
+        } => {
+            condition
+                .as_ref()
+                .is_some_and(|c| condition_reads_attacked_players(c, 0))
+                || modes
+                    .iter()
+                    .any(|m| effects_read_attacked_players(m.effects))
+        }
+        AbilityDef::Activated { effects, .. }
+        | AbilityDef::SagaChapter { effects, .. }
+        | AbilityDef::Loyalty { effects, .. } => effects_read_attacked_players(effects),
+        AbilityDef::ActivatedConditional {
+            effects, condition, ..
+        } => {
+            condition_reads_attacked_players(condition, 0) || effects_read_attacked_players(effects)
+        }
+        AbilityDef::ModalSpell { modes, .. }
+        | AbilityDef::Modal { modes, .. }
+        | AbilityDef::ModalActivated { modes, .. } => modes
+            .iter()
+            .any(|m| effects_read_attacked_players(m.effects)),
+        AbilityDef::Static(sa) => {
+            sa.condition
+                .as_ref()
+                .is_some_and(|c| condition_reads_attacked_players(c, 0))
+                || modifier_reads_attacked_players(&sa.modifier, 0)
+        }
+        _ => false,
+    }
+}
+
+fn modifier_reads_attacked_players(modifier: &baylee_cards_dsl::Modifier, depth: u8) -> bool {
+    use baylee_cards_dsl::Modifier;
+    if depth >= 8 {
+        return false;
+    }
+    match modifier {
+        Modifier::GrantStatic { modifier, .. } => {
+            modifier_reads_attacked_players(modifier, depth + 1)
+        }
+        Modifier::GrantTriggered { effects, .. }
+        | Modifier::GrantTriggeredUpToOne { effects, .. }
+        | Modifier::GrantActivated { effects, .. } => effects_read_attacked_players(effects),
+        Modifier::GrantTriggeredDefinition(def) | Modifier::GrantActivatedDefinition(def) => {
+            ability_reads_attacked_players(def)
+        }
+        _ => false,
+    }
+}
+
+fn condition_reads_attacked_players(cond: &baylee_cards_dsl::Condition, depth: u8) -> bool {
+    use baylee_cards_dsl::Condition;
+    if depth >= 8 {
+        return false;
+    }
+    match cond {
+        Condition::PlayerAttackedYouThisTurn(_) => true,
+        Condition::Not(inner) | Condition::TriggerOnly(inner) => {
+            condition_reads_attacked_players(inner, depth + 1)
+        }
+        Condition::All(parts) | Condition::Any(parts) => parts
+            .iter()
+            .any(|p| condition_reads_attacked_players(p, depth + 1)),
+        _ => false,
+    }
+}
+
+fn effects_read_attacked_players(effects: &'static [baylee_cards_dsl::Effect]) -> bool {
+    let mut seen = 0;
+    let mut found = false;
+    baylee_cards_dsl::Effect::walk(effects, &mut seen, &mut |effect| match effect {
+        baylee_cards_dsl::Effect::IfCondition { condition, .. }
+        | baylee_cards_dsl::Effect::RepeatWhile { condition, .. }
+            if condition_reads_attacked_players(condition, 0) =>
+        {
+            found = true;
+        }
+        baylee_cards_dsl::Effect::RepeatProcess {
+            pre_condition,
+            post_condition,
+            ..
+        } if pre_condition
+            .as_ref()
+            .is_some_and(|c| condition_reads_attacked_players(c, 0))
+            || post_condition
+                .as_ref()
+                .is_some_and(|c| condition_reads_attacked_players(c, 0)) =>
+        {
+            found = true;
+        }
+        baylee_cards_dsl::Effect::RegisterDelayedTrigger {
+            condition: Some(c), ..
+        }
+        | baylee_cards_dsl::Effect::ReflexiveTrigger {
+            condition: Some(c), ..
+        } if condition_reads_attacked_players(c, 0) => {
+            found = true;
+        }
+        baylee_cards_dsl::Effect::CreateContinuousEffect { modifier, .. }
+            if modifier_reads_attacked_players(modifier, 0) =>
+        {
+            found = true;
+        }
+        baylee_cards_dsl::Effect::CreateEmblem { abilities }
+        | baylee_cards_dsl::Effect::Backup {
+            grant_abilities: abilities,
+            ..
+        } if abilities.iter().any(ability_reads_attacked_players) => {
+            found = true;
+        }
+        _ => {}
+    });
+    found
+}
+
+pub(crate) fn card_reads_last_combat_attacked(def: &CardDef) -> bool {
+    (0..def.faces.len().max(1)).any(|face| {
+        def.abilities_for_face(face)
+            .iter()
+            .any(ability_reads_last_combat_attacked)
+    })
+}
+
+fn ability_reads_last_combat_attacked(ability: &baylee_cards_dsl::AbilityDef) -> bool {
+    use baylee_cards_dsl::AbilityDef;
+    match ability {
+        AbilityDef::Triggered { effects, .. }
+        | AbilityDef::Spell { effects, .. }
+        | AbilityDef::Activated { effects, .. }
+        | AbilityDef::ActivatedConditional { effects, .. }
+        | AbilityDef::SagaChapter { effects, .. }
+        | AbilityDef::Loyalty { effects, .. } => effects_read_last_combat_attacked(effects),
+        AbilityDef::ModalTriggered { modes, .. }
+        | AbilityDef::ModalSpell { modes, .. }
+        | AbilityDef::Modal { modes, .. }
+        | AbilityDef::ModalActivated { modes, .. } => modes
+            .iter()
+            .any(|m| effects_read_last_combat_attacked(m.effects)),
+        AbilityDef::Static(sa) => modifier_reads_last_combat_attacked(&sa.modifier, 0),
+        _ => false,
+    }
+}
+
+fn modifier_reads_last_combat_attacked(modifier: &baylee_cards_dsl::Modifier, depth: u8) -> bool {
+    use baylee_cards_dsl::Modifier;
+    if depth >= 8 {
+        return false;
+    }
+    match modifier {
+        Modifier::GrantStatic { modifier, .. } => {
+            modifier_reads_last_combat_attacked(modifier, depth + 1)
+        }
+        Modifier::GrantTriggered { effects, .. }
+        | Modifier::GrantTriggeredUpToOne { effects, .. }
+        | Modifier::GrantActivated { effects, .. } => effects_read_last_combat_attacked(effects),
+        Modifier::GrantTriggeredDefinition(def) | Modifier::GrantActivatedDefinition(def) => {
+            ability_reads_last_combat_attacked(def)
+        }
+        _ => false,
+    }
+}
+
+fn effects_read_last_combat_attacked(effects: &'static [baylee_cards_dsl::Effect]) -> bool {
+    let mut seen = 0;
+    let mut found = false;
+    baylee_cards_dsl::Effect::walk(effects, &mut seen, &mut |effect| match effect {
+        baylee_cards_dsl::Effect::ChoosePlayerEx {
+            filter: baylee_cards_dsl::PlayerFilter::OpponentNotAttackedBySourceLastCombat,
+            ..
+        } => {
+            found = true;
+        }
+        baylee_cards_dsl::Effect::CreateContinuousEffect { modifier, .. }
+            if modifier_reads_last_combat_attacked(modifier, 0) =>
+        {
+            found = true;
+        }
+        baylee_cards_dsl::Effect::CreateEmblem { abilities }
+        | baylee_cards_dsl::Effect::Backup {
+            grant_abilities: abilities,
+            ..
+        } if abilities.iter().any(ability_reads_last_combat_attacked) => {
+            found = true;
+        }
+        _ => {}
+    });
+    found
+}

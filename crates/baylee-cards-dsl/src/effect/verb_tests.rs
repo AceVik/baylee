@@ -1487,4 +1487,70 @@ fn attach_chosen_then_and_relocate_attachment_bodies_are_visited() {
     });
     assert_eq!(seen, 4);
     assert!(unattached && drew);
+fn choices_and_players_effect_bodies_are_visited() {
+    static EFFECTS: &[Effect] = &[
+        Effect::ChoosePlayerEx {
+            chooser: crate::PlayerRel::You,
+            filter: crate::PlayerFilter::OpponentWithGreatestLife,
+            random: false,
+            remember: true,
+            if_none: &[Effect::TapSelf],
+            then: &[Effect::draw(1)],
+        },
+        Effect::ChooseNumberAtRandom {
+            min: Amount::Fixed(1),
+            max: Amount::Fixed(3),
+            then: &[Effect::GainLife {
+                amount: Amount::ResolutionChosenNumber,
+            }],
+        },
+        Effect::SecretChooseNumbers(crate::SecretNumberChoice {
+            players: crate::PlayerRel::EachPlayer,
+            min: Amount::Fixed(0),
+            max: Amount::Fixed(u32::MAX),
+            on_each: &[Effect::LoseLife {
+                target: crate::PlayerRel::EventPlayer,
+                amount: Amount::ResolutionChosenNumber,
+            }],
+            on_highest: &[Effect::DealDamage {
+                amount: Amount::ResolutionChosenNumber,
+                target: TargetSpec::Player(crate::PlayerRel::EventPlayer),
+            }],
+            on_lowest: &[Effect::draw(1)],
+            on_not_lowest: &[Effect::draw(7)],
+            on_matched: &[Effect::SacrificeSelf],
+            on_unmatched: &[Effect::TapSelf],
+            remember_highest: true,
+        }),
+        Effect::SecretNumberGuess {
+            min: 1,
+            max: 5,
+            track_used_on_source: true,
+            guesser: crate::PlayerRel::Opponent,
+            on_correct: &[Effect::SacrificeSelf],
+            on_wrong: &[Effect::draw(1)],
+        },
+        Effect::RepeatEachPlayerPayUntilNone {
+            kind: crate::VariablePayKind::Life,
+            max_per_player: Amount::Fixed(10),
+            then_per_player: &[Effect::draw(1)],
+        },
+    ];
+    let mut seen = 0;
+    let mut visited_secret_branches = 0;
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        if matches!(
+            effect,
+            Effect::LoseLife { .. }
+                | Effect::DealDamage { .. }
+                | Effect::SacrificeSelf
+                | Effect::TapSelf
+                | Effect::DrawCards { .. }
+                | Effect::GainLife { .. }
+        ) {
+            visited_secret_branches += 1;
+        }
+    });
+    assert_eq!(seen, 5 + 12);
+    assert_eq!(visited_secret_branches, 12);
 }

@@ -61,6 +61,15 @@ pub(super) fn exec_immediate(
                 options: ManaColor::ALL[..5].to_vec(),
             })
         }
+        Effect::ChooseNumberAtRandom { min, max, then } => {
+            super::player_number_choices::choose_number_at_random(state, res, min, max, then)
+        }
+        Effect::AccumulateChosenNumber => {
+            if let Some(n) = res.subject.chosen_number {
+                res.subject.accumulated_number = res.subject.accumulated_number.saturating_add(n);
+            }
+            None
+        }
         Effect::PlayerMayPayManaAndLifeEachThenElse {
             player,
             mana,
@@ -665,6 +674,7 @@ pub(super) fn exec_immediate(
         | Effect::NoteActivationMana
         | Effect::AddManaFor { .. }
         | Effect::AddManaAmountFor { .. }
+        | Effect::AddManaChoiceFor { .. }
         | Effect::ManaForColorsAmong(_)
         | Effect::AddManaLikeEvent { .. } => mana::exec(state, res, op),
         Effect::ModifySource { .. }
@@ -4363,6 +4373,10 @@ pub(super) fn exec_immediate(
         | Effect::DrawIfGuessWrong
         | Effect::ChooseNumber { .. }
         | Effect::ChooseNumberEx { .. }
+        | Effect::ChoosePlayerEx { .. }
+        | Effect::SecretChooseNumbers(_)
+        | Effect::SecretNumberGuess { .. }
+        | Effect::RepeatEachPlayerPayUntilNone { .. }
         | Effect::MoveAttachment { .. }
         | Effect::AttachChosen { .. }
         | Effect::MoveAllAttachments { .. }
@@ -5414,6 +5428,47 @@ pub(super) fn resolution_condition(
                 kind,
                 by_you,
             )
+        }
+        Condition::WasForetold => state
+            .object(res.on_stack)
+            .filter(|o| o.kind == crate::object::ObjectKind::Spell)
+            .map_or_else(
+                || eval::object_was_foretold(state, res.source, source_version(state, res)),
+                |o| {
+                    o.riders
+                        .iter()
+                        .any(|r| matches!(r, crate::object::Rider::Foretold { .. }))
+                },
+            ),
+        Condition::WasSneaked => state
+            .object(res.on_stack)
+            .filter(|o| o.kind == crate::object::ObjectKind::Spell)
+            .map_or_else(
+                || eval::object_was_sneaked(state, res.source, source_version(state, res)),
+                |o| o.riders.contains(&crate::object::Rider::Sneaked),
+            ),
+        Condition::TreasureManaWasSpent => {
+            state
+                .object(res.on_stack)
+                .and_then(|o| o.paid.as_ref())
+                .is_some_and(|paid| crate::mana_provenance::paid_spent_treasure_mana(state, paid))
+                || eval::object_spent_treasure_mana(state, res.source, source_version(state, res))
+        }
+        Condition::RememberedMatches(filter) => res.subject.remembered().is_some_and(|list| {
+            list.iter()
+                .any(|rem| remembered::remembered_item_matches_filter(filter, state, res, rem))
+        }),
+        Condition::PlayerAttackedYouThisTurn(who) => players_of(who, state, res.controller, res)
+            .into_iter()
+            .any(|seat| {
+                state
+                    .per_turn
+                    .attacked_players
+                    .items
+                    .contains(&(seat, res.controller))
+            }),
+        Condition::YouAreRememberedPlayer => {
+            res.subject.remembered_players.contains(&res.controller)
         }
         _ => {
             eval::condition_holds_with_context(state, res.controller, res.rule_context(), condition)

@@ -1118,6 +1118,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     fn can_pay_source_action(&self, source: ObjectId, part: &CostPart) -> bool {
         self.state.object(source).is_some_and(|object| match part {
             CostPart::ExertSelf => object.zone == crate::zone::Zone::Battlefield,
+            CostPart::RevealChosenPlayer => {
+                object.zone == crate::zone::Zone::Battlefield
+                    && object.has_unrevealed_secret_chosen_player()
+            }
             CostPart::TapSelf | CostPart::UntapSelf => {
                 !crate::combat::summoning_sick(&self.state, object)
                     && object.status.contains(Status::TAPPED) == matches!(part, CostPart::UntapSelf)
@@ -1128,9 +1132,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
 
     pub(super) fn source_cost_parts_ready(&self, source: ObjectId, parts: &[CostPart]) -> bool {
         parts.iter().all(|part| match part {
-            CostPart::TapSelf | CostPart::UntapSelf | CostPart::ExertSelf => {
-                self.can_pay_source_action(source, part)
-            }
+            CostPart::TapSelf
+            | CostPart::UntapSelf
+            | CostPart::ExertSelf
+            | CostPart::RevealChosenPlayer => self.can_pay_source_action(source, part),
             CostPart::SacrificeSelf => self.state.can_be_sacrificed(source, None),
             CostPart::RemoveCounterSelf { kind, n } => self
                 .state
@@ -1407,6 +1412,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 CostPart::TapSelf
                 | CostPart::UntapSelf
                 | CostPart::ExertSelf
+                | CostPart::RevealChosenPlayer
                 | CostPart::RemoveCounterSelf { .. }
                 | CostPart::RemoveAnyCounter { .. }
                 | CostPart::RemoveAnyCounterX { .. }
@@ -1640,6 +1646,19 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         player,
                         Cause::Cost,
                     );
+                }
+                CostPart::RevealChosenPlayer => {
+                    if self
+                        .state
+                        .object_mut(source)
+                        .and_then(crate::object::GameObject::reveal_secret_chosen_player)
+                        .is_none()
+                    {
+                        return Err(EngineError::IllegalAction(
+                            "source has no unrevealed chosen player to reveal",
+                        ));
+                    }
+                    self.state.invalidate_projections();
                 }
                 CostPart::UntapSelf => {
                     if self.state.set_tapped(source, false) {
