@@ -11039,6 +11039,11 @@ public `FriendInviteInfo`). The account's calls are `baylee-account`'s
 - **The door.** The contacts drawer's foot carries "Invite a friend…" beside
   New group, sharing that row, in the lobby and only while Baylee Central
   is signed in: the invites are Central's, and their sheet is the lobby's.
+  A contacts list with nobody in it (no friend, request, group or invite,
+  nothing searched for) says so in the kit's empty state, and how someone
+  comes in: a `Name#tag` searched above, or, where invites reach, a link
+  from the foot. The foot carries the button; the empty state does not
+  repeat it.
 - **The sheet** (`SheetWidth::Small`, a fixed height whose body scrolls, so
   nothing in it moves as rows arrive). The head names it and says what an
   invite is. The form: how long the link holds (1, 3, 7 or 14 days, 7 to
