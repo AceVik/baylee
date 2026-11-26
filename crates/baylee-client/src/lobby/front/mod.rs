@@ -1650,6 +1650,12 @@ pub(super) fn front_door(
         commands.entity(holder).add_child(line);
         holder
     };
+    // The donation sheet never stands beside the Fan Content notice
+    // (`docs/legal.md` §"Donations"): while it is up the colophon keeps its
+    // place but is not drawn, so nothing under the scrim moves.
+    if state.giving.open {
+        commands.entity(colophon).insert(Visibility::Hidden);
+    }
     commands.entity(root).add_child(colophon);
     if state.front_menu {
         let veil = commands

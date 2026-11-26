@@ -300,7 +300,7 @@ pub(super) fn sheet(commands: &mut Commands, root: Entity, state: &LobbyState, k
         return;
     }
     let lang = state.lobby.lang();
-    let wide = kit.m.px(760.0);
+    let wide = kit.m.px(900.0);
     let dialog = surfaces::dialog(
         commands,
         kit,
@@ -310,7 +310,13 @@ pub(super) fn sheet(commands: &mut Commands, root: Entity, state: &LobbyState, k
     );
     commands
         .entity(dialog)
-        .insert((BackgroundColor(Color::NONE), super::glass_card_gradient()))
+        // Opaque, unlike the small community card: a sheet this full is
+        // read, and the sign-in form must not show through its words.
+        .insert((
+            BackgroundColor(tokens::OPAQUE),
+            surfaces::SheetScroller,
+            ScrollPosition::default(),
+        ))
         .entry::<Node>()
         .and_modify(move |mut node| {
             node.padding = UiRect::all(kit.m.px(22.0));
@@ -335,8 +341,23 @@ pub(super) fn sheet(commands: &mut Commands, root: Entity, state: &LobbyState, k
     );
     let lead = paragraph(commands, kit, Phrase::DonateLead.text(lang), tokens::INK);
     commands.entity(dialog).add_children(&[head, lead]);
-    goal(commands, dialog, state, kit);
-    costs(commands, dialog, kit, lang);
+    // The goal and what it pays for side by side, equally wide.
+    let pair = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                column_gap: kit.m.px(14.0),
+                row_gap: kit.m.px(14.0),
+                flex_wrap: FlexWrap::Wrap,
+                align_items: AlignItems::Stretch,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(dialog).add_child(pair);
+    goal(commands, pair, state, kit);
+    costs(commands, pair, kit, lang);
     ways(commands, dialog, state, kit);
     let nothing = paragraph(commands, kit, Phrase::DonateNothing.text(lang), tokens::MUTED);
     let privacy = paragraph(commands, kit, Phrase::DonatePrivacy.text(lang), tokens::MUTED);
@@ -383,6 +404,7 @@ fn caption(commands: &mut Commands, kit: Kit, text: &str) -> Entity {
 fn goal(commands: &mut Commands, dialog: Entity, state: &LobbyState, kit: Kit) {
     let lang = state.lobby.lang();
     let block = inset(commands, kit);
+    halve(commands, block);
     let title = caption(commands, kit, Phrase::DonateGoalTitle.text(lang));
     let amount = commands
         .spawn((
@@ -522,6 +544,7 @@ fn goal(commands: &mut Commands, dialog: Entity, state: &LobbyState, kit: Kit) {
 /// What a month costs, rounded: each cost against the goal.
 fn costs(commands: &mut Commands, dialog: Entity, kit: Kit, lang: Lang) {
     let block = inset(commands, kit);
+    halve(commands, block);
     let title = caption(commands, kit, Phrase::DonateCostsTitle.text(lang));
     commands.entity(block).add_child(title);
     for (phrase, euros) in [
@@ -626,12 +649,12 @@ fn ways(commands: &mut Commands, dialog: Entity, state: &LobbyState, kit: Kit) {
         commands
             .entity(words)
             .insert(TextLayout::justify(Justify::Center));
-        commands.entity(card).add_children(&[name, words]);
+        let grow = crate::lobby::parts::grow(commands);
+        commands.entity(card).add_children(&[name, words, grow]);
         if let Some((_, code)) = state.giving.codes.iter().find(|(p, _)| *p == platform) {
-            let qr = super::door::qr(commands, code);
+            let qr = super::door::qr_sized(commands, code, kit.m.px(96.0));
             commands.entity(card).add_child(qr);
         }
-        let grow = crate::lobby::parts::grow(commands);
         let open = controls::button_with_icon(
             commands,
             kit,
@@ -646,7 +669,7 @@ fn ways(commands: &mut Commands, dialog: Entity, state: &LobbyState, kit: Kit) {
             .entity(open)
             .entry::<Node>()
             .and_modify(|mut n| n.width = Val::Percent(100.0));
-        commands.entity(card).add_children(&[grow, open]);
+        commands.entity(card).add_child(open);
         commands.entity(row).add_child(card);
     }
     commands.entity(dialog).add_children(&[title, lead, row]);
@@ -679,4 +702,15 @@ fn inset(commands: &mut Commands, kit: Kit) -> Entity {
             Pickable::IGNORE,
         ))
         .id()
+}
+
+/// Gives a block of the goal's row an equal share of it, down to a width a
+/// bar and its words still fit in (narrower, the row wraps).
+fn halve(commands: &mut Commands, block: Entity) {
+    commands.entity(block).entry::<Node>().and_modify(|mut n| {
+        n.width = Val::Auto;
+        n.flex_grow = 1.0;
+        n.flex_basis = Val::Px(0.0);
+        n.min_width = Val::Px(300.0);
+    });
 }

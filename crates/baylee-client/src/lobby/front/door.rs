@@ -2101,6 +2101,27 @@ pub(super) fn qr(commands: &mut Commands, code: &super::super::source::Code) -> 
     qr_frame(commands, picture)
 }
 
+/// A code drawn `side` wide whatever its module count, in its frame: the
+/// donation sheet's three stand at one size, side by side.
+pub(super) fn qr_sized(
+    commands: &mut Commands,
+    code: &super::super::source::Code,
+    side: Val,
+) -> Entity {
+    let picture = commands
+        .spawn((
+            ImageNode::new(code.image.clone()),
+            Node {
+                width: side,
+                height: side,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    qr_frame(commands, picture)
+}
+
 /// The thin dark frame a code stands in.
 fn qr_frame(commands: &mut Commands, picture: Entity) -> Entity {
     commands
