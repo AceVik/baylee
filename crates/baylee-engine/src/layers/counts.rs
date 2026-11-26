@@ -78,7 +78,9 @@ pub(super) fn pt_count(
         baylee_cards_dsl::PtCount::DistinctColorsAmong(filter) => {
             distinct_colors_among(state, obj, c, you, filter, context)
         }
-        baylee_cards_dsl::PtCount::ChosenNumber => obj.chosen_number().map_or(0, usize::from),
+        baylee_cards_dsl::PtCount::ChosenNumber => {
+            obj.chosen_number_for_rules().map_or(0, usize::from)
+        }
         baylee_cards_dsl::PtCount::Complement { from, count } => {
             return i16::try_from(from)
                 .unwrap_or(i16::MAX)
@@ -116,7 +118,7 @@ pub(super) fn pt_count(
             cards_in_all_graveyards(state, obj, c, you, filter, context)
         }
         baylee_cards_dsl::PtCount::ChosenPlayerControls(filter) => {
-            obj.chosen_opponent().map_or(0, |chosen| {
+            obj.chosen_opponent_for_rules().map_or(0, |chosen| {
                 count_controlled(state, obj, c, Some(chosen), you, filter, context)
             })
         }

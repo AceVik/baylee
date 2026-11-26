@@ -84,7 +84,8 @@ fn a_continuous_player_relation_is_one_the_state_can_answer() {
                     PlayerRel::OwnerOfSource
                     | PlayerRel::ControllerOfAttached
                     | PlayerRel::EnchantedPlayer
-                    | PlayerRel::ChosenBySource => {
+                    | PlayerRel::ChosenBySource
+                    | PlayerRel::SecondChosenBySource => {
                         !matches!(modifier, Modifier::CantBeAttackedExceptBy { .. })
                     }
                     PlayerRel::Chosen
@@ -97,7 +98,8 @@ fn a_continuous_player_relation_is_one_the_state_can_answer() {
                     | PlayerRel::RememberedController
                     | PlayerRel::ControllerOfEvent
                     | PlayerRel::DamagedPlayer
-                    | PlayerRel::EventPlayer => {
+                    | PlayerRel::EventPlayer
+                    | PlayerRel::YouAndTargetOpponent => {
                         !is_printed
                             && matches!(
                                 modifier,

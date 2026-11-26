@@ -210,6 +210,8 @@ enum PaymentContinuation {
         defending: PlayerId,
         /// The declaration, as the seat made it.
         blockers: Vec<(ObjectId, ObjectId)>,
+        /// Permanents chosen for tap-to-block costs (Hollow Warrior, CR 509.1d).
+        tapped: Vec<ObjectId>,
         /// The total tax, which is what the window shows as owed.
         cost: baylee_core::mana::ManaCost,
         /// What closing without the declaration gives back (CR 734.1).
@@ -307,13 +309,24 @@ impl PaymentContinuation {
             Self::BlockTax {
                 defending,
                 blockers,
+                tapped,
                 cost,
                 opened,
-            } => crate::state::structural_fingerprint(&(defending, blockers))
-                .wrapping_mul(31)
-                .wrapping_add(crate::state::mana_cost_fingerprint(cost))
-                .wrapping_mul(31)
-                .wrapping_add(opened.fingerprint()),
+            } => {
+                let mut fp = crate::state::structural_fingerprint(&(defending, blockers))
+                    .wrapping_mul(31)
+                    .wrapping_add(crate::state::mana_cost_fingerprint(cost))
+                    .wrapping_mul(31)
+                    .wrapping_add(opened.fingerprint());
+                if !tapped.is_empty() {
+                    fp = fp
+                        .wrapping_mul(31)
+                        .wrapping_add(crate::state::structural_fingerprint(&(
+                            255_u8, 554_u16, 6_u8, tapped,
+                        )));
+                }
+                fp
+            }
             Self::Miracle {
                 wizard,
                 version,
@@ -992,6 +1005,9 @@ enum PlanKind {
         /// The attacker with banding asked about.
         leader: ObjectId,
     },
+    /// Choosing untapped permanents to tap for a block declaration's tap cost
+    /// (Hollow Warrior, CR 509.1d).
+    BlockTapCost(Box<attack_sacrifice::BlockTapWork>),
     /// Camouflage's piles, filled one question at a time by a defending
     /// player instead of declaring blockers.
     CamouflagePiles {
@@ -1664,6 +1680,9 @@ impl<L: CardLookup, D: LoopDetection> Engine<L, D> {
             extra = extra
                 .wrapping_mul(31)
                 .wrapping_add(crate::state::structural_fingerprint(&(object, first)));
+        }
+        if let Some(PlanKind::BlockTapCost(work)) = self.pending_plan.as_ref() {
+            extra = extra.wrapping_mul(31).wrapping_add(work.fingerprint());
         }
         if let Some(wizard) = &self.cast_wizard {
             extra = extra

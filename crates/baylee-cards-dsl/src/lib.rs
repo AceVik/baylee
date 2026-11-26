@@ -142,10 +142,11 @@ pub use effect::{
     ExilePlay, ExileUntil, Find, LookRest, ManaDistribution, ManaRestriction, ManaSource, ManaUse,
     ManaValueBound, ManaValueCmp, ModalRestriction, MoveSubject, MultiPlayerChoice,
     MultiPlayerChoiceAggregate, NumberChoiceKind, PeekPickDest, PeekRestDest, PlayCostMode,
-    PlayCount, PlaySource, PlayWindow, PlayerRel, ReflexiveEvent, ReflexiveWhen, RepeatDomain,
-    RevealUntilFound, RevealUntilRest, SearchDest, SourceLeaveAction, SpendRider, TargetChooser,
-    TargetConstraint, TargetReq, TargetSlot, TargetSpec, ThisWay, TokenDef, TriggerRemember,
-    VariablePayKind, VoteObjectAction, VoteOption, VoteOutcome, ZoneSel,
+    PlayCount, PlaySource, PlayWindow, PlayerFilter, PlayerRel, ReflexiveEvent, ReflexiveWhen,
+    RepeatDomain, RevealUntilFound, RevealUntilRest, SearchDest, SecretNumberChoice,
+    SourceLeaveAction, SpendRider, TargetChooser, TargetConstraint, TargetReq, TargetSlot,
+    TargetSpec, ThisWay, TokenDef, TriggerRemember, VariablePayKind, VoteObjectAction, VoteOption,
+    VoteOutcome, ZoneSel,
 };
 pub use filter::{Filter, OriginalExpansion, ZoneRef, ZoneRef as ZoneKind};
 pub use manaread::{
@@ -161,9 +162,10 @@ pub use baylee_core::mana;
 pub use baylee_core::mana::{ManaColor, ManaCost};
 pub use baylee_core::types::{SupertypeSet, TypeSet};
 pub use static_ability::{
-    AbilityDonorZone, AltCastPrice, AltCastZones, CounterReplaceOp, DamageAmountReplacement,
-    DamageRecipients, DamagedByScope, Duration, GraveyardAltKind, LAYERS, Layer, LifeGainOp,
-    Modifier, PtCount, ReplacementRule, SpellCastMetric, StaticAbility, TriggerCause,
+    AbilityDonorZone, AltCastPrice, AltCastZones, AttackTaxTarget, CounterReplaceOp,
+    DamageAmountReplacement, DamageRecipients, DamagedByScope, Duration, GraveyardAltKind, LAYERS,
+    Layer, LifeGainOp, Modifier, PtCount, ReplacementRule, SpellCastMetric, StaticAbility,
+    TriggerCause,
 };
 
 /// A compiled card definition: zero-cost, `'static`, registry-resident.
@@ -1353,6 +1355,46 @@ pub enum EnterModifier {
     /// "As this enters, each player chooses [mode0] or [mode1]..." (`CR 614.12`:
     /// *Archangel of Strife*). Appended to preserve replay identities.
     EachPlayerChooseMode(&'static [&'static str]),
+    /// "As this enters, choose a number between `min` and `max` at random"
+    /// (`CR 614.12`; *Haktos the Unscarred*). Appended to preserve replay
+    /// identities.
+    ChooseNumberAtRandom {
+        /// Lowest permitted choice, inclusive.
+        min: u8,
+        /// Highest permitted choice, inclusive.
+        max: u8,
+    },
+    /// "As this enters, secretly choose a number between `min` and `max`"
+    /// (`CR 614.12`; *Ominous Lockbox*). Stored on the permanent and hidden from
+    /// other players' views until revealed. Appended to preserve replay
+    /// identities.
+    SecretlyChooseNumber {
+        /// Lowest permitted choice, inclusive.
+        min: u8,
+        /// Highest permitted choice, inclusive.
+        max: u8,
+    },
+    /// "As this enters, secretly choose an opponent" (`CR 614.12`; *Guardian
+    /// Archon*, *Emissary of Grudges*, *Stalking Leonin*). Stored on the
+    /// permanent and hidden from other players' views until revealed (e.g. via
+    /// [`CostPart::RevealChosenPlayer`]). Appended to preserve replay identities.
+    SecretlyChooseOpponent,
+    /// "As this enters, choose two players" (`CR 614.12`; *Bitter Feud*, *Sower
+    /// of Discord*). Stores two distinct players accessible via
+    /// [`PlayerRel::ChosenBySource`] and [`PlayerRel::SecondChosenBySource`].
+    /// Appended to preserve replay identities.
+    ChooseTwoPlayers,
+    /// "As this enters, an opponent chooses a creature type" (`CR 614.12`;
+    /// *Callous Oppressor*). Prompts the controller to choose an opponent when
+    /// multiple exist, then prompts that opponent to choose a creature subtype.
+    /// Appended to preserve replay identities.
+    OpponentChoosesCreatureType,
+    /// "As this enters, note the most prevalent creature type in an opponent's
+    /// library" (`CR 614.12`; *Favored Enemy*). Prompts the controller to choose
+    /// an opponent when multiple exist, then records the most prevalent creature
+    /// subtype in that opponent's library (prompting on ties) as the
+    /// permanent's chosen subtype. Appended to preserve replay identities.
+    NoteMostPrevalentCreatureTypeInOpponentLibrary,
 }
 
 impl EnterModifier {

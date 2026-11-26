@@ -346,7 +346,8 @@ fn encode_cost_into(cost: &Cost, dst: &mut [f32]) {
             CostPart::Behold(_)
             | CostPart::RevealFromHand(_)
             | CostPart::RevealFromHandX(_)
-            | CostPart::RevealSelfFromHand => {}
+            | CostPart::RevealSelfFromHand
+            | CostPart::RevealChosenPlayer => {}
             CostPart::Forage => {
                 dst[3] = 1.0;
                 dst[6] = 1.0;

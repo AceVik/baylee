@@ -1235,16 +1235,18 @@ pub mod prelude {
         ExilePlay, ExileUntil, Find, LookRest, ManaDistribution, ManaRestriction, ManaSource,
         ManaUse, ManaValueBound, ManaValueCmp, ModalRestriction, MoveSubject, MultiPlayerChoice,
         MultiPlayerChoiceAggregate, NumberChoiceKind, PeekPickDest, PeekRestDest, PlayCostMode,
-        PlayCount, PlaySource, PlayWindow, PlayerRel, ReflexiveEvent, ReflexiveWhen, RepeatDomain,
-        RevealUntilFound, RevealUntilRest, SearchDest, SourceLeaveAction, SpendRider,
-        TargetChooser, TargetConstraint, TargetReq, TargetSlot, TargetSpec, ThisWay, TokenDef,
-        TriggerRemember, VariablePayKind, VoteObjectAction, VoteOption, VoteOutcome, ZoneSel,
+        PlayCount, PlaySource, PlayWindow, PlayerFilter, PlayerRel, ReflexiveEvent, ReflexiveWhen,
+        RepeatDomain, RevealUntilFound, RevealUntilRest, SearchDest, SecretNumberChoice,
+        SourceLeaveAction, SpendRider, TargetChooser, TargetConstraint, TargetReq, TargetSlot,
+        TargetSpec, ThisWay, TokenDef, TriggerRemember, VariablePayKind, VoteObjectAction,
+        VoteOption, VoteOutcome, ZoneSel,
     };
     pub use crate::filter::{Filter, OriginalExpansion, ZoneRef, ZoneRef as ZoneKind};
     pub use crate::static_ability::{
-        AbilityDonorZone, AltCastPrice, AltCastZones, CounterReplaceOp, DamageAmountReplacement,
-        DamageRecipients, DamagedByScope, Duration, GraveyardAltKind, LAYERS, Layer, LifeGainOp,
-        Modifier, PtCount, ReplacementRule, SpellCastMetric, StaticAbility, TriggerCause,
+        AbilityDonorZone, AltCastPrice, AltCastZones, AttackTaxTarget, CounterReplaceOp,
+        DamageAmountReplacement, DamageRecipients, DamagedByScope, Duration, GraveyardAltKind,
+        LAYERS, Layer, LifeGainOp, Modifier, PtCount, ReplacementRule, SpellCastMetric,
+        StaticAbility, TriggerCause,
     };
     pub use crate::{
         ALL_MANA_COLORS, ANY_COLOR_MANA, BeholdOrPay, CardDef, CommanderRule, Coverage,

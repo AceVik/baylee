@@ -735,6 +735,11 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::MayhemPaid
         | Rider::UnearthAbility
         | Rider::ChosenMode(_)
-        | Rider::PlayerChosenMode(_, _) => None,
+        | Rider::PlayerChosenMode(_, _)
+        | Rider::TreasureManaSpent
+        | Rider::SecondChosenPlayer(_)
+        | Rider::SecretChosenPlayer { .. }
+        | Rider::SecretChosenNumber { .. }
+        | Rider::UsedChosenNumbers(_) => None,
     }
 }

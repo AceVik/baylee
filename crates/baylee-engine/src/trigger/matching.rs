@@ -1658,7 +1658,7 @@ fn matches(
             begins_step(state, *began_step, *step)
                 && state
                     .object(source)
-                    .and_then(crate::object::GameObject::chosen_opponent)
+                    .and_then(crate::object::GameObject::chosen_opponent_for_rules)
                     == Some(*active)
         }
         (

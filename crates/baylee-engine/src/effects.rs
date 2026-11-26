@@ -402,6 +402,13 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CantBlockUnlessPayManaPerCounter(_)
         | Modifier::CantBlockMatchingUnlessPayMana { .. }
         | Modifier::CantAttackUnlessYouSacrifice { .. }
+        | Modifier::UntapDuringUntapStep { .. }
+        | Modifier::AttackManaTax { .. }
+        | Modifier::AttackPhyrexianTax { .. }
+        | Modifier::CantAttackUnlessYouReturn { .. }
+        | Modifier::CantAttackUnlessYouTap { .. }
+        | Modifier::BlockManaTax { .. }
+        | Modifier::CantBlockUnlessYouTap { .. }
         | Modifier::DamageToItCantBePreventedOrRedirected
         | Modifier::CantEnterBattlefield(_)
         | Modifier::SpellsCostMoreMana(_)
@@ -2180,6 +2187,32 @@ mod tests {
                 count: 2,
                 filter: &Filter::LAND,
             },
+            Modifier::UntapDuringUntapStep {
+                who: PlayerRel::EachOtherPlayer,
+            },
+            Modifier::AttackManaTax {
+                target: baylee_cards_dsl::AttackTaxTarget::You,
+                amount: baylee_cards_dsl::Amount::Fixed(2),
+            },
+            Modifier::AttackPhyrexianTax {
+                target: baylee_cards_dsl::AttackTaxTarget::YouOrYourPlaneswalkers,
+                color: baylee_core::mana::ManaColor::White,
+            },
+            Modifier::CantAttackUnlessYouReturn {
+                count: 1,
+                filter: &Filter::ENCHANTMENT,
+            },
+            Modifier::CantAttackUnlessYouTap {
+                count: 1,
+                filter: &Filter::CREATURE,
+            },
+            Modifier::BlockManaTax {
+                amount: baylee_cards_dsl::Amount::Fixed(1),
+            },
+            Modifier::CantBlockUnlessYouTap {
+                count: 1,
+                filter: &Filter::CREATURE,
+            },
             Modifier::DamageToItCantBePreventedOrRedirected,
             Modifier::CantEnterBattlefield(&Filter::LAND),
             Modifier::SpellsCostMoreMana(baylee_core::mana::ManaCost::ZERO),
@@ -2452,7 +2485,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            278,
+            285,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -2589,7 +2622,7 @@ mod tests {
         // Wave 17c adds GrantsUnearth, GrantsScavengeManaCost, and GrantsDredge on
         // Layer::Ability (+3 locking -> 70) and ten cost/permission modifiers on
         // Layer::Text (+10 rules-only -> 194).
-        assert_eq!((locking, all.len() - locking), (79, 199));
+        assert_eq!((locking, all.len() - locking), (79, 206));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

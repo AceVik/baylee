@@ -148,6 +148,7 @@ pub(crate) const fn paid_by_the_casting_wizard(part: &CostPart) -> bool {
         CostPart::TapSelf
         | CostPart::UntapSelf
         | CostPart::ExertSelf
+        | CostPart::RevealChosenPlayer
         | CostPart::SacrificeSelf
         | CostPart::SacrificeGrantor
         | CostPart::Sacrifice(_)
@@ -259,6 +260,7 @@ const fn can_refuse_part_way(part: &CostPart) -> bool {
         CostPart::TapSelf
         | CostPart::UntapSelf
         | CostPart::ExertSelf
+        | CostPart::RevealChosenPlayer
         | CostPart::PayLife(_)
         | CostPart::DealDamageToYou(_)
         | CostPart::PutCounterSelf { .. }

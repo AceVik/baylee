@@ -204,6 +204,13 @@ pub enum PlayerRel {
     ChosenBySource,
     /// The player seated immediately to the resolving controller's right (preceding in turn order).
     PlayerToYourRight,
+    /// The second player chosen as the resolving ability's source permanent
+    /// entered (`EnterModifier::ChooseTwoPlayers`; *Bitter Feud*, *Sower of
+    /// Discord*). Appended to preserve replay identities.
+    SecondChosenBySource,
+    /// The resolving controller and the first targeted opponent, in APNAP
+    /// order (*Expert-Level Safe*). Appended to preserve replay identities.
+    YouAndTargetOpponent,
 }
 
 impl PlayerRel {

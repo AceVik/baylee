@@ -1511,6 +1511,8 @@ impl HeuristicAgent {
             | PlayerRel::EnchantedPlayer
             | PlayerRel::OtherOpponents
             | PlayerRel::ChosenBySource
+            | PlayerRel::SecondChosenBySource
+            | PlayerRel::YouAndTargetOpponent
             | PlayerRel::PlayerToYourRight => {
                 return None;
             }

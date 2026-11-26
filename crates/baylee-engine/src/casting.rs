@@ -3411,6 +3411,7 @@ fn alternative_parts_payable(
         // so there is nothing here an alternative cost could fail to pay.
         // Counted activation costs are not spell additional costs.
         CostPart::ExertSelf
+        | CostPart::RevealChosenPlayer
         | CostPart::SacrificeGrantor
         | CostPart::PayEnergy(_)
         | CostPart::PayEnergyX

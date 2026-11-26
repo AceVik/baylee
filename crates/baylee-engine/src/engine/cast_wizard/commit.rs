@@ -409,6 +409,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::TapSelf
                 | CostPart::UntapSelf
                 | CostPart::ExertSelf
+                | CostPart::RevealChosenPlayer
                 | CostPart::SacrificeSelf
                 | CostPart::ExilePermanent(_)
                 | CostPart::Discard(_)
@@ -818,6 +819,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::TapSelf
                 | CostPart::UntapSelf
                 | CostPart::ExertSelf
+                | CostPart::RevealChosenPlayer
                 | CostPart::SacrificeSelf
                 | CostPart::PayCommanderColors
                 | CostPart::Crew(_)

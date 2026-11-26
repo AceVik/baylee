@@ -200,6 +200,12 @@ fn build_domain_steps(state: &GameState, res: &Resolution, domain: RepeatDomain)
             seats.reverse();
             RepeatSteps::Items(seats.into_iter().map(RepeatStep::Player).collect())
         }
+        RepeatDomain::EachPlayerStartingWithYou => {
+            let mut seats = super::player_number_choices::turn_order_starting_with(state, you);
+            seats.truncate(cap);
+            seats.reverse();
+            RepeatSteps::Items(seats.into_iter().map(RepeatStep::Player).collect())
+        }
         RepeatDomain::EachMatchingPermanent(filter) => {
             let context = res.rule_context();
             let mut matched: Vec<(DamageSourceRef, PlayerId)> = state

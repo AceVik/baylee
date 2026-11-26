@@ -816,6 +816,34 @@ pub enum Condition {
     CapturedCountAtLeast(u32),
     /// At least one object remembered by the innermost enclosing capture satisfies `filter`.
     CapturedMatches(&'static Filter),
+    /// The source spell (or the permanent it became on resolving) was cast for
+    /// its foretell cost (`CR 702.143a`; *Haunting Voyage*). Appended to
+    /// preserve replay identities.
+    WasForetold,
+    /// The source spell (or the permanent it became on resolving) was cast for
+    /// its sneak cost (`CR 702.190a`; *The Last Ronin's Technique*). Appended
+    /// to preserve replay identities.
+    WasSneaked,
+    /// At least one mana produced by a Treasure was spent to cast this spell
+    /// or activate this ability (*Devour Intellect*, *Jetmir's Fixer*).
+    /// Appended to preserve replay identities.
+    TreasureManaWasSpent,
+    /// At least one object remembered in the current resolution's subject
+    /// context satisfies `filter` (*Hallowed Respite*). Appended to preserve
+    /// replay identities.
+    RememberedMatches(&'static Filter),
+    /// At least one living opponent has life total less than or equal to the
+    /// signed threshold (handles `<= 0` including negative life; *Heaven Sent*).
+    /// Appended to preserve replay identities.
+    OpponentLifeAtMost(i32),
+    /// A player matching `who` declared an attacker attacking `you` (the
+    /// controller) during the current turn (*Faramir, Prince of Ithilien*).
+    /// Appended to preserve replay identities.
+    PlayerAttackedYouThisTurn(crate::PlayerRel),
+    /// The resolving controller is among the players remembered in the current
+    /// resolution (e.g. tied for highest number on *Menacing Ogre*). Appended
+    /// to preserve replay identities.
+    YouAreRememberedPlayer,
 }
 
 /// Trigger conditions for triggered abilities.

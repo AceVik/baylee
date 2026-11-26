@@ -257,6 +257,48 @@ pub(super) fn exec_choice(
             then,
             ..
         } => super::wave14f::choose_number_ex_start(state, res, chooser, min, max, pay_cost, then),
+        Effect::ChoosePlayerEx {
+            chooser,
+            filter,
+            random,
+            remember,
+            if_none,
+            then,
+        } => super::player_number_choices::choose_player_ex_start(
+            state, res, chooser, filter, random, remember, if_none, then,
+        ),
+        Effect::SecretChooseNumbers(spec) => {
+            super::player_number_choices::secret_choose_numbers_exec(state, res, op, spec)
+        }
+        Effect::SecretNumberGuess {
+            min,
+            max,
+            track_used_on_source,
+            guesser,
+            on_correct,
+            on_wrong,
+        } => super::player_number_choices::secret_number_guess_start(
+            state,
+            res,
+            min,
+            max,
+            track_used_on_source,
+            guesser,
+            on_correct,
+            on_wrong,
+        ),
+        Effect::RepeatEachPlayerPayUntilNone {
+            kind,
+            max_per_player,
+            then_per_player,
+        } => super::player_number_choices::repeat_pay_until_none_exec(
+            state,
+            res,
+            op,
+            kind,
+            Some(max_per_player),
+            then_per_player,
+        ),
         Effect::MoveAttachment {
             attachment,
             recipient_filter,

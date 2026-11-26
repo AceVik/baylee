@@ -749,6 +749,9 @@ express at all yet.
   `Waterbend(n)` / `WaterbendX` (CR 701.67a: pay `{n}` or `{X}` where tapping
   each untapped artifact or creature you control pays `{1}` of the generic
   waterbend cost),
+  `RevealChosenPlayer` (CR 118.3, CR 701.20a: reveal the opponent secretly
+  chosen as this permanent entered; *Guardian Archon*, *Emissary of Grudges*,
+  *Stalking Leonin*),
   `RevealFromHand(filter)` (CR 701.20a: reveal a card matching `filter` from
   your hand other than the spell or source card itself),
   `RevealFromHandX(filter)` (CR 107.3a, CR 701.20a: announce X and reveal X

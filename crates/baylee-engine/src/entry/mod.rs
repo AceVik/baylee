@@ -103,6 +103,9 @@ struct Attempt {
     player_chosen_modes: Vec<(PlayerId, u8)>,
     chosen_subtype: Option<baylee_core::ids::SubtypeId>,
     chosen_player: Option<PlayerId>,
+    second_chosen_player: Option<PlayerId>,
+    secret_chosen_player: Option<PlayerId>,
+    secret_chosen_number: Option<u8>,
     battle_protector: Option<PlayerId>,
     saga_chapter: Option<u8>,
     kw_choices: EntryKeywordState,
@@ -138,6 +141,9 @@ impl Hash for Attempt {
             player_chosen_modes,
             chosen_subtype,
             chosen_player,
+            second_chosen_player,
+            secret_chosen_player,
+            secret_chosen_number,
             battle_protector,
             saga_chapter,
             kw_choices,
@@ -170,6 +176,15 @@ impl Hash for Attempt {
         }
         if let Some(player) = chosen_player {
             player.hash(h);
+        }
+        if let Some(number) = secret_chosen_number {
+            (255_u8, 552_u16, 1_u8, number).hash(h);
+        }
+        if let Some(player) = secret_chosen_player {
+            (255_u8, 552_u16, 2_u8, player).hash(h);
+        }
+        if let Some(player) = second_chosen_player {
+            (255_u8, 552_u16, 3_u8, player).hash(h);
         }
         battle_protector.hash(h);
         // Folded in only when set (Read-Ahead Sagas, CR 702.155b), preserving
@@ -304,6 +319,26 @@ enum Question {
     EntrySubtype,
     /// Pre-counter entry player/opponent choice (`CR 614.12`, *Canker Abomination*).
     EntryPlayer,
+    /// Secretly choose a number as this permanent enters (*Ominous Lockbox*).
+    SecretNumber,
+    /// Secretly choose an opponent as this permanent enters (*Guardian Archon*, *Stalking Leonin*).
+    SecretOpponent,
+    /// Choose the first of two players as this permanent enters (*Bitter Feud*, *Sower of Discord*).
+    EntryFirstOfTwoPlayers,
+    /// Choose the second distinct player as this permanent enters.
+    EntrySecondOfTwoPlayers {
+        first: PlayerId,
+    },
+    /// Choose which opponent chooses a creature type (*Callous Oppressor* in multiplayer).
+    EntryOpponentForSubtype,
+    /// Chosen opponent chooses a creature type (*Callous Oppressor*).
+    EntrySubtypeBy(PlayerId),
+    /// Choose which opponent's library is inspected for its most prevalent creature type (*Favored Enemy*).
+    EntryOpponentLibraryType,
+    /// Controller breaks a tie among most-prevalent creature types (*Favored Enemy*).
+    EntrySubtypeTie {
+        options: Vec<baylee_core::ids::SubtypeId>,
+    },
 }
 
 impl Hash for Entries {
@@ -458,6 +493,12 @@ fn needs_before_entry(modifier: &EnterModifier) -> bool {
         || matches!(
             modifier,
             EnterModifier::ChooseNumber { .. }
+                | EnterModifier::ChooseNumberAtRandom { .. }
+                | EnterModifier::SecretlyChooseNumber { .. }
+                | EnterModifier::SecretlyChooseOpponent
+                | EnterModifier::ChooseTwoPlayers
+                | EnterModifier::OpponentChoosesCreatureType
+                | EnterModifier::NoteMostPrevalentCreatureTypeInOpponentLibrary
                 | EnterModifier::ChooseMode(_)
                 | EnterModifier::EachPlayerChooseMode(_)
                 | EnterModifier::ChooseShape(_)
@@ -566,6 +607,9 @@ pub(crate) fn defer(
         player_chosen_modes: Vec::new(),
         chosen_subtype: None,
         chosen_player: None,
+        second_chosen_player: None,
+        secret_chosen_player: None,
+        secret_chosen_number: None,
         battle_protector: None,
         saga_chapter: None,
         kw_choices: EntryKeywordState::default(),

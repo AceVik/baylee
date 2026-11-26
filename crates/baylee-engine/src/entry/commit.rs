@@ -197,5 +197,26 @@ fn apply_entry_designations(state: &mut GameState, entry: &Attempt) -> bool {
             .set_chosen_opponent(Some(chosen));
         designated = true;
     }
+    if let Some(second) = entry.second_chosen_player {
+        state
+            .object_mut(entry.object)
+            .expect("entered object")
+            .set_second_chosen_player(Some(second));
+        designated = true;
+    }
+    if let Some(secret) = entry.secret_chosen_player {
+        state
+            .object_mut(entry.object)
+            .expect("entered object")
+            .set_secret_chosen_player(secret);
+        designated = true;
+    }
+    if let Some(number) = entry.secret_chosen_number {
+        state
+            .object_mut(entry.object)
+            .expect("entered object")
+            .set_secret_chosen_number(number);
+        designated = true;
+    }
     designated
 }

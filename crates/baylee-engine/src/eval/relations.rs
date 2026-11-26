@@ -74,11 +74,27 @@ pub fn players_for_source(
                 .and_then(|s| {
                     state
                         .object(s)
-                        .and_then(crate::object::GameObject::chosen_opponent)
+                        .and_then(crate::object::GameObject::chosen_opponent_for_rules)
                         .or_else(|| {
                             state
                                 .damage_source(s, None)
-                                .and_then(crate::object::GameObject::chosen_opponent)
+                                .and_then(crate::object::GameObject::chosen_opponent_for_rules)
+                        })
+                })
+                .filter(|p| !state.has_left(*p))
+                .into_iter()
+                .collect(),
+        ),
+        PlayerRel::SecondChosenBySource => Some(
+            source
+                .and_then(|s| {
+                    state
+                        .object(s)
+                        .and_then(crate::object::GameObject::second_chosen_player)
+                        .or_else(|| {
+                            state
+                                .damage_source(s, None)
+                                .and_then(crate::object::GameObject::second_chosen_player)
                         })
                 })
                 .filter(|p| !state.has_left(*p))
@@ -176,7 +192,9 @@ pub fn players(rel: PlayerRel, state: &GameState, you: PlayerId) -> Option<Vec<P
         | PlayerRel::FirstTargetPlayerOrController
         | PlayerRel::ThirdTargetPlayerOrController
         | PlayerRel::OtherOpponents
-        | PlayerRel::ChosenBySource => {
+        | PlayerRel::ChosenBySource
+        | PlayerRel::SecondChosenBySource
+        | PlayerRel::YouAndTargetOpponent => {
             return None;
         }
         PlayerRel::PlayerToYourRight => {

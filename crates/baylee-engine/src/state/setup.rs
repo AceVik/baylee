@@ -63,6 +63,7 @@ impl GameState {
                     turns_to_skip: 0,
                     combats_to_skip: 0,
                     last_turn_attackers: Vec::new(),
+                    last_combat_attacked: Vec::new(),
                     blocked_since_upkeep: Vec::new(),
                     blocked_before_upkeep: Vec::new(),
                     upkeep_began: 0,
@@ -468,6 +469,9 @@ impl GameState {
             super::reads::card_reads_surveilled_this_turn(def);
         self.per_turn.cards_foretold.tracked |= super::reads::card_reads_foretold_count(def);
         self.per_turn.discard_history.tracked |= super::reads::card_reads_first_discard_batch(def);
+        self.per_turn.attacked_players.tracked |= super::reads::card_reads_attacked_players(def);
+        self.per_turn.track_last_combat_attacked.0 |=
+            super::reads::card_reads_last_combat_attacked(def);
         let base = self.card_base(def, entry.card);
         let card = CardRef {
             index: entry.card,
@@ -595,6 +599,9 @@ impl GameState {
             super::reads::card_reads_surveilled_this_turn(def);
         self.per_turn.cards_foretold.tracked |= super::reads::card_reads_foretold_count(def);
         self.per_turn.discard_history.tracked |= super::reads::card_reads_first_discard_batch(def);
+        self.per_turn.attacked_players.tracked |= super::reads::card_reads_attacked_players(def);
+        self.per_turn.track_last_combat_attacked.0 |=
+            super::reads::card_reads_last_combat_attacked(def);
         Ok(PrintedCard {
             base: self.card_base(def, index),
             cda: printed_pt_cda(def),

@@ -1910,6 +1910,92 @@ pub enum Modifier {
         /// Generic mana tax added if no chosen target matches `filter`.
         generic: u8,
     },
+    /// Permanents matching this ability's `affected` filter untap during
+    /// other players' untap steps (`who`, `CR 502.3`; *Seedborn Muse*,
+    /// *Unwinding Clock*, *Prophet of Kruphix*, *Drumbellower*, *Victory Chimes*,
+    /// *Teferi, Who Slows the Sunset* emblem, *Horizon Boughs*). Appended to
+    /// preserve replay identities.
+    UntapDuringUntapStep {
+        /// Active players whose untap steps trigger this untap, relative to
+        /// the static ability's controller (`EachOtherPlayer`, `EachOpponent`,
+        /// or `EachPlayer`).
+        who: crate::effect::PlayerRel,
+    },
+    /// Affected creatures can't attack `target` unless their controller pays
+    /// `{amount}` generic mana for each of those creatures (`CR 508.1h`;
+    /// *Propaganda*, *Ghostly Prison*, *Onakke Oathkeeper*, *Sphere of Safety*,
+    /// *Collective Restraint*, *Cowed by Wisdom*, *Nils, Discipline Enforcer*).
+    /// `amount` is evaluated with the effect's source as `this` and the
+    /// prospective attacker as the subject (`Amount::TotalCountersOnSubject`).
+    /// Appended to preserve replay identities.
+    AttackManaTax {
+        /// Which defenders are protected by this tax.
+        target: AttackTaxTarget,
+        /// Generic mana charged per matching attacking creature.
+        amount: crate::Amount,
+    },
+    /// Affected creatures can't attack `target` unless their controller pays
+    /// one Phyrexian mana of `color` (`{color/P}`, i.e. one mana of `color` or
+    /// 2 life) for each of those creatures (`CR 508.1h`, `CR 107.4f`; *Norn's
+    /// Annex*). Appended to preserve replay identities.
+    AttackPhyrexianTax {
+        /// Which defenders are protected by this tax.
+        target: AttackTaxTarget,
+        /// Color of the Phyrexian mana symbol (`ManaColor::White` for `{W/P}`).
+        color: baylee_core::mana::ManaColor,
+    },
+    /// Affected creature can't attack unless its controller returns `count`
+    /// permanents they control matching `filter` to their owners' hands
+    /// (`CR 508.1h`; *Floodtide Serpent*). Appended to preserve replay identities.
+    CantAttackUnlessYouReturn {
+        /// Exact number of matching controlled permanents to return to hand.
+        count: u8,
+        /// Filter each returned permanent must satisfy.
+        filter: &'static Filter,
+    },
+    /// Affected creature can't attack unless its controller taps `count`
+    /// untapped permanents they control matching `filter` not declared as
+    /// attackers this combat (`CR 508.1h`; *Hollow Warrior*). Appended to
+    /// preserve replay identities.
+    CantAttackUnlessYouTap {
+        /// Exact number of untapped non-attacking controlled permanents to tap.
+        count: u8,
+        /// Filter each tapped permanent must satisfy.
+        filter: &'static Filter,
+    },
+    /// Affected creature can't block unless its controller pays `{amount}`
+    /// generic mana (`CR 509.1d`; *Cowed by Wisdom*). Appended to preserve
+    /// replay identities.
+    BlockManaTax {
+        /// Generic mana charged per matching blocking creature.
+        amount: crate::Amount,
+    },
+    /// Affected creature can't block unless its controller taps `count`
+    /// untapped permanents they control matching `filter` not declared as
+    /// blockers this combat (`CR 509.1d`; *Hollow Warrior*). Appended to
+    /// preserve replay identities.
+    CantBlockUnlessYouTap {
+        /// Exact number of untapped non-blocking controlled permanents to tap.
+        count: u8,
+        /// Filter each tapped permanent must satisfy.
+        filter: &'static Filter,
+    },
+}
+
+/// Which defenders an attack-tax static ability protects (`CR 508.1h`).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum AttackTaxTarget {
+    /// Only the ability's controller (*Propaganda*, *Ghostly Prison*,
+    /// *Collective Restraint*, *Elephant Grass*).
+    You,
+    /// Only planeswalkers controlled by the ability's controller
+    /// (*Onakke Oathkeeper*, *Oko, Lord of the Fae*).
+    PlaneswalkersYouControl,
+    /// The ability's controller or any planeswalker they control
+    /// (*Sphere of Safety*, *Norn's Annex*, *Nils, Discipline Enforcer*).
+    YouOrYourPlaneswalkers,
+    /// Any defender (*Cowed by Wisdom*).
+    AnyDefender,
 }
 
 /// Keyword alternative-cost modes opened from a graveyard by
@@ -2470,7 +2556,14 @@ impl Modifier {
             | Self::CantBeAttackedBy(_)
             | Self::MayActivateLoyaltyAsInstant { .. }
             | Self::MayCastFromGraveyardTargeted { .. }
-            | Self::CastCostIncreaseUnlessTargets { .. } => Layer::Text,
+            | Self::CastCostIncreaseUnlessTargets { .. }
+            | Self::UntapDuringUntapStep { .. }
+            | Self::AttackManaTax { .. }
+            | Self::AttackPhyrexianTax { .. }
+            | Self::CantAttackUnlessYouReturn { .. }
+            | Self::CantAttackUnlessYouTap { .. }
+            | Self::BlockManaTax { .. }
+            | Self::CantBlockUnlessYouTap { .. } => Layer::Text,
         }
     }
 }
@@ -3695,6 +3788,32 @@ mod tests {
             Modifier::CastCostIncreaseUnlessTargets {
                 filter: &Filter::YOUR_CREATURE,
                 generic: 8,
+            },
+            Modifier::UntapDuringUntapStep {
+                who: crate::PlayerRel::EachOtherPlayer,
+            },
+            Modifier::AttackManaTax {
+                target: AttackTaxTarget::You,
+                amount: crate::Amount::Fixed(2),
+            },
+            Modifier::AttackPhyrexianTax {
+                target: AttackTaxTarget::YouOrYourPlaneswalkers,
+                color: baylee_core::mana::ManaColor::White,
+            },
+            Modifier::CantAttackUnlessYouReturn {
+                count: 1,
+                filter: &Filter::ENCHANTMENT,
+            },
+            Modifier::CantAttackUnlessYouTap {
+                count: 1,
+                filter: &Filter::CREATURE,
+            },
+            Modifier::BlockManaTax {
+                amount: crate::Amount::Fixed(2),
+            },
+            Modifier::CantBlockUnlessYouTap {
+                count: 1,
+                filter: &Filter::CREATURE,
             },
         ] {
             assert_eq!(

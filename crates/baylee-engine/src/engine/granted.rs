@@ -469,6 +469,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                 baylee_cards_dsl::CostPart::TapSelf
                                     | baylee_cards_dsl::CostPart::UntapSelf
                                     | baylee_cards_dsl::CostPart::ExertSelf
+                                    | baylee_cards_dsl::CostPart::RevealChosenPlayer
                             )
                         })
                     }
