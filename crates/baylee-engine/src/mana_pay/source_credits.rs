@@ -187,6 +187,20 @@ impl Assignment {
                 }
             }
         }
+        if self.spending.snow_as_any_color()
+            && super::symbol_is_colored(symbol)
+            && let Some(result) = self.assign_snow_as_any_color(
+                &pools,
+                symbol,
+                index,
+                generic,
+                extra_quota,
+                prefer,
+                hard_snow,
+            )
+        {
+            return Some(result);
+        }
         if matches!(symbol, ManaSymbol::TwoOrColor(_)) {
             return self.assign(
                 pools,
@@ -196,6 +210,54 @@ impl Assignment {
                 prefer,
                 hard_snow,
             );
+        }
+        None
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn assign_snow_as_any_color(
+        &self,
+        pools: &[ManaPool; 2],
+        symbol: ManaSymbol,
+        index: usize,
+        generic: u32,
+        extra_quota: u32,
+        prefer: [u32; 6],
+        hard_snow: [[u32; 6]; 2],
+    ) -> Option<SourcePayment> {
+        let normal_options = self.options(symbol);
+        for color in preferred_first(&ManaColor::ALL, prefer) {
+            if normal_options.contains(&color) {
+                continue;
+            }
+            for class in [1, 0] {
+                if class == 1 && !self.constrained {
+                    continue;
+                }
+                if pools[class].snow_available(color) == 0 {
+                    continue;
+                }
+                let mut next = pools.clone();
+                let paid = next[class].spend_snow(color);
+                let mut next_snow = hard_snow;
+                next_snow[class][color.index()] += 1;
+                if paid
+                    && let Some(result) = self.assign(
+                        next,
+                        index + 1,
+                        generic,
+                        extra_quota,
+                        if class == 0 {
+                            spent(prefer, color)
+                        } else {
+                            prefer
+                        },
+                        next_snow,
+                    )
+                {
+                    return Some(result);
+                }
+            }
         }
         None
     }

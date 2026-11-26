@@ -24,7 +24,15 @@ const COMBAT_ATTACK_KEYWORDS: KeywordSet = KeywordSet::BATTLE_CRY
     .union(KeywordSet::MELEE)
     .union(KeywordSet::MENTOR)
     .union(KeywordSet::TRAINING)
-    .union(KeywordSet::MYRIAD);
+    .union(KeywordSet::MYRIAD)
+    .union(KeywordSet::DECAYED);
+
+static DECAYED_EFFECTS: &[Effect] = &[Effect::AtEndOfCombatThisTurn {
+    about: TargetSpec::ThisObject,
+    effects: &[Effect::SacrificeObject {
+        target: TargetSpec::EventObject,
+    }],
+}];
 
 static MYRIAD_EFFECTS: &[Effect] = &[Effect::Myriad];
 
@@ -103,6 +111,23 @@ pub(super) fn collect(
         );
         if multiplier == 0 {
             continue;
+        }
+
+        // CR 702.147a: Decayed — "When this creature attacks, sacrifice it at
+        // end of combat."
+        if kws.contains(KeywordSet::DECAYED) {
+            let n = crate::layers::keyword_instances(state, source, KeywordSet::DECAYED)
+                .saturating_mul(multiplier);
+            push_synthetic(
+                state,
+                source,
+                entry.seq,
+                n,
+                DECAYED_EFFECTS,
+                None,
+                None,
+                triggers,
+            );
         }
 
         // CR 702.91a–b: Battle cry — "Whenever this creature attacks, each other

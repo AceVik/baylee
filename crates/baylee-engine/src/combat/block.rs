@@ -263,7 +263,8 @@ pub fn can_block(
     // creature that can't block and a creature that can't be blocked are
     // different cards, and a reader that asked only the attacker answered
     // one of them.
-    if kw(b, K::CANT_BLOCK) {
+    // Decayed (CR 702.147a): "This creature can't block."
+    if kw(b, K::CANT_BLOCK) || kw(b, K::DECAYED) {
         return false;
     }
     // Protection (CR 702.16f): can't be blocked by matching creatures.

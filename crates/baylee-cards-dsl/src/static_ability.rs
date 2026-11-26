@@ -2179,6 +2179,49 @@ pub enum Modifier {
     /// (*Wolverine, Fierce Fighter*; `CR 614.1a`). Appended to preserve replay
     /// identities.
     HealOtherDamageWhenDealtDamage,
+    /// Your opponents play with their hands revealed (*Telepathy*, *Seer's
+    /// Vision*, *Wisedrafter's Will*). Appended to preserve replay identities.
+    RevealOpponentsHands,
+    /// Affected cards in hand have miracle (`CR 702.94a`; *Aminatou, Veil
+    /// Piercer*, *Lorehold, the Historian*, *Molecule Man*). Appended to
+    /// preserve replay identities.
+    GrantMiracle(MiracleGrant),
+    /// Affected nonland cards in hand without printed foretell have foretell
+    /// with a foretell cost equal to their mana cost reduced by `{reduce_generic}`
+    /// (`CR 702.143a`; *Dream Devourer*, *Edgin, Larcenous Lutenist*). Appended
+    /// to preserve replay identities.
+    GrantForetell {
+        /// Generic mana subtracted from the card's printed mana cost.
+        reduce_generic: u32,
+    },
+    /// Affected cards in hand (or other permitted zone) have warp with this
+    /// cost (`CR 702.185a`; *Tannuk, Steadfast Second*). Appended to preserve
+    /// replay identities.
+    GrantWarp(crate::cost::Cost),
+    /// Affected permanent spells cast from hand have evoke with this cost
+    /// (`CR 702.74a`; *Ashling, the Limitless*). Appended to preserve replay
+    /// identities.
+    GrantEvoke(crate::cost::Cost),
+    /// Affected cards not on the battlefield have madness with a madness cost
+    /// equal to their mana cost (`CR 702.35a`; *Falkenrath Gorger*). Appended
+    /// to preserve replay identities.
+    GrantMadnessManaCost,
+    /// Affected nonland cards in your graveyard have mayhem with a mayhem cost
+    /// equal to their mana cost (`CR 702.187a`; *Norman Osborn // Green Goblin*).
+    /// Appended to preserve replay identities.
+    GrantsMayhemManaCost,
+    /// Affected instant and sorcery cards in your graveyard have beam me up with
+    /// a beam me up cost equal to their mana cost (*Scotty, Miracle Worker*).
+    /// Appended to preserve replay identities.
+    GrantsBeamMeUpManaCost {
+        /// When `true`, the granting source permanent itself cannot be returned
+        /// to pay the beam me up return-a-creature cost (*Scotty, Miracle Worker*).
+        cant_return_source: bool,
+    },
+    /// Extended zone-scoped cast/play permission with optional mana-spending
+    /// color washing and cast/land-play riders (`CR 118.9`, `CR 601.3e`).
+    /// Appended to preserve replay identities.
+    ZonePlayGrant(ZonePlayGrant),
 }
 
 /// Keyword alternative-cost modes opened from a graveyard by
@@ -2193,6 +2236,88 @@ pub enum GraveyardAltKind {
     Warp,
     /// Sneak (`CR 702.190a`; *Ninja Teen*).
     Sneak,
+}
+
+/// Miracle cost specification granted by [`Modifier::GrantMiracle`] (`CR 702.94a`).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum MiracleGrant {
+    /// Fixed miracle mana cost (*Lorehold, the Historian*: `{2}`, *Molecule Man*: `{0}`).
+    Fixed(baylee_core::mana::ManaCost),
+    /// Miracle cost equal to the card's printed mana cost reduced by `{N}`
+    /// generic mana (*Aminatou, Veil Piercer*: `4`). Cards without a printed
+    /// mana cost receive no payable miracle cost (`CR 118.6a`).
+    ManaCostLessGeneric(u32),
+}
+
+/// Mana-spending color-washing mode attached to [`ZonePlayGrant`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ZonePlayManaSpending {
+    /// No extra mana-spending permission beyond normal board rules.
+    Exact,
+    /// Mana may be spent as though it were mana of any color (`CR 609.4b`;
+    /// *Haldan, Avid Arcanist*). Does not pay `{C}` with colored mana.
+    AnyColor,
+    /// Mana of any type may be spent to cast matching spells (*Rogue Class*,
+    /// *Null Summoner*). Pays colored and `{C}` pips alike.
+    AnyType,
+    /// Mana produced by snow sources may be spent as though it were mana of
+    /// any color (*Draugr Necromancer*).
+    SnowAsAnyColor,
+}
+
+/// Extra rider attached to spells cast (or lands played) via [`ZonePlayGrant`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ZonePlayCastRider {
+    /// No extra rider.
+    None,
+    /// If the cast spell would be put into a graveyard, exile it instead
+    /// (*Maestros Ascendancy*, *Glimpse the Cosmos*).
+    ExileInsteadOfGraveyard,
+    /// The resulting permanent enters with a finality counter on it (`CR 122.1h`;
+    /// *Leonardo, Sewer Samurai*, *Overflow Submatrix*, *Noctis, Prince of Lucis*,
+    /// *Intrepid Paleontologist*).
+    EntryFinality,
+    /// The resulting permanent gains "When this permanent is put into a
+    /// graveyard from the battlefield, exile it and you gain `life` life."
+    /// (*Serra Paragon*: `life = 2`). Applies to both cast permanent spells
+    /// and played lands.
+    GrantDeathExileAndGainLife(u32),
+    /// The resulting permanent gains "If this permanent would leave the
+    /// battlefield, exile it instead of putting it anywhere else." (*The Eighth
+    /// Doctor*). Applies to both cast permanent spells and played lands.
+    GrantLeaveExileReplacement,
+}
+
+/// Extended zone-scoped cast/play permission (`CR 118.9`, `CR 601.3e`).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct ZonePlayGrant {
+    /// Which players may use this permission/alternative cost.
+    pub who: crate::effect::PlayerRel,
+    /// Candidate origin zone(s).
+    pub zones: AltCastZones,
+    /// When `true`, grants permission to play/cast from `zones`.
+    pub grant_zone_permission: bool,
+    /// When `true` alongside `grant_zone_permission: true`, also allows playing lands.
+    pub allow_lands: bool,
+    /// When `true`, matching spells may be cast as though they had flash.
+    pub with_flash: bool,
+    /// Optional dynamic upper bound on the prospective spell face's mana value.
+    pub max_mana_value: Option<crate::Amount>,
+    /// When `true`, each eligible player may use this grant at most once per turn.
+    pub once_per_turn: bool,
+    /// Price paid to cast matching spells.
+    pub price: AltCastPrice,
+    /// Mana-spending permission applied when paying for spells cast via this grant.
+    pub mana_spending: ZonePlayManaSpending,
+    /// Rider applied to spells cast (and lands played, where applicable) via this grant.
+    pub rider: ZonePlayCastRider,
+    /// When `true`, only usable during the eligible player's own turn (`PlayerTurn$ True`).
+    pub your_turn_only: bool,
+    /// When `true`, only usable any time the eligible player could cast a sorcery (`SorcerySpeed$ True`).
+    pub as_sorcery_only: bool,
+    /// Optional set of mana colors that must all appear in the prospective face's mana cost.
+    pub mana_cost_must_contain: Option<baylee_core::color::ColorSet>,
 }
 
 /// Quantity evaluated during CR 601.2f spell cost determination by
@@ -2266,6 +2391,9 @@ pub enum AltCastZones {
     /// Cards in exile linked to (`ExiledWith` / `LinkedExile`) the effect's
     /// source permanent (*Valgavoth, Terror Eater*).
     LinkedExile,
+    /// Cards in exile exiled by the casting player (`Rider::ExiledBy(player)`;
+    /// *Haldan, Avid Arcanist*). Appended to preserve replay identities.
+    ExiledByYou,
 }
 
 /// Alternative price paid rather than a spell's mana cost under
@@ -2510,6 +2638,13 @@ impl Modifier {
             | Self::GrantBlitzCardManaCost
             | Self::GrantProwl(_)
             | Self::GrantFreerunning(_)
+            | Self::GrantMiracle(_)
+            | Self::GrantForetell { .. }
+            | Self::GrantWarp(_)
+            | Self::GrantEvoke(_)
+            | Self::GrantMadnessManaCost
+            | Self::GrantsMayhemManaCost
+            | Self::GrantsBeamMeUpManaCost { .. }
             | Self::Sneak(_)
             | Self::CantActivateArtifacts
             // CR 613.1f is the whole argument for these two: "Layer 6:
@@ -2578,6 +2713,7 @@ impl Modifier {
             | Self::RevealAllLibraryTops
             | Self::RevealAllHands
             | Self::RevealYourHand
+            | Self::RevealOpponentsHands
             | Self::RevealLibraryTop
             | Self::ExtraLandDrops(_)
             | Self::OpponentsCastAsSorcery
@@ -2754,7 +2890,8 @@ impl Modifier {
             | Self::RedirectDamageToAffectedController
             | Self::PreventAllButOneDamage { .. }
             | Self::ReplaceOrPreventDamageScopedWithThen { .. }
-            | Self::HealOtherDamageWhenDealtDamage => Layer::Text,
+            | Self::HealOtherDamageWhenDealtDamage
+            | Self::ZonePlayGrant(_) => Layer::Text,
         }
     }
 }
@@ -3704,6 +3841,27 @@ mod tests {
                 Layer::Ability,
             ),
             (
+                Modifier::GrantMiracle(MiracleGrant::Fixed(baylee_core::mana::ManaCost::ZERO)),
+                Layer::Ability,
+            ),
+            (
+                Modifier::GrantForetell { reduce_generic: 2 },
+                Layer::Ability,
+            ),
+            (Modifier::GrantWarp(crate::cost::Cost::FREE), Layer::Ability),
+            (
+                Modifier::GrantEvoke(crate::cost::Cost::FREE),
+                Layer::Ability,
+            ),
+            (Modifier::GrantMadnessManaCost, Layer::Ability),
+            (Modifier::GrantsMayhemManaCost, Layer::Ability),
+            (
+                Modifier::GrantsBeamMeUpManaCost {
+                    cant_return_source: true,
+                },
+                Layer::Ability,
+            ),
+            (
                 Modifier::CharacteristicPT {
                     count: PtCount::CardTypesInAllGraveyards,
                     toughness_plus: 1,
@@ -4188,6 +4346,22 @@ mod tests {
                 then: RIDER,
             },
             Modifier::HealOtherDamageWhenDealtDamage,
+            Modifier::RevealOpponentsHands,
+            Modifier::ZonePlayGrant(ZonePlayGrant {
+                who: crate::PlayerRel::You,
+                zones: AltCastZones::LinkedExile,
+                grant_zone_permission: true,
+                allow_lands: true,
+                with_flash: false,
+                max_mana_value: None,
+                once_per_turn: false,
+                price: AltCastPrice::Normal,
+                mana_spending: ZonePlayManaSpending::AnyColor,
+                rider: ZonePlayCastRider::None,
+                your_turn_only: false,
+                as_sorcery_only: false,
+                mana_cost_must_contain: None,
+            }),
         ] {
             assert_eq!(
                 modifier.layer(),

@@ -495,6 +495,9 @@ pub(crate) fn amount_with_version(
         Amount::DistinctManaValuesInZone { zone, filter } => {
             distinct_mana_values_in_zone(filter, *zone, state, you, context)
         }
+        Amount::DistinctNames { zone, filter } => {
+            distinct_names_in_zone(filter, *zone, state, you, context)
+        }
         // Resolved in resolve.rs, which has the stack object these read.
         Amount::DevotionToManaColor
         | Amount::TargetPower
@@ -1347,6 +1350,30 @@ fn distinct_mana_values_in_zone(
         }
     });
     u32::try_from(values.len()).unwrap_or(u32::MAX)
+}
+
+/// Number of distinct nonempty names (`CR 201.2a`) among matching objects in `zone`.
+fn distinct_names_in_zone(
+    filter: &Filter,
+    zone: ZoneSel,
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+) -> u32 {
+    let require_card = !matches!(zone, ZoneSel::Battlefield);
+    let mut names = std::collections::BTreeSet::<baylee_core::ids::NameRef>::new();
+    visit_zone(zone, state, you, context, |id| {
+        if let Some(object) = state.object(id)
+            && (!require_card || object.is_card())
+            && matches_with_context(filter, state, object, you, context)
+        {
+            let name = object.characteristics().name;
+            if name != crate::state::NAMELESS {
+                names.insert(name);
+            }
+        }
+    });
+    u32::try_from(names.len()).unwrap_or(u32::MAX)
 }
 
 /// Number of distinct projected powers (`CR 208.3`) among matching battlefield permanents.

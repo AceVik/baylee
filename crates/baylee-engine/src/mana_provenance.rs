@@ -344,6 +344,8 @@ fn reads_source(filter: &Filter) -> bool {
         | Filter::Untapped
         | Filter::EnteredThisTurn
         | Filter::SurveilledByYouThisTurn
+        | Filter::EnteredCurrentZoneThisTurn(_)
+        | Filter::ExiledByYou
         | Filter::HasCounter(_)
         | Filter::HasAnyCounter
         | Filter::CountersAtLeast(..)

@@ -555,6 +555,44 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 _ => {}
             }
         }
+        // Opponents' graveyards when a continuous play grant (e.g. `ZonePlayGrant`
+        // targeting `Filter::OwnedBy(PlayerRel::Opponent)`) can reach them.
+        if self.state.effects.may_grant_graveyard_or_top_play() {
+            for seat in 0..self.state.players.len() {
+                let opp = PlayerId::new(seat as u8);
+                if opp == player {
+                    continue;
+                }
+                for &card in self.state.zones.list(ZoneLocation::Graveyard(opp)) {
+                    let Some(obj) = self.state.object(card) else {
+                        continue;
+                    };
+                    let plays_as_land = obj.characteristics().types.contains(TypeSet::LAND)
+                        || obj
+                            .card
+                            .and_then(|c| self.lookup.card(c.index))
+                            .is_some_and(|def| def.land_faces_from_hand().next().is_some());
+                    if plays_as_land
+                        && sorcery_timing
+                        && casting::has_a_land_drop_left(&self.state, player)
+                        && casting::land_card_open(&self.state, player, card)
+                        && !legal.lands.contains(&card)
+                    {
+                        legal.lands.push(card);
+                    }
+                    if casting::alt_cast_zone_spell_open(&self.state, player, card)
+                        && !legal.castable.contains(&card)
+                        && !legal.payable.contains(&card)
+                    {
+                        match casting::can_cast(&self.state, &self.lookup, player, card) {
+                            Ok(()) => legal.castable.push(card),
+                            Err(casting::CastError::NotEnoughMana) => legal.payable.push(card),
+                            _ => {}
+                        }
+                    }
+                }
+            }
+        }
         // The grants are collected once rather than asked of the whole
         // effect table per permanent (`effects::grants`): an Ally board
         // carries thousands of "until end of turn" effects and grants
@@ -851,7 +889,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 }
                 // Command-zone emblems may carry their own abilities without
                 // a printed card. The activation path reads this same list.
-                let granted = if from == ActivationZone::Graveyard {
+                let granted = if matches!(from, ActivationZone::Hand | ActivationZone::Graveyard) {
                     Some(
                         crate::effects::granted_activated_among(
                             &self.state,
@@ -1151,6 +1189,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     && (def.is_some_and(|d| {
                         casting::effective_blitz_cost(&self.state, player, card, &d.faces[0], 0)
                             .is_some()
+                            || casting::effective_warp_cost(&self.state, object, &d.faces[0])
+                                .is_some()
                     }) || !casting::granted_stack_alternatives(&self.state, player, card, 0)
                         .is_empty()))
                 || casting::has_alt_cast_grant(&self.state, &self.lookup, player, card);

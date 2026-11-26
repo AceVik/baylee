@@ -137,6 +137,7 @@ fn amount_reads_reference_at(amount: &baylee_cards_dsl::Amount, depth: u8) -> bo
         | Amount::SpellsCastMatchingThisTurn { filter: f, .. }
         | Amount::CreaturesAttackedThisTurn { filter: f, .. }
         | Amount::DistinctManaValuesInZone { filter: f, .. }
+        | Amount::DistinctNames { filter: f, .. }
         | Amount::DistinctPowersAmong(f)
         | Amount::HighestControlledCount { filter: f, .. }
         | Amount::TotalManaValueInZone { filter: f, .. }
@@ -256,6 +257,7 @@ pub(crate) fn filter_reaches_other_zones(filter: &baylee_cards_dsl::Filter) -> b
     use baylee_cards_dsl::{Filter, ZoneRef};
     match filter {
         Filter::InZone(z) => !matches!(z, ZoneRef::Battlefield),
+        Filter::ExiledByYou => true,
         Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_reaches_other_zones),
         Filter::Not(f) => filter_reaches_other_zones(f),
         _ => false,
@@ -464,6 +466,7 @@ fn amount_reads_crime_at(amount: &baylee_cards_dsl::Amount, depth: u8) -> bool {
         | Amount::SpellsCastMatchingThisTurn { filter: f, .. }
         | Amount::CreaturesAttackedThisTurn { filter: f, .. }
         | Amount::DistinctManaValuesInZone { filter: f, .. }
+        | Amount::DistinctNames { filter: f, .. }
         | Amount::DistinctPowersAmong(f)
         | Amount::HighestControlledCount { filter: f, .. }
         | Amount::TotalManaValueInZone { filter: f, .. }
@@ -749,6 +752,7 @@ fn amount_reads_expend_at(amount: &baylee_cards_dsl::Amount, depth: u8) -> bool 
         | Amount::SpellsCastMatchingThisTurn { filter: f, .. }
         | Amount::CreaturesAttackedThisTurn { filter: f, .. }
         | Amount::DistinctManaValuesInZone { filter: f, .. }
+        | Amount::DistinctNames { filter: f, .. }
         | Amount::DistinctPowersAmong(f)
         | Amount::HighestControlledCount { filter: f, .. }
         | Amount::TotalManaValueInZone { filter: f, .. }
@@ -999,7 +1003,7 @@ fn effects_have_spell_cast_metric(
 
 /// Whether `def` reads per-turn frozen zone-change snapshots
 /// (`Amount::EnteredThisTurn`, `Amount::TokensCreatedThisTurn`, or
-/// `Amount::LeftZoneThisTurn`).
+/// `Amount::LeftZoneThisTurn`, or `Filter::EnteredCurrentZoneThisTurn`).
 pub(crate) fn card_reads_zone_changes(def: &CardDef) -> bool {
     card_reads_pred(def, &|_| false, &|amt| {
         matches!(
@@ -1008,7 +1012,32 @@ pub(crate) fn card_reads_zone_changes(def: &CardDef) -> bool {
                 | baylee_cards_dsl::Amount::TokensCreatedThisTurn { .. }
                 | baylee_cards_dsl::Amount::LeftZoneThisTurn { .. }
         )
-    })
+    }) || card_reads_filter_or_modifier(
+        def,
+        &|f| matches!(f, baylee_cards_dsl::Filter::EnteredCurrentZoneThisTurn(_)),
+        &|_| false,
+    )
+}
+
+/// Whether `def` reads who exiled an exile-zone card (`Filter::ExiledByYou` or
+/// `AltCastZones::ExiledByYou`).
+pub(crate) fn card_reads_exiled_by(def: &CardDef) -> bool {
+    card_reads_filter_or_modifier(
+        def,
+        &|f| matches!(f, baylee_cards_dsl::Filter::ExiledByYou),
+        &|m| {
+            matches!(
+                m,
+                baylee_cards_dsl::Modifier::MayCastWithAltCost {
+                    zones: baylee_cards_dsl::AltCastZones::ExiledByYou,
+                    ..
+                } | baylee_cards_dsl::Modifier::ZonePlayGrant(baylee_cards_dsl::ZonePlayGrant {
+                    zones: baylee_cards_dsl::AltCastZones::ExiledByYou,
+                    ..
+                })
+            )
+        },
+    )
 }
 
 /// Whether `def` reads per-turn cast spell logs (`SpellsCastMatchingThisTurn`
@@ -1347,6 +1376,7 @@ fn amt_matches(
         | Amount::SpellsCastMatchingThisTurn { filter: f, .. }
         | Amount::CreaturesAttackedThisTurn { filter: f, .. }
         | Amount::DistinctManaValuesInZone { filter: f, .. }
+        | Amount::DistinctNames { filter: f, .. }
         | Amount::DistinctPowersAmong(f)
         | Amount::HighestControlledCount { filter: f, .. }
         | Amount::TotalManaValueInZone { filter: f, .. }
@@ -1794,9 +1824,8 @@ fn amt_reads_cast_origin_zone(amount: &baylee_cards_dsl::Amount, depth: u8) -> b
         | Amount::PermanentsSacrificedThisTurn { filter: f, .. }
         | Amount::SpellsCastMatchingThisTurn { filter: f, .. }
         | Amount::CreaturesAttackedThisTurn { filter: f, .. }
-        | Amount::DistinctManaValuesInZone { filter: f, .. } => {
-            filter_reads_cast_origin_zone(f, depth + 1)
-        }
+        | Amount::DistinctManaValuesInZone { filter: f, .. }
+        | Amount::DistinctNames { filter: f, .. } => filter_reads_cast_origin_zone(f, depth + 1),
         Amount::Negated(a)
         | Amount::Plus { base: a, .. }
         | Amount::SaturatingSub { base: a, .. }
@@ -2098,6 +2127,1253 @@ fn effects_read_cast_origin_zone(effects: &'static [baylee_cards_dsl::Effect]) -
                         baylee_cards_dsl::DelayedTriggerWhen::OnTrigger { trigger, .. }
                             if trigger_reads_cast_origin_zone(trigger)
                     )
+            }
+            _ => false,
+        };
+    });
+    found
+}
+
+fn card_reads_filter_or_modifier(
+    def: &CardDef,
+    filter_pred: &impl Fn(&baylee_cards_dsl::Filter) -> bool,
+    mod_pred: &impl Fn(&baylee_cards_dsl::Modifier) -> bool,
+) -> bool {
+    (0..def.faces.len().max(1)).any(|face| {
+        def.faces.get(face).is_some_and(|f| {
+            cost_reduction_reads_fm(f.cost_reduction.as_ref(), filter_pred)
+                || f.alternative_costs.iter().any(|alt| {
+                    matches!(
+                        alt.condition,
+                        baylee_cards_dsl::AltCondition::If(cond)
+                            if cond_reads_fm(cond, filter_pred, 0)
+                    )
+                })
+        }) || def
+            .abilities_for_face(face)
+            .iter()
+            .any(|a| ability_reads_fm(a, filter_pred, mod_pred))
+    })
+}
+
+fn filter_reads_fm(
+    filter: &baylee_cards_dsl::Filter,
+    filter_pred: &impl Fn(&baylee_cards_dsl::Filter) -> bool,
+    depth: u8,
+) -> bool {
+    use baylee_cards_dsl::Filter;
+    if filter_pred(filter) {
+        return true;
+    }
+    if depth >= 8 {
+        return false;
+    }
+    match filter {
+        Filter::And(parts) | Filter::Or(parts) => parts
+            .iter()
+            .any(|f| filter_reads_fm(f, filter_pred, depth + 1)),
+        Filter::Not(f)
+        | Filter::AttachedTo(f)
+        | Filter::BlockedThisTurnBy(f)
+        | Filter::LowestManaValueOnBattlefield(f)
+        | Filter::SharesAColorWith(f)
+        | Filter::SharesColorWithMostCommon(f)
+        | Filter::SharesCreatureTypeWith(f)
+        | Filter::ControllerControls(f)
+        | Filter::TargetsYouControl(f)
+        | Filter::FirstMatchingSpellThisTurn(f)
+        | Filter::ActivatedAbilityFrom(f) => filter_reads_fm(f, filter_pred, depth + 1),
+        Filter::CmcAtMostAmount(a)
+        | Filter::CmcEqualsAmount(a)
+        | Filter::PowerAtMostAmount(a)
+        | Filter::PowerAtLeastAmount(a)
+        | Filter::PowerEqualsAmount(a)
+        | Filter::ToughnessEqualsAmount(a) => amt_reads_fm(a, filter_pred, depth + 1),
+        _ => false,
+    }
+}
+
+fn cond_reads_fm(
+    cond: &baylee_cards_dsl::Condition,
+    filter_pred: &impl Fn(&baylee_cards_dsl::Filter) -> bool,
+    depth: u8,
+) -> bool {
+    use baylee_cards_dsl::Condition;
+    if depth >= 8 {
+        return false;
+    }
+    match cond {
+        Condition::AmountAtLeast(a, _) | Condition::AmountIsEven(a) => {
+            amt_reads_fm(a, filter_pred, depth + 1)
+        }
+        Condition::AmountCompare { left, right, .. } => {
+            amt_reads_fm(left, filter_pred, depth + 1)
+                || amt_reads_fm(right, filter_pred, depth + 1)
+        }
+        Condition::ControlCount(f, _)
+        | Condition::ControlCountExceptEvent(f, _)
+        | Condition::ControlCountAtMost(f, _)
+        | Condition::BattlefieldCount(f, _)
+        | Condition::BattlefieldCountAtMost(f, _)
+        | Condition::ControlDistinctNames(f, _)
+        | Condition::OpponentControlCount(f, _)
+        | Condition::OpponentControlCountAtMost(f, _)
+        | Condition::OpponentControlsMore(f)
+        | Condition::OpponentControlsMoreBy(f, _)
+        | Condition::ControlMoreThanEachOtherPlayer(f)
+        | Condition::SomeDefendingPlayerControlsNone(f)
+        | Condition::ChosenOpponentControls(f)
+        | Condition::ChosenColorIsUniqueMostCommon(f)
+        | Condition::TargetSpellWouldDestroy(f)
+        | Condition::GraveyardCardsAbove(f, _)
+        | Condition::SourceMatches(f)
+        | Condition::AttachedMatches(f)
+        | Condition::CanSacrifice(f)
+        | Condition::SacrificedForCost(f)
+        | Condition::DiscardedForCost(f)
+        | Condition::ObjectMatches { filter: f, .. } => filter_reads_fm(f, filter_pred, depth + 1),
+        Condition::EventBlockedByOthers { some, none } => {
+            filter_reads_fm(some, filter_pred, depth + 1)
+                || filter_reads_fm(none, filter_pred, depth + 1)
+        }
+        Condition::Not(inner) | Condition::TriggerOnly(inner) => {
+            cond_reads_fm(inner, filter_pred, depth + 1)
+        }
+        Condition::All(parts) | Condition::Any(parts) => parts
+            .iter()
+            .any(|p| cond_reads_fm(p, filter_pred, depth + 1)),
+        _ => false,
+    }
+}
+
+fn amt_reads_fm(
+    amount: &baylee_cards_dsl::Amount,
+    filter_pred: &impl Fn(&baylee_cards_dsl::Filter) -> bool,
+    depth: u8,
+) -> bool {
+    use baylee_cards_dsl::Amount;
+    if depth >= 8 {
+        return false;
+    }
+    match amount {
+        Amount::IfCondition {
+            condition,
+            then,
+            otherwise,
+        } => {
+            cond_reads_fm(condition, filter_pred, depth + 1)
+                || amt_reads_fm(then, filter_pred, depth + 1)
+                || amt_reads_fm(otherwise, filter_pred, depth + 1)
+        }
+        Amount::DistinctColorsAmong(f)
+        | Amount::BasicLandTypesAmong(f)
+        | Amount::CountOf { filter: f, .. }
+        | Amount::ControlledCount { filter: f, .. }
+        | Amount::DamageThisTurn { by: f, .. }
+        | Amount::GreatestPowerAmong(f)
+        | Amount::GreatestManaValueAmong(f)
+        | Amount::TotalPowerAmong(f)
+        | Amount::EnteredThisTurn { filter: f, .. }
+        | Amount::TokensCreatedThisTurn { filter: f, .. }
+        | Amount::LeftZoneThisTurn { filter: f, .. }
+        | Amount::PermanentsSacrificedThisTurn { filter: f, .. }
+        | Amount::SpellsCastMatchingThisTurn { filter: f, .. }
+        | Amount::CreaturesAttackedThisTurn { filter: f, .. }
+        | Amount::DistinctManaValuesInZone { filter: f, .. }
+        | Amount::DistinctNames { filter: f, .. }
+        | Amount::DistinctPowersAmong(f)
+        | Amount::HighestControlledCount { filter: f, .. }
+        | Amount::TotalManaValueInZone { filter: f, .. }
+        | Amount::DistinctExactManaCostsInZone { filter: f, .. } => {
+            filter_reads_fm(f, filter_pred, depth + 1)
+        }
+        Amount::Negated(a)
+        | Amount::Plus { base: a, .. }
+        | Amount::SaturatingSub { base: a, .. }
+        | Amount::ConstantMinus { subtract: a, .. }
+        | Amount::Half { base: a, .. }
+        | Amount::Divided { base: a, .. }
+        | Amount::Times { base: a, .. } => amt_reads_fm(a, filter_pred, depth + 1),
+        Amount::Sum { left: a, right: b } | Amount::Difference { left: a, right: b } => {
+            amt_reads_fm(a, filter_pred, depth + 1) || amt_reads_fm(b, filter_pred, depth + 1)
+        }
+        _ => false,
+    }
+}
+
+fn target_spec_reads_fm(
+    spec: &baylee_cards_dsl::TargetSpec,
+    filter_pred: &impl Fn(&baylee_cards_dsl::Filter) -> bool,
+) -> bool {
+    use baylee_cards_dsl::TargetSpec;
+    match spec {
+        TargetSpec::Object(f)
+        | TargetSpec::ObjectOfEachOpponent(f)
+        | TargetSpec::OpponentOrObject(f)
+        | TargetSpec::ObjectOfFirstTargetsPlayer(f)
+        | TargetSpec::ObjectControlledBy(f, _)
+        | TargetSpec::ObjectOfEventPlayer(f)
+        | TargetSpec::Spell(f)
+        | TargetSpec::StackOrBattlefield(f)
+        | TargetSpec::ObjectOrCardInAnyGraveyard(f)
+        | TargetSpec::CardInGraveyard(f, _)
+        | TargetSpec::CardInFirstTargetsGraveyard(f)
+        | TargetSpec::CardInPlayersGraveyard(f, _)
+        | TargetSpec::CardInGraveyardBelowEvent(f, _)
+        | TargetSpec::CardInGraveyardBelowValue(f, _, _)
+        | TargetSpec::AbilityOnStack(f)
+        | TargetSpec::SpellOrAbility(f)
+        | TargetSpec::OpponentWithMoreThanActivePlayer(f)
+        | TargetSpec::OpponentWithMoreThanPlayer(f, _)
+        | TargetSpec::PlayerOrObject(f) => filter_reads_fm(f, filter_pred, 0),
+        _ => false,
+    }
+}
+
+fn trigger_reads_fm(
+    trigger: &baylee_cards_dsl::Trigger,
+    filter_pred: &impl Fn(&baylee_cards_dsl::Filter) -> bool,
+) -> bool {
+    use baylee_cards_dsl::Trigger;
+    match trigger {
+        Trigger::EntersBattlefield(f)
+        | Trigger::EntersBattlefieldFromGraveyardOrCast(f)
+        | Trigger::LeavesBattlefield(f)
+        | Trigger::Dies(f)
+        | Trigger::DiesNotSacrificed(f)
+        | Trigger::SpellCast(f)
+        | Trigger::SpellCastUsingSourceMana(f)
+        | Trigger::SpellCastOrCopied(f)
+        | Trigger::NthSpellCast { filter: f, .. }
+        | Trigger::ChangesZoneAll { filter: f, .. } => filter_reads_fm(f, filter_pred, 0),
+        Trigger::SpellCastTargeting { spell, target, .. } => {
+            filter_reads_fm(spell, filter_pred, 0)
+                || target.is_some_and(|tf| filter_reads_fm(tf, filter_pred, 0))
+        }
+        _ => false,
+    }
+}
+
+#[allow(clippy::too_many_lines)]
+fn modifier_reads_fm(
+    modifier: &baylee_cards_dsl::Modifier,
+    filter_pred: &impl Fn(&baylee_cards_dsl::Filter) -> bool,
+    mod_pred: &impl Fn(&baylee_cards_dsl::Modifier) -> bool,
+) -> bool {
+    use baylee_cards_dsl::Modifier;
+    if mod_pred(modifier) {
+        return true;
+    }
+    match modifier {
+        Modifier::GrantTriggered {
+            trigger,
+            effects,
+            target,
+        } => {
+            trigger_reads_fm(trigger, filter_pred)
+                || target.is_some_and(|t| target_spec_reads_fm(&t, filter_pred))
+                || effects_read_fm(effects, filter_pred, mod_pred)
+        }
+        Modifier::GrantTriggeredUpToOne {
+            trigger,
+            effects,
+            target,
+        } => {
+            trigger_reads_fm(trigger, filter_pred)
+                || target_spec_reads_fm(target, filter_pred)
+                || effects_read_fm(effects, filter_pred, mod_pred)
+        }
+        Modifier::GrantTriggeredDefinition(ability)
+        | Modifier::GrantActivatedDefinition(ability) => {
+            ability_reads_fm(ability, filter_pred, mod_pred)
+        }
+        Modifier::GrantActivated { effects, .. } => effects_read_fm(effects, filter_pred, mod_pred),
+        Modifier::GrantStatic { filter, modifier } => {
+            filter_reads_fm(filter, filter_pred, 0)
+                || modifier_reads_fm(modifier, filter_pred, mod_pred)
+        }
+        Modifier::ModifyPTByAmount { power, toughness } => {
+            amt_reads_fm(power, filter_pred, 0) || amt_reads_fm(toughness, filter_pred, 0)
+        }
+        Modifier::SpellsCostLessByAmount(amount) => amt_reads_fm(amount, filter_pred, 0),
+        Modifier::MayCastWithAltCost { max_mana_value, .. } => max_mana_value
+            .as_ref()
+            .is_some_and(|a| amt_reads_fm(a, filter_pred, 0)),
+        Modifier::ZonePlayGrant(grant) => grant
+            .max_mana_value
+            .as_ref()
+            .is_some_and(|a| amt_reads_fm(a, filter_pred, 0)),
+        Modifier::PreventDamagePerSource {
+            sources, amount, ..
+        }
+        | Modifier::PreventDamageToAffectedPerSource {
+            sources, amount, ..
+        } => filter_reads_fm(sources, filter_pred, 0) || amt_reads_fm(amount, filter_pred, 0),
+        Modifier::ActivatedAbilitiesCostLess { filter, amount, .. } => {
+            filter_reads_fm(filter, filter_pred, 0) || amt_reads_fm(amount, filter_pred, 0)
+        }
+        Modifier::AdjustSpellCostByAmount { filter, amount, .. }
+        | Modifier::SpellsCostLessManaByAmount { filter, amount, .. } => {
+            filter_reads_fm(filter, filter_pred, 0) || amt_reads_fm(amount, filter_pred, 0)
+        }
+        Modifier::ReduceCostIfTargets {
+            spell_filter,
+            target_filter,
+            ..
+        }
+        | Modifier::RaiseCostIfTargets {
+            spell_filter,
+            target_filter,
+            ..
+        } => {
+            filter_reads_fm(spell_filter, filter_pred, 0)
+                || filter_reads_fm(target_filter, filter_pred, 0)
+        }
+        Modifier::ReplacePlayerDamage {
+            sources: filter, ..
+        }
+        | Modifier::SpellsCostMorePerControlled(filter)
+        | Modifier::BandsWithOther(filter)
+        | Modifier::OpponentsCantCast(filter)
+        | Modifier::PlayersCantCast { filter, .. }
+        | Modifier::PlayersCantPlay(filter)
+        | Modifier::PlayerProtectionFrom { from: filter, .. }
+        | Modifier::CantBeAttackedExceptBy { by: filter, .. }
+        | Modifier::PreventDamageFrom(filter)
+        | Modifier::PreventCombatDamageFrom(filter)
+        | Modifier::CantBeBlockedBy(filter)
+        | Modifier::CantBlock(filter)
+        | Modifier::CantAttackUnlessDefenderControls(filter)
+        | Modifier::LandwalkMatching(filter)
+        | Modifier::LandwalkOfSubtype { lands: filter, .. }
+        | Modifier::MustBeBlockedByAllAbleMatching(filter)
+        | Modifier::RedirectDamageToYou(filter)
+        | Modifier::UntapAtMost { of: filter, .. }
+        | Modifier::ProtectionFrom(filter)
+        | Modifier::CantBeTargetedBy(filter)
+        | Modifier::CantBeTargetedByAbilitiesFrom(filter)
+        | Modifier::GrantActivatedFromLinkedExile(filter)
+        | Modifier::ModifyPTPerCount { filter, .. }
+        | Modifier::ModifyPTPerGraveyardCard { filter, .. }
+        | Modifier::PreventDamageToYouFrom(filter)
+        | Modifier::CantAttackUnlessYouSacrifice { filter, .. }
+        | Modifier::CantEnterBattlefield(filter)
+        | Modifier::CantAttackIfDefenderControls(filter)
+        | Modifier::SpellsCostSacrificePerManaSymbol {
+            sacrifice: filter, ..
+        }
+        | Modifier::AbilitiesCostSacrificePerManaSymbol {
+            sacrifice: filter, ..
+        }
+        | Modifier::CantBlockMatchingUnlessPayMana {
+            attacker: filter, ..
+        }
+        | Modifier::MatchingSpellCastLimitPerTurn { filter, .. }
+        | Modifier::PreventNoncombatDamageFrom(filter)
+        | Modifier::PreventNoncombatDamageToPlayers { from: filter, .. }
+        | Modifier::MultiplyDamageFrom {
+            sources: filter, ..
+        }
+        | Modifier::AddDamageFrom {
+            sources: filter, ..
+        }
+        | Modifier::GainActivatedAbilitiesOf { filter, .. }
+        | Modifier::AdjustSpellCostByCast { filter, .. }
+        | Modifier::GrantFlash { filter, .. }
+        | Modifier::PlayerCantCast { filter, .. }
+        | Modifier::SpellsCantBeCountered { filter, .. }
+        | Modifier::ReplaceDamage {
+            sources: filter, ..
+        }
+        | Modifier::ReplaceOrPreventDamageWithThen {
+            sources: filter, ..
+        }
+        | Modifier::FirstSpellEachTurnCostAdjust { filter, .. }
+        | Modifier::NonManaAbilitiesCostMore { filter, .. }
+        | Modifier::LoyaltyAbilitiesCostMore { filter, .. }
+        | Modifier::AdjustLoyaltyCost { filter, .. }
+        | Modifier::EquipCostsLessIfTargets {
+            target_filter: filter,
+            ..
+        }
+        | Modifier::GrantAffinity(filter)
+        | Modifier::CantBeAttackedBy(filter)
+        | Modifier::CastCostIncreaseUnlessTargets { filter, .. } => {
+            filter_reads_fm(filter, filter_pred, 0)
+        }
+        _ => false,
+    }
+}
+
+fn replacement_reads_fm(
+    rule: &baylee_cards_dsl::ReplacementRule,
+    filter_pred: &impl Fn(&baylee_cards_dsl::Filter) -> bool,
+) -> bool {
+    use baylee_cards_dsl::{ReplacementRule, TriggerCause};
+    match rule {
+        ReplacementRule::EnterTapped(f)
+        | ReplacementRule::EnterUntapped(f)
+        | ReplacementRule::EnterWithCountersFromSource { filter: f } => {
+            filter_reads_fm(f, filter_pred, 0)
+        }
+        ReplacementRule::EnterTappedIf { filter, condition }
+        | ReplacementRule::EnterUntappedIf { filter, condition } => {
+            filter_reads_fm(filter, filter_pred, 0) || cond_reads_fm(condition, filter_pred, 0)
+        }
+        ReplacementRule::TriggerMultiplier { source_filter, .. }
+        | ReplacementRule::TriggerSuppress { source_filter, .. } => {
+            filter_reads_fm(source_filter, filter_pred, 0)
+        }
+        ReplacementRule::TriggerMultiplierMatching {
+            source_filter,
+            cause,
+            condition,
+        } => {
+            filter_reads_fm(source_filter, filter_pred, 0)
+                || condition.is_some_and(|c| cond_reads_fm(&c, filter_pred, 0))
+                || match cause {
+                    TriggerCause::EntersBattlefield(f)
+                    | TriggerCause::Dies(f)
+                    | TriggerCause::LeavesBattlefield(f)
+                    | TriggerCause::Sacrificed { filter: f, .. }
+                    | TriggerCause::Attack(f)
+                    | TriggerCause::SpellCastOrCopy { filter: f, .. }
+                    | TriggerCause::DealsCombatDamageToPlayer(f)
+                    | TriggerCause::DealtDamage(f)
+                    | TriggerCause::TurnedFaceUp(f)
+                    | TriggerCause::BecomesTarget(f) => filter_reads_fm(f, filter_pred, 0),
+                    TriggerCause::Any
+                    | TriggerCause::LifeGained(_)
+                    | TriggerCause::CardDrawn(_) => false,
+                }
+        }
+        _ => false,
+    }
+}
+
+fn cost_reduction_reads_fm(
+    cr: Option<&baylee_cards_dsl::CostReduction>,
+    filter_pred: &impl Fn(&baylee_cards_dsl::Filter) -> bool,
+) -> bool {
+    match cr {
+        Some(baylee_cards_dsl::CostReduction::If { condition, .. }) => {
+            cond_reads_fm(condition, filter_pred, 0)
+        }
+        Some(baylee_cards_dsl::CostReduction::PerCount { amount, .. }) => {
+            amt_reads_fm(amount, filter_pred, 0)
+        }
+        _ => false,
+    }
+}
+
+#[allow(clippy::too_many_lines)]
+fn ability_reads_fm(
+    ability: &baylee_cards_dsl::AbilityDef,
+    filter_pred: &impl Fn(&baylee_cards_dsl::Filter) -> bool,
+    mod_pred: &impl Fn(&baylee_cards_dsl::Modifier) -> bool,
+) -> bool {
+    use baylee_cards_dsl::AbilityDef;
+    let req_hit = |req: Option<baylee_cards_dsl::TargetReq>| {
+        req.is_some_and(|r| target_spec_reads_fm(&r.spec, filter_pred))
+    };
+    match ability {
+        AbilityDef::Static(sa) => {
+            filter_reads_fm(&sa.filter, filter_pred, 0)
+                || sa
+                    .condition
+                    .as_ref()
+                    .is_some_and(|c| cond_reads_fm(c, filter_pred, 0))
+                || modifier_reads_fm(&sa.modifier, filter_pred, mod_pred)
+        }
+        AbilityDef::Replacement(rule) => replacement_reads_fm(rule, filter_pred),
+        AbilityDef::Triggered {
+            trigger,
+            effects,
+            targets,
+            second_targets,
+            third_targets,
+            condition,
+            ..
+        } => {
+            trigger_reads_fm(trigger, filter_pred)
+                || req_hit(*targets)
+                || req_hit(*second_targets)
+                || req_hit(*third_targets)
+                || condition
+                    .as_ref()
+                    .is_some_and(|c| cond_reads_fm(c, filter_pred, 0))
+                || effects_read_fm(effects, filter_pred, mod_pred)
+        }
+        AbilityDef::ModalTriggered {
+            trigger,
+            modes,
+            condition,
+            ..
+        } => {
+            trigger_reads_fm(trigger, filter_pred)
+                || condition
+                    .as_ref()
+                    .is_some_and(|c| cond_reads_fm(c, filter_pred, 0))
+                || modes.iter().any(|m| {
+                    req_hit(m.targets)
+                        || req_hit(m.second_targets)
+                        || effects_read_fm(m.effects, filter_pred, mod_pred)
+                })
+        }
+        AbilityDef::Spell {
+            effects,
+            targets,
+            second_targets,
+            third_targets,
+            condition,
+            ..
+        } => {
+            req_hit(*targets)
+                || req_hit(*second_targets)
+                || req_hit(*third_targets)
+                || condition
+                    .as_ref()
+                    .is_some_and(|c| cond_reads_fm(c, filter_pred, 0))
+                || effects_read_fm(effects, filter_pred, mod_pred)
+        }
+        AbilityDef::Activated {
+            effects,
+            targets,
+            second_targets,
+            third_targets,
+            cost_reduction,
+            ..
+        } => {
+            req_hit(*targets)
+                || req_hit(*second_targets)
+                || req_hit(*third_targets)
+                || cost_reduction_reads_fm(cost_reduction.as_ref(), filter_pred)
+                || effects_read_fm(effects, filter_pred, mod_pred)
+        }
+        AbilityDef::Loyalty {
+            effects,
+            targets,
+            second_targets,
+            third_targets,
+            ..
+        } => {
+            req_hit(*targets)
+                || req_hit(*second_targets)
+                || req_hit(*third_targets)
+                || effects_read_fm(effects, filter_pred, mod_pred)
+        }
+        AbilityDef::ActivatedConditional {
+            effects,
+            targets,
+            second_targets,
+            third_targets,
+            condition,
+            ..
+        } => {
+            req_hit(*targets)
+                || req_hit(*second_targets)
+                || req_hit(*third_targets)
+                || cond_reads_fm(condition, filter_pred, 0)
+                || effects_read_fm(effects, filter_pred, mod_pred)
+        }
+        AbilityDef::ModalActivated {
+            modes, condition, ..
+        } => {
+            condition
+                .as_ref()
+                .is_some_and(|c| cond_reads_fm(c, filter_pred, 0))
+                || modes.iter().any(|m| {
+                    req_hit(m.targets)
+                        || req_hit(m.second_targets)
+                        || effects_read_fm(m.effects, filter_pred, mod_pred)
+                })
+        }
+        AbilityDef::ModalSpell { modes, .. } | AbilityDef::Modal { modes, .. } => {
+            modes.iter().any(|m| {
+                req_hit(m.targets)
+                    || req_hit(m.second_targets)
+                    || effects_read_fm(m.effects, filter_pred, mod_pred)
+            })
+        }
+        AbilityDef::SagaChapter {
+            effects, targets, ..
+        } => req_hit(*targets) || effects_read_fm(effects, filter_pred, mod_pred),
+        _ => false,
+    }
+}
+
+#[allow(clippy::too_many_lines)]
+fn effects_read_fm(
+    effects: &'static [baylee_cards_dsl::Effect],
+    filter_pred: &impl Fn(&baylee_cards_dsl::Filter) -> bool,
+    mod_pred: &impl Fn(&baylee_cards_dsl::Modifier) -> bool,
+) -> bool {
+    let mut seen = 0;
+    let mut found = false;
+    let defined_hit = |cards: &baylee_cards_dsl::DefinedObjects| match cards {
+        baylee_cards_dsl::DefinedObjects::AllInZone { filter, .. } => {
+            filter_reads_fm(filter, filter_pred, 0)
+        }
+        _ => false,
+    };
+    let host_hit = |host: &baylee_cards_dsl::AttachHost| match host {
+        baylee_cards_dsl::AttachHost::Spec(spec) => target_spec_reads_fm(spec, filter_pred),
+        baylee_cards_dsl::AttachHost::ChosenPermanent(filter) => {
+            filter_reads_fm(filter, filter_pred, 0)
+        }
+        baylee_cards_dsl::AttachHost::ChosenPlayer(_) => false,
+    };
+    let req_hit = |req: Option<baylee_cards_dsl::TargetReq>| {
+        req.is_some_and(|r| target_spec_reads_fm(&r.spec, filter_pred))
+    };
+    baylee_cards_dsl::Effect::walk(effects, &mut seen, &mut |effect| {
+        use baylee_cards_dsl::Effect;
+        found |= match effect {
+            Effect::CreateContinuousEffect {
+                filter, modifier, ..
+            }
+            | Effect::AddGlobalTempModifier {
+                filter, modifier, ..
+            }
+            | Effect::ModifyFilter {
+                filter, modifier, ..
+            } => {
+                filter_reads_fm(filter, filter_pred, 0)
+                    || modifier_reads_fm(modifier, filter_pred, mod_pred)
+            }
+            Effect::AddTempModifier {
+                target, modifier, ..
+            } => {
+                target_spec_reads_fm(target, filter_pred)
+                    || modifier_reads_fm(modifier, filter_pred, mod_pred)
+            }
+            Effect::ModifyTargets { modifier, .. }
+            | Effect::ModifyAttached { modifier, .. }
+            | Effect::ModifySource { modifier, .. }
+            | Effect::ModifyEvent { modifier, .. } => {
+                modifier_reads_fm(modifier, filter_pred, mod_pred)
+            }
+            Effect::MoveAndModify {
+                counters,
+                modifiers,
+                ..
+            } => {
+                counters
+                    .as_ref()
+                    .is_some_and(|(_, amt)| amt_reads_fm(amt, filter_pred, 0))
+                    || modifiers
+                        .iter()
+                        .any(|m| modifier_reads_fm(m, filter_pred, mod_pred))
+            }
+            Effect::GraveyardToBattlefieldModified {
+                target, modifiers, ..
+            } => {
+                target_spec_reads_fm(target, filter_pred)
+                    || modifiers
+                        .iter()
+                        .any(|m| modifier_reads_fm(m, filter_pred, mod_pred))
+            }
+            Effect::CreateEmblem { abilities } => abilities
+                .iter()
+                .any(|a| ability_reads_fm(a, filter_pred, mod_pred)),
+            Effect::Backup {
+                grant_abilities, ..
+            } => grant_abilities
+                .iter()
+                .any(|a| ability_reads_fm(a, filter_pred, mod_pred)),
+            Effect::GrantTriggeredIfAbsent {
+                target,
+                trigger,
+                effects: inner,
+                ..
+            } => {
+                target_spec_reads_fm(target, filter_pred)
+                    || trigger_reads_fm(trigger, filter_pred)
+                    || effects_read_fm(inner, filter_pred, mod_pred)
+            }
+            Effect::RegisterDelayedTrigger {
+                when,
+                condition,
+                targets,
+                ..
+            } => {
+                req_hit(*targets)
+                    || condition
+                        .as_ref()
+                        .is_some_and(|c| cond_reads_fm(c, filter_pred, 0))
+                    || matches!(
+                        when,
+                        baylee_cards_dsl::DelayedTriggerWhen::OnTrigger { trigger, .. }
+                            if trigger_reads_fm(trigger, filter_pred)
+                    )
+            }
+            Effect::ReflexiveTrigger {
+                condition, targets, ..
+            } => {
+                req_hit(*targets)
+                    || condition
+                        .as_ref()
+                        .is_some_and(|c| cond_reads_fm(c, filter_pred, 0))
+            }
+            Effect::WheneverCombatEventThisTurn {
+                filter, targets, ..
+            } => filter_reads_fm(filter, filter_pred, 0) || req_hit(*targets),
+            Effect::IfCondition { condition, .. } | Effect::RepeatWhile { condition, .. } => {
+                cond_reads_fm(condition, filter_pred, 0)
+            }
+            Effect::RepeatProcess {
+                max_times,
+                pre_condition,
+                post_condition,
+                ..
+            } => {
+                max_times
+                    .as_ref()
+                    .is_some_and(|a| amt_reads_fm(a, filter_pred, 0))
+                    || pre_condition
+                        .as_ref()
+                        .is_some_and(|c| cond_reads_fm(c, filter_pred, 0))
+                    || post_condition
+                        .as_ref()
+                        .is_some_and(|c| cond_reads_fm(c, filter_pred, 0))
+            }
+            Effect::PutOntoBattlefieldAttached { subject, host, .. } => {
+                defined_hit(subject) || host_hit(host)
+            }
+            Effect::CreateTokenAttached { amount, host, .. } => {
+                amt_reads_fm(amount, filter_pred, 0) || host_hit(host)
+            }
+            Effect::PutOntoBattlefieldAttacking { subject: cards, .. }
+            | Effect::DiscardDefined { cards } => defined_hit(cards),
+            Effect::Play { source, filter, .. } => {
+                filter_reads_fm(filter, filter_pred, 0)
+                    || matches!(
+                        source,
+                        baylee_cards_dsl::PlaySource::Subject(spec)
+                            if target_spec_reads_fm(spec, filter_pred)
+                    )
+            }
+            Effect::AddMana {
+                amount,
+                restriction,
+                ..
+            } => {
+                amt_reads_fm(amount, filter_pred, 0)
+                    || restriction.is_some_and(|r| {
+                        filter_reads_fm(r.filter, filter_pred, 0)
+                            || r.ability_filter
+                                .is_some_and(|af| filter_reads_fm(af, filter_pred, 0))
+                    })
+            }
+            Effect::DealDamageWithoutPreventionOrRedirection {
+                amount,
+                target,
+                recipients,
+            } => {
+                amt_reads_fm(amount, filter_pred, 0)
+                    || target_spec_reads_fm(target, filter_pred)
+                    || filter_reads_fm(recipients, filter_pred, 0)
+            }
+            Effect::DealDamage { amount, target }
+            | Effect::DealDamageEvenly { amount, target }
+            | Effect::DealDamageWithoutPrevention { amount, target }
+            | Effect::RedirectNextDamage { amount, target, .. }
+            | Effect::PreventNextDamage { amount, target }
+            | Effect::EventObjectDealsDamage { amount, target }
+            | Effect::GrantorDealsDamage { amount, target }
+            | Effect::PutCounterChoice { amount, target, .. }
+            | Effect::CreateTokenCopy { amount, target, .. }
+            | Effect::CopySpellOrAbility { amount, target, .. } => {
+                amt_reads_fm(amount, filter_pred, 0) || target_spec_reads_fm(target, filter_pred)
+            }
+            Effect::DamagePermanentAndController {
+                target,
+                permanent_amount,
+                controller_amount,
+            } => {
+                target_spec_reads_fm(target, filter_pred)
+                    || amt_reads_fm(permanent_amount, filter_pred, 0)
+                    || amt_reads_fm(controller_amount, filter_pred, 0)
+            }
+            Effect::ChooseLandwalk { lands, target, .. } => {
+                filter_reads_fm(lands, filter_pred, 0) || target_spec_reads_fm(target, filter_pred)
+            }
+            Effect::MoveAttachment {
+                attachment,
+                recipient_filter,
+                ..
+            } => {
+                target_spec_reads_fm(attachment, filter_pred)
+                    || filter_reads_fm(recipient_filter, filter_pred, 0)
+            }
+            Effect::AttachChosen {
+                filter, to, max, ..
+            } => {
+                filter_reads_fm(filter, filter_pred, 0)
+                    || target_spec_reads_fm(to, filter_pred)
+                    || amt_reads_fm(max, filter_pred, 0)
+            }
+            Effect::BecomeCopy {
+                subject_filter,
+                original,
+                ..
+            } => {
+                subject_filter.is_some_and(|f| filter_reads_fm(f, filter_pred, 0))
+                    || target_spec_reads_fm(original, filter_pred)
+            }
+            Effect::CreateDelayedObserver { watch, about, .. } => {
+                target_spec_reads_fm(watch, filter_pred) || target_spec_reads_fm(about, filter_pred)
+            }
+            Effect::MustBlockIfAble {
+                blocker, attacker, ..
+            } => {
+                target_spec_reads_fm(blocker, filter_pred)
+                    || target_spec_reads_fm(attacker, filter_pred)
+            }
+            Effect::PreventNextDamageWithThen {
+                sources,
+                recipients,
+                ..
+            } => {
+                target_spec_reads_fm(sources, filter_pred)
+                    || target_spec_reads_fm(recipients, filter_pred)
+            }
+            Effect::PreventFromChosenSource {
+                target, sources, ..
+            }
+            | Effect::PreventNextFromMatchingSources {
+                target, sources, ..
+            }
+            | Effect::PreventAllDamageFromMatchingThisTurn {
+                target, sources, ..
+            } => {
+                target.is_some_and(|t| target_spec_reads_fm(&t, filter_pred))
+                    || filter_reads_fm(sources, filter_pred, 0)
+            }
+            Effect::PreventFromChosenSourceWithLifeCondition {
+                target,
+                sources,
+                gain_life_sources,
+            } => {
+                target.is_some_and(|t| target_spec_reads_fm(&t, filter_pred))
+                    || filter_reads_fm(sources, filter_pred, 0)
+                    || filter_reads_fm(gain_life_sources, filter_pred, 0)
+            }
+            Effect::ExileAndCastCopies { graveyard } => {
+                graveyard.is_some_and(|f| filter_reads_fm(f, filter_pred, 0))
+            }
+            Effect::SacrificeOneThen {
+                filter, if_it_was, ..
+            }
+            | Effect::SacrificeAndIf {
+                filter,
+                check: if_it_was,
+                ..
+            } => {
+                filter_reads_fm(filter, filter_pred, 0)
+                    || filter_reads_fm(if_it_was, filter_pred, 0)
+            }
+            Effect::KeepOneOfEachAndSacrificeRest { filters } => {
+                filters.iter().any(|f| filter_reads_fm(f, filter_pred, 0))
+            }
+            Effect::KeepOneOfEachAndSacrificeRestMatching { filters, rest } => {
+                filters.iter().any(|f| filter_reads_fm(f, filter_pred, 0))
+                    || filter_reads_fm(rest, filter_pred, 0)
+            }
+            Effect::RevealTopPutOntoBattlefield { count, picks } => {
+                amt_reads_fm(count, filter_pred, 0)
+                    || picks.iter().any(|f| filter_reads_fm(f, filter_pred, 0))
+            }
+            Effect::PumpFilter {
+                filter,
+                power,
+                toughness,
+                ..
+            }
+            | Effect::SetPTFilter {
+                filter,
+                power,
+                toughness,
+                ..
+            } => {
+                filter_reads_fm(filter, filter_pred, 0)
+                    || amt_reads_fm(power, filter_pred, 0)
+                    || amt_reads_fm(toughness, filter_pred, 0)
+            }
+            Effect::PumpTarget {
+                power, toughness, ..
+            }
+            | Effect::PumpTargetSlot {
+                power, toughness, ..
+            }
+            | Effect::PumpEventObject {
+                power, toughness, ..
+            } => amt_reads_fm(power, filter_pred, 0) || amt_reads_fm(toughness, filter_pred, 0),
+            Effect::CreateTokenSized {
+                amount,
+                power,
+                toughness,
+                ..
+            } => {
+                amt_reads_fm(amount, filter_pred, 0)
+                    || amt_reads_fm(power, filter_pred, 0)
+                    || amt_reads_fm(toughness, filter_pred, 0)
+            }
+            Effect::DealDamageWithLimitedLifeGain { amount, life_limit } => {
+                amt_reads_fm(amount, filter_pred, 0) || amt_reads_fm(life_limit, filter_pred, 0)
+            }
+            Effect::ChooseNumberEx { min, max, .. } => {
+                amt_reads_fm(min, filter_pred, 0) || amt_reads_fm(max, filter_pred, 0)
+            }
+            Effect::RevealUntilThen {
+                filter,
+                count,
+                max_revealed,
+                ..
+            } => {
+                filter_reads_fm(filter, filter_pred, 0)
+                    || amt_reads_fm(count, filter_pred, 0)
+                    || max_revealed
+                        .as_ref()
+                        .is_some_and(|a| amt_reads_fm(a, filter_pred, 0))
+            }
+            Effect::DealDamageToMatchingTargets { amount, filter }
+            | Effect::SearchLibraryFor {
+                count: amount,
+                filter,
+                ..
+            }
+            | Effect::MillMayTakeOne { amount, filter }
+            | Effect::DealDamageEach { amount, filter }
+            | Effect::SacrificeAmountOrLose { filter, amount }
+            | Effect::SacrificeAmountForPlayers { filter, amount, .. }
+            | Effect::LookHandDiscard {
+                count: amount,
+                filter,
+                ..
+            }
+            | Effect::SearchWithManaDifference {
+                filter,
+                value: amount,
+            }
+            | Effect::AddCounterFilter { filter, amount, .. }
+            | Effect::DestroyAllWithManaValue {
+                filter,
+                value: amount,
+            }
+            | Effect::SearchLibraryUpTo {
+                filter,
+                count: amount,
+                ..
+            }
+            | Effect::DiscardRandomMatching {
+                filter,
+                count: amount,
+                ..
+            }
+            | Effect::EventObjectDealsDamageEach { amount, filter, .. }
+            | Effect::DealDamageEvenlyToFilter { amount, filter }
+            | Effect::ChooseAndCreateTokenCopy { filter, amount, .. }
+            | Effect::ChooseCard {
+                filter,
+                max: amount,
+                ..
+            }
+            | Effect::ChooseCardEx {
+                filter,
+                max: amount,
+                ..
+            }
+            | Effect::ChooseCardConstrained {
+                filter,
+                max: amount,
+                ..
+            }
+            | Effect::SearchLibraryDistinctNames {
+                filter,
+                count: amount,
+                ..
+            }
+            | Effect::PeekAndReveal {
+                count: amount,
+                filter,
+                ..
+            }
+            | Effect::RevealFromHand {
+                filter,
+                max: amount,
+                ..
+            }
+            | Effect::RevealTop {
+                count: amount,
+                filter,
+                ..
+            }
+            | Effect::ReduceNextSpellCost {
+                filter,
+                generic: amount,
+                ..
+            }
+            | Effect::PutCountersOnChosenControlled {
+                filter,
+                count: amount,
+                ..
+            }
+            | Effect::ChooseDistinctPowersOnBattlefield {
+                filter,
+                max: amount,
+                ..
+            } => filter_reads_fm(filter, filter_pred, 0) || amt_reads_fm(amount, filter_pred, 0),
+            Effect::PlayerMayGainControl { filter, .. }
+            | Effect::SacrificeNOrElse { filter, .. }
+            | Effect::RedirectCombatDamageToYouThisTurn { by: filter, .. }
+            | Effect::TapAndPayEnergyForCounters { filter, .. }
+            | Effect::LookAtTopMayTake { filter, .. }
+            | Effect::RandomGraveyardToHand { filter }
+            | Effect::IfTargetMatchesElse { filter, .. }
+            | Effect::ManaForColorsAmong(filter)
+            | Effect::ChooseFromYourGraveyard { filter, .. }
+            | Effect::SacrificeChosenByOpponent { filter, .. }
+            | Effect::LookAtTopFind { filter, .. }
+            | Effect::RevealUntilMatching { filter, .. }
+            | Effect::RevealUntil { filter, .. }
+            | Effect::RevealTopAndSort { filter, .. }
+            | Effect::RevealTopAllMatching { filter, .. }
+            | Effect::LookAtTopMayPut { filter, .. }
+            | Effect::SearchLibraryOrGraveyard { filter, .. }
+            | Effect::PutFromHandOntoBattlefield { filter, .. }
+            | Effect::DrawRevealDiscardUnless { keep: filter }
+            | Effect::ChooseDamageSourcePreventAllThisTurnMatching(filter)
+            | Effect::PreventNextFromChosenSource {
+                sources: filter, ..
+            }
+            | Effect::WishToHand { filter }
+            | Effect::DestroyEventThenMayReattach { to: filter }
+            | Effect::DestroyWeakest { filter, .. }
+            | Effect::TargetSourceLosesAbilities {
+                source_filter: filter,
+            }
+            | Effect::ChangeTarget { to: filter }
+            | Effect::ExchangeGreatestManaValue { filter, .. }
+            | Effect::DestroyChosenForPlayers { filter, .. }
+            | Effect::EqualizePermanents { filter }
+            | Effect::RevealHandDiscard { filter }
+            | Effect::RevealTopIf { filter, .. }
+            | Effect::YourGraveyardToBattlefield { filter, .. }
+            | Effect::SacrificeFilter { filter, .. }
+            | Effect::SacrificeAll { filter }
+            | Effect::ReturnChosenToHand { filter, .. }
+            | Effect::UntapChosen { filter, .. }
+            | Effect::WhenNextSpellCastThisTurn { filter, .. }
+            | Effect::MayBehold { filter, .. }
+            | Effect::IfTargetMatches { filter, .. }
+            | Effect::IfEventObjectMatches { filter, .. }
+            | Effect::IfControlGreatestCmc { filter, .. }
+            | Effect::SearchLibrary { filter, .. }
+            | Effect::RevealLibrarySearch { filter, .. }
+            | Effect::EachPlayerSearchBeforeShuffle { filter, .. }
+            | Effect::SearchLibraryBeforeShuffle { filter, .. }
+            | Effect::DoubleCountersFilter { filter, .. }
+            | Effect::ReturnAllToHand { filter, .. }
+            | Effect::ExileAll { filter, .. }
+            | Effect::ExileMostVotedNotControlledByYou { filter }
+            | Effect::ChooseYoursThen { filter, .. }
+            | Effect::DestroyAllThenForEachDestroyed { filter, .. }
+            | Effect::DestroyAll { filter, .. }
+            | Effect::RegenerateAll { filter }
+            | Effect::GraveyardAllToHand { filter }
+            | Effect::CreateTokenPtPerCount { filter, .. }
+            | Effect::BottomCardFromHand { filter, .. }
+            | Effect::PlayerMaySacrificeNOr { filter, .. }
+            | Effect::PlayerMaySacrificeNThen { filter, .. }
+            | Effect::UntapChosenPayingEach { filter, .. }
+            | Effect::PhaseOutFilter(filter)
+            | Effect::ExileChosenFromHandWithSource(filter)
+            | Effect::ReturnChosenLinkedToBattlefield { filter, .. }
+            | Effect::SearchLibraryOf { filter, .. }
+            | Effect::SearchOpponentSplits { filter, .. }
+            | Effect::PumpFilterPerKeyword { filter, .. }
+            | Effect::TapAll { filter }
+            | Effect::TapAllOf { filter, .. }
+            | Effect::UntapAll { filter }
+            | Effect::ReturnFromGraveyardOf { filter, .. }
+            | Effect::DestroyRandom { filter }
+            | Effect::WheneverTargetDealtDamageThisTurn { by: filter, .. }
+            | Effect::DealHalfOfSpellDamage { spell: filter }
+            | Effect::GainControlAll { filter, .. }
+            | Effect::ReturnPerBlockedDeath { filter }
+            | Effect::ReturnAllOwnedToHand { filter, .. }
+            | Effect::DestroyAllExceptChosen { filter, .. }
+            | Effect::RemoveAllCountersFilter { filter, .. }
+            | Effect::MayPutFromHandOntoBattlefieldAttachIfEquipment { filter }
+            | Effect::WheneverOneOrMoreDealCombatDamageToPlayerThisTurn { filter, .. }
+            | Effect::MayExileFromYourGraveyardThen { filter, .. }
+            | Effect::EachPlayerGraveyardToBattlefield { filter }
+            | Effect::EachPlayerMayPutFromHandOntoBattlefieldRepeatUntilNone { filter }
+            | Effect::DiscardMatching { filter, .. }
+            | Effect::DestroyEachUnlessAnyPlayerPaysLife { filter, .. }
+            | Effect::AnyPlayerMaySacrificeOrTakeDamageThen { filter, .. }
+            | Effect::WheneverTappedForManaThisTurn { filter, .. }
+            | Effect::ForEachMatching { filter, .. }
+            | Effect::RevealTopPlayerMayPutOntoBattlefield { filter, .. }
+            | Effect::TopOfYourGraveyard { filter }
+            | Effect::ExileChosenFromHandWithSourceAndCast(filter)
+            | Effect::CreateTokenCopiesOfGraveyard { filter, .. }
+            | Effect::RevealTopFind { filter, .. }
+            | Effect::BecomeChosenCreatureType { filter, .. }
+            | Effect::DestroyAllOf { filter, .. }
+            | Effect::ShuffleGraveyardMatchingIntoLibrary { filter, .. }
+            | Effect::GrantProtectionFromChosenColorUntilEot { filter }
+            | Effect::GoadAll { filter, .. }
+            | Effect::DetainFilter { filter }
+            | Effect::Champion { filter }
+            | Effect::VoteObjects { filter, .. }
+            | Effect::SetPTByCountFilter { filter, .. }
+            | Effect::RepeatEachObject { filter, .. }
+            | Effect::SeparateIntoTwoPiles { filter, .. }
+            | Effect::GainControlAllEx { filter, .. }
+            | Effect::SacrificeAnyNumber { filter, .. }
+            | Effect::SearchLibraryAndGraveyard { filter, .. }
+            | Effect::ForEachRemembered { filter, .. }
+            | Effect::ToggleTapAll { filter }
+            | Effect::CounterAll { filter, .. }
+            | Effect::DestroyTargetAndSameName { filter }
+            | Effect::DestroyAllAttachedToTarget { filter, .. }
+            | Effect::GainControlLtbAttached { filter, .. }
+            | Effect::CaptureMatching { filter, .. }
+            | Effect::GrantRememberedExilePermission { filter, .. }
+            | Effect::SearchLibraryAttachedToEvent { filter, .. } => {
+                filter_reads_fm(filter, filter_pred, 0)
+            }
+            Effect::PreventNextDamageToAttached { amount }
+            | Effect::DrawThenDiscardDrawn { draw: amount, .. }
+            | Effect::DealDamageToBothTargetInstances { amount }
+            | Effect::Energy { amount, .. }
+            | Effect::CreateTokensFor { amount, .. }
+            | Effect::ChangeAttachedCounters { amount, .. }
+            | Effect::SetSourceToughness { base: amount, .. }
+            | Effect::AddCounterSource { amount, .. }
+            | Effect::PayManaToPreventDamage { amount, .. }
+            | Effect::DealDamageWithCappedLifeGain { amount }
+            | Effect::GainLife { amount }
+            | Effect::GainLifeFor { amount, .. }
+            | Effect::SetLifeTotal { amount, .. }
+            | Effect::RaiseLifeTotalTo { amount, .. }
+            | Effect::LookAtTopPick { count: amount, .. }
+            | Effect::LookAtTopPickThenReorder { count: amount, .. }
+            | Effect::ExileTop { count: amount, .. }
+            | Effect::Connive { amount }
+            | Effect::LoseLife { amount, .. }
+            | Effect::DrawCards { amount }
+            | Effect::DrawCardsFor { amount, .. }
+            | Effect::DealDamageToTargetController { amount }
+            | Effect::DealDamageToAttached { amount }
+            | Effect::Poison { amount, .. }
+            | Effect::RevealRandomDiscardNamed { count: amount, .. }
+            | Effect::DiscardAmountForPlayers { amount, .. }
+            | Effect::LookAtRandomFromHand { count: amount, .. }
+            | Effect::DiscardRandom { count: amount, .. }
+            | Effect::PutTargetIntoLibraryBeneathTop { count: amount }
+            | Effect::FlipCoinLifeExchangeRepeat {
+                initial: amount, ..
+            }
+            | Effect::PlayersWhoCastRevealedNameThisTurnLoseLife { amount, .. }
+            | Effect::Scry { amount }
+            | Effect::Surveil { amount }
+            | Effect::ScryFor { amount, .. }
+            | Effect::Mill { amount, .. }
+            | Effect::AddCounter { amount, .. }
+            | Effect::AddCountersUpTo { amount, .. }
+            | Effect::CreateTokenThenCounters { amount, .. }
+            | Effect::CreateTokenN { amount, .. }
+            | Effect::CreateTokenModified { amount, .. }
+            | Effect::CreateTokenAttacking { amount, .. }
+            | Effect::NextDrawLooksAtTop { count: amount }
+            | Effect::Amass { amount, .. }
+            | Effect::CopyThisSpell { amount }
+            | Effect::PlayerMayPayOr { mana: amount, .. }
+            | Effect::PlayerMayPayLifeOr { life: amount, .. }
+            | Effect::PlayerMayPayManaAndLifeEachThenElse { times: amount, .. }
+            | Effect::PlayerMayPayManaEachThenElse { times: amount, .. }
+            | Effect::PlayerMayPayThenElse { mana: amount, .. }
+            | Effect::PlayerMayPayThen { mana: amount, .. }
+            | Effect::DiscoverAmount { mana_value: amount }
+            | Effect::DiscardCount { count: amount, .. }
+            | Effect::Repeat { times: amount, .. }
+            | Effect::Rad { amount, .. }
+            | Effect::PlayerMayGetPoisonOr { poison: amount, .. }
+            | Effect::RevealRandomFromHand { count: amount, .. }
+            | Effect::FlipCoinsDamageTailsRepeatUntilBothHeads { damage: amount }
+            | Effect::DealDamageToEachOpponentAndPlaneswalkerDamagedThisGame { amount }
+            | Effect::SacrificeEventDealDamageToEachBlocker { amount }
+            | Effect::AddManaAmountFor { amount, .. }
+            | Effect::AddCounterCreatedTokens { amount, .. }
+            | Effect::NextSpellThisTurnCostsLess(amount)
+            | Effect::PlayerMayPayLifeThen { life: amount, .. }
+            | Effect::FlipCoins { count: amount, .. }
+            | Effect::RollDice { count: amount, .. }
+            | Effect::ExileTopWithPermission { count: amount, .. }
+            | Effect::ManifestTop { count: amount, .. }
+            | Effect::Bolster(amount)
+            | Effect::PlotTop { count: amount, .. }
+            | Effect::Incubate { count: amount, .. }
+            | Effect::Monstrosity(amount)
+            | Effect::Firebend(amount)
+            | Effect::Mobilize(amount)
+            | Effect::Endure(amount)
+            | Effect::PutCountersDivided { amount, .. }
+            | Effect::TargetDealsDamageToController { amount }
+            | Effect::Empower { amount, .. }
+            | Effect::AnyPlayerMayPayManaAmount { mana: amount, .. }
+            | Effect::PlayerMayWaterbendOr { mana: amount, .. } => {
+                amt_reads_fm(amount, filter_pred, 0)
+            }
+            Effect::RedirectTargetSourceDamageThisTurn { source: target, .. }
+            | Effect::RedirectNextChosenSourceDamageToTarget { target }
+            | Effect::PreventDamageFromTargetingCausesThisTurn { target }
+            | Effect::Exile { target }
+            | Effect::Blink { target, .. }
+            | Effect::EventObjectDealsDamageEqualToPower { target }
+            | Effect::RedirectNextFromChosenSource { target }
+            | Effect::Destroy { target, .. }
+            | Effect::PutOnBottomOfLibraryFromGraveyard { target }
+            | Effect::CantAttackDuringNextControllerTurn { target }
+            | Effect::SuppressUntap { target, .. }
+            | Effect::AtEndOfCombat { about: target, .. }
+            | Effect::AtEndOfCombatThisTurn { about: target, .. }
+            | Effect::OwnerPutsOnTopOrBottom { target }
+            | Effect::ExileIfDiesThisTurn { target }
+            | Effect::CantBeRegeneratedThisTurn { target }
+            | Effect::ReturnToBattlefieldTapped { target }
+            | Effect::Explore { target }
+            | Effect::ReturnToHand { target }
+            | Effect::DestroyOthersNamedLike { target }
+            | Effect::Regenerate { target }
+            | Effect::GraveyardToTop { target }
+            | Effect::GraveyardToHand { target }
+            | Effect::GraveyardToBattlefield { target, .. }
+            | Effect::Assimilate { target }
+            | Effect::AttachSelf { target }
+            | Effect::ExileLinked { target, .. }
+            | Effect::SacrificeObject { target }
+            | Effect::GraveyardToBattlefieldLinked { target }
+            | Effect::RevealUntilLandDealDamage { target }
+            | Effect::Goad { target }
+            | Effect::ExileWithPermission { target, .. }
+            | Effect::TurnFaceUp { target }
+            | Effect::Plot { target }
+            | Effect::Suspect { target }
+            | Effect::Unsuspect { target }
+            | Effect::Detain { target }
+            | Effect::GainControlEx { target, .. }
+            | Effect::PutEachCounterKindFromSource { target }
+            | Effect::PutAllCountersFrom { target, .. }
+            | Effect::BecomeChosenBasicLandType { target, .. }
+            | Effect::BecomesBlocked(target) => target_spec_reads_fm(target, filter_pred),
+            Effect::Reflexive { target, .. }
+            | Effect::CreateTokenCopyOf { target, .. }
+            | Effect::PhaseOut { target } => {
+                target.is_some_and(|t| target_spec_reads_fm(&t, filter_pred))
             }
             _ => false,
         };

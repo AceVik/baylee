@@ -61,12 +61,20 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             let Some(source) = self.state.source_identity(card) else {
                 continue;
             };
-            let foretells = self
-                .state
-                .object(card)
-                .and_then(|object| object.card)
-                .and_then(|card| self.lookup.card(card.index))
-                .is_some_and(|def| def.faces[0].foretell.is_some());
+            let foretells = self.state.object(card).is_some_and(|object| {
+                object
+                    .card
+                    .and_then(|c| self.lookup.card(c.index))
+                    .is_some_and(|def| {
+                        def.faces[0].foretell.is_some()
+                            || crate::casting::granted_foretell_reduce(
+                                &self.state,
+                                object,
+                                &def.faces[0],
+                            )
+                            .is_some()
+                    })
+            });
             if !foretells {
                 continue;
             }
@@ -92,10 +100,18 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             .filter(|object| object.zone == crate::zone::Zone::Hand)
             .filter(|object| object.zone_owner == Some(player))
             .ok_or(EngineError::IllegalAction("foretell requires your hand"))?;
-        let has_foretell = object
+        let (has_foretell, granted_reduce) = object
             .card
             .and_then(|card| self.lookup.card(card.index))
-            .is_some_and(|def| def.faces[0].foretell.is_some());
+            .map_or((false, None), |def| {
+                let face = &def.faces[0];
+                if face.foretell.is_some() {
+                    (true, None)
+                } else {
+                    let reduce = crate::casting::granted_foretell_reduce(&self.state, object, face);
+                    (reduce.is_some(), reduce)
+                }
+            });
         if !has_foretell {
             return Err(EngineError::IllegalAction("not a foretell card"));
         }
@@ -111,14 +127,23 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             .state
             .object(card)
             .map_or(player, |object| object.owner);
-        self.state.move_object(
-            card,
-            ZoneLocation::Exile(owner),
-            ZonePosition::Top,
-            Cause::Effect,
-        )?;
+        self.state.with_exiler(player, |state| {
+            state.move_object(
+                card,
+                ZoneLocation::Exile(owner),
+                ZonePosition::Top,
+                Cause::Effect,
+            )
+        })?;
         self.state
             .foretell_exiled_card(card, owner, self.state.turn.number);
+        if let Some(reduce) = granted_reduce
+            && let Some(object) = self.state.object_mut(card)
+        {
+            object
+                .riders
+                .push(crate::object::Rider::GrantedForetellReduce(reduce));
+        }
         self.state.per_turn.note_foretell(player);
         self.after_action(player);
         Ok(())

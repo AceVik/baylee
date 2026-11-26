@@ -560,6 +560,21 @@ pub(crate) fn matches_projected_with_choices(
                     you,
                 ))
         }
+        Filter::EnteredCurrentZoneThisTurn(from) => {
+            state.per_turn.zone_changes.items.iter().any(|record| {
+                record.object.object == obj.id
+                    && record.object.version == obj.version
+                    && record.to == obj.zone
+                    && from.is_none_or(|expected| {
+                        record
+                            .from
+                            .is_some_and(|actual| actual.matches_ref(expected))
+                    })
+            })
+        }
+        Filter::ExiledByYou => {
+            obj.zone == Zone::Exile && obj.riders.contains(&crate::object::Rider::ExiledBy(you))
+        }
         // The object's own counters. A leaves-the-battlefield trigger asks
         // the object as it last existed there, and `trigger::departed_matches`
         // hands in that object, counters and all.
@@ -1522,6 +1537,7 @@ fn amount_reads_announced_x(amt: &baylee_cards_dsl::Amount, depth: u8) -> bool {
         | A::SpellsCastMatchingThisTurn { filter: f, .. }
         | A::CreaturesAttackedThisTurn { filter: f, .. }
         | A::DistinctManaValuesInZone { filter: f, .. }
+        | A::DistinctNames { filter: f, .. }
         | A::DistinctPowersAmong(f)
         | A::HighestControlledCount { filter: f, .. }
         | A::TotalManaValueInZone { filter: f, .. }

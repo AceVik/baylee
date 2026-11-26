@@ -736,6 +736,12 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::MayhemPaid
         | Rider::UnearthAbility
         | Rider::ChosenMode(_)
-        | Rider::PlayerChosenMode(_, _) => None,
+        | Rider::PlayerChosenMode(_, _)
+        | Rider::GrantedForetellReduce(_)
+        | Rider::GrantedMadness
+        | Rider::ExiledBy(_)
+        | Rider::EvokedGrant
+        | Rider::GrantDeathExileAndGainLife(_)
+        | Rider::GrantLeaveExileReplacement => None,
     }
 }

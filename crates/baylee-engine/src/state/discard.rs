@@ -162,15 +162,23 @@ impl GameState {
         // Madness replaces the discard's destination, not the discard event
         // itself (CR 702.35a). A replacement that sends the card to its
         // owner's library leaves no graveyard-bound discard for it to replace.
-        let madness = !matches!(answer, Some(Some(_)))
-            && self.object(card).is_some_and(|object| {
-                object.zone == Zone::Hand
-                    && object
-                        .card
-                        .and_then(|card| self.bases.card(card.index))
-                        .and_then(|def| def.faces.get(usize::from(object.face_index)))
-                        .is_some_and(|face| face.madness.is_some())
-            });
+        let (printed_madness, granted_madness) = if matches!(answer, Some(Some(_))) {
+            (false, false)
+        } else {
+            self.object(card).map_or((false, false), |object| {
+                if object.zone != Zone::Hand {
+                    return (false, false);
+                }
+                let printed = object
+                    .card
+                    .and_then(|c| self.bases.card(c.index))
+                    .and_then(|def| def.faces.get(usize::from(object.face_index)))
+                    .is_some_and(|face| face.madness.is_some());
+                let granted = !printed && crate::casting::has_granted_madness(self, object);
+                (printed, granted)
+            })
+        };
+        let madness = printed_madness || granted_madness;
         match answer {
             Some(Some((rank, _))) if cause == Cause::Effect => {
                 let library = ZoneLocation::Library(owner);
@@ -199,13 +207,19 @@ impl GameState {
                     .move_object(card, destination, ZonePosition::Top, cause)
                     .is_ok()
                     && madness
-                    && let Some(object) = self
-                        .object(card)
+                    && let Some(version) = self
+                        .object_mut(card)
                         .filter(|object| object.zone == Zone::Exile && object.owner == owner)
+                        .map(|object| {
+                            if granted_madness {
+                                object.riders.push(crate::object::Rider::GrantedMadness);
+                            }
+                            object.version
+                        })
                 {
                     self.journal.record(GameEvent::MadnessExiled {
                         object: card,
-                        version: object.version,
+                        version,
                         owner,
                     });
                 }

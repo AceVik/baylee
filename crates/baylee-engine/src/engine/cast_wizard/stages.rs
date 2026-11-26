@@ -212,6 +212,16 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 self.cast_wizard = Some(wizard.clone());
             }
         }
+        if wizard.option == Some(CastModeKind::Warp) && wizard.warp_parts.is_empty() {
+            let face = self.wizard_face(&wizard);
+            if let Some(obj) = self.state.object(wizard.card)
+                && let Some(warp) = casting::effective_warp_cost(&self.state, obj, face)
+                && !warp.parts.is_empty()
+            {
+                wizard.warp_parts = warp.parts;
+                self.cast_wizard = Some(wizard.clone());
+            }
+        }
         if wizard.option.is_some()
             && wizard.reduction.is_none()
             && (wizard.option != Some(CastModeKind::Emerge) || wizard.emerge_sacrifice.is_some())

@@ -225,7 +225,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         .keywords
                         .contains(baylee_cards_dsl::KeywordSet::RETRACE)
                     || face.escape.is_some()
-                    || (face.mayhem.is_some()
+                    || casting::effective_beam_me_up_cost(&self.state, card, face).is_some()
+                    || (casting::effective_mayhem_cost(&self.state, card, face).is_some()
                         && casting::mayhem_discarded_this_turn(&self.state, player, o))
                     || casting::any_graveyard_alt_open(&self.state, player, card)
             });
@@ -275,7 +276,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     cost: price(flashback),
                 });
             }
-            if let Some(beam) = face.beam_me_up
+            if let Some(beam) = casting::effective_beam_me_up_cost(&self.state, card, face)
                 && afford(&beam.with_x(0))
                 && !casting::beam_return_options(&self.state, player, card).is_empty()
             {
@@ -285,7 +286,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     cost: price(beam),
                 });
             }
-            if let Some(mayhem) = face.mayhem
+            if let Some(mayhem) = casting::effective_mayhem_cost(&self.state, card, face)
                 && self
                     .state
                     .object(card)
@@ -383,8 +384,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .iter()
                 .any(|a| matches!(a, baylee_cards_dsl::AbilityDef::Spell { .. }))
             && !face.types.is_permanent();
-        let foretell_cost = face
-            .foretell
+        let foretell_cost = casting::effective_foretell_cost(&obj, face)
             .filter(|_| casting::foretell_permission(&self.state, player, card));
         if let Some(cost) = foretell_cost
             && casting::can_cast_form_paying(
@@ -894,7 +894,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     card,
                     baylee_cards_dsl::GraveyardAltKind::Warp,
                 ))
-            && let Some(warp) = face.warp
+            && let Some(warp) = casting::effective_warp_cost(&self.state, &obj, face)
         {
             let taxed = baylee_cards_dsl::Cost {
                 mana: if defer_mana {
@@ -910,7 +910,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     player,
                     card,
                     face,
-                    Some(CastModeKind::Warp),
+                    super::CostChoice {
+                        option: Some(CastModeKind::Warp),
+                        warp_parts: warp.parts,
+                        ..Default::default()
+                    },
                     &[],
                 )
                 .is_some()

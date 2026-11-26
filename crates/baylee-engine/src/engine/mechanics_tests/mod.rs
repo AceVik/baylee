@@ -119,6 +119,7 @@ mod wave9a_umbra_mobilize_toughness_detain_locks;
 mod wave9b_crime_expend_clash_addphase_transmute_scavenge;
 mod wave9c_either_openinghand_ring_strive_firebending;
 mod zones;
+mod zones_and_filters;
 
 use super::synthetic::{SyntheticLookup, forest, land_face, walk_past};
 use super::*;

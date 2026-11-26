@@ -1364,6 +1364,19 @@ pub enum Rider {
     /// Card exiled to pay for this spell via delve, until the spell leaves
     /// the stack (CR 607.2q). Appended to preserve replay identities.
     DelvedCard(baylee_core::ids::DamageSourceRef),
+    /// Foretold via a static grant (`Modifier::GrantForetell`); stores the generic
+    /// mana reduction off the card's printed mana cost (`CR 702.143a`).
+    GrantedForetellReduce(u32),
+    /// Discarded into exile via a static madness grant (`Modifier::GrantMadnessManaCost`, `CR 702.35a`).
+    GrantedMadness,
+    /// Player who exiled this exact exile incarnation (`Filter::ExiledByYou`).
+    ExiledBy(PlayerId),
+    /// Cast via a static evoke grant (`Modifier::GrantEvoke`, `CR 702.74a`).
+    EvokedGrant,
+    /// Played via `ZonePlayCastRider::GrantDeathExileAndGainLife` (*Serra Paragon*).
+    GrantDeathExileAndGainLife(u32),
+    /// Played via `ZonePlayCastRider::GrantLeaveExileReplacement` (exile instead of leaving BF).
+    GrantLeaveExileReplacement,
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -1428,7 +1441,10 @@ impl Rider {
             | Self::CipherEncodedOn { .. }
             | Self::ChampionedBy { .. }
             | Self::NotedCounter(_, _)
-            | Self::ActivationManaNote { .. } => true,
+            | Self::ActivationManaNote { .. }
+            | Self::GrantedForetellReduce(_)
+            | Self::GrantedMadness
+            | Self::ExiledBy(_) => true,
             // About the stack or the battlefield, not exile.
             Self::DelayedReturnObject(_)
             | Self::EventFoundObject(_)
@@ -1538,7 +1554,10 @@ impl Rider {
             | Self::EncoreAbility
             | Self::CastOriginZone(_)
             | Self::MayhemPaid
-            | Self::UnearthAbility => false,
+            | Self::UnearthAbility
+            | Self::EvokedGrant
+            | Self::GrantDeathExileAndGainLife(_)
+            | Self::GrantLeaveExileReplacement => false,
         }
     }
 }

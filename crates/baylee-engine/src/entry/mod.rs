@@ -126,6 +126,7 @@ struct Attempt {
     applied_effects: Vec<baylee_core::ids::EffectId>,
     applied_self_replace: bool,
     applied_own_control: bool,
+    zone_play_rider: baylee_cards_dsl::ZonePlayCastRider,
 }
 
 impl Attempt {
@@ -174,6 +175,7 @@ impl Hash for Attempt {
             applied_effects,
             applied_self_replace,
             applied_own_control,
+            zone_play_rider,
         } = self;
         object.hash(h);
         version.hash(h);
@@ -246,6 +248,11 @@ impl Hash for Attempt {
                 applied_own_control,
             )
                 .hash(h);
+        // Folded in only when a deferred graveyard/exile land play carries a
+        // post-entry rider (Serra Paragon / Eighth Doctor), keeping unrelated
+        // entry hashes bit-identical (reserved tag 573).
+        if *zone_play_rider != baylee_cards_dsl::ZonePlayCastRider::None {
+            (573_u16, zone_play_rider).hash(h);
         }
     }
 }
@@ -633,6 +640,7 @@ pub(crate) fn defer(
         applied_effects: Vec::new(),
         applied_self_replace: false,
         applied_own_control: false,
+        zone_play_rider: baylee_cards_dsl::ZonePlayCastRider::None,
     };
     state.entries.counter_transaction |= kw_entry;
     state.entries.pending_objects.insert(id);
@@ -739,5 +747,60 @@ pub(crate) fn put_entry_counters(state: &mut GameState, id: ObjectId, kind: Coun
         .map(|object| object.controller)
     {
         crate::replacement::put_counters_by(state, controller, id, kind, n);
+    }
+}
+
+pub(super) fn attach_zone_play_rider(
+    object: &mut crate::object::GameObject,
+    rider: baylee_cards_dsl::ZonePlayCastRider,
+) {
+    match rider {
+        baylee_cards_dsl::ZonePlayCastRider::None
+        | baylee_cards_dsl::ZonePlayCastRider::ExileInsteadOfGraveyard
+        | baylee_cards_dsl::ZonePlayCastRider::EntryFinality => {}
+        baylee_cards_dsl::ZonePlayCastRider::GrantDeathExileAndGainLife(life) => {
+            object
+                .riders
+                .push(crate::object::Rider::GrantDeathExileAndGainLife(life));
+        }
+        baylee_cards_dsl::ZonePlayCastRider::GrantLeaveExileReplacement => {
+            object
+                .riders
+                .push(crate::object::Rider::GrantLeaveExileReplacement);
+        }
+    }
+}
+
+/// Applies a `ZonePlayCastRider` from playing a land via `ZonePlayGrant`
+/// (*Serra Paragon*, *The Eighth Doctor*), preserving it across deferred
+/// entries (shocklands, checklands, external entry replacements).
+pub(crate) fn set_entry_zone_play_rider(
+    state: &mut GameState,
+    id: ObjectId,
+    rider: baylee_cards_dsl::ZonePlayCastRider,
+) {
+    match rider {
+        baylee_cards_dsl::ZonePlayCastRider::None
+        | baylee_cards_dsl::ZonePlayCastRider::ExileInsteadOfGraveyard => {}
+        baylee_cards_dsl::ZonePlayCastRider::EntryFinality => {
+            put_entry_counters(state, id, CounterKind::Finality, 1);
+        }
+        baylee_cards_dsl::ZonePlayCastRider::GrantDeathExileAndGainLife(_)
+        | baylee_cards_dsl::ZonePlayCastRider::GrantLeaveExileReplacement => {
+            if let Some(entry) = state
+                .entries
+                .pending
+                .iter_mut()
+                .find(|entry| entry.object == id)
+            {
+                entry.zone_play_rider = rider;
+            } else if state
+                .object(id)
+                .is_some_and(|object| object.zone == Zone::Battlefield)
+                && let Some(object) = state.object_mut(id)
+            {
+                attach_zone_play_rider(object, rider);
+            }
+        }
     }
 }

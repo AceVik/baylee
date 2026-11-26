@@ -420,16 +420,32 @@ impl GameState {
     pub fn hand_revealed(&self, player: PlayerId) -> bool {
         !self.has_left(player)
             && (self.hands_revealed()
-                || self.effects.iter().any(|fx| {
-                    fx.controller == player
-                        && matches!(fx.modifier, baylee_cards_dsl::Modifier::RevealYourHand)
-                        && fx.source.is_none_or(|source| {
-                            self.object(source).is_some_and(|o| {
-                                o.zone == Zone::Battlefield
-                                    && !o.status.contains(Status::PHASED_OUT)
+                || (self.effects.may_reveal_or_change_hand_size()
+                    && self.effects.iter().any(|fx| {
+                        let applies = match fx.modifier {
+                            baylee_cards_dsl::Modifier::RevealYourHand => fx.controller == player,
+                            baylee_cards_dsl::Modifier::RevealOpponentsHands => {
+                                self.is_opponent(player, fx.controller)
+                            }
+                            _ => false,
+                        };
+                        applies
+                            && fx.source.is_none_or(|source| {
+                                self.object(source).is_some_and(|o| {
+                                    o.zone == Zone::Battlefield
+                                        && !o.status.contains(Status::PHASED_OUT)
+                                })
                             })
-                        })
-                }))
+                    })))
+    }
+
+    /// Runs `f` with `active_exiler` transiently scoped to `exiler` so any
+    /// exile moves performed inside stamp `Rider::ExiledBy(exiler)` when tracked.
+    pub(crate) fn with_exiler<R>(&mut self, exiler: PlayerId, f: impl FnOnce(&mut Self) -> R) -> R {
+        let prev = self.active_exiler.replace(exiler);
+        let out = f(self);
+        self.active_exiler = prev;
+        out
     }
 
     /// Whether an individual card in a hand is revealed by an effect on it
@@ -792,6 +808,8 @@ impl GameState {
         }
         let mut merged_components = smallvec::SmallVec::<[ObjectId; 2]>::new();
         let track_mana_types = self.per_turn.track_mana_types_spent.0;
+        let track_exilers = self.per_turn.track_exilers.0;
+        let active_exiler = self.active_exiler;
         {
             let obj = self.object_mut(id).expect("checked above");
             if !(from_zone == Zone::Stack && to.zone() == Zone::Battlefield) {
@@ -968,6 +986,9 @@ impl GameState {
                             | crate::object::Rider::CastOriginZone(_)
                             | crate::object::Rider::MayhemPaid
                             | crate::object::Rider::UnearthAbility
+                            | crate::object::Rider::EvokedGrant
+                            | crate::object::Rider::GrantDeathExileAndGainLife(_)
+                            | crate::object::Rider::GrantLeaveExileReplacement
                     )
                 });
             }
@@ -983,7 +1004,9 @@ impl GameState {
                 crate::object::Rider::Foretold { .. }
                 | crate::object::Rider::Plotted
                 | crate::object::Rider::PlottedOnTurn(_)
-                | crate::object::Rider::WarpedInExile(_) => {
+                | crate::object::Rider::WarpedInExile(_)
+                | crate::object::Rider::GrantedForetellReduce(_)
+                | crate::object::Rider::GrantedMadness => {
                     from_zone == Zone::Exile && to.zone() == Zone::Exile
                 }
                 _ => true,
@@ -1001,6 +1024,15 @@ impl GameState {
             // put the rider on before they move the card.
             if from_zone == Zone::Exile && to.zone() != Zone::Exile {
                 obj.riders.retain(|r| !r.ends_as_it_leaves_exile());
+            }
+            if track_exilers
+                && to.zone() == Zone::Exile
+                && from_zone != Zone::Exile
+                && let Some(exiler) = active_exiler
+            {
+                obj.riders
+                    .retain(|r| !matches!(r, crate::object::Rider::ExiledBy(_)));
+                obj.riders.push(crate::object::Rider::ExiledBy(exiler));
             }
             if from_zone == Zone::Stack
                 && to.zone() == Zone::Battlefield

@@ -164,8 +164,9 @@ pub use static_ability::{
     AbilityDonorZone, AltCastPrice, AltCastZones, CounterReplaceOp, DamageAmountReplacement,
     DamageRecipients, DamageRiderScope, DamagedByScope, Duration, EntryInsteadZone, EntryPredicate,
     GraveyardAltKind, GraveyardExileRider, GraveyardRedirectDest, LAYERS, Layer, LifeGainOp,
-    Modifier, MultiDrawReplacementKind, NextDrawReplacement, PtCount, ReplacementRule,
-    SpellCastMetric, StaticAbility, TriggerCause,
+    MiracleGrant, Modifier, MultiDrawReplacementKind, NextDrawReplacement, PtCount,
+    ReplacementRule, SpellCastMetric, StaticAbility, TriggerCause, ZonePlayCastRider, ZonePlayGrant,
+    ZonePlayManaSpending,
 };
 
 /// A compiled card definition: zero-cost, `'static`, registry-resident.
@@ -1547,6 +1548,7 @@ keywords! {
     DELVE = 124, "Delve (CR 702.66).";
     DEMONSTRATE = 125, "Demonstrate (CR 702.148).";
     ASSIST = 126, "Assist (CR 702.132).";
+    DECAYED = 127, "Decayed (CR 702.147).";
 }
 
 impl KeywordSet {
@@ -1712,6 +1714,7 @@ pub const PRINTED_KEYWORDS: &[(KeywordSet, &str)] = &[
     (KeywordSet::DELVE, "Delve"),
     (KeywordSet::DEMONSTRATE, "Demonstrate"),
     (KeywordSet::ASSIST, "Assist"),
+    (KeywordSet::DECAYED, "Decayed"),
     (KeywordSet::UNBLOCKABLE, "This creature can't be blocked."),
     (KeywordSet::CANT_BLOCK, "This creature can't block."),
     (KeywordSet::CANT_ATTACK, "This creature can't attack."),

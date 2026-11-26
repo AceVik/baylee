@@ -772,6 +772,9 @@ pub struct GameState {
     /// `Resolution::subject.remembered_objects` carries the persisted state.
     pub(crate) resolution_remembered:
         Option<(ObjectId, std::sync::Arc<[crate::resolve::RememberedObject]>)>,
+    /// Transient player currently exiling cards during a resolution, cost payment,
+    /// or special action (`Filter::ExiledByYou`); always `None` at rest.
+    pub(crate) active_exiler: Option<PlayerId>,
     /// Cards a resolving discover (CR 701.57a) exiled and stopped at:
     /// `(the discovering player, the card, its version in exile)`.
     ///
@@ -1024,6 +1027,7 @@ impl GameState {
             resolution_chosen_color: _,
             resolution_chosen_number: _,
             resolution_remembered: _,
+            active_exiler: _,
             discovered,
             divided,
             synthetic_copies,

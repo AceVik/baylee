@@ -682,10 +682,26 @@ enum FilterPlayerScope {
 }
 
 fn filter_player_scope(filter: &Filter) -> FilterPlayerScope {
+    use baylee_cards_dsl::PlayerRel;
     match filter {
-        Filter::ControlledByOpponent => FilterPlayerScope::OpponentsOnly,
-        Filter::ControlledByYou | Filter::OwnedByYou => FilterPlayerScope::YouOnly,
-        Filter::Not(inner) if matches!(**inner, Filter::ControlledByYou | Filter::OwnedByYou) => {
+        Filter::ControlledByOpponent
+        | Filter::OwnedBy(PlayerRel::Opponent | PlayerRel::EachOpponent)
+        | Filter::ControlledBy(PlayerRel::Opponent | PlayerRel::EachOpponent) => {
+            FilterPlayerScope::OpponentsOnly
+        }
+        Filter::ControlledByYou
+        | Filter::OwnedByYou
+        | Filter::OwnedBy(PlayerRel::You)
+        | Filter::ControlledBy(PlayerRel::You) => FilterPlayerScope::YouOnly,
+        Filter::Not(inner)
+            if matches!(
+                **inner,
+                Filter::ControlledByYou
+                    | Filter::OwnedByYou
+                    | Filter::OwnedBy(PlayerRel::You)
+                    | Filter::ControlledBy(PlayerRel::You)
+            ) =>
+        {
             FilterPlayerScope::NotYou
         }
         Filter::And(parts) => {

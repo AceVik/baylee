@@ -1231,6 +1231,7 @@ fn collect_for_objects(
         }
         if !phased_out_only && batch_has_zone_changes {
             return_keywords::collect_modular(state, obj, events, triggers);
+            return_keywords::collect_granted_death(state, obj, events, triggers);
         }
         if !all_kinds && !phased_out_only {
             return_keywords::collect(state, obj, events, triggers);

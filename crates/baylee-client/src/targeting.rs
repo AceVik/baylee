@@ -763,6 +763,8 @@ fn matches_at(
         | Filter::SharesCardTypeWithReference
         | Filter::CastForBlitz
         | Filter::FirstMatchingSpellThisTurn(_)
+        | Filter::EnteredCurrentZoneThisTurn(_)
+        | Filter::ExiledByYou
         // Winnow asks this only while resolving, never while choosing a target.
         | Filter::SharesNameWithAnotherPermanent => return None,
         Filter::HasAnyCounter => object.counters.iter().any(|entry| entry.count > 0),
