@@ -432,13 +432,19 @@ async fn a_chair_whose_account_went_meanwhile_is_emptied() {
         &seat_token,
         &format!("{{\"socket\":\"seat\",\"game\":\"{game}\"}}"),
     );
-    assert_ne!(status, 200, "the chair of a deleted account opens for nobody");
+    assert_ne!(
+        status, 200,
+        "the chair of a deleted account opens for nobody"
+    );
     for _ in 0..common::WAIT_TRIES {
         if !row(&gw).contains(&account) {
             break;
         }
         tokio::time::sleep(common::WAIT_STEP).await;
     }
-    assert!(!row(&gw).contains(&account), "the kept row forgets the account");
+    assert!(
+        !row(&gw).contains(&account),
+        "the kept row forgets the account"
+    );
     agent.abort();
 }
