@@ -69,7 +69,6 @@ const LEAGUES: [League; 12] = [
 pub(crate) enum Action {
     Open,
     Back,
-    QueueFormat(Format),
     Format(Format),
     Track(Track),
     ToggleLeagues,
@@ -278,6 +277,11 @@ pub(super) fn press(action: Action, cx: Cx<'_, '_, '_, '_, '_>) {
         inline::refresh(state);
         state.ranked.revision = state.ranked.revision.wrapping_add(1);
         return;
+    }
+    // One format choice serves the ladder and the desk beside it.
+    if let Action::Format(format) = action {
+        inline::follow_format(state, format);
+        state.ranked.revision = state.ranked.revision.wrapping_add(1);
     }
     let ui = &mut state.ranked;
     let mut reset_pages = false;

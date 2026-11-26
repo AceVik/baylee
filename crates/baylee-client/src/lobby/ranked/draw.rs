@@ -13,6 +13,7 @@ use bevy::prelude::*;
 #[derive(Component)]
 pub(super) struct Page {
     metrics: ShellMetrics,
+    title: Entity,
     formats: Entity,
     board: Board,
 }
@@ -33,6 +34,9 @@ pub(super) struct Painted {
     rows: Option<(Vec<api::Row>, usize, Option<Phrase>)>,
     seasons: Option<(Vec<api::Season>, bool, bool)>,
     pager: Option<Pager>,
+    /// The title the page wears: Ranked play for an account that can queue,
+    /// Leaderboards for a guest reading the ladder.
+    title: Option<Phrase>,
 }
 
 #[derive(PartialEq, Eq)]
@@ -88,11 +92,12 @@ pub(in crate::lobby) fn draw(
         crate::shellkit::Frame::Wide | crate::shellkit::Frame::Vast
     );
     let page = page_root(commands, root, kit, compact);
-    let formats = masthead(commands, page, kit);
+    let (title, formats) = masthead(commands, page, kit);
     let band = desk_and_board(commands, page, kit, compact);
     let board = board_panel(commands, band, kit, metrics, compact, scrolled);
     commands.entity(page).insert(Page {
         metrics: kit.m,
+        title,
         formats,
         board,
     });
@@ -143,7 +148,7 @@ fn page_root(commands: &mut Commands, root: Entity, kit: Kit, compact: bool) -> 
     page
 }
 
-fn masthead(commands: &mut Commands, page: Entity, kit: Kit) -> Entity {
+fn masthead(commands: &mut Commands, page: Entity, kit: Kit) -> (Entity, Entity) {
     let top = surfaces::panel(commands, kit, percent(100));
     commands
         .entity(top)
@@ -181,7 +186,7 @@ fn masthead(commands: &mut Commands, page: Entity, kit: Kit) -> Entity {
     commands
         .entity(top)
         .add_children(&[back, title, grow, formats]);
-    formats
+    (title, formats)
 }
 
 /// The page's body: the account's desk (its standing and the queue) beside
@@ -400,6 +405,17 @@ pub(super) fn patch(
             scroller.y = 0.0;
         }
         painted.scroll = Some(viewport);
+    }
+    let title = if state.has_central_account() {
+        Phrase::RankedTitle
+    } else {
+        Phrase::RankedBoard
+    };
+    if painted.title != Some(title) {
+        painted.title = Some(title);
+        commands
+            .entity(slots.title)
+            .insert(Text::new(title.text(kit.lang())));
     }
     paint_controls(&mut commands, slots, kit, ui, &mut painted);
     paint_board(&mut commands, &slots.board, kit, &state, &mut painted);

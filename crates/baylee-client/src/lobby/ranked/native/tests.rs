@@ -209,7 +209,7 @@ fn inline_play_presses_freeze_the_chosen_deck_once_and_cancel_the_joined_ticket(
         settle(app);
     };
     tap(&mut app, Action::Open);
-    tap(&mut app, Action::QueueFormat(Format::Highlander));
+    tap(&mut app, Action::Format(Format::Highlander));
     tap(&mut app, Action::ToggleDecks);
     tap(&mut app, Action::Deck(wanted));
     tap(&mut app, Action::Join);

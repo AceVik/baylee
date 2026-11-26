@@ -372,7 +372,7 @@ fn ranked_page_searches_and_cancels_beside_the_public_ladder() {
         capture(client, "ranked-play-lobby")?;
         client.click(press(opener))?;
         let page = client.wait_until("the desk beside the public ladder", |s| {
-            s.control("Ranked(QueueFormat(Standard))").is_some()
+            s.control("Ranked(Format(Standard))").is_some()
                 && s.shows("Morgenrot")
                 && s.shows("Mistral-01")
         })?;
@@ -382,7 +382,7 @@ fn ranked_page_searches_and_cancels_beside_the_public_ladder() {
         client.wait_until("chosen deck", |s| {
             s.shows("Waldwache") && !s.shows("Morgenrot")
         })?;
-        client.click(press("Ranked(QueueFormat(Highlander))"))?;
+        client.click(press("Ranked(Format(Highlander))"))?;
         client.wait_until("only the Highlander deck is offered", |s| {
             s.shows("Sternenmeer")
         })?;
@@ -400,14 +400,10 @@ fn ranked_page_searches_and_cancels_beside_the_public_ladder() {
         client.wait_until("back in the same format after cancelling", |s| {
             s.shows("Sternenmeer") && s.control("Ranked(Join)").is_some()
         })?;
-        client.click(press("Ranked(Format(Commander))"))?;
-        client.wait_until(
-            "separate matchmaking format survives leaderboard filtering",
-            |s| s.shows("Sternenmeer"),
-        )?;
         narrow_queue_remains_playable(client)?;
-        client.click(press("Ranked(QueueFormat(Commander))"))?;
-        client.wait_until("Commander deck", |s| s.shows("Solstice"))?;
+        // The page's one format choice moves the ladder and the desk together.
+        client.click(press("Ranked(Format(Commander))"))?;
+        client.wait_until("Commander deck and ladder", |s| s.shows("Solstice"))?;
         client.click(press("Ranked(Join)"))?;
         client.wait_until("player division promotion", |s| {
             presented(s, "Commander · Spieler · Gold I")

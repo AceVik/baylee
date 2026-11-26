@@ -5,7 +5,7 @@
 //! unfolds and pushes the tiles under it down.
 use super::{
     Action, Cx, Format, Hub, Kit, Lang, League, LobbyRequest, LobbyState, OwnRank, Phrase, api,
-    draw, format_name, join, native, orders, parts, queue,
+    draw, format_name, join, native, orders, queue,
 };
 use crate::{
     lobby::{Mailbox, ranked_profile::Book},
@@ -13,11 +13,10 @@ use crate::{
 };
 use bevy::prelude::*;
 
-/// The desk's slots on the Ranked page, filled by [`patch`].
+/// The desk's slot on the Ranked page, filled by [`patch`].
 #[derive(Component)]
 pub(super) struct Desk {
     metrics: ShellMetrics,
-    formats: Entity,
     queue: Entity,
 }
 
@@ -26,16 +25,27 @@ pub(super) struct Desk {
 #[derive(Component)]
 pub(in crate::lobby) struct TileCaption;
 
-/// Stands the desk's slots in `parent`: the format chips, then the queue.
+/// Stands the desk's slot in `parent`. The page's one format choice, in its
+/// head, serves the ladder and the queue alike ([`follow_format`]).
 pub(super) fn desk(commands: &mut Commands, parent: Entity, kit: Kit) {
-    let formats = parts::row(commands, kit, true);
-    commands.entity(parent).add_child(formats);
     let queue = draw::column(commands, parent, kit);
     commands.entity(parent).insert(Desk {
         metrics: kit.m,
-        formats,
         queue,
     });
+}
+
+/// The page's format chose `format`: the queue follows it, unless an entry
+/// is already waiting or seated in another (the ladder follows regardless).
+pub(super) fn follow_format(state: &mut LobbyState, format: Format) {
+    if locked(state) || format == state.ranked.queue_format {
+        return;
+    }
+    native::clear_preview(state);
+    state.ranked.queue_format = format;
+    state.ranked.deck_id = None;
+    state.ranked.deck_page = 0;
+    state.ranked.show_decks = false;
 }
 
 fn locked(state: &LobbyState) -> bool {
@@ -50,8 +60,7 @@ fn locked(state: &LobbyState) -> bool {
 pub(super) fn owns(action: Action) -> bool {
     matches!(
         action,
-        Action::QueueFormat(_)
-            | Action::ToggleDecks
+        Action::ToggleDecks
             | Action::DeckPage(_)
             | Action::Deck(_)
             | Action::Preview
@@ -98,13 +107,6 @@ pub(super) fn press(action: Action, cx: Cx<'_, '_, '_, '_, '_>) {
         return;
     }
     match action {
-        Action::QueueFormat(format) if !locked(state) && format != state.ranked.queue_format => {
-            native::clear_preview(state);
-            state.ranked.queue_format = format;
-            state.ranked.deck_id = None;
-            state.ranked.deck_page = 0;
-            state.ranked.show_decks = false;
-        }
         Action::ToggleDecks => state.ranked.show_decks = !state.ranked.show_decks,
         Action::DeckPage(page) => state.ranked.deck_page = page,
         Action::Deck(id) => {
@@ -183,9 +185,11 @@ pub(super) fn reveal_focus(
 #[derive(Default)]
 pub(super) struct Painted {
     key: Option<(Option<Entity>, Option<Entity>, u64, u64, Option<OwnRank>)>,
-    formats: Option<Option<Format>>,
     queue: Option<queue::Look>,
     caption: String,
+    /// Whether the desk stands: only for a Central account. A guest reading
+    /// the ladder from the front door sees the ladder alone, full width.
+    shown: Option<bool>,
 }
 
 /// The tile's line: the queue's state while there is one, else the
@@ -276,8 +280,8 @@ pub(super) fn patch(
     // A desk or a tile drawn afresh holds nothing of what was painted.
     let old = painted.key;
     if old.is_none_or(|old| old.0 != key.0) {
-        painted.formats = None;
         painted.queue = None;
+        painted.shown = None;
     }
     if old.is_none_or(|old| old.1 != key.1) {
         painted.caption.clear();
@@ -290,32 +294,27 @@ pub(super) fn patch(
         }
         painted.caption = words;
     }
-    let (Some((_, desk)), Some(fonts)) = (desk, fonts.as_deref()) else {
+    let (Some((root, desk)), Some(fonts)) = (desk, fonts.as_deref()) else {
         return;
     };
+    let eligible = state.has_central_account();
+    if painted.shown != Some(eligible) {
+        painted.shown = Some(eligible);
+        commands
+            .entity(root)
+            .entry::<Node>()
+            .and_modify(move |mut n| {
+                n.display = if eligible { Display::Flex } else { Display::None };
+            });
+    }
+    if !eligible {
+        return;
+    }
     let kit = Kit {
         fonts,
         m: desk.metrics,
         german: state.lobby.lang() == Lang::De,
     };
-    let selectable = (state.has_central_account() && !locked(&state)).then_some(format);
-    if painted.formats != Some(selectable) {
-        painted.formats = Some(selectable);
-        commands.entity(desk.formats).despawn_children();
-        if let Some(current) = selectable {
-            for (i, format) in Format::ALL.into_iter().enumerate() {
-                draw::btn(
-                    &mut commands,
-                    desk.formats,
-                    kit,
-                    format_name(format, kit.lang()),
-                    Action::QueueFormat(format),
-                    (&super::ORDER, "rank-format", i),
-                    format == current,
-                );
-            }
-        }
-    }
     let view = queue::look(&state, own);
     if painted.queue.as_ref() != Some(&view) {
         commands.entity(desk.queue).despawn_children();

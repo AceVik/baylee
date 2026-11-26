@@ -6,8 +6,9 @@ The illustrated Ranked activity sits beside the table list, with Tower, Daily
 and Weekly. Its tile unfolds nothing in place: it opens the Ranked page, and
 its line under the title says how the queue stands (searching, a host found,
 the last result) or, idle, the account's rank and Elo in the queue's format.
-The page stands the account's desk beside the public ladder on a wide window
-(above it on a narrow one, the whole page scrolling): the standing (rank
+The page stands a Central account's desk beside the public ladder on a wide
+window (above it on a narrow one, the whole page scrolling; a guest reading
+the ladder from the front door sees the ladder alone): the standing (rank
 badge, Elo, the season's record, a bar of the ten placement games while
 unranked), the format, the deck selector, the search and its result card. A
 Central account can queue for a duel, check its status and cancel there; the
@@ -19,8 +20,9 @@ library.
 The ladder is the same public seasonal ladder the front door opens; its first
 three places wear gold, silver and bronze medals, an empty group shows the
 shell kit's empty state, and the pager offers its arrows only when there is a
-second page. Guests can read it immediately. Its format filter is independent
-of the format selected for play. Standard, Highlander and Commander each
+second page. Guests can read it immediately. One format choice, in the page's head,
+serves the ladder and the desk (the queue keeps its own while an entry waits
+or is seated). Standard, Highlander and Commander each
 have separate player and deck standings. The league menu offers the
 divisions that exist in that league. The season button also lists past seasons.
 The list keeps its scroll position during a refresh and starts at the top

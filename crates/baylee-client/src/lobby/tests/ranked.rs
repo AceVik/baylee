@@ -129,7 +129,7 @@ fn the_ranked_tile_opens_a_page_with_the_desk_beside_the_public_ladder() {
     assert!(
         !lobby.iter().any(|p| matches!(
             p,
-            Press::Ranked(Action::QueueFormat(_) | Action::Join | Action::ToggleDecks)
+            Press::Ranked(Action::Format(_) | Action::Join | Action::ToggleDecks)
         )),
         "the queue stands on the Ranked page, not in the tile: {lobby:?}"
     );
