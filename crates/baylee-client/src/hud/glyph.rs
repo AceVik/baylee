@@ -198,7 +198,7 @@ pub const PLAY: char = '\u{f04b}';
 pub const BELL: char = '\u{f0f3}';
 /// The bell, struck through: nothing to notify.
 pub const BELL_SLASH: char = '\u{f1f6}';
-/// A person joining.
+/// A person with a plus: a person joining, inviting a friend.
 pub const USER_PLUS: char = '\u{f234}';
 /// A person leaving.
 pub const USER_MINUS: char = '\u{f503}';
@@ -212,8 +212,6 @@ pub const CHAIR: char = '\u{f6c0}';
 pub const FINISH: char = '\u{f11e}';
 /// Calendar: a calendar with nothing on it yet.
 pub const CALENDAR: char = '\u{f073}';
-/// A person with a plus: inviting a friend.
-pub const USER_PLUS: char = '\u{f234}';
 /// Chain links: an invite's link.
 pub const LINK: char = '\u{f0c1}';
 /// Two sheets: copy.
