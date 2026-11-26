@@ -90,8 +90,8 @@ feedback service. `main` has moved all of that to Central.
   monthly with `rotate 1`); the old configurations are in
   `/root/logrotate-backup-20261125/`, and the 12 archives older than 14
   days are deleted. Entries older than 14 days stay inside the last weekly
-  archives until about 08.12.2026; the terms carry an `[OFFEN]` until
-  then. The system journal already keeps 14 days (its oldest file began
+  archives until about 08.12.2026; the owner chose not to wait for that
+  (26.11.2026), so the terms carry no marker for it. The system journal already keeps 14 days (its oldest file began
   on 13.11.); the two journal files of a former machine ID (23.–26.09.)
   are deleted. The entries from 06.11. sat in the owner's own user journal
   (`user-1000.journal`: deploy output, sudo sessions, a build), which
@@ -111,7 +111,8 @@ Each one is marked where it sits in the draft.
    for where backups are kept, naming Google Ireland Limited) and 16.8 now
    say so: undelivered messages at most 14 days in backups, everything
    else at most 12 months, deleted accounts deleted again after a restore, on Art.
-   6(1)(f) with Art. 32(1)(c) GDPR. Two markers remain. The `[OFFEN]`
+   6(1)(f) with Art. 32(1)(c) GDPR. The owner sets the backup up exactly
+   at the release, not before (26.11.2026). Two markers remain. The `[OFFEN]`
    says to publish only once the backup runs that way, and to name a
    second encrypted copy on the owner's own drive if one is added. The
    `[ANNAHME]` in 16.8 says the EU-US Data Privacy Framework carries
@@ -126,10 +127,19 @@ Each one is marked where it sits in the draft.
    `BAYLEE_FEEDBACK_TOKEN` it already has. Whether the live gateway runs
    so cannot be seen from the repository; the terms carry it as an
    `[OFFEN]` to do before publishing.
-10. **Ranked games are for people only** (7.5): `docs/protocol.md` says
-    "two human seats"; confirm it is meant as a rule of play too.
-11. **Replay sharing cut-off:** "on by default for games since 13.10.2026"
-    (9.7); check the date against `replay_share_cutoff` before publishing.
+10. *(settled)* **Ranked play:** 7.5's rule that a person plays a ranked
+    game themselves stands; the assumption about two human seats is gone.
+    AI players for ranked are being built (`docs/proposals/ai-players.md`,
+    owner's go of 26.11.2026). Once they run, 9.8 must say that an
+    opponent may be an AI player, an account always labelled as AI, that
+    "Nur Menschen" keeps them out, and what the model's provider receives
+    (16.7); 9.7 must name public replays. That goes into this version if
+    they run before it is published, otherwise into the next.
+11. *(placeholder)* **Replay sharing cut-off:** the cut-off is the moment
+    migration 19 (`m20261013_000019_replay_shares`) ran on the production
+    database. It shipped with v0.1.0-beta.7 (tagged 14.10.2026, 01:02), so
+    "13.10.2026" was too early. 9.7 now says `[STICHTAG]` / `[CUT-OFF]`;
+    at publishing, fill it from `SELECT at FROM replay_share_cutoff`.
 12. *(settled from the code)* **`ranked_run` retention:** the gateway
     deletes the link from a ranked game to its pairing once Central has
     accepted the result (`ranked::delivered`; a replicated match's a day
@@ -148,10 +158,14 @@ Each one is marked where it sits in the draft.
     published**, or 9a.3 says something that is not yet true. The routes
     under `/social/friends…` and `/social/groups…` and their store code are
     now dead on a Central gateway; removing them is a separate cleanup.
-14. **Deleting a Baylee account at Central** does not, as far as the code
-    shows, delete the gateway's projection and decks. Either build that
-    (Central tells the gateway) or keep the sentence that the player deletes
-    the gateway's data in the client (4.7).
+14. *(settled from the code)* **Deleting a Baylee account at Central**
+    does not delete the gateway's projection and decks. 4.7 now says so:
+    the gateway's data stay until the player deletes them there or asks,
+    so delete them there first, because without a Baylee account the
+    player can no longer sign in to the gateway. Such an orphaned gateway
+    account otherwise stays until the player writes; Central telling the
+    gateway, or the gateway pruning accounts Central no longer knows, is a
+    separate feature worth building (it would shorten 4.7 again).
 15. **`BAYLEE_IMPRESSUM_URL`** on the server: set it to
     `https://gateway.baylee.app/site/impressum.html`, so the client's
     About, terms sheet and network settings link the right page.
@@ -176,12 +190,14 @@ changes made here:
 ## Publishing the new version
 
 1. Settle the points above and remove every marker; remove the draft
-   paragraph under the title. Four of them are things to do on the
-   server first: the journal capped at 14 days, the backup running as
-   16.3 describes it, the two settings for reports to Central, and the
-   release with migration 35 deployed.
-2. Fill in `[NAME]`, `[E-MAIL]`, the version (a date) and the date, in a
-   copy outside the repository.
+   paragraph under the title. Three of them are things to do on the
+   server first: the backup running as 16.3 describes it (set up at the
+   release), the two settings for reports to Central, and the release
+   with migration 35 deployed. Central's release with age 13 must be out
+   too (5.1).
+2. Fill in `[NAME]`, `[E-MAIL]`, the version (a date), the date and the
+   replay cut-off (`[STICHTAG]` / `[CUT-OFF]`, point 11), in a copy
+   outside the repository.
 3. Publish both languages in the console (`POST /admin/terms`,
    `docs/protocol.md` §"Terms of use (WG-1)"). Every player sees the new
    version at the next sign-in and accepts it again.
