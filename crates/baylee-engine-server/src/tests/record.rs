@@ -118,6 +118,7 @@ pub(super) fn flush(runner: &mut EngineRunner, nonce: u64) -> Vec<Envelope> {
             msg: Some(v1::envelope::Msg::FlushRecord(v1::FlushRecord {
                 game_id: "g1".to_string(),
                 nonce,
+                hold: false,
             })),
         },
         &[],

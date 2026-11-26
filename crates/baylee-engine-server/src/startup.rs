@@ -126,7 +126,7 @@ impl<D: LoopDetection, R: SessionRegistry, T: crate::recording::Transport> Engin
     /// sent the same at the end of its own batch. The clocks start here too,
     /// because this is the first moment [`EngineRunner::clocks`] names any.
     pub fn raise_curtain(&mut self) -> Vec<Envelope> {
-        if self.curtain.take().is_none() {
+        if self.held || self.curtain.take().is_none() {
             return Vec::new();
         }
         self.enter_at = None;
@@ -147,6 +147,9 @@ impl<D: LoopDetection, R: SessionRegistry, T: crate::recording::Transport> Engin
     /// Scheduled arrival, at which play and its clocks may begin.
     #[must_use]
     pub fn entrance_deadline(&self) -> Option<u64> {
+        if self.held {
+            return None;
+        }
         self.enter_at
             .map(|at| at.saturating_add(baylee_protocol::TABLE_ENTRANCE_MS))
     }
@@ -162,7 +165,7 @@ impl<D: LoopDetection, R: SessionRegistry, T: crate::recording::Transport> Engin
 
     /// Preparation failed. Never start decision clocks for an unready seat.
     pub fn preparation_expired(&mut self) -> Vec<Envelope> {
-        if self.curtain.is_none() || self.enter_at.is_some() {
+        if self.held || self.curtain.is_none() || self.enter_at.is_some() {
             return Vec::new();
         }
         self.ended = true;

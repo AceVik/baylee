@@ -957,6 +957,7 @@ async fn flush_record(state: &Shared, game_id: &str, reporter: &Reporter<'_>) ->
             baylee_protocol::v1::FlushRecord {
                 game_id: game_id.to_owned(),
                 nonce: asked.nonce,
+                hold: false,
             },
         )),
     };

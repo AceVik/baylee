@@ -1349,12 +1349,79 @@ async fn a_stopped_gateway_stores_the_running_games_records_first() {
     })
     .await
     .expect("the engine took the answer");
+    assert_ne!(after, before);
 
-    assert!(gw.stop(), "a stopped gateway exits cleanly");
+    // The seat goes on answering while the gateway stops. Whatever the
+    // engine took before the stop's ask is in the record, and nothing after
+    // it moves the game: the record is the game as it was left.
+    let stopping = tokio::task::spawn_blocking(move || {
+        let clean = gw.stop();
+        (gw, clean)
+    });
+    while let Ok(Some(msg)) = tokio::time::timeout(
+        std::time::Duration::from_millis(500),
+        common::next_msg(&mut ws),
+    )
+    .await
+    {
+        if let v1::envelope::Msg::ChoiceRequest(c) = msg
+            && let Ok(pending) = baylee_core::wire::decode::<Pending>(&c.pending)
+            && let Some(answer) = timeout_answer(&pending)
+        {
+            say(&mut ws, &answer).await;
+        }
+    }
+    let (gw, clean) = stopping.await.expect("the stop returns");
+    assert!(clean, "a stopped gateway exits cleanly");
+    let last = probe.hash.borrow().expect("the game is built");
     assert_eq!(
         replays_to(&stored_record(&gw, &game)),
-        after,
-        "the stored record reaches the last answer"
+        last,
+        "the stored record is the game as the engine left it"
     );
+    agent.abort();
+}
+
+/// A game sends its record in a piece every two seconds of play; once it is
+/// over, the gateway keeps it as one piece, the same record, so the records
+/// kept for good cost what they cost before the pieces came that often.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_finished_record_is_kept_as_one_piece() {
+    let (url, _inbox) = stub_service().await;
+    let gw = with_service("compact", &url);
+    let port = gw.port;
+    let agent = attach_agent(&gw).await;
+    let token = login(port, "cora", "CoraCompact");
+    let (game, mut ws, asked) = a_game_that_goes_on(port, &token).await;
+    let answer = timeout_answer(&asked).expect("the seat's question has a plain answer");
+    say(&mut ws, &answer).await;
+    let chunks = || {
+        gw.scalar(&format!(
+            "SELECT count(*) FROM game_record_chunk WHERE game_id = '{game}'"
+        ))
+    };
+    // A report at the game asks its engine for the record as it stands,
+    // which goes as a piece of its own, as a bound that passed sends one.
+    let naming = serde_json::json!({
+        "kind": "bug", "text": "now", "game_id": game, "client": {},
+    })
+    .to_string();
+    assert_eq!(report(port, Some(&token), &naming).0, 201);
+    assert!(chunks() > 0, "a piece went before the end");
+    say(&mut ws, &PlayerAction::Concede).await;
+    quiet(&mut ws).await;
+    stored(&gw, &game).await;
+    for _ in 0..common::WAIT_TRIES {
+        if chunks() == 1 {
+            break;
+        }
+        tokio::time::sleep(common::WAIT_STEP).await;
+    }
+    assert_eq!(chunks(), 1, "the finished record is one piece");
+    let replayed = baylee_gamehost::record::replay_exact_with_detection::<
+        baylee_engine::engine::NoLoopDetection,
+    >(&stored_record(&gw, &game))
+    .expect("the one piece is the whole record");
+    assert!(replayed.ended, "and it ends where the game ended");
     agent.abort();
 }

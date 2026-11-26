@@ -156,6 +156,10 @@ pub struct EngineRunner<
     lost: Vec<u8>,
     /// Whether `GameEnded` has already been reported.
     ended: bool,
+    /// The gateway is stopping and asked for the record with `hold`
+    /// ([`v1::FlushRecord::hold`]): nothing moves the game any more, so the
+    /// record it was sent is the whole game a restart resumes.
+    held: bool,
     /// Terminal seats already reported to the gateway, independently of game end.
     participation_reported: SeatSet,
     /// The next [`v1::GameRecordChunk::seq`] (#315).
@@ -213,6 +217,7 @@ impl<D: LoopDetection, R: SessionRegistry, T: crate::recording::Transport> Defau
             spectators: 0,
             lost: Vec::new(),
             ended: false,
+            held: false,
             participation_reported: SeatSet::new(),
             record_seq: 0,
             records: T::default(),

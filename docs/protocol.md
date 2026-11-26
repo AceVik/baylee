@@ -2626,16 +2626,24 @@ turns 13 and 16):
   curtain is down: loading seats have the database to themselves, and the
   first move after it rises finds the header overdue.
 - **The gateway stops.** A gateway told to stop (`SIGTERM`, Ctrl-C) asks
-  every running game's engine for its record as above and waits, five
+  every running game's engine for its record with `hold` and waits, five
   seconds at most (`record::FLUSH_ON_STOP`), until each answer is stored,
-  then exits cleanly; a Tower engine and a ranked duel's protected engines
-  are not asked. A write the database fails meanwhile is tried again for up
-  to 15 minutes before a game's record is given up (`record.rs`,
-  `RETRY_FOR`).
+  then exits cleanly. An engine that answered a `hold` moves nothing more
+  (no answer, no clock, no house move) until its link closes, so the stored
+  record is the game as the players last saw it. A Tower engine and a
+  ranked duel's protected engines are not asked. A write the database fails
+  meanwhile is tried again for up to 15 minutes before a game's record is
+  given up (`record.rs`, `RETRY_FOR`).
 
 Where a piece breaks changes nothing else: the pieces are gzip members of
 their own, and the record they make is the same bytes with or without
 flushes (`flushes_at_any_moment_change_nothing_but_where_the_pieces_break`).
+A game of the acceptance decks played an answer every few seconds sends one
+piece an answer, about 530 for 530 answers and 104 KB, where one piece holds
+the same record in 35 KB (measured 26.11.2026). So once the game is over
+and its last piece stored, the gateway keeps the record as one piece
+(`baylee_db::records::compact`, `a_finished_record_is_kept_as_one_piece`);
+a record that cannot be compacted stays in its pieces and reads the same.
 
 Training and balancing read records only through the operator's export,
 `baylee-gateway records export --out <dir>` (no route): every complete

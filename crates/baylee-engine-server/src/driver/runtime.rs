@@ -38,6 +38,7 @@ impl<D: LoopDetection, R: SessionRegistry, T: crate::recording::Transport> Engin
     #[must_use]
     pub fn needs_pump(&self) -> bool {
         !self.ended
+            && !self.held
             && self.curtain.is_none()
             && self.session.as_ref().is_some_and(Session::needs_pump)
     }

@@ -86,6 +86,32 @@ trait Store {
         &mut self,
         result: central_api::challenges::Completion,
     ) -> impl Future<Output = Result<(), String>> + Send;
+    /// Keeps a finished record as one piece ([`baylee_db::records::compact`]).
+    /// A store that keeps pieces as they came has nothing to do.
+    fn compact(&mut self) -> impl Future<Output = Result<(), String>> + Send {
+        async { Ok(()) }
+    }
+}
+
+/// The most a finished record may unpack to and still be compacted; a
+/// larger one stays in its pieces.
+const MAX_COMPACTED_BYTES: u64 = 256 * 1024 * 1024;
+
+/// One gzip member of the record the stored members `packed` make, or why
+/// not.
+fn recompressed(packed: &[u8]) -> Result<Vec<u8>, String> {
+    use std::io::{Read as _, Write as _};
+    let mut record = Vec::new();
+    flate2::read::MultiGzDecoder::new(packed)
+        .take(MAX_COMPACTED_BYTES + 1)
+        .read_to_end(&mut record)
+        .map_err(|e| e.to_string())?;
+    if record.len() as u64 > MAX_COMPACTED_BYTES {
+        return Err("too large to compact".into());
+    }
+    let mut gz = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+    gz.write_all(&record).map_err(|e| e.to_string())?;
+    gz.finish().map_err(|e| e.to_string())
 }
 
 /// The gateway's database.
@@ -125,6 +151,25 @@ impl Store for Database {
 
     async fn append(&mut self, piece: v1::GameRecordChunk) -> Result<(), String> {
         baylee_db::records::append(&self.db, &self.game_id, piece.seq, piece.data, piece.last)
+            .await
+            .map(|_| ())
+            .map_err(|e| e.to_string())
+    }
+
+    async fn compact(&mut self) -> Result<(), String> {
+        let Some((packed, pieces)) = baylee_db::records::stored_pieces(&self.db, &self.game_id)
+            .await
+            .map_err(|e| e.to_string())?
+        else {
+            return Ok(());
+        };
+        if pieces < 2 {
+            return Ok(());
+        }
+        let data = tokio::task::spawn_blocking(move || recompressed(&packed))
+            .await
+            .map_err(|e| e.to_string())??;
+        baylee_db::records::compact(&self.db, &self.game_id, pieces, data)
             .await
             .map(|_| ())
             .map_err(|e| e.to_string())
@@ -189,6 +234,11 @@ async fn write(game_id: String, mut rx: mpsc::UnboundedReceiver<Entry>, mut stor
                     }
                 }
                 patience.done(&game_id);
+                // The game is over: its pieces become one, which is kept
+                // for good. A record left in pieces reads the same.
+                if let Err(e) = store.compact().await {
+                    tracing::warn!(game_id, "keeping the finished record in its pieces: {e}");
+                }
             }
             Entry::Challenge(result, done) => {
                 let mut patience = Patience::new();
@@ -403,6 +453,7 @@ pub(crate) async fn flush_all(state: &crate::Shared, within: std::time::Duration
             msg: Some(v1::envelope::Msg::FlushRecord(v1::FlushRecord {
                 game_id,
                 nonce: ask.nonce,
+                hold: true,
             })),
         };
         if engine.send(flush).is_ok() {

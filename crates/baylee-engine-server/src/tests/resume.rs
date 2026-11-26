@@ -79,7 +79,7 @@ fn a_restarted_engine_picks_the_game_up_where_its_record_ends() {
     let said = resume_on(
         &mut resumed,
         &preset,
-        &baylee_build::short(),
+        baylee_build::short(),
         packed(&stored),
         next,
     );
@@ -171,7 +171,7 @@ fn a_record_that_cannot_go_on_is_refused() {
     let said = resume_on(
         &mut runner,
         &preset,
-        &baylee_build::short(),
+        baylee_build::short(),
         b"not gzip".to_vec(),
         1,
     );
@@ -190,12 +190,61 @@ fn a_record_that_cannot_go_on_is_refused() {
     let said = resume_on(
         &mut runner,
         &preset,
-        &baylee_build::short(),
+        baylee_build::short(),
         packed(&over),
         u32::try_from(over.len()).unwrap(),
     );
     assert_eq!(
         ended_with(&said).as_deref(),
         Some("the stored record is of a game that is over")
+    );
+}
+
+/// A flush with `hold` is the gateway stopping: once answered, the game
+/// moves no more. An answer is not taken, no clock runs, the house does
+/// not play, and the record the gateway was sent stays the whole game, so a
+/// restart resumes exactly what the players last saw. Another flush is
+/// still answered.
+#[test]
+fn a_held_game_moves_no_more() {
+    let me = PlayerId::new(0);
+    let preset = duel(30);
+    let mut runner = EngineRunner::new();
+    let mut out = setup(&mut runner, &preset);
+    out.extend(sit(&mut runner, 0));
+    out.extend(play_a_little(&mut runner, 6));
+    let hash = runner.session().unwrap().snapshot_hash();
+    let held = runner.handle(
+        Envelope {
+            msg: Some(v1::envelope::Msg::FlushRecord(v1::FlushRecord {
+                game_id: "g1".to_string(),
+                nonce: 5,
+                hold: true,
+            })),
+        },
+        &[],
+    );
+    assert!(
+        held.iter()
+            .any(|e| matches!(&e.msg, Some(v1::envelope::Msg::RecordFlushed(f)) if f.nonce == 5)),
+        "the stop's ask is answered"
+    );
+    let action = runner
+        .session()
+        .and_then(|s| s.house_action(me))
+        .expect("the seat is asked");
+    assert!(
+        act(&mut runner, 0, &action).is_empty(),
+        "no answer is taken"
+    );
+    assert!(runner.clocks().is_empty(), "no clock runs");
+    assert!(!runner.needs_pump(), "the house does not play");
+    assert_eq!(runner.record_deadline(), None, "no piece is due");
+    assert_eq!(runner.session().unwrap().snapshot_hash(), hash);
+    assert!(
+        flush(&mut runner, 6)
+            .iter()
+            .any(|e| matches!(&e.msg, Some(v1::envelope::Msg::RecordFlushed(f)) if f.nonce == 6)),
+        "another flush is still answered"
     );
 }

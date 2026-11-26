@@ -83,6 +83,10 @@ pub(super) async fn hello_of(socket: &mut WebSocket) -> Option<v1::envelope::Msg
 /// "Nothing to act on" and "the socket is done" are different answers and only
 /// one of them ends the loop, which is why this is three cases and not an
 /// `Option`.
+// One value at a time, made and matched where a frame is read: the small
+// cases are not kept beside the large one, so boxing it would only add a
+// heap allocation to every frame.
+#[allow(clippy::large_enum_variant)]
 pub(super) enum Incoming {
     /// A message this plane may act on.
     Msg(v1::envelope::Msg),
