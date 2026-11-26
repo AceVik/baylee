@@ -42,6 +42,7 @@ mod alternative_cost;
 mod animation;
 mod archon_kismet;
 mod atoms;
+mod attachments;
 mod chains;
 mod constants;
 mod counters;

@@ -4,6 +4,7 @@ mod affected_defined;
 mod alternative_costs;
 mod animation_rules;
 mod archon_kismet;
+mod attachments;
 mod blocks_and_conditions;
 mod costs_and_refusals;
 mod counters;

@@ -1276,6 +1276,30 @@ impl Tx<'_> {
         {
             self.exile_top_to_play_effect(&mut p, &mut sub)?
         } else if !second_target_here
+            && !targets_here
+            && api == "Animate"
+            && self.sub_is_api(sub.as_deref(), "Attach")
+            && (p.has("RevertCost")
+                || p.has("RemoveThisAbility")
+                || p.peek("Keywords")
+                    .is_some_and(|k| k.starts_with("Enchant:")))
+            && let Some(effects) = self.try_become_aura_chain(&mut p, &mut sub, chain)
+        {
+            effects
+        } else if !second_target_here
+            && api == "Attach"
+            && p.peek("RememberAttached") == Some("True")
+            && p.has("Choices")
+            && let Some(effects) = self.try_attach_chosen_then_chain(
+                &mut p,
+                &mut sub,
+                target.as_deref(),
+                targets_here,
+                chain,
+            )
+        {
+            effects
+        } else if !second_target_here
             && api == "Dig"
             && (p.peek("ChangeNum") == Some("All")
                 || (p.peek("DigNum") == Some("1")
@@ -4631,6 +4655,7 @@ impl Tx<'_> {
             "AlterAttribute" => {
                 self.alter_attribute_effect(p, target, targets_here, single_target)?
             }
+            "Unattach" => self.unattach_effect(p, target, targets_here, single_target)?,
             "BecomeMonarch" => self.become_monarch_effect(p, target, targets_a_player)?,
             "RingTemptsYou" => {
                 if targets_here
@@ -6785,6 +6810,9 @@ impl Tx<'_> {
                     Some("True") => true,
                     Some(_) => return None,
                 };
+                if let Some(effs) = self.attach_extended_effect(p, target, flags, optional) {
+                    return Some(effs);
+                }
                 if p.has("Choices")
                     || p.peek("Object")
                         .is_some_and(|o| o.starts_with("Valid ") || o == "ThisTargetedCard")
@@ -9118,6 +9146,9 @@ impl Tx<'_> {
                 "&TargetSpec::Object(&Filter::Any)"
             }
             "Self" if !self.on_a_spell => "&TargetSpec::ThisObject",
+            "Enchanted" | "Equipped" if !self.on_a_spell && target.is_none() && !negated_key => {
+                "&TargetSpec::Object(&Filter::AttachedToBySource)"
+            }
             other if self.is_event_object_defined(other) => "&TargetSpec::EventObject",
             _ => return None,
         };
@@ -9136,6 +9167,9 @@ impl Tx<'_> {
             (true, None) | (false, Some("EQ0" | "LT1")) => false,
             _ => return None,
         };
+        if matches!(defined, "Enchanted" | "Equipped") && !positive {
+            return None;
+        }
         let expr = self.filter_expr(&valid)?;
         let filter = self.body.filter_static("COND", &expr);
         p.take("ConditionDefined");

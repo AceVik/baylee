@@ -531,8 +531,19 @@ fn wave22d_animate_static_grants_and_refusals() {
         granted_statics.abilities[3]
     );
 
+    let single_dynamic = read(
+        "Name:SingleDynamic\nManaCost:X U\nTypes:Instant\nA:SP$ Animate | ValidTgts$ Creature | Power$ X\nSVar:X:Count$xPaid",
+    );
+    assert!(
+        single_dynamic.abilities[0].contains(
+            "Effect::SetDynamicPT { subject: TargetSpec::Object(&Filter::CREATURE), power: Some(Amount::X), toughness: None, power_offset: 0, toughness_offset: 0, duration: Duration::UntilEndOfTurn }"
+        ),
+        "{:?}",
+        single_dynamic.abilities[0]
+    );
+
     for bad in [
-        "Name:BadSingleDynamic\nManaCost:X U\nTypes:Instant\nA:SP$ Animate | ValidTgts$ Creature | Power$ X\nSVar:X:Count$xPaid",
+        "Name:BadSingleDynamicMissingSVar\nManaCost:1 U\nTypes:Instant\nA:SP$ Animate | ValidTgts$ Creature | Power$ X\nSVar:X:Count$UnknownMetric",
         "Name:BadHiddenMustBlock\nManaCost:1 R\nTypes:Instant\nA:SP$ Animate | ValidTgts$ Creature | HiddenKeywords$ CARDNAME must be blocked if able.",
         "Name:BadSweepMixedCtrl\nManaCost:2 U\nTypes:Instant\nA:SP$ AnimateAll | ValidTgts$ Player | ValidCards$ Creature.TargetedPlayerCtrl,Artifact | Power$ 1 | Toughness$ 1",
         "Name:BadSweepWrongCtrl\nManaCost:2 U\nTypes:Instant\nA:SP$ AnimateAll | ValidTgts$ Player | ValidCards$ Creature.YouCtrl | Power$ 1 | Toughness$ 1",
@@ -631,6 +642,188 @@ fn wave23d_animate_qualified_subjects_valid_filter_and_general_static_grants() {
         "Name:BadIfDescFalse\nManaCost:1 U\nTypes:Instant\nA:SP$ Animate | ValidTgts$ Artifact | Keywords$ Flying | SubAbility$ DBAnim\nSVar:DBAnim:DB$ Animate | Defined$ Targeted.nonCreature | Power$ 1 | Toughness$ 1 | IfDesc$ False",
         "Name:BadConditionalStaticGrant\nManaCost:2 R\nTypes:Land\nA:AB$ Animate | Cost$ 1 R | Defined$ Self | Power$ 2 | Toughness$ 1 | Types$ Creature | staticAbilities$ ST\nSVar:ST:Mode$ Continuous | Affected$ Card.Self | AddKeyword$ First Strike | Condition$ PlayerTurn",
         "Name:BadValidGraveyard\nManaCost:2 B\nTypes:Artifact\nA:AB$ Animate | Cost$ 1 | Defined$ ValidGraveyard Creature.YouOwn | staticAbilities$ Play\nSVar:Play:Mode$ Continuous | Affected$ Card.Self | AffectedZone$ Graveyard | EffectZone$ Graveyard | MayPlay$ True",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
+}
+
+#[test]
+fn licid_become_aura_transformation_and_refusals() {
+    let mut aura_cats = cats();
+    aura_cats.enchantment.push("Aura".into());
+    aura_cats.creature.push("Licid".into());
+    aura_cats.normalize();
+    let read_aura = |text: &str| -> CardBody {
+        let parsed = parse(text);
+        transcode(&parsed, &aura_cats, None).unwrap_or_else(|| {
+            panic!(
+                "should be read in full, refused: {:?}",
+                refusal_reason(&parsed, &aura_cats, None)
+            )
+        })
+    };
+    let refused_aura = |text: &str| transcode(&parse(text), &aura_cats, None).is_none();
+    let calming = read_aura(
+        "Name:Calming Licid\nManaCost:2 W\nTypes:Creature Licid\nPT:2/2\n\
+         A:AB$ Animate | Cost$ W T | Defined$ Self | RemoveThisAbility$ True | Duration$ Permanent | RevertCost$ W | Keywords$ Enchant:Creature | Types$ Enchantment,Aura | RemoveCardTypes$ True | RemoveEnchantmentTypes$ True | SubAbility$ DBAttach\n\
+         SVar:DBAttach:DB$ Attach | ValidTgts$ Creature\n\
+         S:Mode$ CantAttack | ValidCard$ Creature.EnchantedBy",
+    );
+    assert!(
+        calming.abilities[0].contains("Effect::BecomeAura { target: TargetSpec::Object(&Filter::CREATURE), enchant: TargetSpec::Object(&Filter::CREATURE), lose_this_ability: true, revert_cost: Some(ManaCost::parse(\"{W}\")) }"),
+        "{:?}",
+        calming.abilities[0]
+    );
+    assert!(!calming.abilities[0].contains("Effect::AttachSelf"));
+
+    for bad in [
+        "Name:BadExtraType\nManaCost:1 U\nTypes:Creature\nPT:1/1\nA:AB$ Animate | Cost$ U T | Defined$ Self | RemoveThisAbility$ True | Duration$ Permanent | RevertCost$ U | Keywords$ Enchant:Creature | Types$ Artifact,Enchantment,Aura | RemoveCardTypes$ True | RemoveEnchantmentTypes$ True | SubAbility$ DBAttach\nSVar:DBAttach:DB$ Attach | ValidTgts$ Creature",
+        "Name:BadRevertX\nManaCost:1 U\nTypes:Creature\nPT:1/1\nA:AB$ Animate | Cost$ U T | Defined$ Self | RemoveThisAbility$ True | Duration$ Permanent | RevertCost$ X | Keywords$ Enchant:Creature | Types$ Enchantment,Aura | RemoveCardTypes$ True | RemoveEnchantmentTypes$ True | SubAbility$ DBAttach\nSVar:DBAttach:DB$ Attach | ValidTgts$ Creature",
+    ] {
+        assert!(refused_aura(bad), "must refuse:\n{bad}");
+    }
+}
+
+#[test]
+fn set_dynamic_pt_and_new_amounts() {
+    let halfdane = read(
+        "Name:Halfdane\nManaCost:1 W U B\nTypes:Legendary Creature Shapeshifter\nPT:3/3\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigAnimate\n\
+         SVar:TrigAnimate:DB$ TargetOnly | ValidTgts$ Creature.Other | SubAbility$ DBAnimate\n\
+         SVar:DBAnimate:DB$ Animate | Defined$ Self | Power$ X | Toughness$ Y | Duration$ UntilTheEndOfYourNextUpkeep\n\
+         SVar:X:Targeted$CardPower\n\
+         SVar:Y:Targeted$CardToughness",
+    );
+    assert!(
+        halfdane.abilities[0].contains("Effect::SetDynamicPT { subject: TargetSpec::ThisObject, power: Some(Amount::TargetPower), toughness: Some(Amount::TargetToughness), power_offset: 0, toughness_offset: 0, duration: Duration::UntilEndOfYourNextUpkeep }"),
+        "{:?}",
+        halfdane.abilities[0]
+    );
+
+    let defender = read(
+        "Name:Sworn Defender\nManaCost:2 W W\nTypes:Creature Human Knight\nPT:1/3\n\
+         A:AB$ TargetOnly | Cost$ 1 | ValidTgts$ Creature | SubAbility$ DBAnimate\n\
+         SVar:DBAnimate:DB$ Animate | Defined$ Self | Power$ X | Toughness$ Y\n\
+         SVar:X:Targeted$CardToughness/Minus.1\n\
+         SVar:Y:Targeted$CardPower/Plus.1",
+    );
+    assert!(
+        defender.abilities[0].contains("Effect::SetDynamicPT { subject: TargetSpec::ThisObject, power: Some(Amount::TargetToughness), toughness: Some(Amount::TargetPower), power_offset: -1, toughness_offset: 1, duration: Duration::UntilEndOfTurn }"),
+        "{:?}",
+        defender.abilities[0]
+    );
+
+    let arni = read(
+        "Name:Arni Brokenbrow\nManaCost:2 R\nTypes:Legendary Creature Human Berserker\nPT:3/3\n\
+         A:AB$ Animate | Cost$ 1 | Power$ Y | Boast$ True\n\
+         SVar:Y:SVar$X/Plus.1\n\
+         SVar:X:Count$Valid Creature.Other+YouCtrl$GreatestCardPower",
+    );
+    assert!(
+        arni.abilities[0].contains("Effect::SetDynamicPT { subject: TargetSpec::ThisObject, power: Some(Amount::GreatestPowerAmong(")
+            && arni.abilities[0].contains("toughness: None, power_offset: 1, toughness_offset: 0, duration: Duration::UntilEndOfTurn }"),
+        "{:?}",
+        arni.abilities[0]
+    );
+
+    let tomb = read(
+        "Name:Wall of Tombstones\nManaCost:1 B\nTypes:Creature Wall\nPT:0/1\nK:Defender\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigTough\n\
+         SVar:TrigTough:DB$ Animate | Toughness$ X | Duration$ Permanent\n\
+         SVar:X:Count$ValidGraveyard Creature.YouOwn/Plus.1",
+    );
+    assert!(
+        tomb.abilities[0].contains("Effect::SetDynamicPT { subject: TargetSpec::ThisObject, power: None, toughness: Some(Amount::CountOf { filter: &Filter::CREATURE, zone: ZoneSel::GraveyardOf(PlayerRel::You) }), power_offset: 0, toughness_offset: 1, duration: Duration::Indefinitely }"),
+        "{:?}",
+        tomb.abilities[0]
+    );
+
+    let wolfbear = read(
+        "Name:Exuberant Wolfbear\nManaCost:3 G\nTypes:Creature Wolf Bear\nPT:4/4\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ TrigAnimate | TriggerZones$ Battlefield | OptionalDecider$ You\n\
+         SVar:TrigAnimate:DB$ Animate | ValidTgts$ Creature.YouCtrl | Power$ X | Toughness$ Y\n\
+         SVar:X:Count$CardPower\n\
+         SVar:Y:Count$CardToughness",
+    );
+    assert!(
+        wolfbear.abilities[0]
+            .contains("power: Amount::SourcePower, toughness: Amount::SourceToughness"),
+        "{:?}",
+        wolfbear.abilities[0]
+    );
+
+    let tora = read(
+        "Name:Slumbering Tora\nManaCost:3\nTypes:Artifact\n\
+         A:AB$ Animate | Cost$ 2 Discard<1/Creature/creature card> | Defined$ Self | Power$ X | Toughness$ X | Types$ Creature,Goblin\n\
+         SVar:X:Discarded$CardManaCost",
+    );
+    assert!(
+        tora.abilities[0]
+            .contains("power: Amount::DiscardedManaValue, toughness: Amount::DiscardedManaValue"),
+        "{:?}",
+        tora.abilities[0]
+    );
+
+    assert!(refused(
+        "Name:BadSelfTargetedWithTypes\nManaCost:1 U\nTypes:Creature\nPT:1/1\n\
+         A:AB$ TargetOnly | Cost$ 1 | ValidTgts$ Creature | SubAbility$ DBAnimate\n\
+         SVar:DBAnimate:DB$ Animate | Defined$ Self | Power$ X | Types$ Goblin\n\
+         SVar:X:Targeted$CardPower",
+    ));
+}
+
+#[test]
+fn spellcast_grant_bloodthirst_sunburst_and_set_name() {
+    let bloodlord = read(
+        "Name:Bloodlord of Vaasgoth\nManaCost:3 B B\nTypes:Creature Vampire Warrior\nPT:3/3\nK:Bloodthirst:3\n\
+         T:Mode$ SpellCast | ValidCard$ Creature.Goblin | ValidActivatingPlayer$ You | TriggerZones$ Battlefield | Execute$ BloodPump\n\
+         SVar:BloodPump:DB$ Animate | Defined$ TriggeredCardLKICopy | Keywords$ Bloodthirst:3 | Duration$ Permanent",
+    );
+    assert!(
+        bloodlord.abilities[0].contains("Effect::ModifyEvent { modifier: Modifier::GrantBloodthirst(3), duration: Duration::Indefinitely }"),
+        "{:?}",
+        bloodlord.abilities[0]
+    );
+
+    let sunburst_grant = read(
+        "Name:Sunburst Maker\nManaCost:4\nTypes:Artifact\n\
+         T:Mode$ SpellCast | ValidCard$ Artifact.Creature | ValidActivatingPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigAnimate\n\
+         SVar:TrigAnimate:DB$ Animate | Keywords$ Sunburst | Defined$ TriggeredCardLKICopy | Duration$ Permanent",
+    );
+    assert!(
+        sunburst_grant.abilities[0].contains("Effect::ModifyEvent { modifier: Modifier::GrantSunburst, duration: Duration::Indefinitely }"),
+        "{:?}",
+        sunburst_grant.abilities[0]
+    );
+
+    let awakening = read(
+        "Name:Awakening of Vitu-Ghazi\nManaCost:3 G G\nTypes:Instant\n\
+         A:SP$ PutCounter | ValidTgts$ Land.YouCtrl | CounterType$ P1P1 | CounterNum$ 9 | SubAbility$ DBAnimate\n\
+         SVar:DBAnimate:DB$ Animate | Defined$ Targeted | Power$ 0 | Toughness$ 0 | Types$ Legendary,Creature,Goblin | Keywords$ Haste | Name$ Vitu-Ghazi | Duration$ Permanent",
+    );
+    assert!(
+        awakening.abilities[0].contains(r#"Modifier::SetName("Vitu-Ghazi")"#),
+        "{:?}",
+        awakening.abilities[0]
+    );
+
+    let witness = read(
+        "Name:Witness Protection\nManaCost:U\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+         S:Mode$ Continuous | AffectedDefined$ Enchanted | Affected$ Creature | SetPower$ 1 | SetToughness$ 1 | SetColor$ Green & White | RemoveAllAbilities$ True | AddType$ Creature & Goblin | SetName$ Legitimate Businessperson | RemoveCardTypes$ True | RemoveCreatureTypes$ True",
+    );
+    assert!(
+        witness
+            .abilities
+            .iter()
+            .any(|a| a.contains(r#"Modifier::SetName("Legitimate Businessperson")"#)),
+        "{:?}",
+        witness.abilities
+    );
+
+    for bad in [
+        "Name:BadNonSpellCastBloodthirst\nManaCost:2 B\nTypes:Instant\nA:SP$ Animate | ValidTgts$ Creature | Keywords$ Bloodthirst:3 | Duration$ Permanent",
+        "Name:BadDynamicName\nManaCost:2 G\nTypes:Instant\nA:SP$ Animate | ValidTgts$ Land | Name$ $Dynamic",
+        "Name:BadContinuousDynamicName\nManaCost:U\nTypes:Enchantment Aura\nK:Enchant:Creature\nS:Mode$ Continuous | AffectedDefined$ Enchanted | AddType$ Creature & Goblin | SetName$ {X} | RemoveCardTypes$ True | RemoveCreatureTypes$ True",
     ] {
         assert!(refused(bad), "must refuse:\n{bad}");
     }

@@ -5244,7 +5244,7 @@ impl Tx<'_> {
         target: Option<&str>,
         targets_here: bool,
     ) -> Option<Vec<String>> {
-        let target = target.filter(|t| t.starts_with("TargetSpec::CardInGraveyard"))?;
+        let gy_target = target.filter(|t| t.starts_with("TargetSpec::CardInGraveyard"));
         if p.has("Hidden")
             || p.take("Origin").as_deref() != Some("Graveyard")
             || p.take("Destination").as_deref() != Some("Battlefield")
@@ -5261,16 +5261,33 @@ impl Tx<'_> {
         {
             return None;
         }
-        match p.take("Defined").as_deref() {
-            None => {}
-            Some("Targeted") if !targets_here => {}
-            _ => return None,
-        }
-        if let Some(gain) = p.take("GainControl")
-            && gain != "True"
-        {
-            return None;
-        }
+        let (subject_spec, moved_is_creature, owner_control) = if let Some(tgt) = gy_target {
+            match p.take("Defined").as_deref() {
+                None => {}
+                Some("Targeted") if !targets_here => {}
+                _ => return None,
+            }
+            if let Some(gain) = p.take("GainControl")
+                && gain != "True"
+            {
+                return None;
+            }
+            (tgt, tgt.contains("Filter::CREATURE"), false)
+        } else {
+            if target.is_some() || targets_here {
+                return None;
+            }
+            let def = p.take("Defined")?;
+            if !self.is_event_object_defined(&def) {
+                return None;
+            }
+            let owner_ctrl = match p.take("GainControl").as_deref() {
+                None | Some("False") => true,
+                Some("True") => false,
+                Some(_) => return None,
+            };
+            ("TargetSpec::EventObject", false, owner_ctrl)
+        };
         if let Some(num) = p.take("ChangeNum")
             && num != "1"
         {
@@ -5281,7 +5298,6 @@ impl Tx<'_> {
             Some("True") => true,
             Some(_) => return None,
         };
-        let moved_is_creature = target.contains("Filter::CREATURE");
         let head_static = p.take("StaticEffect");
         let mut modifiers: Vec<String> = match head_static {
             Some(ref svar_name) => {
@@ -5344,6 +5360,13 @@ impl Tx<'_> {
                 sp.take("Duration");
                 let next = sp.take("SubAbility");
                 let before = modifiers.len();
+                if let Some(raw_name) = sp.take("Name") {
+                    let trimmed = raw_name.trim();
+                    if trimmed.is_empty() || trimmed.contains(['$', '{']) {
+                        return None;
+                    }
+                    modifiers.push(format!("Modifier::SetName({trimmed:?})"));
+                }
                 if let Some(kws) = sp.take("Keywords") {
                     let bits = Self::pump_keyword_bits(&kws)?;
                     modifiers.push(format!("Modifier::AddKeyword({bits})"));
@@ -5353,6 +5376,16 @@ impl Tx<'_> {
                         return None;
                     }
                     modifiers.push("Modifier::ExileInsteadOfLeavingBattlefield".to_string());
+                }
+                if let Some(raw_ab) = sp.take("Abilities") {
+                    for ab in raw_ab.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+                        let super::statics::GrantedActivated::Modifier(m) =
+                            self.build_grant_activated_modifier(ab, "Abilities$", false)?
+                        else {
+                            return None;
+                        };
+                        modifiers.push(m);
+                    }
                 }
                 if let Some(types) = sp.take("Types") {
                     for part in types.split('&').map(str::trim).filter(|s| !s.is_empty()) {
@@ -5439,10 +5472,10 @@ impl Tx<'_> {
         let fixed_counters = Self::fixed_counter_pair(counters.as_ref());
         if head_static.is_some() || (counters.is_some() && fixed_counters.is_none()) {
             return Some(vec![Self::format_move_and_modify(
-                &format!("MoveSubject::Target({target})"),
+                &format!("MoveSubject::Target({subject_spec})"),
                 Some("ZoneRef::Graveyard"),
                 false,
-                false,
+                owner_control,
                 tapped,
                 None,
                 counters.as_ref(),
@@ -5454,15 +5487,15 @@ impl Tx<'_> {
             fixed_counters.map_or_else(|| "None".to_string(), |(k, n)| format!("Some(({k}, {n}))"));
         if tapped || !modifiers.is_empty() {
             Some(vec![format!(
-                "Effect::GraveyardToBattlefieldModified {{ target: {target}, \
-                 owner_control: false, tapped: {tapped}, counters: {legacy_counters}, \
+                "Effect::GraveyardToBattlefieldModified {{ target: {subject_spec}, \
+                 owner_control: {owner_control}, tapped: {tapped}, counters: {legacy_counters}, \
                  modifiers: &[{}] }}",
                 modifiers.join(", ")
             )])
         } else {
             Some(vec![format!(
-                "Effect::GraveyardToBattlefield {{ target: {target}, \
-                 owner_control: false, counters: {legacy_counters} }}"
+                "Effect::GraveyardToBattlefield {{ target: {subject_spec}, \
+                 owner_control: {owner_control}, counters: {legacy_counters} }}"
             )])
         }
     }
@@ -7314,6 +7347,14 @@ impl Tx<'_> {
             return None;
         }
         let mut mods: Vec<String> = Vec::new();
+        // Layer 3: name changes (CR 613.1c, CR 612).
+        if let Some(raw_name) = sp.take("SetName") {
+            let trimmed = raw_name.trim();
+            if trimmed.is_empty() || trimmed.contains(['$', '{']) {
+                return None;
+            }
+            mods.push(format!("Modifier::SetName({trimmed:?})"));
+        }
         // Layer 4: types / supertypes / subtypes.
         if sp.peek("RemoveCardTypes") == Some("True") {
             sp.take("RemoveCardTypes");

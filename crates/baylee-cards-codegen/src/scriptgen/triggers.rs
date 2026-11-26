@@ -4309,6 +4309,12 @@ impl Tx<'_> {
                     .any(|e| e.contains("Effect::CreateToken"))
                 {
                     Some("TriggerRemember::EachCreatedToken")
+                } else if chain
+                    .effects
+                    .iter()
+                    .any(|e| e == "Effect::AttachChosenThen")
+                {
+                    Some("TriggerRemember::EventObject")
                 } else if chain.effects.iter().any(|e| {
                     e.contains("Effect::exile(")
                         || e.contains("Effect::ExileAll")

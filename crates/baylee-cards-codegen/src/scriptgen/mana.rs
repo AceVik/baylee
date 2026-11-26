@@ -1108,6 +1108,12 @@ impl Tx<'_> {
             if def == "Sacrificed$CardPower" && self.cost_sacrifices_self && !self.on_a_spell {
                 return Some("Amount::SourcePower".to_string());
             }
+            if def == "Count$CardToughness" {
+                return Some("Amount::SourceToughness".to_string());
+            }
+            if def == "Discarded$CardManaCost" && self.cost_discards_single_for_cost {
+                return Some("Amount::DiscardedManaValue".to_string());
+            }
             if def == "Sacrificed$CardPower" && self.cost_sacrifices_other {
                 return Some("Amount::SacrificedPower".to_string());
             }
@@ -2089,9 +2095,17 @@ impl Tx<'_> {
         )) {
             return Some("Amount::EventPower".to_string());
         }
+        self.dynamic_filter_target_or_cost_atom(def)
+    }
+
+    fn dynamic_filter_target_or_cost_atom(&self, def: &str) -> Option<String> {
         match def {
             "Targeted$CardPower" | "ParentTargeted$CardPower" => {
                 Some("Amount::TargetPower".to_string())
+            }
+            "Count$CardToughness" => Some("Amount::SourceToughness".to_string()),
+            "Discarded$CardManaCost" if self.cost_discards_single_for_cost => {
+                Some("Amount::DiscardedManaValue".to_string())
             }
             "Targeted$CardToughness" | "ParentTargeted$CardToughness" => {
                 Some("Amount::TargetToughness".to_string())
@@ -2124,7 +2138,7 @@ impl Tx<'_> {
         }
     }
 
-    fn dynamic_filter_counted_atom(&self, def: &str) -> Option<String> {
+    pub(super) fn dynamic_filter_counted_atom(&self, def: &str) -> Option<String> {
         let has_dynamic_stat = |s: &str| {
             s.split([',', '.', '+']).any(|atom| {
                 atom.strip_prefix("cmc")
