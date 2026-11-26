@@ -247,6 +247,60 @@ pub(crate) fn graveyard_face_permissions(
     })
 }
 
+/// Whether `card` in `player`'s graveyard has an active `MayCastFromGraveyardUsingAlt(kind)`
+/// permission (either from its own graveyard-functioning static ability or from an
+/// active continuous effect, respecting `abilities_lost` timestamps).
+pub(crate) fn graveyard_alt_open(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    kind: baylee_cards_dsl::GraveyardAltKind,
+) -> bool {
+    use crate::state::CardLookup;
+    let Some(object) = state.object(card) else {
+        return false;
+    };
+    if object.zone != crate::zone::Zone::Graveyard || object.zone_owner != Some(player) {
+        return false;
+    }
+    let chars = object.characteristics();
+    let own = chars.abilities_lost.is_none()
+        && !chars.rules_text_lost
+        && object
+            .card
+            .and_then(|c| state.bases.card(c.index))
+            .is_some_and(|def| {
+                def.abilities_for_face(0).iter().any(|ability| {
+                    matches!(
+                        ability,
+                        baylee_cards_dsl::AbilityDef::Static(sa)
+                            if crate::zone::Zone::Graveyard.matches_ref(sa.source_zone)
+                                && sa.modifier
+                                    == baylee_cards_dsl::Modifier::MayCastFromGraveyardUsingAlt(
+                                        kind,
+                                    )
+                                && sa.condition.is_none_or(|cond| {
+                                    crate::eval::condition_holds(state, player, card, cond)
+                                })
+                    )
+                })
+            });
+    own || state.effects.iter().any(|fx| {
+        fx.modifier == baylee_cards_dsl::Modifier::MayCastFromGraveyardUsingAlt(kind)
+            && chars
+                .abilities_lost
+                .is_none_or(|lost| crate::object::Characteristics::lost_at(fx.timestamp) > lost)
+            && crate::effects::applies_to(state, fx, object)
+    })
+}
+
+pub(crate) fn any_graveyard_alt_open(state: &GameState, player: PlayerId, card: ObjectId) -> bool {
+    use baylee_cards_dsl::GraveyardAltKind as K;
+    [K::Mutate, K::Blitz, K::Warp, K::Sneak]
+        .into_iter()
+        .any(|k| graveyard_alt_open(state, player, card, k))
+}
+
 /// Whether any ordinary or printed graveyard route can announce this face.
 pub(crate) fn graveyard_face_open(
     state: &GameState,
@@ -268,6 +322,7 @@ pub(crate) fn graveyard_face_open(
         || !escape_grants(state, player, card).is_empty()
         || (face == 0 && flashback_granted(state, card))
         || (face == 0 && super::jump_start_granted(state, card))
+        || (face == 0 && any_graveyard_alt_open(state, player, card))
         || (face == 0
             && object
                 .characteristics()
@@ -287,6 +342,7 @@ pub(crate) fn graveyard_face_open(
                     || face.flashback.is_some()
                     || face.escape.is_some()
                     || face.beam_me_up.is_some()
+                    || (face.mayhem.is_some() && mayhem_discarded_this_turn(state, player, object))
             })
 }
 
@@ -547,25 +603,46 @@ pub fn land_card_open(state: &GameState, player: PlayerId, card: ObjectId) -> bo
         }
 }
 
+pub(crate) fn mayhem_discarded_this_turn(
+    state: &GameState,
+    player: PlayerId,
+    object: &crate::object::GameObject,
+) -> bool {
+    object.zone == Zone::Graveyard
+        && object.zone_owner == Some(player)
+        && state
+            .per_turn
+            .discarded_to_graveyard
+            .iter()
+            .any(|(reference, discarder)| {
+                *discarder == player
+                    && reference.object == object.id
+                    && reference.version == object.version
+            })
+}
+
+/// Native costed Mayhem (`CR 702.187a`) applies only to the exact discarded graveyard incarnation.
+pub(crate) fn mayhem_spell_permission(state: &GameState, player: PlayerId, card: ObjectId) -> bool {
+    use crate::state::CardLookup;
+    state.object(card).is_some_and(|object| {
+        mayhem_discarded_this_turn(state, player, object)
+            && object
+                .card
+                .and_then(|c| state.bases.card(c.index))
+                .and_then(|def| def.faces.first())
+                .is_some_and(|face| face.mayhem.is_some())
+    })
+}
+
 /// Native costless Mayhem applies only to the exact discarded land incarnation.
 pub(crate) fn mayhem_land_permission(state: &GameState, player: PlayerId, card: ObjectId) -> bool {
     state.object(card).is_some_and(|object| {
-        object.zone == Zone::Graveyard
-            && object.zone_owner == Some(player)
+        mayhem_discarded_this_turn(state, player, object)
             && object.characteristics().types.contains(TypeSet::LAND)
             && object
                 .characteristics()
                 .keywords
                 .contains(baylee_cards_dsl::KeywordSet::MAYHEM)
-            && state
-                .per_turn
-                .discarded_to_graveyard
-                .iter()
-                .any(|(reference, discarder)| {
-                    *discarder == player
-                        && reference.object == card
-                        && reference.version == object.version
-                })
     })
 }
 

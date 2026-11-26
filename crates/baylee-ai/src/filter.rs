@@ -510,6 +510,9 @@ impl HeuristicAgent {
             | Filter::UnCard
             | Filter::Kicked
             | Filter::CastFromHand
+            | Filter::WasCast
+            | Filter::WasCastByYou
+            | Filter::CastFromZone(_)
             | Filter::HasManaAbility
             | Filter::HasNonManaActivatedAbility
             | Filter::AttachedToBySource
@@ -525,6 +528,7 @@ impl HeuristicAgent {
             | Filter::ToughnessLessThanSourcePower
             | Filter::EnteredThisTurn
             | Filter::PutIntoGraveyardThisTurn
+            | Filter::SurveilledByYouThisTurn
             | Filter::AttackedThisTurn
             | Filter::ControlledSinceTurnBegan
             | Filter::SharesSubtypeWithCommander

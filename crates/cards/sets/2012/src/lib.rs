@@ -61,6 +61,8 @@ pub mod armada_wurm;
 pub mod armory_guard;
 #[path = "dka/artful_dodge.rs"]
 pub mod artful_dodge;
+#[path = "rtr/ash_zealot.rs"]
+pub mod ash_zealot;
 #[path = "rtr/assassin_s_strike.rs"]
 pub mod assassin_s_strike;
 #[path = "m13/attended_knight.rs"]
@@ -73,6 +75,8 @@ pub mod augur_of_bolas;
 pub mod avacyn_angel_of_hope;
 #[path = "dka/avacyn_s_collar.rs"]
 pub mod avacyn_s_collar;
+#[path = "rtr/avenging_arrow.rs"]
+pub mod avenging_arrow;
 #[path = "rtr/axebane_guardian.rs"]
 pub mod axebane_guardian;
 #[path = "rtr/axebane_stag.rs"]
@@ -297,6 +301,8 @@ pub mod demonlord_of_ashmouth;
 pub mod deranged_outcast;
 #[path = "avr/descendants_path.rs"]
 pub mod descendants_path;
+#[path = "rtr/desecration_demon.rs"]
+pub mod desecration_demon;
 #[path = "avr/desolate_lighthouse.rs"]
 pub mod desolate_lighthouse;
 #[path = "rtr/destroy_the_evidence.rs"]
@@ -497,6 +503,8 @@ pub mod golgari_keyrune;
 pub mod golgari_longlegs;
 #[path = "rtr/gore_house_chainwalker.rs"]
 pub mod gore_house_chainwalker;
+#[path = "dka/grafdigger_s_cage.rs"]
+pub mod grafdigger_s_cage;
 #[path = "rtr/grave_betrayal.rs"]
 pub mod grave_betrayal;
 #[path = "avr/grave_exchange.rs"]
@@ -609,6 +617,12 @@ pub mod hypersonic_dragon;
 pub mod illusory_angel;
 #[path = "rtr/inaction_injunction.rs"]
 pub mod inaction_injunction;
+#[path = "dka/increasing_devotion.rs"]
+pub mod increasing_devotion;
+#[path = "dka/increasing_savagery.rs"]
+pub mod increasing_savagery;
+#[path = "dka/increasing_vengeance.rs"]
+pub mod increasing_vengeance;
 #[path = "pc2/indrik_umbra.rs"]
 pub mod indrik_umbra;
 #[path = "avr/into_the_void.rs"]
@@ -945,6 +959,8 @@ pub mod search_warrant;
 pub mod searchlight_geist;
 #[path = "m13/searing_spear.rs"]
 pub mod searing_spear;
+#[path = "dka/secrets_of_the_dead.rs"]
+pub mod secrets_of_the_dead;
 #[path = "rtr/security_blockade.rs"]
 pub mod security_blockade;
 #[path = "rtr/selesnya_charm.rs"]

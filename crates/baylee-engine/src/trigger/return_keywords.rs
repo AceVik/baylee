@@ -1,5 +1,5 @@
 //! Death-triggered return and counter-transfer keywords, including their counter conditions.
-use super::{PendingTrigger, source_at_event, times_triggered, times_triggered_with_source};
+use super::{PendingTrigger, source_at_event};
 use crate::{event::GameEvent, object::GameObject, state::GameState, text_changes::TextChangeMap};
 
 static ARTIFACT_CREATURE: baylee_cards_dsl::Filter = baylee_cards_dsl::Filter::And(&[
@@ -121,10 +121,11 @@ pub(super) fn collect(
             }
             // CR 603.10a reads each death's exact pre-departure source, not
             // a later incarnation or whichever copy currently owns the handle.
-            let times = counts[index].saturating_mul(times_triggered(
+            let times = counts[index].saturating_mul(super::matching::times_triggered_for_entry(
                 state,
                 baylee_cards_dsl::TriggerEventKind::Any,
-                obj.id,
+                source,
+                Some(entry),
             ));
             for _ in 0..times {
                 triggers.push(PendingTrigger {
@@ -196,10 +197,11 @@ pub(super) fn collect_modular(
         if instances == 0 {
             continue;
         }
-        let times = instances.saturating_mul(times_triggered_with_source(
+        let times = instances.saturating_mul(super::matching::times_triggered_for_entry(
             state,
             baylee_cards_dsl::TriggerEventKind::Any,
             source,
+            Some(entry),
         ));
         for _ in 0..times {
             triggers.push(PendingTrigger {

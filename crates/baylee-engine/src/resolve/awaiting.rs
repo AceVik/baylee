@@ -850,6 +850,10 @@ pub enum AwaitingOp {
     NewTargets(Box<retarget::Retarget>),
     /// After `WishToHand`: the chosen card, if any, goes to its owner's hand.
     WishToHand,
+    /// First branch of `Effect::Learn` (`CR 701.46a–b`): if a Lesson card was
+    /// chosen from outside the game, reveal it and put it into hand; otherwise
+    /// offer the optional rummage ("discard a card to draw a card").
+    LearnWish,
     /// After `DigRest`: the unpicked cards go to the bottom in the
     /// player's chosen order.
     DigBottom,
@@ -1590,6 +1594,8 @@ pub enum AwaitingOp {
     },
     /// Card selection for `Effect::ChooseCardConstrained` (distinct-name or single-step).
     ChooseCardConstrained(Box<super::wave15b::ChooseConstrainedState>),
+    /// Permanent selection for `Effect::ChooseDistinctPowersOnBattlefield`.
+    ChooseDistinctPowers(Box<super::wave15b::ChooseDistinctPowersState>),
     /// Attachment selection for `Effect::AttachChosen` (CR 701.3a–b).
     AttachChosen {
         /// Recipient permanent or player to attach chosen permanents to.
@@ -2115,6 +2121,9 @@ impl AwaitingOp {
             } => crate::state::structural_fingerprint(&(250_u8, token, count, is_aura)),
             Self::ChooseCardConstrained(spec) => {
                 crate::state::structural_fingerprint(&(251_u8, spec))
+            }
+            Self::ChooseDistinctPowers(spec) => {
+                crate::state::structural_fingerprint(&(255_u8, 1_u16, spec))
             }
             Self::AttachChosen { host } => crate::state::structural_fingerprint(&(252_u8, host)),
             Self::ShieldFromChosenSourceWithLifeCondition {

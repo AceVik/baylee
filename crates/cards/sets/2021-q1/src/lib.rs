@@ -87,6 +87,8 @@ pub mod clarion_spirit;
 pub mod cleaving_reaper;
 #[path = "khm/colossal_plow.rs"]
 pub mod colossal_plow;
+#[path = "khm/cosmos_charger.rs"]
+pub mod cosmos_charger;
 #[path = "khm/cosmos_elixir.rs"]
 pub mod cosmos_elixir;
 #[path = "khm/crippling_fear.rs"]
@@ -347,6 +349,8 @@ pub mod rune_of_sustenance;
 pub mod runeforge_champion;
 #[path = "khc/ruthless_winnower.rs"]
 pub mod ruthless_winnower;
+#[path = "khc/sage_of_the_beyond.rs"]
+pub mod sage_of_the_beyond;
 #[path = "khm/sarulf_s_packmate.rs"]
 pub mod sarulf_s_packmate;
 #[path = "khm/saw_it_coming.rs"]
@@ -449,8 +453,12 @@ pub mod waking_the_trolls;
 pub mod warchanter_skald;
 #[path = "khm/warhorn_blast.rs"]
 pub mod warhorn_blast;
+#[path = "khm/weathered_runestone.rs"]
+pub mod weathered_runestone;
 #[path = "khm/weigh_down.rs"]
 pub mod weigh_down;
+#[path = "khm/withercrown.rs"]
+pub mod withercrown;
 #[path = "khc/wolverine_riders.rs"]
 pub mod wolverine_riders;
 #[path = "khm/woodland_chasm.rs"]

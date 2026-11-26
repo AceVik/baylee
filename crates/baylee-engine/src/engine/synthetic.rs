@@ -92,6 +92,7 @@ pub fn land_face(name: &'static str) -> FaceDef {
         impending: None,
         gift: None,
         warp: None,
+        mayhem: None,
         optional_cost: None,
         optional_cost_grants_flash: false,
     }

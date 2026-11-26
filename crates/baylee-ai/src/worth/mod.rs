@@ -293,6 +293,7 @@ fn countable(amount: Amount) -> bool {
         | Amount::LifeTotal(_)
         | Amount::GreatestPowerAmong(_)
         | Amount::GreatestManaValueAmong(_)
+        | Amount::DistinctPowersAmong(_)
         | Amount::DistinctCounterKindsOnSource
         | Amount::HighestOpponentHandSize => true,
         Amount::CountOf { zone, .. } => matches!(zone, ZoneSel::Battlefield),
@@ -916,7 +917,7 @@ impl HeuristicAgent {
         self.count_with_chosen(view, origin, amount, aim, x, None, 0)
     }
 
-    #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
     fn count_with_chosen(
         &self,
         view: &PlayerView,
@@ -1005,6 +1006,22 @@ impl HeuristicAgent {
                 .unwrap_or(0),
             Amount::DistinctManaValuesInZone { zone, filter } => {
                 self.distinct_mana_values_in_zone(view, origin, filter, zone, aim)?
+            }
+            Amount::DistinctPowersAmong(filter) => {
+                let mut powers = std::collections::BTreeSet::<i64>::new();
+                for o in &view.battlefield {
+                    if self.filter_matches(
+                        filter,
+                        view,
+                        o,
+                        ZoneRef::Battlefield,
+                        Some(origin.id),
+                    )? && let Some(p) = o.power
+                    {
+                        powers.insert(i64::from(p));
+                    }
+                }
+                i64::try_from(powers.len()).unwrap_or(0)
             }
             Amount::SourcePower => i64::from(origin.object?.power?),
             Amount::TargetPower => i64::from(target?.power?),
@@ -2584,6 +2601,8 @@ impl HeuristicAgent {
                 0
             }
             Effect::Amass { amount, .. } => 150 + count(*amount)? * 110,
+            Effect::Empower { amount, .. } => 160 + count(*amount)? * 110,
+            Effect::EmpowerJace { amount, .. } => 160 + i64::from(*amount) * 110,
             Effect::Bolster(amount) => {
                 if view.battlefield_of(me).any(creature) {
                     count(*amount)?.max(0) * 100
@@ -2676,6 +2695,7 @@ impl HeuristicAgent {
             | Effect::SearchLibrary { .. }
             | Effect::SearchLibraryUpTo { .. }
             | Effect::WishToHand { .. }
+            | Effect::Learn
             | Effect::LookAtTopPick { .. }
             | Effect::LookAtTopPickThenReorder { .. }
             | Effect::RevealTopAndSort { .. }
@@ -3203,6 +3223,22 @@ impl HeuristicAgent {
                     .filter(|entry| entry.count > 0)
                     .filter_map(|entry| {
                         self.counters(view, target, counter_from_view(entry.kind)?, 1)
+                    })
+                    .sum(),
+                _ => 0,
+            },
+            Effect::PutAllCountersFrom { .. } => match (subject, origin.object) {
+                (Some(target), Some(src)) => src
+                    .counters
+                    .iter()
+                    .filter(|entry| entry.count > 0)
+                    .filter_map(|entry| {
+                        self.counters(
+                            view,
+                            target,
+                            counter_from_view(entry.kind)?,
+                            i64::from(entry.count),
+                        )
                     })
                     .sum(),
                 _ => 0,
@@ -3862,6 +3898,7 @@ impl HeuristicAgent {
                 | CostPart::RevealFromHandX(_)
                 | CostPart::ExileFromGraveyardX(_)
                 | CostPart::Behold(_)
+                | CostPart::BeholdAndExile(_)
                 | CostPart::RevealSelfFromHand => 0,
                 CostPart::RevealFromHand(filter) => {
                     if view

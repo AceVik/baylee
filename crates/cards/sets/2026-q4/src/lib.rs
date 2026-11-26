@@ -15,6 +15,8 @@ pub use baylee_cards_base::{filters, generated_tokens, tokens};
 
 #[path = "trk/a_good_day_to_die.rs"]
 pub mod a_good_day_to_die;
+#[path = "fra/academic_ascent.rs"]
+pub mod academic_ascent;
 #[path = "trk/academy_instructor.rs"]
 pub mod academy_instructor;
 #[path = "fra/aerid_konstrari.rs"]
@@ -43,6 +45,8 @@ pub mod antagonist_incorporator;
 pub mod anthropological_mission;
 #[path = "fra/apex_witchstalker.rs"]
 pub mod apex_witchstalker;
+#[path = "fra/arcane_amphisbaena.rs"]
+pub mod arcane_amphisbaena;
 #[path = "fra/archive_arbiter.rs"]
 pub mod archive_arbiter;
 #[path = "trk/armus_skin_of_evil.rs"]
@@ -117,6 +121,8 @@ pub mod break_under_pressure;
 pub mod budding_insurgent;
 #[path = "trk/c_70_000_light_years_from_home.rs"]
 pub mod c_70_000_light_years_from_home;
+#[path = "fra/campus_crier.rs"]
+pub mod campus_crier;
 #[path = "trk/cantankerous_captain.rs"]
 pub mod cantankerous_captain;
 #[path = "trc/captain_janeway_endgame.rs"]
@@ -259,6 +265,8 @@ pub mod dominion_infiltration;
 pub mod dominion_supervisor;
 #[path = "trk/dot_7_repair_squad.rs"]
 pub mod dot_7_repair_squad;
+#[path = "trk/dr_beverly_crusher.rs"]
+pub mod dr_beverly_crusher;
 #[path = "trk/dr_joseph_m_benga.rs"]
 pub mod dr_joseph_m_benga;
 #[path = "trc/dr_pulaski_cynical_clinician.rs"]
@@ -303,6 +311,8 @@ pub mod extended_absence;
 pub mod eye_of_jace;
 #[path = "fra/fatehold_annex.rs"]
 pub mod fatehold_annex;
+#[path = "fra/fatehold_charm.rs"]
+pub mod fatehold_charm;
 #[path = "fra/fatehold_chronologist.rs"]
 pub mod fatehold_chronologist;
 #[path = "fra/fateshaper_aspirant.rs"]
@@ -453,6 +463,8 @@ pub mod indelicate_healer;
 pub mod ingris_stingerquill;
 #[path = "fra/innovative_commons.rs"]
 pub mod innovative_commons;
+#[path = "fra/inspired_tethermage.rs"]
+pub mod inspired_tethermage;
 #[path = "trk/interstellar_effigy.rs"]
 pub mod interstellar_effigy;
 #[path = "trk/isolinear_processor.rs"]
@@ -473,6 +485,8 @@ pub mod jean_luc_picard_luminary;
 pub mod jefferies_tube;
 #[path = "frc/jhoira_weatherlight_corsair.rs"]
 pub mod jhoira_weatherlight_corsair;
+#[path = "fra/jiang_yanggu_alone.rs"]
+pub mod jiang_yanggu_alone;
 #[path = "fra/jiang_yanggu_never_alone.rs"]
 pub mod jiang_yanggu_never_alone;
 #[path = "trc/join_the_collective.rs"]
@@ -487,6 +501,8 @@ pub mod jurati_cordial_queen;
 pub mod k_vort_class_raider;
 #[path = "fra/karn_gilded_guardian.rs"]
 pub mod karn_gilded_guardian;
+#[path = "fra/keeper_of_the_quiet_hour.rs"]
+pub mod keeper_of_the_quiet_hour;
 #[path = "trc/kes_evolving_telepath.rs"]
 pub mod kes_evolving_telepath;
 #[path = "trk/khaaaaaaaaaaaannn.rs"]
@@ -619,6 +635,8 @@ pub mod ni_var_science_academy;
 pub mod nissa_leyline_tamer;
 #[path = "frc/niv_mizzet_ghost_counsel.rs"]
 pub mod niv_mizzet_ghost_counsel;
+#[path = "fra/no_admittance.rs"]
+pub mod no_admittance;
 #[path = "trk/nyota_uhura_communications.rs"]
 pub mod nyota_uhura_communications;
 #[path = "frc/ob_nixilis_the_ascended.rs"]
@@ -643,6 +661,8 @@ pub mod optimization_annex;
 pub mod organic_avulsion_unit;
 #[path = "trk/orion.rs"]
 pub mod orion;
+#[path = "fra/overwrite_the_multiverse.rs"]
+pub mod overwrite_the_multiverse;
 #[path = "trc/pelia_immortal_innovator.rs"]
 pub mod pelia_immortal_innovator;
 #[path = "fra/perfected_theory.rs"]
@@ -683,6 +703,8 @@ pub mod primary_unimatrix_adjunct;
 pub mod proft_sinister_mastermind;
 #[path = "fra/prophesied_end.rs"]
 pub mod prophesied_end;
+#[path = "fra/protege_s_awakening.rs"]
+pub mod protege_s_awakening;
 #[path = "fra/puppet_crafting.rs"]
 pub mod puppet_crafting;
 #[path = "fra/pyre_rhymer.rs"]
@@ -721,6 +743,8 @@ pub mod reg_barclay_fidgety_fantasist;
 pub mod relentless_drednok;
 #[path = "trk/replicator.rs"]
 pub mod replicator;
+#[path = "fra/repurposed_enforcer.rs"]
+pub mod repurposed_enforcer;
 #[path = "fra/rescue_girl_first_responder.rs"]
 pub mod rescue_girl_first_responder;
 #[path = "trk/resistance_is_futile.rs"]
@@ -729,6 +753,8 @@ pub mod resistance_is_futile;
 pub mod restore_with_empathy;
 #[path = "fra/return_to_the_light_realms.rs"]
 pub mod return_to_the_light_realms;
+#[path = "fra/rewrite_regrets.rs"]
+pub mod rewrite_regrets;
 #[path = "trk/risa.rs"]
 pub mod risa;
 #[path = "trc/ro_laren_double_agent.rs"]
@@ -811,6 +837,8 @@ pub mod skilled_battlecarver;
 pub mod solarium_sentry;
 #[path = "fra/solitary_cell.rs"]
 pub mod solitary_cell;
+#[path = "fra/solve_for_disappointment.rs"]
+pub mod solve_for_disappointment;
 #[path = "fra/something_worth_saving.rs"]
 pub mod something_worth_saving;
 #[path = "trk/spatial_anomaly.rs"]
@@ -869,6 +897,8 @@ pub mod tal_shiar_analyst;
 pub mod tal_shiar_operative;
 #[path = "trc/talarian_hook_spider.rs"]
 pub mod talarian_hook_spider;
+#[path = "fra/tam_s_resistance.rs"]
+pub mod tam_s_resistance;
 #[path = "trk/targ_wrangler.rs"]
 pub mod targ_wrangler;
 #[path = "trk/tasha_yar_out_of_time.rs"]
@@ -945,6 +975,8 @@ pub mod theorix_annex;
 pub mod theorix_charm;
 #[path = "trk/those_old_scientists.rs"]
 pub mod those_old_scientists;
+#[path = "fra/tinybones_pocket_nuisance.rs"]
+pub mod tinybones_pocket_nuisance;
 #[path = "trc/tom_paris_risk_taker.rs"]
 pub mod tom_paris_risk_taker;
 #[path = "fra/tomik_izzet_sparkmage.rs"]
@@ -1031,6 +1063,10 @@ pub mod vigorbloom_charm;
 pub mod vigorbloom_vanguard;
 #[path = "fra/vinelasher_adept.rs"]
 pub mod vinelasher_adept;
+#[path = "fra/violent_echoes.rs"]
+pub mod violent_echoes;
+#[path = "fra/vraska_s_final_mercy.rs"]
+pub mod vraska_s_final_mercy;
 #[path = "fra/vraska_soul_of_stone.rs"]
 pub mod vraska_soul_of_stone;
 #[path = "fra/vraska_the_cutting_glare.rs"]
@@ -1041,6 +1077,10 @@ pub mod vulcan;
 pub mod warp_core;
 #[path = "trc/warship_flight_crew.rs"]
 pub mod warship_flight_crew;
+#[path = "fra/way_of_the_mentor.rs"]
+pub mod way_of_the_mentor;
+#[path = "fra/way_of_the_necromancer.rs"]
+pub mod way_of_the_necromancer;
 #[path = "trc/will_riker_assuming_command.rs"]
 pub mod will_riker_assuming_command;
 #[path = "fra/winter_team_player.rs"]

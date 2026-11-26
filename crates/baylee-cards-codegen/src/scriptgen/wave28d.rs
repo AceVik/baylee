@@ -1281,9 +1281,11 @@ impl Tx<'_> {
         let (var, cmp) = cond_spec.trim().rsplit_once(' ')?;
         let var_def = self.svars.get(var.trim())?.trim();
         if !matches!(var_def, "Remembered$Amount" | "Count$RememberedSize") {
-            return None;
+            return self.wave29a_remembered_compare_amount(base_raw);
         }
-        let cond = Self::wave15_amount_cmp("Amount::RememberedCount", cmp.trim())?;
+        let Some(cond) = Self::wave15_amount_cmp("Amount::RememberedCount", cmp.trim()) else {
+            return self.wave29a_remembered_compare_amount(base_raw);
+        };
         Some(format!(
             "Amount::IfCondition {{ condition: &{cond}, \
              then: &Amount::Fixed({then_n}), otherwise: &Amount::Fixed({else_n}) }}"
@@ -1364,6 +1366,8 @@ impl Tx<'_> {
                 probe_p.peek("Defined"),
                 Some("Player" | "Opponent" | "Player.Opponent" | "Player.Other")
             ),
+            captured_zone: None,
+            dest_hand_you: false,
         };
         let first_effects =
             self.wave28d_mill_effect(&mut probe_p, target, flags.targets_a_player)?;

@@ -576,6 +576,7 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
         // journal — the same refusal as the rest of this list.
         | Filter::EnteredThisTurn
         | Filter::PutIntoGraveyardThisTurn
+        | Filter::SurveilledByYouThisTurn
         // Which creatures attacked, and since when a controller has held a
         // permanent, are history of the same kind.
         | Filter::AttackedThisTurn
@@ -608,6 +609,9 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
         | Filter::SpellTargetingAffected
         | Filter::Kicked
         | Filter::CastFromHand
+        | Filter::WasCast
+        | Filter::WasCastByYou
+        | Filter::CastFromZone(_)
         // Relative to a resolution's reference object, this turn's blocks
         // and damage, or a colour chosen or compared across
         // the board: nothing a target probe from the view can close.

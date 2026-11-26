@@ -1711,6 +1711,148 @@ pub enum Modifier {
     /// embalm cost equal to its mana cost (`CR 702.128a`; *Cursecloth
     /// Wrappings*). Appended to preserve replay identities.
     GrantsEmbalmManaCost,
+    /// Dynamic mana-symbol spell cost reduction (`CR 601.2f`, `CR 118.7b–c`;
+    /// *Demilich*, *Khalni Hydra*): matching spells `who` casts cost `unit`
+    /// less to cast for each unit of `amount`. Appended to preserve replay
+    /// identities.
+    SpellsCostLessManaByAmount {
+        /// Whose spells receive the reduction.
+        who: crate::effect::PlayerRel,
+        /// Spell filter evaluated on the prospective stack spell.
+        filter: &'static Filter,
+        /// Mana reduction per counted unit.
+        unit: baylee_core::mana::ManaCost,
+        /// When `true`, excess colored reduction does not spill into generic mana (`CR 118.7c`).
+        colored_only: bool,
+        /// Dynamic unit count evaluated at cost determination.
+        amount: &'static crate::Amount,
+    },
+    /// Target-conditional cost increase on spells or activated abilities
+    /// (`CR 601.2f`, `CR 602.2b`; *Dragon's Prey*, *Vanish into Eternity*,
+    /// *Kopala, Warden of Waves*, *Terror of the Peaks*). Appended to preserve
+    /// replay identities.
+    RaiseCostIfTargets {
+        /// Whose spells or abilities are taxed.
+        who: crate::effect::PlayerRel,
+        /// Filter matched against the spell or ability source.
+        spell_filter: &'static Filter,
+        /// Filter matched against chosen targets of the spell or ability.
+        target_filter: &'static Filter,
+        /// Additional mana cost added when any chosen target matches `target_filter`.
+        extra_mana: baylee_core::mana::ManaCost,
+        /// Additional life payment added when any chosen target matches `target_filter`.
+        extra_life: u32,
+        /// `false` for spells, `true` for activated abilities.
+        abilities: bool,
+    },
+    /// Non-mana activated abilities matching `filter` activated by `who` cost
+    /// `{amount}` more generic mana to activate (`CR 602.2b`, `CR 605.1`;
+    /// *Suppression Field*, *Anointed Peacekeeper*, *Tithe Taker*). Appended to
+    /// preserve replay identities.
+    NonManaAbilitiesCostMore {
+        /// Whose activations are taxed.
+        who: crate::effect::PlayerRel,
+        /// Source object filter.
+        filter: &'static Filter,
+        /// Generic mana added to the activation cost.
+        amount: u32,
+    },
+    /// Loyalty abilities of planeswalkers matching `filter` activated by `who`
+    /// cost `{amount}` more generic mana to activate (`CR 606.4`; *Eidolon of
+    /// Obstruction*). Appended to preserve replay identities.
+    LoyaltyAbilitiesCostMore {
+        /// Whose loyalty activations are taxed.
+        who: crate::effect::PlayerRel,
+        /// Planeswalker source filter.
+        filter: &'static Filter,
+        /// Generic mana added to the loyalty activation cost.
+        amount: u32,
+    },
+    /// Loyalty abilities of planeswalkers matching `filter` activated by `who`
+    /// have their loyalty counter cost adjusted by `delta` (`CR 606.4`; *Carth
+    /// the Lion* `+1` makes `[+2]` -> `[+3]`, `[0]` -> `[+1]`, `[-3]` -> `[-2]`).
+    /// Appended to preserve replay identities.
+    AdjustLoyaltyCost {
+        /// Whose loyalty activations are adjusted.
+        who: crate::effect::PlayerRel,
+        /// Planeswalker source filter.
+        filter: &'static Filter,
+        /// Signed loyalty cost delta (`+1` = an additional `[+1]`).
+        delta: i8,
+    },
+    /// Equip abilities `who` activates that target an object matching
+    /// `target_filter` cost `{amount}` less generic mana to activate
+    /// (`CR 702.6a`; *Fervent Champion*, *Cloud, Planet's Champion*, *Strong
+    /// Back*). Appended to preserve replay identities.
+    EquipCostsLessIfTargets {
+        /// Whose equip activations receive the reduction.
+        who: crate::effect::PlayerRel,
+        /// Target filter matched against the equip target.
+        target_filter: &'static Filter,
+        /// Generic mana subtracted from the equip cost.
+        amount: u32,
+    },
+    /// Foretelling cards from `who`'s hand costs `{amount}` less generic mana
+    /// (`CR 702.143a`; *Cosmos Charger*, *Ranar the Ever-Watchful*). When
+    /// `first_each_turn_only` is `true`, applies only to the first card that
+    /// player foretells each turn. Appended to preserve replay identities.
+    ForetellActionCostsLess {
+        /// Whose foretell special actions receive the reduction.
+        who: crate::effect::PlayerRel,
+        /// Generic mana subtracted from `{2}`.
+        amount: u8,
+        /// Whether only the first foretell by that player each turn is reduced.
+        first_each_turn_only: bool,
+    },
+    /// Matching players may foretell cards from their hand on any player's turn
+    /// any time they have priority (`CR 702.143a`; *Cosmos Charger*). Appended
+    /// to preserve replay identities.
+    MayForetellAnyTurn {
+        /// Who may foretell on any player's turn.
+        who: crate::effect::PlayerRel,
+    },
+    /// Unlocking Room doors costs `{amount}` less generic mana for `who`
+    /// (`CR 709.5e`; *Inquisitive Glimmer*). Appended to preserve replay
+    /// identities.
+    UnlockCostsLess {
+        /// Whose Room door unlock actions receive the reduction.
+        who: crate::effect::PlayerRel,
+        /// Generic mana subtracted from the door's unlock cost.
+        amount: u8,
+    },
+    /// The affected permanent card in its owner's graveyard has `Unearth` with
+    /// mana cost `0` (`CR 702.84a`; *Sedris, the Traitor King*, *Dregscape
+    /// Sliver*, *Mishra, Tamer of Mak Fawa*, *Solemn Doomguide*). Appended to
+    /// preserve replay identities.
+    GrantsUnearth(baylee_core::mana::ManaCost),
+    /// The affected creature card in its owner's graveyard has `Scavenge` with
+    /// a scavenge cost equal to its mana cost (`CR 702.97a`; *Varolz, the
+    /// Scar-Striped*, *Young Deathclaws*). Appended to preserve replay
+    /// identities.
+    GrantsScavengeManaCost,
+    /// The affected card in its owner's graveyard has `Dredge N` (`CR 702.52a`;
+    /// *The Necrobloom*). Appended to preserve replay identities.
+    GrantsDredge(u8),
+    /// The affected card in its owner's graveyard may be cast from its owner's
+    /// graveyard using the specified keyword alternative cost (`CR 702.140a`
+    /// Mutate, `CR 702.152a` Blitz, `CR 702.185a` Warp, `CR 702.190a` Sneak;
+    /// *Brokkos, Apex of Forever*, *Tenacious Underdog*, *Timeline Culler*,
+    /// *Ninja Teen*). Appended to preserve replay identities.
+    MayCastFromGraveyardUsingAlt(GraveyardAltKind),
+}
+
+/// Keyword alternative-cost modes opened from a graveyard by
+/// [`Modifier::MayCastFromGraveyardUsingAlt`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum GraveyardAltKind {
+    /// Mutate (`CR 702.140a`; *Brokkos, Apex of Forever*).
+    Mutate,
+    /// Blitz (`CR 702.152a`; *Tenacious Underdog*).
+    Blitz,
+    /// Warp (`CR 702.185a`; *Timeline Culler*).
+    Warp,
+    /// Sneak (`CR 702.190a`; *Ninja Teen*).
+    Sneak,
 }
 
 /// Quantity evaluated during CR 601.2f spell cost determination by
@@ -1743,6 +1885,14 @@ pub enum SpellCastMetric {
     /// spell, `0` otherwise (`CR 601.2f`, `CR 118.8b`; *Bite Down on Crime*).
     /// Appended to preserve replay identities.
     OptionalCostPaid,
+    /// `1` when this spell was bargained (`CR 702.166a`; *Hamlet Glutton*, *Ice
+    /// Out*, *Johann's Stopgap*), `0` otherwise. Appended to preserve replay
+    /// identities.
+    Bargained,
+    /// Number of distinct chosen object targets on this spell matching the
+    /// filter (`CR 601.2f`; *Battlefield Thaumaturge*). Appended to preserve
+    /// replay identities.
+    DistinctTargetsMatching(&'static crate::Filter),
 }
 
 /// Donor zone(s) scanned by [`Modifier::GainActivatedAbilitiesOf`].
@@ -2008,6 +2158,9 @@ impl Modifier {
             | Self::GrantsJumpStart
             | Self::GrantsEncoreManaCost
             | Self::GrantsEmbalmManaCost
+            | Self::GrantsUnearth(_)
+            | Self::GrantsScavengeManaCost
+            | Self::GrantsDredge(_)
             | Self::Sneak(_)
             | Self::CantActivateArtifacts
             // CR 613.1f is the whole argument for these two: "Layer 6:
@@ -2222,7 +2375,17 @@ impl Modifier {
             | Self::ModifyLifeGain { .. }
             | Self::PreventDamageRemovingCounters { .. }
             | Self::PreventDamageToAffectedIfAtMost(_)
-            | Self::DamageCantBePrevented => Layer::Text,
+            | Self::DamageCantBePrevented
+            | Self::SpellsCostLessManaByAmount { .. }
+            | Self::RaiseCostIfTargets { .. }
+            | Self::NonManaAbilitiesCostMore { .. }
+            | Self::LoyaltyAbilitiesCostMore { .. }
+            | Self::AdjustLoyaltyCost { .. }
+            | Self::EquipCostsLessIfTargets { .. }
+            | Self::ForetellActionCostsLess { .. }
+            | Self::MayForetellAnyTurn { .. }
+            | Self::UnlockCostsLess { .. }
+            | Self::MayCastFromGraveyardUsingAlt(_) => Layer::Text,
         }
     }
 }
@@ -2727,6 +2890,78 @@ pub enum ReplacementRule {
         /// Condition evaluated against the replacement source and its controller.
         condition: crate::ability::Condition,
     },
+    /// Generalized event-cause and/or conditional trigger-doubling rule (`CR 603.2d`,
+    /// `CR 603.10a`: *Panharmonicon*, *Drivnod, Carnage Dominus*, *Teysa Karlov*,
+    /// *Ancient Greenwarden*, *Gandalf the White*, *Dr. Beverly Crusher*, *Veyran,
+    /// Voice of Duality*, *Wulfgar of Icewind Dale*, *Felix Five-Boots*, *Wayta,
+    /// Trainer Prodigy*, *Krang, the All-Powerful*, *Panoptic Projektor*, *Sanctum
+    /// of All*). When `cause` matches the triggering event (and `condition`, if any,
+    /// holds for the rule's source and controller), matching triggered abilities
+    /// trigger an additional time. Appended to preserve replay identities.
+    TriggerMultiplierMatching {
+        /// Which triggered ability sources are multiplied (evaluated with the
+        /// replacement rule's controller as `you` and source as `this`).
+        source_filter: &'static Filter,
+        /// Which causing event qualifies for the additional trigger.
+        cause: TriggerCause,
+        /// Optional board condition required for the multiplier to apply.
+        condition: Option<crate::ability::Condition>,
+    },
+}
+
+/// Event-cause predicate for [`ReplacementRule::TriggerMultiplierMatching`]
+/// (`CR 603.2d`, `CR 603.10a`). Evaluated with the replacement rule's controller
+/// as `you` and replacement source as `this`.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum TriggerCause {
+    /// Any triggering event (used when `TriggerMultiplierMatching` carries a
+    /// `condition` without restricting the causing event: *Sanctum of All*).
+    Any,
+    /// A permanent matching `filter` entering the battlefield (*Panharmonicon*,
+    /// *Ancient Greenwarden*, *Naban, Dean of Iteration*, *Traveling Chocobo*).
+    EntersBattlefield(&'static Filter),
+    /// A permanent matching `filter` dying — moving from the battlefield to a
+    /// graveyard, evaluated against pre-departure LKI (`CR 603.10a`: *Drivnod,
+    /// Carnage Dominus*, *Teysa Karlov*).
+    Dies(&'static Filter),
+    /// A permanent matching `filter` leaving the battlefield (`CR 603.10a`:
+    /// *Gandalf the White*).
+    LeavesBattlefield(&'static Filter),
+    /// A permanent matching `filter` sacrificed by a player matching `who`,
+    /// evaluated against pre-departure LKI (`CR 603.10a`).
+    Sacrificed {
+        /// Sacrificed permanent filter.
+        filter: &'static Filter,
+        /// Sacrificing player relative to the replacement rule's controller.
+        who: crate::effect::PlayerRel,
+    },
+    /// A creature matching `filter` being declared as an attacker (*Wulfgar of
+    /// Icewind Dale*).
+    Attack(&'static Filter),
+    /// A player matching `who` casting (or copying when `allow_copy` is `true`)
+    /// a spell matching `filter` (*Veyran, Voice of Duality*).
+    SpellCastOrCopy {
+        /// Cast or copied spell filter.
+        filter: &'static Filter,
+        /// Caster or copier relative to the replacement rule's controller.
+        who: crate::effect::PlayerRel,
+        /// Whether spell copies (`GameEvent::SpellCopied`) also qualify.
+        allow_copy: bool,
+    },
+    /// A player matching `PlayerRel` gaining life (*Dr. Beverly Crusher*).
+    LifeGained(crate::effect::PlayerRel),
+    /// A player matching `PlayerRel` drawing a card (*Krang, the All-Powerful*).
+    CardDrawn(crate::effect::PlayerRel),
+    /// A source matching `filter` dealing combat damage to a player (*Felix
+    /// Five-Boots*).
+    DealsCombatDamageToPlayer(&'static Filter),
+    /// A permanent matching `filter` being dealt damage (*Wayta, Trainer Prodigy*).
+    DealtDamage(&'static Filter),
+    /// A face-down permanent matching `filter` turning face up (*Panoptic Projektor*).
+    TurnedFaceUp(&'static Filter),
+    /// A permanent matching `filter` becoming the target of a spell or ability
+    /// (*Valiant Emberkin*).
+    BecomesTarget(&'static Filter),
 }
 
 /// Which turn-local damage history [`ReplacementRule::ExileInsteadOfGraveyard`]
@@ -2923,6 +3158,12 @@ mod tests {
             (Modifier::GrantsJumpStart, Layer::Ability),
             (Modifier::GrantsEncoreManaCost, Layer::Ability),
             (Modifier::GrantsEmbalmManaCost, Layer::Ability),
+            (
+                Modifier::GrantsUnearth(baylee_core::mana::ManaCost::ZERO),
+                Layer::Ability,
+            ),
+            (Modifier::GrantsScavengeManaCost, Layer::Ability),
+            (Modifier::GrantsDredge(2), Layer::Ability),
             (
                 Modifier::CharacteristicPT {
                     count: PtCount::CardTypesInAllGraveyards,
@@ -3292,6 +3533,54 @@ mod tests {
             },
             Modifier::PreventDamageToAffectedIfAtMost(3),
             Modifier::DamageCantBePrevented,
+            Modifier::SpellsCostLessManaByAmount {
+                who: crate::PlayerRel::You,
+                filter: &Filter::This,
+                unit: baylee_core::mana::ManaCost::parse("{U}"),
+                colored_only: false,
+                amount: &crate::Amount::Fixed(1),
+            },
+            Modifier::RaiseCostIfTargets {
+                who: crate::PlayerRel::You,
+                spell_filter: &Filter::This,
+                target_filter: &Filter::CREATURE,
+                extra_mana: baylee_core::mana::ManaCost::parse("{2}"),
+                extra_life: 0,
+                abilities: false,
+            },
+            Modifier::NonManaAbilitiesCostMore {
+                who: crate::PlayerRel::EachPlayer,
+                filter: &Filter::Any,
+                amount: 2,
+            },
+            Modifier::LoyaltyAbilitiesCostMore {
+                who: crate::PlayerRel::EachOpponent,
+                filter: &Filter::ControlledByOpponent,
+                amount: 1,
+            },
+            Modifier::AdjustLoyaltyCost {
+                who: crate::PlayerRel::You,
+                filter: &Filter::ControlledByYou,
+                delta: 1,
+            },
+            Modifier::EquipCostsLessIfTargets {
+                who: crate::PlayerRel::You,
+                target_filter: &Filter::This,
+                amount: 2,
+            },
+            Modifier::ForetellActionCostsLess {
+                who: crate::PlayerRel::You,
+                amount: 1,
+                first_each_turn_only: false,
+            },
+            Modifier::MayForetellAnyTurn {
+                who: crate::PlayerRel::You,
+            },
+            Modifier::UnlockCostsLess {
+                who: crate::PlayerRel::You,
+                amount: 1,
+            },
+            Modifier::MayCastFromGraveyardUsingAlt(GraveyardAltKind::Blitz),
         ] {
             assert_eq!(
                 modifier.layer(),

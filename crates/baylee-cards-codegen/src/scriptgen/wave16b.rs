@@ -31,6 +31,7 @@ impl Tx<'_> {
         raw.is_some_and(|c| {
             cost_parts(c).iter().any(|t| {
                 t.starts_with("Behold<")
+                    || t.starts_with("BeholdExile<")
                     || t.starts_with("RevealOrChoose<")
                     || (t.starts_with("Reveal<")
                         && !t.starts_with("Reveal<1/CARDNAME")
@@ -43,16 +44,16 @@ impl Tx<'_> {
     /// active `A:SP$` `Cost$` beholds a permanent or reveals a card from hand.
     pub(super) fn has_behold_or_reveal_spell_cost(&self) -> bool {
         self.cost_beholds_or_reveals
-            || self
-                .body
-                .optional_cost
-                .as_deref()
-                .is_some_and(|c| c.contains("Behold(") || c.contains("RevealFromHand("))
-            || self
-                .body
-                .mandatory_additional_costs
-                .iter()
-                .any(|c| c.contains("Behold(") || c.contains("RevealFromHand("))
+            || self.body.optional_cost.as_deref().is_some_and(|c| {
+                c.contains("Behold(")
+                    || c.contains("BeholdAndExile(")
+                    || c.contains("RevealFromHand(")
+            })
+            || self.body.mandatory_additional_costs.iter().any(|c| {
+                c.contains("Behold(")
+                    || c.contains("BeholdAndExile(")
+                    || c.contains("RevealFromHand(")
+            })
     }
 
     /// `A:SP$ PermanentCreature` and `A:SP$ PermanentNoncreature`: permanent
@@ -406,7 +407,7 @@ impl Tx<'_> {
         {
             return Some((format!("Modifier::GrantsEscape({n})"), false));
         }
-        None
+        Self::wave17c_graveyard_grant_modifier(kw, allow_retrace)
     }
 
     /// Single-target `DB$ Pump | PumpZone$ Graveyard | KW$ ...` ->

@@ -1009,43 +1009,8 @@ impl Tx<'_> {
         })
     }
 
-    fn panharmonicon_static(&mut self, mut p: Params) -> Option<()> {
-        p.drop_prose();
-        if let Some(sec) = p.take("Secondary")
-            && sec != "True"
-        {
-            return self.deny("static ability `S: Mode$ Panharmonicon`".to_string());
-        }
-        let Some(valid_card) = p.take("ValidCard") else {
-            return self.deny("static ability `S: Mode$ Panharmonicon`".to_string());
-        };
-        let event = match p.take("ValidMode").as_deref() {
-            None => "TriggerEventKind::Any",
-            Some("ChangesZone" | "ChangesZoneAll" | "ChangesZone,ChangesZoneAll") => {
-                if p.take("Destination").as_deref() != Some("Battlefield")
-                    || p.take("ValidCause").as_deref() != Some("Permanent")
-                {
-                    return self.deny("static ability `S: Mode$ Panharmonicon`".to_string());
-                }
-                "TriggerEventKind::EntersBattlefield"
-            }
-            Some(other) => {
-                let Some(ev) = Self::wave28c_panharmonicon_attack(&mut p, other) else {
-                    return self.deny("static ability `S: Mode$ Panharmonicon`".to_string());
-                };
-                ev
-            }
-        };
-        if !p.exhausted() {
-            return self.deny("static ability `S: Mode$ Panharmonicon`".to_string());
-        }
-        let expr = self.filter_expr(&valid_card)?;
-        let filter = self.body.filter_static("TRIGGER_MULT", &expr);
-        self.body.abilities.push(format!(
-            "AbilityDef::Replacement(ReplacementRule::TriggerMultiplier {{ \
-             source_filter: &{filter}, event: {event} }})"
-        ));
-        Some(())
+    fn panharmonicon_static(&mut self, p: Params) -> Option<()> {
+        self.wave17a_panharmonicon_static(p)
     }
 
     fn disable_triggers_static(&mut self, mut p: Params) -> Option<()> {
@@ -1497,8 +1462,21 @@ impl Tx<'_> {
             return ZoneContinuousOutcome::Handled(self.continuous_library_top_dispatch(p));
         }
         if p.peek("AffectedZone") == Some("Graveyard")
+            && p.peek("MayPlay") == Some("True")
+            && p.has("ValidSA")
+        {
+            return ZoneContinuousOutcome::Handled(self.wave17c_graveyard_alt_play(p));
+        }
+        if p.peek("AffectedZone") == Some("Graveyard")
+            && p.peek("RemoveAllAbilities") == Some("True")
+        {
+            return ZoneContinuousOutcome::Handled(self.wave17c_graveyard_lose_all_abilities(p));
+        }
+        if p.peek("AffectedZone") == Some("Graveyard")
             && matches!(p.peek("EffectZone"), None | Some("Battlefield"))
             && p.peek("MayPlay") == Some("True")
+            && !p.has("MayPlayAltManaCost")
+            && !p.has("MayPlayWithoutManaCost")
         {
             return ZoneContinuousOutcome::Handled(self.continuous_graveyard_play_dispatch(p));
         }
@@ -1516,10 +1494,8 @@ impl Tx<'_> {
                     "Battlefield" | "Command" | "Battlefield,Command" | "Command,Battlefield"
                 )
             )
-            && p.peek("AddKeyword").is_some_and(|k| {
-                k.trim() == "Flashback"
-                    || k.trim().starts_with("Escape:CardManaCost ExileFromGrave<")
-            })
+            && p.peek("AddKeyword")
+                .is_some_and(|k| Self::wave16b_graveyard_grant_modifier(k, true).is_some())
         {
             return ZoneContinuousOutcome::Handled(self.continuous_graveyard_keyword(p));
         }
@@ -3457,6 +3433,9 @@ impl Tx<'_> {
     }
 
     fn moved_cant_enter(&mut self, mut p: Params) -> Option<()> {
+        if let Some(()) = self.wave29d_moved_cant_enter_from_zone(&p) {
+            return Some(());
+        }
         p.drop_prose();
         if p.take("ActiveZones").as_deref() != Some("Battlefield")
             || p.take("Destination").as_deref() != Some("Battlefield")

@@ -378,7 +378,10 @@ pub fn sync_granted_activated(state: &mut GameState, lookup: &impl CardLookup) {
     for effect in state.effects.iter() {
         if matches!(
             effect.modifier,
-            Modifier::GrantsEncoreManaCost | Modifier::GrantsEmbalmManaCost
+            Modifier::GrantsEncoreManaCost
+                | Modifier::GrantsEmbalmManaCost
+                | Modifier::GrantsUnearth(_)
+                | Modifier::GrantsScavengeManaCost
         ) {
             for p in &state.players {
                 for &card_id in state.zones.list(ZoneLocation::Graveyard(p.id)) {
@@ -386,43 +389,77 @@ pub fn sync_granted_activated(state: &mut GameState, lookup: &impl CardLookup) {
                         continue;
                     };
                     let chars = card_obj.characteristics();
-                    if chars.abilities_lost.is_some()
-                        || chars.rules_text_lost
+                    if chars.abilities_lost.is_some_and(|lost| {
+                        crate::object::Characteristics::lost_at(effect.timestamp) <= lost
+                    }) || chars.rules_text_lost
                         || !super::applies_to(state, effect, card_obj)
                     {
                         continue;
                     }
-                    let Some(mana) = card_obj
-                        .card
-                        .and_then(|c| lookup.card(c.index))
-                        .and_then(|def| def.faces.first())
-                        .map(|f| f.mana_cost)
-                        .filter(crate::casting::has_a_printed_cost)
-                    else {
-                        continue;
-                    };
-                    let cost = Cost {
-                        mana,
-                        parts: &EXILE_SELF_PARTS,
-                    };
                     let (synth_idx, definition) = match effect.modifier {
-                        Modifier::GrantsEncoreManaCost => (30_000_u32, AbilityDef::Encore { cost }),
-                        Modifier::GrantsEmbalmManaCost => (
-                            30_001_u32,
-                            AbilityDef::Activated {
-                                cost,
-                                effects: &EMBALM_EFFECTS,
-                                targets: None,
-                                second_targets: None,
-                                third_targets: None,
-                                timing: baylee_cards_dsl::ActivationTiming::SorcerySpeed,
-                                mana_ability: false,
-                                zone: baylee_cards_dsl::ActivationZone::Graveyard,
-                                limit: baylee_cards_dsl::ActivationLimit::Unlimited,
-                                x_value: baylee_cards_dsl::ActivationX::Any,
-                                cost_reduction: None,
-                            },
-                        ),
+                        Modifier::GrantsUnearth(mana) => {
+                            if !chars.types.is_permanent() {
+                                continue;
+                            }
+                            (
+                                30_002_u32,
+                                AbilityDef::Unearth {
+                                    cost: Cost { mana, parts: &[] },
+                                },
+                            )
+                        }
+                        Modifier::GrantsScavengeManaCost => {
+                            if !chars.types.contains(baylee_core::types::TypeSet::CREATURE) {
+                                continue;
+                            }
+                            let Some(mana) = card_obj
+                                .card
+                                .and_then(|c| lookup.card(c.index))
+                                .and_then(|def| def.faces.first())
+                                .map(|f| f.mana_cost)
+                                .filter(crate::casting::has_a_printed_cost)
+                            else {
+                                continue;
+                            };
+                            (30_003_u32, AbilityDef::scavenge(mana))
+                        }
+                        Modifier::GrantsEncoreManaCost | Modifier::GrantsEmbalmManaCost => {
+                            let Some(mana) = card_obj
+                                .card
+                                .and_then(|c| lookup.card(c.index))
+                                .and_then(|def| def.faces.first())
+                                .map(|f| f.mana_cost)
+                                .filter(crate::casting::has_a_printed_cost)
+                            else {
+                                continue;
+                            };
+                            let cost = Cost {
+                                mana,
+                                parts: &EXILE_SELF_PARTS,
+                            };
+                            match effect.modifier {
+                                Modifier::GrantsEncoreManaCost => {
+                                    (30_000_u32, AbilityDef::Encore { cost })
+                                }
+                                Modifier::GrantsEmbalmManaCost => (
+                                    30_001_u32,
+                                    AbilityDef::Activated {
+                                        cost,
+                                        effects: &EMBALM_EFFECTS,
+                                        targets: None,
+                                        second_targets: None,
+                                        third_targets: None,
+                                        timing: baylee_cards_dsl::ActivationTiming::SorcerySpeed,
+                                        mana_ability: false,
+                                        zone: baylee_cards_dsl::ActivationZone::Graveyard,
+                                        limit: baylee_cards_dsl::ActivationLimit::Unlimited,
+                                        x_value: baylee_cards_dsl::ActivationX::Any,
+                                        cost_reduction: None,
+                                    },
+                                ),
+                                _ => unreachable!(),
+                            }
+                        }
                         _ => unreachable!(),
                     };
                     let Some(mut ability) = GrantedAbility::new(&definition, effect.source) else {

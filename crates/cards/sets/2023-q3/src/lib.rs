@@ -149,6 +149,8 @@ pub mod experimental_confectioner;
 pub mod faerie_bladecrafter;
 #[path = "woe/faerie_dreamthief.rs"]
 pub mod faerie_dreamthief;
+#[path = "woe/faerie_fencing.rs"]
+pub mod faerie_fencing;
 #[path = "pwoe/farsight_ritual.rs"]
 pub mod farsight_ritual;
 #[path = "pwoe/faunsbane_troll.rs"]
@@ -197,6 +199,8 @@ pub mod greta_sweettooth_scourge;
 pub mod gumdrop_poisoner;
 #[path = "woc/gylwain_casting_director.rs"]
 pub mod gylwain_casting_director;
+#[path = "woe/hamlet_glutton.rs"]
+pub mod hamlet_glutton;
 #[path = "woe/harried_spearguard.rs"]
 pub mod harried_spearguard;
 #[path = "pwoe/heartflame_duelist.rs"]
@@ -225,6 +229,8 @@ pub mod into_the_fae_court;
 pub mod intrepid_trufflesnout;
 #[path = "woe/johann_apprentice_sorcerer.rs"]
 pub mod johann_apprentice_sorcerer;
+#[path = "woe/johann_s_stopgap.rs"]
+pub mod johann_s_stopgap;
 #[path = "woe/kellan_s_lightblades.rs"]
 pub mod kellan_s_lightblades;
 #[path = "pwoe/kellan_the_fae_blooded.rs"]

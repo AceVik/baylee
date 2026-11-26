@@ -563,9 +563,9 @@ fn wave26a_refusals_soundness_and_non_paper() {
         "Name:BadIgnoreGenericTgt\nManaCost:2 U U\nTypes:Instant\n\
          S:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ 1 | Color$ U | IgnoreGeneric$ True | EffectZone$ All | ValidTarget$ Spell.Blue\n\
          A:SP$ Draw | NumCards$ 1",
-        // `ValidSpell$ Activated.Equip` with `ValidTarget$` must stay refused (Fervent Champion / Ghostfire Blade).
-        "Name:BadEquipTgt\nManaCost:R\nTypes:Creature\nPT:1/1\n\
-         S:Mode$ ReduceCost | ValidTarget$ Card.Self | ValidSpell$ Activated.Equip | Activator$ You | Amount$ 3",
+        // `ValidSpell$ Activated.Equip` with `ValidTarget$` and `MinMana$ 1` must stay refused.
+        "Name:BadEquipTgtMinMana\nManaCost:R\nTypes:Creature\nPT:1/1\n\
+         S:Mode$ ReduceCost | ValidTarget$ Card.Self | ValidSpell$ Activated.Equip | Activator$ You | Amount$ 3 | MinMana$ 1",
         // `Type$ Ability` with `ValidTarget$` and `MinMana$ 1` must stay refused (unfloored engine modifier).
         "Name:BadMinManaAbilityTgt\nManaCost:2 R\nTypes:Creature\nPT:2/3\n\
          S:Mode$ ReduceCost | ValidTarget$ Card.Self | ValidCard$ Equipment.YouCtrl | Activator$ You | Type$ Ability | Amount$ 1 | MinMana$ 1",

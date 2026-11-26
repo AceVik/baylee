@@ -379,15 +379,35 @@ impl GameState {
         sources
     }
 
-    /// The N of `card`'s dredge, read off its printed rules.
+    /// The N of `card`'s dredge, read off its printed rules and active graveyard grants.
     fn dredge_count(&self, card: ObjectId) -> Option<u8> {
-        self.printed_ability_list(card)?
-            .abilities
+        let obj = self.object(card)?;
+        let chars = obj.characteristics();
+        let printed = if chars.abilities_lost.is_none() && !chars.rules_text_lost {
+            self.printed_ability_list(card).and_then(|list| {
+                list.abilities.iter().find_map(|ability| match ability {
+                    AbilityDef::Replacement(ReplacementRule::Dredge(n)) => Some(*n),
+                    _ => None,
+                })
+            })
+        } else {
+            None
+        };
+        let granted = self
+            .effects
             .iter()
-            .find_map(|ability| match ability {
-                AbilityDef::Replacement(ReplacementRule::Dredge(n)) => Some(*n),
+            .filter_map(|fx| match fx.modifier {
+                baylee_cards_dsl::Modifier::GrantsDredge(n)
+                    if chars.abilities_lost.is_none_or(|lost| {
+                        crate::object::Characteristics::lost_at(fx.timestamp) > lost
+                    }) && crate::effects::applies_to(self, fx, obj) =>
+                {
+                    Some(n)
+                }
                 _ => None,
             })
+            .max();
+        printed.into_iter().chain(granted).max()
     }
 
     /// The cards in `player`'s graveyard whose dredge could replace a draw

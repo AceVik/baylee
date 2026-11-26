@@ -777,6 +777,8 @@ pub mod rotting_rats;
 pub mod ruinous_minotaur;
 #[path = "m10/runeclaw_bear.rs"]
 pub mod runeclaw_bear;
+#[path = "zen/runeflare_trap.rs"]
+pub mod runeflare_trap;
 #[path = "con_/rupture_spire.rs"]
 pub mod rupture_spire;
 #[path = "con_/sacellum_archers.rs"]
@@ -855,6 +857,8 @@ pub mod sign_in_blood;
 pub mod silence;
 #[path = "m10/silvercoat_lion.rs"]
 pub mod silvercoat_lion;
+#[path = "arb/singe_mind_ogre.rs"]
+pub mod singe_mind_ogre;
 #[path = "zen/sky_ruin_drake.rs"]
 pub mod sky_ruin_drake;
 #[path = "arb/skyclaw_thrash.rs"]

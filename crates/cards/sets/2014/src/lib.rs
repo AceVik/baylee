@@ -125,6 +125,8 @@ pub mod banishing_light;
 pub mod barrage_of_boulders;
 #[path = "jou/bassara_tower_archer.rs"]
 pub mod bassara_tower_archer;
+#[path = "jou/battlefield_thaumaturge.rs"]
+pub mod battlefield_thaumaturge;
 #[path = "ktk/bear_s_companion.rs"]
 pub mod bear_s_companion;
 #[path = "jou/bearer_of_the_heavens.rs"]
@@ -175,6 +177,8 @@ pub mod brave_the_sands;
 pub mod brawler_s_plate;
 #[path = "c14/breaching_leviathan.rs"]
 pub mod breaching_leviathan;
+#[path = "ktk/briber_s_purse.rs"]
+pub mod briber_s_purse;
 #[path = "ktk/bring_low.rs"]
 pub mod bring_low;
 #[path = "ktk/burn_away.rs"]
@@ -555,6 +559,8 @@ pub mod hornet_nest;
 pub mod hot_soup;
 #[path = "jou/hour_of_need.rs"]
 pub mod hour_of_need;
+#[path = "jou/hubris.rs"]
+pub mod hubris;
 #[path = "jou/humbler_of_mortals.rs"]
 pub mod humbler_of_mortals;
 #[path = "m15/hunter_s_ambush.rs"]

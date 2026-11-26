@@ -259,6 +259,7 @@ impl Tx<'_> {
             "CantPutCounter" => return self.cant_put_counter(p),
             "OptionalAttackCost" => return self.optional_attack_cost(p),
             "IgnoreLandWalk" => return self.ignore_landwalk(p),
+            "ForetellAnyTurn" => return self.wave17c_foretell_any_turn(p),
             _ => {}
         }
         if p.peek("EffectZone") == Some("Graveyard") && p.peek("Affected") == Some("Land.YouCtrl") {
@@ -2499,7 +2500,8 @@ impl Tx<'_> {
         let body = self.svars.get(var)?.clone();
         let inner = self
             .static_count_expr_ext(&body)
-            .or_else(|| self.wave14_non_power_amount(&body))?;
+            .or_else(|| self.wave14_non_power_amount(&body))
+            .or_else(|| Self::wave29d_static_pt_amount(&body))?;
         Some(if neg {
             format!("Amount::Negated(&{inner})")
         } else {
@@ -2663,11 +2665,14 @@ impl Tx<'_> {
             Some("True") => {
                 let raw = p.take("AddType")?;
                 let modifier = if raw.trim() == "ChosenType" {
+                    self.has_chosen_basic_land_type()
+                        .then(|| "Modifier::SetLandTypeToChosen".to_string())?
+                } else if raw.trim() == "ChosenType2" {
                     self.body
                         .enter_modifiers
                         .iter()
-                        .any(|m| m == "EnterModifier::ChooseBasicLandType")
-                        .then(|| "Modifier::SetLandTypeToChosen".to_string())?
+                        .any(|m| m == "EnterModifier::ChooseTwoBasicLandTypes")
+                        .then(|| "Modifier::SetLandTypeToSecondChosen".to_string())?
                 } else {
                     let path = self.basic_land_type(raw.trim())?;
                     format!("Modifier::SetLandType({path})")
@@ -2912,7 +2917,9 @@ impl Tx<'_> {
         let prev_statics_len = self.body.statics.len();
         let prev_trigger_mode = self.trigger_mode.take();
         let prev_block_line = self.block_line.take();
+        let prev_on_a_spell = std::mem::replace(&mut self.on_a_spell, false);
         let ok = self.triggered(&line);
+        self.on_a_spell = prev_on_a_spell;
         self.trigger_mode = prev_trigger_mode;
         if ok.is_none()
             || self.block_line.is_some()
@@ -2950,7 +2957,10 @@ impl Tx<'_> {
             let prev_abilities_len = self.body.abilities.len();
             let prev_statics_len = self.body.statics.len();
             let prev_block_line = self.block_line.take();
-            let ok = self.static_ability(&line);
+            let ok = match self.try_extra_static(&line) {
+                super::saga_ward_convoke::ExtraOutcome::Handled(res) => res,
+                super::saga_ward_convoke::ExtraOutcome::Pass => self.static_ability(&line),
+            };
             let block_seen = self.block_line.is_some();
             self.block_line = prev_block_line;
             if ok.is_none() || block_seen || self.body.abilities.len() <= prev_abilities_len {
@@ -3221,10 +3231,22 @@ impl Tx<'_> {
             && (p.peek("ValidSpell") != Some("Activated.ManaAbility")
                 || p.peek("Cost") == Some("PayLife<1>"))
         {
-            return self
-                .mana_life_tax(p)
-                .or_else(|| self.deny("static ability `S: Mode$ RaiseCost`".into()));
+            let saved_p = p.clone();
+            let saved_statics = self.body.statics.len();
+            let saved_unclaimed = self.unclaimed.borrow().clone();
+            if self.mana_life_tax(p).is_some() {
+                return Some(());
+            }
+            self.body.statics.truncate(saved_statics);
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
+            if let Some(res) = self.wave17c_try_raise_cost_extra(saved_p) {
+                return res.ok();
+            }
+            return self.deny("static ability `S: Mode$ RaiseCost`".into());
         }
+        let saved_w17c_p = p.clone();
+        let saved_w17c_statics = self.body.statics.len();
+        let saved_w17c_unclaimed = self.unclaimed.borrow().clone();
         p.drop_prose();
         match p.take("Secondary").as_deref() {
             None | Some("True") => {}
@@ -3238,17 +3260,26 @@ impl Tx<'_> {
         {
             return self.raise_cost_mana_life(p);
         }
-        if ((p.peek("Type") == Some("Ability")
+        let legacy_res = if ((p.peek("Type") == Some("Ability")
             && matches!(p.peek("ValidSpell"), None | Some("Activated")))
             || (p.peek("Type").is_none() && p.peek("ValidSpell") == Some("Activated")))
             && !p.has("Cost")
         {
-            return self.raise_cost_ability(p);
-        }
-        if p.peek("Type") == Some("Spell")
+            self.raise_cost_ability(p)
+        } else if p.peek("Type") == Some("Spell")
             || (p.peek("Type").is_none() && p.peek("ValidSpell") == Some("Spell"))
         {
-            return self.raise_cost_spell(p);
+            self.raise_cost_spell(p)
+        } else {
+            None
+        };
+        if legacy_res.is_some() {
+            return Some(());
+        }
+        self.body.statics.truncate(saved_w17c_statics);
+        *self.unclaimed.borrow_mut() = saved_w17c_unclaimed;
+        if let Some(res) = self.wave17c_try_raise_cost_extra(saved_w17c_p) {
+            return res.ok();
         }
         self.deny("static ability `S: Mode$ RaiseCost`".into())
     }
@@ -3602,6 +3633,7 @@ impl Tx<'_> {
     /// spell cost reductions (fixed generic, dynamic `Amount`, fixed mana
     /// `Color$` / `IgnoreGeneric$`, face-down, shared creature type), plus
     /// `CyclingCostsLess` (`ValidSpell$ Activated.Cycling`).
+    #[allow(clippy::too_many_lines)]
     fn mode_reduce_cost(&mut self, mut p: Params) -> Option<()> {
         if p.peek("OnlyFirstSpell") == Some("True") {
             return self.wave27d_first_spell_cost_adjust(p, false);
@@ -3616,6 +3648,16 @@ impl Tx<'_> {
         match p.take("Secondary").as_deref() {
             None | Some("True") => {}
             Some(_) => return self.deny("static ability `S: Mode$ ReduceCost`".into()),
+        }
+        if p.peek("ValidSpell") == Some("Static.Foretelling") || p.peek("Type") == Some("Foretell")
+        {
+            return self.wave17c_reduce_cost_foretell(p);
+        }
+        if p.peek("ValidSpell") == Some("Static.Unlock") {
+            return self.wave17c_reduce_cost_unlock(p);
+        }
+        if p.peek("ValidSpell") == Some("Spell.Bargain") {
+            return self.wave17c_reduce_cost_bargain(p);
         }
         if p.peek("ValidSpell") == Some("Activated.Cycling") {
             return self.reduce_cost_cycling(p);
@@ -3644,6 +3686,15 @@ impl Tx<'_> {
             _ => return self.deny("static ability `S: Mode$ ReduceCost`".into()),
         };
         let (is_self_zone, zone) = match p.take("EffectZone").as_deref() {
+            Some("All")
+                if !self.is_spell_card_type()
+                    && p.peek("Relative") == Some("True")
+                    && p.peek("ValidCard").is_some_and(|vc| vc != "Card.Self")
+                    && !self.oracle.to_ascii_lowercase().contains("graveyard")
+                    && !self.oracle.to_ascii_lowercase().contains("command zone") =>
+            {
+                (false, StaticEffectZone::Battlefield)
+            }
             Some("All" | "Stack") => (true, StaticEffectZone::Explicit("ZoneRef::Stack")),
             raw => match Self::static_effect_zone(raw, false) {
                 Some(z) => (false, z),
@@ -3666,6 +3717,16 @@ impl Tx<'_> {
             return self
                 .adjust_spell_cost_by_cast(p, false, is_self_zone, zone)
                 .or_else(|| self.deny("static ability `S: Mode$ ReduceCost`".into()));
+        }
+        if !face_down && target_filter.is_none() && p.has("Color") && p.peek("Amount") != Some("1")
+        {
+            return self.wave17c_reduce_cost_colored_by_amount(
+                p,
+                spell_type.as_deref(),
+                valid_spell.as_deref(),
+                is_self_zone,
+                zone,
+            );
         }
         let adjust_fallback =
             (!face_down && target_filter.is_none() && !p.has("Color")).then(|| {
@@ -3872,7 +3933,8 @@ impl Tx<'_> {
                 "&Filter::This".to_string(),
             )
         } else {
-            let who = match p.take("Activator").as_deref() {
+            let raw_act = p.take("Activator");
+            let mut who = match raw_act.as_deref() {
                 None | Some("Player") => "PlayerRel::EachPlayer",
                 Some("You") => "PlayerRel::You",
                 Some("Opponent" | "Player.Opponent") => "PlayerRel::EachOpponent",
@@ -3881,9 +3943,16 @@ impl Tx<'_> {
                 }
                 Some(_) => return None,
             };
-            let raw_card = p.take("ValidCard").unwrap_or_else(|| "Card".to_string());
+            let mut raw_card = p.take("ValidCard").unwrap_or_else(|| "Card".to_string());
             if raw_card == "Card.Self" {
                 return None;
+            }
+            if relative
+                && raw_act.is_none()
+                && let Some(stripped) = Self::wave17c_strip_all_you_ctrl(&raw_card)
+            {
+                who = "PlayerRel::You";
+                raw_card = stripped;
             }
             // In `Relative$ True` Forge statics, `YouCtrl`/`OppCtrl`/`YouOwn`/`OppOwn` inside
             // `ValidCard$` bind to the casting player, whereas `Modifier::AdjustSpellCostByCast`'s
@@ -4004,6 +4073,9 @@ impl Tx<'_> {
                 "SpellCastMetric::CardsDrawnThisTurn".to_string()
             }
             other => {
+                if let Some(m) = self.wave17c_distinct_targets_matching_metric(other, relative) {
+                    return Some((m, factor));
+                }
                 let sac_raw = other
                     .strip_prefix("PlayerCountPropertyYou$SacrificedThisTurn ")
                     .filter(|_| per_turn_ok)?
@@ -4037,6 +4109,9 @@ impl Tx<'_> {
     }
 
     fn reduce_cost_equip(&mut self, mut p: Params) -> Option<()> {
+        if p.has("ValidTarget") {
+            return self.wave17c_reduce_cost_equip_if_targets(p);
+        }
         p.take("ValidSpell");
         let (filter, amount, _, zone, cond) =
             self.parse_ability_reduction(p, true, false, false)?;
@@ -4212,7 +4287,11 @@ impl Tx<'_> {
         Some(())
     }
 
-    fn parse_target_cost_filter(&mut self, raw_target: &str, forbid_self: bool) -> Option<String> {
+    pub(super) fn parse_target_cost_filter(
+        &mut self,
+        raw_target: &str,
+        forbid_self: bool,
+    ) -> Option<String> {
         let mut normalized = Vec::new();
         for raw_alt in raw_target.split(',') {
             let alt = raw_alt.trim();
@@ -5592,6 +5671,7 @@ impl Tx<'_> {
                 || part.starts_with("RemoveAnyCounter {")
                 || part == "Forage"
                 || part.starts_with("Behold(")
+                || part.starts_with("BeholdAndExile(")
                 || part.starts_with("CollectEvidence(")
         };
         if (mana.is_empty() && parts.is_empty()) || !parts.iter().all(paid) {
@@ -6295,6 +6375,7 @@ impl Tx<'_> {
             return self.wave14_valid_stat_amount(rest, allow_power_scan);
         }
         self.wave27a_static_amount(trimmed, allow_power_scan, allow_turn_counts)
+            .or_else(|| self.wave17b_static_amount(trimmed, allow_power_scan, allow_turn_counts))
     }
 
     fn wave14_amount_arith(
@@ -6353,6 +6434,10 @@ impl Tx<'_> {
             && allow_power_scan
         {
             (valid, "Amount::GreatestPowerAmong")
+        } else if let Some(valid) = rest.strip_suffix("$DifferentCardPower")
+            && allow_power_scan
+        {
+            (valid, "Amount::DistinctPowersAmong")
         } else {
             let valid = rest.strip_suffix("$GreatestCardManaCost")?;
             (valid, "Amount::GreatestManaValueAmong")
@@ -6620,7 +6705,6 @@ fn is_forbidden_alt_cast_atom(atom: &str) -> bool {
             | "ExiledWith"
             | "ExiledByYou"
             | "foretold"
-            | "surveilledThisTurn"
     ) || atom.starts_with("ControlledBy")
 }
 
@@ -6667,8 +6751,15 @@ fn clean_alt_cast_alt(
         match atom {
             "ExiledWithSource" if is_linked_exile => saw_exiled_with = true,
             "IsImprinted" if is_linked_exile => saw_imprinted = true,
-            "ExiledWithSource" | "IsImprinted" => return None,
             "nonLand" => saw_nonland = true,
+            "surveilledThisTurn" if who == "PlayerRel::You" && is_gy_grant => {
+                saw_you_owner_or_ctrl = true;
+                kept.push("surveilledThisTurn");
+                kept.push("YouOwn");
+            }
+            "ExiledWithSource" | "IsImprinted" | "surveilledThisTurn" | "!surveilledThisTurn" => {
+                return None;
+            }
             "YouCtrl" if who == "PlayerRel::You" => {
                 saw_you_owner_or_ctrl = true;
                 if is_gy_grant {

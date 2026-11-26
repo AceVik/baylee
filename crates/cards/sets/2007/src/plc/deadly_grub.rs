@@ -52,10 +52,8 @@ card!(
         ),
         triggered!(
             Trigger::Dies(&TRIGGER1),
-            &[Effect::CreateTokensFor {
-                player: PlayerRel::ControllerOfEvent,
-                token: &generated_tokens::INSECT_6_1_GREEN_SHROUD,
-                amount: Amount::Fixed(1)
+            &[Effect::CreateToken {
+                token: &generated_tokens::INSECT_6_1_GREEN_SHROUD
             }]
         ),
     ],

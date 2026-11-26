@@ -741,6 +741,9 @@ express at all yet.
   binding `Amount::X`),
   `Behold(filter)` (CR 701.4a: choose a permanent you control matching `filter`
   or reveal a card matching `filter` from your hand via `ChoicePrompt::Behold`),
+  `BeholdAndExile(filter)` (CR 701.4a, CR 607.2a: choose a permanent you control
+  matching `filter` or a card matching `filter` from your hand, exile it, and
+  link it to the resolving permanent via `Rider::SpellCostExile`),
   `CollectEvidence(n)` (CR 701.59a: exile cards with total mana value `n` or
   greater from your graveyard via `ChoicePrompt::CollectEvidence`),
   `RevealFromHand(filter)` (CR 701.20a: reveal a card matching `filter` from

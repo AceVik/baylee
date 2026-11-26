@@ -2533,6 +2533,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 {
                     let mut wizard = self.cast_wizard.take().expect("wizard active");
                     wizard.bargained = answer;
+                    if answer {
+                        self.refresh_target_cost_adjustments(&mut wizard);
+                    }
                     wizard.stage = cast_wizard::WizardStage::Offspring;
                     self.cast_wizard = Some(wizard);
                     self.continue_cast_wizard();

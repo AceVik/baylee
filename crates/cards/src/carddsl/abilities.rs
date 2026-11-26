@@ -341,7 +341,8 @@ fn encode_cost_into(cost: &Cost, dst: &mut [f32]) {
             | CostPart::ExileFromSingleGraveyard { .. }
             | CostPart::CraftMaterials { .. }
             | CostPart::ExileTopOfLibrary(_)
-            | CostPart::CollectEvidence(_) => dst[6] = 1.0,
+            | CostPart::CollectEvidence(_)
+            | CostPart::BeholdAndExile(_) => dst[6] = 1.0,
             CostPart::Behold(_)
             | CostPart::RevealFromHand(_)
             | CostPart::RevealFromHandX(_)
@@ -447,6 +448,7 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
         | Trigger::LastCounterRemoved { .. }
         | Trigger::Chapter(_)
         | Trigger::Discarded { .. }
+        | Trigger::OneOrMoreCardsDiscarded { .. }
         | Trigger::DiscardedThisByOpponent
         | Trigger::Sacrificed { .. }
         | Trigger::Exploited { .. }
@@ -524,6 +526,12 @@ fn encode_static_into(sa: &StaticAbility, ch: &mut EffectChannels) {
             ch.mana_add += (cost.cmc() as f32).max(1.0) * 0.5;
         }
         Modifier::SpellsCostLessByAmount(_)
+        | Modifier::SpellsCostLessManaByAmount { .. }
+        | Modifier::EquipCostsLessIfTargets { .. }
+        | Modifier::ForetellActionCostsLess { .. }
+        | Modifier::MayForetellAnyTurn { .. }
+        | Modifier::UnlockCostsLess { .. }
+        | Modifier::AdjustLoyaltyCost { .. }
         | Modifier::ActivatedAbilitiesCostLess { .. }
         | Modifier::FirstSpellEachTurnCostAdjust {
             increase: false, ..
@@ -536,6 +544,9 @@ fn encode_static_into(sa: &StaticAbility, ch: &mut EffectChannels) {
         | Modifier::FirstSpellEachTurnCostAdjust { increase: true, .. }
         | Modifier::SpellsCostSacrificePerManaSymbol { .. }
         | Modifier::AbilitiesCostMore(_)
+        | Modifier::NonManaAbilitiesCostMore { .. }
+        | Modifier::LoyaltyAbilitiesCostMore { .. }
+        | Modifier::RaiseCostIfTargets { .. }
         | Modifier::AbilitiesCostSacrificePerManaSymbol { .. }
         | Modifier::OpponentsCantCast(_)
         | Modifier::PlayersCantCast { .. }
@@ -583,7 +594,12 @@ fn encode_static_into(sa: &StaticAbility, ch: &mut EffectChannels) {
         Modifier::MayCastWithAltCost { .. } => {
             ch.mana_add += 1.0;
         }
-        Modifier::GrantsFlashbackCost(_) | Modifier::GrantsJumpStart => {
+        Modifier::GrantsFlashbackCost(_)
+        | Modifier::GrantsJumpStart
+        | Modifier::GrantsUnearth(_)
+        | Modifier::GrantsScavengeManaCost
+        | Modifier::GrantsDredge(_)
+        | Modifier::MayCastFromGraveyardUsingAlt(_) => {
             ch.reanimate += 0.5;
         }
         Modifier::GrantsEncoreManaCost | Modifier::GrantsEmbalmManaCost => {
@@ -617,7 +633,8 @@ fn encode_replacement_into(rule: &ReplacementRule, ch: &mut EffectChannels) {
         | ReplacementRule::OpponentsExtraDrawsCreateToken(_) => {
             ch.tokens_create += 2.0;
         }
-        ReplacementRule::TriggerMultiplier { .. } => {
+        ReplacementRule::TriggerMultiplier { .. }
+        | ReplacementRule::TriggerMultiplierMatching { .. } => {
             ch.draw += 1.0;
             ch.tokens_create += 1.0;
         }

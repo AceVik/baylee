@@ -26,7 +26,7 @@ card!(
     abilities = &[
         activated!(
             cost!("{R}", TapSelf),
-            &[Effect::exile(TargetSpec::CardInGraveyard(
+            &[Effect::exile_linked(TargetSpec::CardInGraveyard(
                 &Filter::INSTANT_OR_SORCERY,
                 PlayerRel::You
             ))],

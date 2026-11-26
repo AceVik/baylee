@@ -27,12 +27,15 @@ card!(
                         what: &TargetSpec::Object(&Filter::Any),
                         filter: &Filter::Any
                     },
-                    then: &[Effect::CopySpellOrAbility {
-                        target: TargetSpec::ThisObject,
-                        controller: PlayerRel::ControllerOfTarget,
-                        amount: Amount::Fixed(1),
-                        mods: &[],
-                        may_choose_new_targets: true
+                    then: &[Effect::MayDoFor {
+                        player: PlayerRel::ControllerOfTarget,
+                        effects: &[Effect::CopySpellOrAbility {
+                            target: TargetSpec::ThisObject,
+                            controller: PlayerRel::ControllerOfTarget,
+                            amount: Amount::Fixed(1),
+                            mods: &[],
+                            may_choose_new_targets: true
+                        }]
                     }],
                     otherwise: &[]
                 }]

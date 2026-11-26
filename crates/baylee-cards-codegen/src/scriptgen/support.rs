@@ -282,6 +282,8 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "PermanentCreature",
     "PermanentNoncreature",
     "Blight",
+    "Learn",
+    "Empower",
 ];
 
 /// A cost token that names an object, split into its kind and its body.

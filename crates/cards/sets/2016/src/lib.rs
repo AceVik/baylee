@@ -481,6 +481,8 @@ pub mod era_of_innovation;
 pub mod essence_depleter;
 #[path = "kld/essence_extraction.rs"]
 pub mod essence_extraction;
+#[path = "soi/essence_flux.rs"]
+pub mod essence_flux;
 #[path = "emn/eternal_scourge.rs"]
 pub mod eternal_scourge;
 #[path = "soi/ethereal_guidance.rs"]
@@ -843,6 +845,8 @@ pub mod lamplighter_of_selhoff;
 pub mod larger_than_life;
 #[path = "emn/lashweed_lurker.rs"]
 pub mod lashweed_lurker;
+#[path = "kld/lathnu_hellion.rs"]
+pub mod lathnu_hellion;
 #[path = "kld/lawless_broker.rs"]
 pub mod lawless_broker;
 #[path = "ogw/lead_by_example.rs"]
@@ -1227,6 +1231,8 @@ pub mod select_for_inspection;
 pub mod self_assembler;
 #[path = "emn/selfless_spirit.rs"]
 pub mod selfless_spirit;
+#[path = "cn2/selvala_s_stampede.rs"]
+pub mod selvala_s_stampede;
 #[path = "soi/senseless_rage.rs"]
 pub mod senseless_rage;
 #[path = "kld/sequestered_stash.rs"]
@@ -1575,6 +1581,8 @@ pub mod village_messenger;
 pub mod vines_of_the_recluse;
 #[path = "kld/visionary_augmenter.rs"]
 pub mod visionary_augmenter;
+#[path = "ogw/visions_of_brutality.rs"]
+pub mod visions_of_brutality;
 #[path = "ogw/void_grafter.rs"]
 pub mod void_grafter;
 #[path = "ogw/void_shatter.rs"]

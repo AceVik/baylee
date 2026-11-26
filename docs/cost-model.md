@@ -10,7 +10,8 @@ documents the supported authoring forms. Card files normally use
 The cost families are tap/untap (`TapSelf`, `UntapSelf`, `TapOther`, `TapX`, `TapN`,
 `Crew`, `Saddle`), sacrifice (`SacrificeSelf`, `Sacrifice`, `SacrificeX`,
 `SacrificeAll`), discard/reveal (`Discard`, `DiscardSelf`, `DiscardRandom`,
-`RevealFromHand`, `RevealFromHandX`, `RevealSelfFromHand`, `Behold`), zone
+`RevealFromHand`, `RevealFromHandX`, `RevealSelfFromHand`, `Behold`,
+`BeholdAndExile`), zone
 movement (`ExileSelf`, `ExileFromHand`, `ExileFromGraveyard`,
 `ReturnSelfToHand`, `ReturnToHand`), life (`PayLife`, `PayLifeX`,
 `PayCommanderColors`), energy (`PayEnergy`, `PayEnergyX`) and counters

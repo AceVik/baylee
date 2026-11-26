@@ -557,6 +557,8 @@ pub mod muddle_the_mixture;
 pub mod necromantic_thirst;
 #[path = "rav/necroplasm.rs"]
 pub mod necroplasm;
+#[path = "bok/neko_te.rs"]
+pub mod neko_te;
 #[path = "rav/netherborn_phalanx.rs"]
 pub mod netherborn_phalanx;
 #[path = "bok/nezumi_shadow_watcher.rs"]
@@ -581,6 +583,8 @@ pub mod oboro_breezecaller;
 pub mod oboro_envoy;
 #[path = "sok/oboro_palace_in_the_clouds.rs"]
 pub mod oboro_palace_in_the_clouds;
+#[path = "bok/ogre_marauder.rs"]
+pub mod ogre_marauder;
 #[path = "bok/ogre_recluse.rs"]
 pub mod ogre_recluse;
 #[path = "bok/okiba_gang_shinobi.rs"]
@@ -823,6 +827,8 @@ pub mod stone_seeder_hierophant;
 pub mod stoneshaker_shaman;
 #[path = "rav/strands_of_undeath.rs"]
 pub mod strands_of_undeath;
+#[path = "bok/stream_of_consciousness.rs"]
+pub mod stream_of_consciousness;
 #[path = "psal/strength_in_numbers.rs"]
 pub mod strength_in_numbers;
 #[path = "sok/sunder_from_within.rs"]
@@ -835,6 +841,8 @@ pub mod sunhome_enforcer;
 pub mod sunhome_fortress_of_the_legion;
 #[path = "psal/supply.rs"]
 pub mod supply;
+#[path = "rav/suppression_field.rs"]
+pub mod suppression_field;
 #[path = "rav/surveilling_sprite.rs"]
 pub mod surveilling_sprite;
 #[path = "rav/svogthos_the_restless_tomb.rs"]
@@ -863,6 +871,8 @@ pub mod terrarion;
 pub mod thallid_germinator;
 #[path = "psal/thallid_shell_dweller.rs"]
 pub mod thallid_shell_dweller;
+#[path = "bok/that_which_was_taken.rs"]
+pub mod that_which_was_taken;
 #[path = "psal/thelonite_hermit.rs"]
 pub mod thelonite_hermit;
 #[path = "rav/thoughtpicker_witch.rs"]

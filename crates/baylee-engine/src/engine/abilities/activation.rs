@@ -49,6 +49,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             if matches!(granted.definition, AbilityDef::Encore { .. }) {
                 object.riders.push(crate::object::Rider::EncoreAbility);
             }
+            if matches!(granted.definition, AbilityDef::Unearth { .. }) {
+                object.riders.push(crate::object::Rider::UnearthAbility);
+            }
             if let Some(grantor) = grantor {
                 object
                     .riders

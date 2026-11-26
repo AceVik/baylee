@@ -167,43 +167,6 @@ impl Tx<'_> {
         Some(clauses)
     }
 
-    /// Attack-trigger `S: Mode$ Panharmonicon` (*Isshin, Two Heavens as One*) ->
-    /// `TriggerEventKind::Attack`.
-    ///
-    /// Requires all three Forge attack trigger modes (`Attacks`,
-    /// `AttackersDeclared`, `AttackersDeclaredOneTarget`) AND an unscoped
-    /// `ValidCause$ Creature`. Narrower causes like `Creature.YouCtrl`
-    /// (*Wulfgar*) stay refused because `ReplacementRule::TriggerMultiplier`
-    /// does not filter the attacking creature's controller.
-    pub(super) fn wave28c_panharmonicon_attack(
-        p: &mut Params,
-        valid_mode: &str,
-    ) -> Option<&'static str> {
-        let mut saw_attacks = false;
-        let mut saw_declared = false;
-        let mut saw_one_target = false;
-        let mut count = 0usize;
-        for part in valid_mode.split(',').map(str::trim) {
-            count += 1;
-            match part {
-                "Attacks" => saw_attacks = true,
-                "AttackersDeclared" => saw_declared = true,
-                "AttackersDeclaredOneTarget" => saw_one_target = true,
-                _ => return None,
-            }
-        }
-        if !(count == 3 && saw_attacks && saw_declared && saw_one_target) {
-            return None;
-        }
-        if p.has("Origin") || p.has("Destination") {
-            return None;
-        }
-        if p.take("ValidCause").as_deref() != Some("Creature") {
-            return None;
-        }
-        Some("TriggerEventKind::Attack")
-    }
-
     /// `CheckSVar$` comparison on `Count$ThisTurnCast_Card.YouCtrl` for exact
     /// counts `EQ<n>` / `NE<n>` with `n >= 1` (e.g. `EQ1` for "the second spell
     /// you cast each turn" on *Alisaie Leveilleur*, *Highspire Bell-Ringer*,

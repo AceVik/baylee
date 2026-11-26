@@ -758,7 +758,9 @@ fn parts_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool 
         | CostPart::ExileFromGraveyardX(_)
         | CostPart::Forage
         | CostPart::CraftMaterials { .. } => false,
-        CostPart::Behold(filter) => behold_payable(view, card, filter),
+        CostPart::Behold(filter) | CostPart::BeholdAndExile(filter) => {
+            behold_payable(view, card, filter)
+        }
         CostPart::RevealFromHand(filter) => hand_reveal_payable(view, card, filter),
         CostPart::PutCounterOnOther { filter, .. } => {
             let payer = resource_player(view);

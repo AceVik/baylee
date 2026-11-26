@@ -29,6 +29,8 @@ pub mod akki_war_paint;
 pub mod ambitious_assault;
 #[path = "neo/ancestral_katana.rs"]
 pub mod ancestral_katana;
+#[path = "neo/anchor_to_reality.rs"]
+pub mod anchor_to_reality;
 #[path = "neo/armguard_familiar.rs"]
 pub mod armguard_familiar;
 #[path = "neo/asari_captain.rs"]
@@ -179,6 +181,8 @@ pub mod invigorating_hot_spring;
 pub mod invoke_despair;
 #[path = "neo/invoke_the_winds.rs"]
 pub mod invoke_the_winds;
+#[path = "neo/iron_apprentice.rs"]
+pub mod iron_apprentice;
 #[path = "neo/ironhoof_boar.rs"]
 pub mod ironhoof_boar;
 #[path = "nec/ironsoul_enforcer.rs"]
@@ -199,6 +203,8 @@ pub mod junji_the_midnight_sky;
 pub mod kaito_s_pursuit;
 #[path = "neo/kaito_shizuki.rs"]
 pub mod kaito_shizuki;
+#[path = "nec/kami_of_celebration.rs"]
+pub mod kami_of_celebration;
 #[path = "neo/kami_of_industry.rs"]
 pub mod kami_of_industry;
 #[path = "neo/kami_of_restless_shadows.rs"]
@@ -243,6 +249,8 @@ pub mod master_s_rebuke;
 pub mod mech_hangar;
 #[path = "neo/michiko_s_reign_of_truth.rs"]
 pub mod michiko_s_reign_of_truth;
+#[path = "neo/mirrorshell_crab.rs"]
+pub mod mirrorshell_crab;
 #[path = "neo/mnemonic_sphere.rs"]
 pub mod mnemonic_sphere;
 #[path = "neo/moonfolk_puzzlemaker.rs"]
@@ -343,6 +351,8 @@ pub mod searchlight_companion;
 pub mod season_of_renewal;
 #[path = "neo/secluded_courtyard.rs"]
 pub mod secluded_courtyard;
+#[path = "neo/seismic_wave.rs"]
+pub mod seismic_wave;
 #[path = "neo/selfless_samurai.rs"]
 pub mod selfless_samurai;
 #[path = "neo/seven_tail_mentor.rs"]

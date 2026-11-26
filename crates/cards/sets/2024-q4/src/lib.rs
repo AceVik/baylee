@@ -13,6 +13,8 @@
 // What a card file names as `crate::…`.
 pub use baylee_cards_base::{filters, generated_tokens, tokens};
 
+#[path = "fdn/abyssal_harvester.rs"]
+pub mod abyssal_harvester;
 #[path = "fdn/alesha_who_laughs_at_fate.rs"]
 pub mod alesha_who_laughs_at_fate;
 #[path = "fdn/ambush_wolf.rs"]

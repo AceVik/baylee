@@ -951,11 +951,19 @@ impl Tx<'_> {
             cost.is_some_and(|c| cost_parts(c).iter().any(|t| Self::is_sac_other_token(t)));
         self.cost_discards_single_for_cost = cost.is_some_and(Self::wave28b_cost_discards_single);
         self.cost_beholds_or_reveals = !is_activated && Self::cost_raw_beholds_or_reveals(cost);
+        (
+            self.cost_sacrifices_all,
+            self.cost_sacrifices_x,
+            self.cost_returns_self,
+        ) = Self::wave29b_cost_flags(cost);
         let chain_ok = self.chain(&stripped.join(" | "), &mut chain);
         self.cost_sacrifices_self = false;
         self.cost_sacrifices_other = false;
         self.cost_discards_single_for_cost = false;
         self.cost_beholds_or_reveals = false;
+        self.cost_sacrifices_all = false;
+        self.cost_sacrifices_x = false;
+        self.cost_returns_self = false;
         if chain_ok.is_none() {
             if self.unclaimed.borrow().is_none() {
                 let api = Params::parse(spec).map_or_else(|| "ability".to_string(), |(a, _)| a);
@@ -1480,6 +1488,7 @@ impl Tx<'_> {
                 || part.starts_with("RemoveAnyCounter {")
                 || part.starts_with("RemoveAnyCounterX {")
                 || part.starts_with("Behold(")
+                || part.starts_with("BeholdAndExile(")
                 || part.starts_with("CollectEvidence(")
                 || part.starts_with("RevealFromHand(")
                 || part.starts_with("RevealFromHandX(")
@@ -2090,6 +2099,7 @@ impl Tx<'_> {
         if token == "Forage"
             || token.starts_with("DamageYou<")
             || token.starts_with("Behold<")
+            || token.starts_with("BeholdExile<")
             || token.starts_with("CollectEvidence<")
         {
             return true;
@@ -2166,6 +2176,12 @@ impl Tx<'_> {
         }
         if token.starts_with("Behold<") {
             return match self.parse_behold_cost_token(token) {
+                Some(part) => Wave14aCost::Matched(part),
+                None => Wave14aCost::Denied,
+            };
+        }
+        if token.starts_with("BeholdExile<") {
+            return match self.wave17c_parse_behold_exile_cost_token(token) {
                 Some(part) => Wave14aCost::Matched(part),
                 None => Wave14aCost::Denied,
             };

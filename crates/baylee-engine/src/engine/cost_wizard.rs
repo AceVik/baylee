@@ -76,6 +76,7 @@ pub(crate) const fn needs_an_answer(part: &CostPart) -> bool {
             | CostPart::PutCounterOnOther { .. }
             | CostPart::Forage
             | CostPart::Behold(_)
+            | CostPart::BeholdAndExile(_)
             | CostPart::RevealFromHand(_)
             | CostPart::RevealFromHandX(_)
             | CostPart::CollectEvidence(_)
@@ -284,7 +285,7 @@ pub(crate) fn options_with_context(
         CostPart::CraftMaterials { filter, .. } => {
             return craft_material_options(state, player, context, filter);
         }
-        CostPart::Behold(filter) => {
+        CostPart::Behold(filter) | CostPart::BeholdAndExile(filter) => {
             let mut out: Vec<ObjectId> = state
                 .battlefield_view()
                 .into_iter()
@@ -512,6 +513,7 @@ const fn spends_the_source_as(own: &CostPart, part: &CostPart) -> bool {
                 | CostPart::Forage
                 | CostPart::CraftMaterials { .. }
                 | CostPart::CollectEvidence(_)
+                | CostPart::BeholdAndExile(_)
         )
     )
 }
@@ -533,7 +535,7 @@ pub(crate) const fn prompt(part: &CostPart) -> ChoicePrompt {
         CostPart::RemoveAnyCounter { .. } | CostPart::RemoveAnyCounterX { .. } => {
             ChoicePrompt::CostRemoveCounter
         }
-        CostPart::Behold(_) => ChoicePrompt::Behold,
+        CostPart::Behold(_) | CostPart::BeholdAndExile(_) => ChoicePrompt::Behold,
         CostPart::CollectEvidence(mana_value) => ChoicePrompt::CollectEvidence {
             mana_value: *mana_value,
         },
@@ -573,6 +575,7 @@ pub(crate) use power::PowerPayment;
 /// The legality of the answer is checked by `apply` against the very list
 /// [`options`] produced, before this is ever reached. This re-reads the owner
 /// and nothing else.
+#[allow(clippy::too_many_lines)]
 pub(crate) fn pay(
     state: &mut GameState,
     player: PlayerId,
@@ -630,6 +633,25 @@ pub(crate) fn pay(
         CostPart::Sacrifice(_) | CostPart::SacrificeX(_) | CostPart::SacrificeAll(_)
     ) {
         state.sacrifice_object(chosen, Cause::Cost)?;
+        return Ok(());
+    }
+    if matches!(part, CostPart::BeholdAndExile(_)) {
+        if state
+            .object(chosen)
+            .is_some_and(|o| o.zone == crate::zone::Zone::Hand)
+        {
+            state.journal.record(crate::event::GameEvent::Revealed {
+                player,
+                cards: vec![chosen],
+            });
+        }
+        let owner = state.object(chosen).map_or(player, |o| o.owner);
+        state.move_object(
+            chosen,
+            ZoneLocation::Exile(owner),
+            ZonePosition::Top,
+            Cause::Cost,
+        )?;
         return Ok(());
     }
     if matches!(

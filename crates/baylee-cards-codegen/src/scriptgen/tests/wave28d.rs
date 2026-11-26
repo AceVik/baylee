@@ -781,10 +781,6 @@ fn wave28d_filter_copy_and_pump_refusals() {
         // Pump "must be blocked if able" (NOT Lure!) MUST refuse!
         "Name:CompelledDuel\nManaCost:1 G\nTypes:Sorcery\n\
          A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +3 | NumDef$ +3 | KW$ HIDDEN CARDNAME must be blocked if able.",
-        // Coven (DifferentCardPower) MUST refuse!
-        "Name:CovenLike\nManaCost:2 G\nTypes:Sorcery\n\
-         A:SP$ Draw | NumCards$ X\n\
-         SVar:X:Count$Valid Creature.YouCtrl$DifferentCardPower",
         // Gravitic Punch (DamageEqualToPower only supports battlefield objects, not players) MUST refuse!
         "Name:GraviticPunch\nManaCost:3 R\nTypes:Sorcery\n\
          A:SP$ TargetOnly | ValidTgts$ Creature.YouCtrl | SubAbility$ SoulsDamage\n\
@@ -1262,10 +1258,6 @@ fn wave28d_p2_refusals() {
         "Name:Tunnel Vision\nManaCost:5 U\nTypes:Sorcery\n\
          A:SP$ NameCard | Defined$ You | SubAbility$ Find\n\
          SVar:Find:DB$ DigUntil | ValidTgts$ Player | Valid$ Card.NamedCard | NoMoveFound$ True | FoundDestination$ Library | FoundLibraryPosition$ 0 | RevealedDestination$ Graveyard | NoneFoundDestination$ Library | NoneFoundLibraryPosition$ 0 | Shuffle$ True | ShuffleCondition$ NoneFound",
-        // Antiquities on the Loose: wasCast+!wasCastFromYourHand != wasCastFromGraveyard -> MUST refuse!
-        "Name:AntiquitiesLike\nManaCost:1 W W\nTypes:Sorcery\n\
-         A:SP$ Token | TokenAmount$ 2 | TokenScript$ r_1_1_goblin | TokenOwner$ You | SubAbility$ DBPut\n\
-         SVar:DBPut:DB$ PutCounterAll | ValidCards$ Goblin.YouCtrl | CounterType$ P1P1 | CounterNum$ 1 | ConditionDefined$ Self | ConditionPresent$ Card.wasCast+!wasCastFromYourHand | ConditionCompare$ EQ1",
         // Rivals' Duel: TargetsWithoutSameCreatureType$ -> MUST refuse!
         "Name:RivalsDuel\nManaCost:3 R\nTypes:Sorcery\n\
          A:SP$ Fight | ValidTgts$ Creature | TargetMin$ 2 | TargetMax$ 2 | TargetsWithoutSameCreatureType$ True",
@@ -1567,10 +1559,6 @@ fn wave28d_p3_refusals() {
         "Name:SokenzanLike\nManaCost:1 R\nTypes:Creature Goblin Artificer\nPT:2/2\n\
          T:Mode$ Phase | Phase$ BeginCombat | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigToken\n\
          SVar:TrigToken:AB$ Token | Cost$ 1 Sac<1/Artifact/an artifact> | TokenScript$ r_3_1_a_construct_haste",
-        // Coven (DifferentCardPower) -> MUST refuse!
-        "Name:GoldenRatioLike\nManaCost:1 G U\nTypes:Sorcery\n\
-         A:SP$ Draw | NumCards$ X\n\
-         SVar:X:Count$Valid Creature.YouCtrl$DifferentCardPower",
         // RevealNumber$ N (Blackmail) -> MUST refuse!
         "Name:BlackmailLike\nManaCost:B\nTypes:Sorcery\n\
          A:SP$ Discard | ValidTgts$ Player | Mode$ RevealYouChoose | RevealNumber$ 3 | NumCards$ 1",

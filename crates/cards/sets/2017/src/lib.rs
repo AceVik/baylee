@@ -53,8 +53,12 @@ pub mod aetherwind_basker;
 pub mod ahn_crop_champion;
 #[path = "akh/ahn_crop_crasher.rs"]
 pub mod ahn_crop_crasher;
+#[path = "aer/aid_from_the_cowl.rs"]
+pub mod aid_from_the_cowl;
 #[path = "aer/airdrop_aeronauts.rs"]
 pub mod airdrop_aeronauts;
+#[path = "aer/ajani_s_aid.rs"]
+pub mod ajani_s_aid;
 #[path = "aer/ajani_s_comrade.rs"]
 pub mod ajani_s_comrade;
 #[path = "aer/ajani_valiant_protector.rs"]
@@ -451,6 +455,8 @@ pub mod dutiful_servants;
 pub mod earthshaker_khenra;
 #[path = "c17/edgar_markov.rs"]
 pub mod edgar_markov;
+#[path = "akh/edifice_of_authority.rs"]
+pub mod edifice_of_authority;
 #[path = "aer/efficient_construction.rs"]
 pub mod efficient_construction;
 #[path = "xln/elaborate_firecannon.rs"]
@@ -789,6 +795,8 @@ pub mod khenra_charioteer;
 pub mod khenra_eternal;
 #[path = "hou/khenra_scrapper.rs"]
 pub mod khenra_scrapper;
+#[path = "c17/kindred_boon.rs"]
+pub mod kindred_boon;
 #[path = "c17/kindred_charge.rs"]
 pub mod kindred_charge;
 #[path = "c17/kindred_discovery.rs"]
@@ -799,6 +807,8 @@ pub mod kindred_summons;
 pub mod kinjalli_s_caller;
 #[path = "pxln/kinjalli_s_sunwing.rs"]
 pub mod kinjalli_s_sunwing;
+#[path = "pxln/kopala_warden_of_waves.rs"]
+pub mod kopala_warden_of_waves;
 #[path = "xln/kumena_s_speaker.rs"]
 pub mod kumena_s_speaker;
 #[path = "aer/lathnu_sailback.rs"]
@@ -833,6 +843,8 @@ pub mod lifecrafter_s_bestiary;
 pub mod lifecrafter_s_gift;
 #[path = "xln/lightning_rig_crew.rs"]
 pub mod lightning_rig_crew;
+#[path = "aer/lightning_runner.rs"]
+pub mod lightning_runner;
 #[path = "akh/liliana_death_s_majesty.rs"]
 pub mod liliana_death_s_majesty;
 #[path = "akh/liliana_death_wielder.rs"]
@@ -853,6 +865,8 @@ pub mod looming_altisaur;
 pub mod lord_of_the_accursed;
 #[path = "hou/lurching_rotbeast.rs"]
 pub mod lurching_rotbeast;
+#[path = "akh/luxa_river_shrine.rs"]
+pub mod luxa_river_shrine;
 #[path = "hou/magmaroth.rs"]
 pub mod magmaroth;
 #[path = "c17/magus_of_the_mind.rs"]
@@ -967,6 +981,8 @@ pub mod onward;
 pub mod open_fire;
 #[path = "akh/open_into_wonder.rs"]
 pub mod open_into_wonder;
+#[path = "akh/oracle_s_vault.rs"]
+pub mod oracle_s_vault;
 #[path = "akh/ornery_kudu.rs"]
 pub mod ornery_kudu;
 #[path = "xln/otepec_huntmaster.rs"]
@@ -1043,6 +1059,8 @@ pub mod pull_from_tomorrow;
 pub mod puncturing_blow;
 #[path = "akh/pursue_glory.rs"]
 pub mod pursue_glory;
+#[path = "akh/pyramid_of_the_pantheon.rs"]
+pub mod pyramid_of_the_pantheon;
 #[path = "c17/qasali_slingers.rs"]
 pub mod qasali_slingers;
 #[path = "hou/quarry_beetle.rs"]
@@ -1153,6 +1171,8 @@ pub mod ritual_of_rejuvenation;
 pub mod river_heralds_boon;
 #[path = "hou/river_hoopoe.rs"]
 pub mod river_hoopoe;
+#[path = "pxln/river_s_rebuke.rs"]
+pub mod river_s_rebuke;
 #[path = "akh/river_serpent.rs"]
 pub mod river_serpent;
 #[path = "xln/river_sneak.rs"]
@@ -1347,6 +1367,8 @@ pub mod sunrise_seeker;
 pub mod sunscorched_desert;
 #[path = "hou/sunscourge_champion.rs"]
 pub mod sunscourge_champion;
+#[path = "hou/sunset_pyramid.rs"]
+pub mod sunset_pyramid;
 #[path = "akh/supernatural_stamina.rs"]
 pub mod supernatural_stamina;
 #[path = "akh/supply_caravan.rs"]
@@ -1399,6 +1421,8 @@ pub mod the_locust_god;
 pub mod the_scarab_god;
 #[path = "mp2/the_scorpion_god.rs"]
 pub mod the_scorpion_god;
+#[path = "c17/the_ur_dragon.rs"]
+pub mod the_ur_dragon;
 #[path = "aer/thopter_arrest.rs"]
 pub mod thopter_arrest;
 #[path = "hou/thorned_moloch.rs"]

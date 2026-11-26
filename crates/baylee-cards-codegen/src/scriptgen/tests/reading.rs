@@ -2177,9 +2177,8 @@ fn wave22c_etb_counter_cast_riders_and_refusals() {
 
     // Unassigned named counters and unmodelled etbCounter SVars stay honestly refused.
     for unmodelled in [
-        "Name:DivinitySpirit\nManaCost:5 W\nTypes:Creature\nPT:4/4\nK:etbCounter:DIVINITY:1",
+        "Name:BogusSpirit\nManaCost:5 W\nTypes:Creature\nPT:4/4\nK:etbCounter:UNASSIGNED_XYZ:1",
         "Name:DraftConstruct\nManaCost:3\nTypes:Artifact Creature\nPT:0/0\nK:etbCounter:P1P1:X\nSVar:X:Count$DraftNotesCount",
-        "Name:CommanderHydra\nManaCost:2 G\nTypes:Creature\nPT:0/0\nK:etbCounter:P1P1:X\nSVar:X:Count$TotalCommanderCastFromCommandZone",
         "Name:BadSpentGolem\nManaCost:4\nTypes:Artifact Creature\nPT:2/2\nK:etbCounter:P1P1:X\nSVar:X:Count$EachSpentToCast Snow",
     ] {
         assert!(refused(unmodelled), "must stay refused:\n{unmodelled}");

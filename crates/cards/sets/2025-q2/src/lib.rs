@@ -35,6 +35,8 @@ pub mod aegis_sculptor;
 pub mod aerith_last_ancient;
 #[path = "fin/aettir_and_priwen.rs"]
 pub mod aettir_and_priwen;
+#[path = "tdc/afterlife_from_the_loam.rs"]
+pub mod afterlife_from_the_loam;
 #[path = "tdm/agent_of_kotis.rs"]
 pub mod agent_of_kotis;
 #[path = "tdm/aggressive_negotiations.rs"]
@@ -143,10 +145,14 @@ pub mod caustic_exhale;
 pub mod cecil_dark_knight;
 #[path = "tdm/champion_of_dusan.rs"]
 pub mod champion_of_dusan;
+#[path = "fic/chaos_shrine_s_black_crystal.rs"]
+pub mod chaos_shrine_s_black_crystal;
 #[path = "fin/choco_comet.rs"]
 pub mod choco_comet;
 #[path = "fic/chocobo_camp.rs"]
 pub mod chocobo_camp;
+#[path = "fin/chocobo_kick.rs"]
+pub mod chocobo_kick;
 #[path = "fic/chocobo_knights.rs"]
 pub mod chocobo_knights;
 #[path = "fin/chocobo_racetrack.rs"]
@@ -165,6 +171,8 @@ pub mod clive_s_hideaway;
 pub mod cloud_ex_soldier;
 #[path = "fin/cloud_of_darkness.rs"]
 pub mod cloud_of_darkness;
+#[path = "fin/cloud_planet_s_champion.rs"]
+pub mod cloud_planet_s_champion;
 #[path = "fin/cloudbound_moogle.rs"]
 pub mod cloudbound_moogle;
 #[path = "fin/coeurl.rs"]
@@ -231,6 +239,8 @@ pub mod dispelling_exhale;
 pub mod diviner_of_mist;
 #[path = "ptdm/dracogenesis.rs"]
 pub mod dracogenesis;
+#[path = "tdm/dragon_s_prey.rs"]
+pub mod dragon_s_prey;
 #[path = "tdm/dragon_sniper.rs"]
 pub mod dragon_sniper;
 #[path = "ptdm/dragonback_assault.rs"]
@@ -293,6 +303,8 @@ pub mod evil_reawakened;
 pub mod excalibur_ii;
 #[path = "fin/exdeath_void_warlock.rs"]
 pub mod exdeath_void_warlock;
+#[path = "fic/fandaniel_telophoroi_ascian.rs"]
+pub mod fandaniel_telophoroi_ascian;
 #[path = "ptdm/fangkeeper_s_familiar.rs"]
 pub mod fangkeeper_s_familiar;
 #[path = "fin/fate_of_the_sun_cryst.rs"]
@@ -375,6 +387,8 @@ pub mod hammerhead_tyrant;
 pub mod hardened_tactician;
 #[path = "fin/hecteyes.rs"]
 pub mod hecteyes;
+#[path = "fic/helitrooper.rs"]
+pub mod helitrooper;
 #[path = "ptdm/herd_heirloom.rs"]
 pub mod herd_heirloom;
 #[path = "tdm/heritage_reclamation.rs"]
@@ -387,6 +401,8 @@ pub mod highspire_bell_ringer;
 pub mod hill_gigas;
 #[path = "fin/hope_estheim.rs"]
 pub mod hope_estheim;
+#[path = "tdm/host_of_the_hereafter.rs"]
+pub mod host_of_the_hereafter;
 #[path = "fic/hraesvelgr_of_the_first_brood.rs"]
 pub mod hraesvelgr_of_the_first_brood;
 #[path = "tdm/humbling_elder.rs"]
@@ -469,6 +485,8 @@ pub mod laughing_mad;
 pub mod lie_in_wait;
 #[path = "tdm/lightfoot_technique.rs"]
 pub mod lightfoot_technique;
+#[path = "fin/lightning_army_of_one.rs"]
+pub mod lightning_army_of_one;
 #[path = "fin/lindblum_industrial_regency.rs"]
 pub mod lindblum_industrial_regency;
 #[path = "fin/lion_heart.rs"]
@@ -585,6 +603,8 @@ pub mod rakshasa_s_bargain;
 pub mod rally_the_monastery;
 #[path = "tdc/rampart_architect.rs"]
 pub mod rampart_architect;
+#[path = "fin/random_encounter.rs"]
+pub mod random_encounter;
 #[path = "fin/raubahn_bull_of_ala_mhigo.rs"]
 pub mod raubahn_bull_of_ala_mhigo;
 #[path = "fin/reach_the_horizon.rs"]
@@ -625,6 +645,8 @@ pub mod rinoa_heartilly;
 pub mod riverwalk_technique;
 #[path = "tdm/riverwheel_sweep.rs"]
 pub mod riverwheel_sweep;
+#[path = "ptdm/roar_of_endless_song.rs"]
+pub mod roar_of_endless_song;
 #[path = "tdm/roiling_dragonstorm.rs"]
 pub mod roiling_dragonstorm;
 #[path = "fin/rook_turret.rs"]
@@ -763,6 +785,8 @@ pub mod summon_choco_mog;
 pub mod summon_esper_ramuh;
 #[path = "fin/summon_fat_chocobo.rs"]
 pub mod summon_fat_chocobo;
+#[path = "fin/summon_fenrir.rs"]
+pub mod summon_fenrir;
 #[path = "fin/summon_g_f_cerberus.rs"]
 pub mod summon_g_f_cerberus;
 #[path = "fin/summon_g_f_ifrit.rs"]
@@ -825,6 +849,8 @@ pub mod the_destined_white_mage;
 pub mod the_earth_crystal;
 #[path = "fic/the_falcon_airship_restored.rs"]
 pub mod the_falcon_airship_restored;
+#[path = "fin/the_final_days.rs"]
+pub mod the_final_days;
 #[path = "fin/the_fire_crystal.rs"]
 pub mod the_fire_crystal;
 #[path = "fin/the_gold_saucer.rs"]
@@ -833,6 +859,8 @@ pub mod the_gold_saucer;
 pub mod the_lunar_whale;
 #[path = "fin/the_regalia.rs"]
 pub mod the_regalia;
+#[path = "ptdm/the_sibsig_ceremony.rs"]
+pub mod the_sibsig_ceremony;
 #[path = "fin/the_wandering_minstrel.rs"]
 pub mod the_wandering_minstrel;
 #[path = "fin/the_wind_crystal.rs"]
@@ -855,10 +883,16 @@ pub mod transpose;
 pub mod travel_the_overworld;
 #[path = "tdm/traveling_botanist.rs"]
 pub mod traveling_botanist;
+#[path = "fin/traveling_chocobo.rs"]
+pub mod traveling_chocobo;
 #[path = "fin/treno_dark_city.rs"]
 pub mod treno_dark_city;
+#[path = "ptdm/ugin_eye_of_the_storms.rs"]
+pub mod ugin_eye_of_the_storms;
 #[path = "fin/ultima_weapon.rs"]
 pub mod ultima_weapon;
+#[path = "fic/ultimate_magic_holy.rs"]
+pub mod ultimate_magic_holy;
 #[path = "fin/ultimecia_temporal_threat.rs"]
 pub mod ultimecia_temporal_threat;
 #[path = "tdm/unburied_earthcarver.rs"]
@@ -937,8 +971,12 @@ pub mod you_re_not_alone;
 pub mod yuffie_materia_hunter;
 #[path = "fin/yuna_hope_of_spira.rs"]
 pub mod yuna_hope_of_spira;
+#[path = "fic/yuna_s_decision.rs"]
+pub mod yuna_s_decision;
 #[path = "fic/yuna_s_whistle.rs"]
 pub mod yuna_s_whistle;
+#[path = "fin/zack_fair.rs"]
+pub mod zack_fair;
 #[path = "fin/zanarkand_ancient_metropolis.rs"]
 pub mod zanarkand_ancient_metropolis;
 #[path = "fin/zell_dincht.rs"]

@@ -241,6 +241,7 @@ impl Tx<'_> {
         // Only effects whose resolver iterates every target in `res.targets`
         // (verified in `baylee-engine/src/resolve/{zones,counters}.rs`).
         let multi_target_safe = matches!(api, "Pump" | "Destroy")
+            || (api == "DealDamage" && !p.has("DamageSource") && !p.has("ExcessSVar"))
             || (api == "ChangeZone"
                 && matches!(
                     (p.peek("Origin"), p.peek("Destination")),
@@ -1085,7 +1086,7 @@ impl Tx<'_> {
         ))
     }
 
-    fn volver_granted_trigger(&mut self, name: &str) -> Option<String> {
+    pub(super) fn volver_granted_trigger(&mut self, name: &str) -> Option<String> {
         let Some(line) = self.svars.get(name).cloned() else {
             return self.deny(format!("`Triggers$ {name}` naming no `SVar`"));
         };
@@ -1271,6 +1272,9 @@ impl Tx<'_> {
         }
         if token.starts_with("Behold<") {
             return Some(vec![self.parse_behold_cost_token(token)?]);
+        }
+        if token.starts_with("BeholdExile<") {
+            return Some(vec![self.wave17c_parse_behold_exile_cost_token(token)?]);
         }
         if let Some(inner) = token.strip_prefix("RevealOrChoose<") {
             let as_behold = format!("Behold<{inner}");

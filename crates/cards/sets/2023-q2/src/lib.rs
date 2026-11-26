@@ -27,6 +27,8 @@ pub mod ancient_imperiosaur;
 pub mod anduril_flame_of_the_west;
 #[path = "ltc/anduril_narsil_reforged.rs"]
 pub mod anduril_narsil_reforged;
+#[path = "mat/animist_s_might.rs"]
+pub mod animist_s_might;
 #[path = "mom/arachnoid_adaptation.rs"]
 pub mod arachnoid_adaptation;
 #[path = "ltr/aragorn_and_arwen_wed.rs"]
@@ -175,6 +177,8 @@ pub mod corsairs_of_umbar;
 pub mod cosmic_hunger;
 #[path = "ltr/council_s_deliberation.rs"]
 pub mod council_s_deliberation;
+#[path = "ltc/courageous_resolve.rs"]
+pub mod courageous_resolve;
 #[path = "mom/cragsmasher_yeti.rs"]
 pub mod cragsmasher_yeti;
 #[path = "ltc/crown_of_gondor.rs"]
@@ -237,6 +241,8 @@ pub mod elven_chorus;
 pub mod elven_farsight;
 #[path = "moc/emergent_woodwurm.rs"]
 pub mod emergent_woodwurm;
+#[path = "mom/enduring_bondwarden.rs"]
+pub mod enduring_bondwarden;
 #[path = "ltr/enraged_huorn.rs"]
 pub mod enraged_huorn;
 #[path = "ltr/ent_draught_basin.rs"]
@@ -341,6 +347,8 @@ pub mod galadriel_gift_giver;
 pub mod galadriel_light_of_valinor;
 #[path = "ltr/gandalf_the_grey.rs"]
 pub mod gandalf_the_grey;
+#[path = "ltr/gandalf_the_white.rs"]
+pub mod gandalf_the_white;
 #[path = "ltr/generous_ent.rs"]
 pub mod generous_ent;
 #[path = "mom/ghalta_and_mavren.rs"]
@@ -477,6 +485,8 @@ pub mod invasion_of_innistrad;
 pub mod invasion_of_ixalan;
 #[path = "mom/invasion_of_kaladesh.rs"]
 pub mod invasion_of_kaladesh;
+#[path = "mom/invasion_of_kaldheim.rs"]
+pub mod invasion_of_kaldheim;
 #[path = "mom/invasion_of_karsus.rs"]
 pub mod invasion_of_karsus;
 #[path = "mom/invasion_of_kylem.rs"]
@@ -637,6 +647,8 @@ pub mod motivated_pony;
 pub mod mount_doom;
 #[path = "ltr/mushroom_watchdogs.rs"]
 pub mod mushroom_watchdogs;
+#[path = "mat/narset_enlightened_exile.rs"]
+pub mod narset_enlightened_exile;
 #[path = "ltr/nasty_end.rs"]
 pub mod nasty_end;
 #[path = "ltc/nazgul_battle_mace.rs"]
@@ -773,6 +785,8 @@ pub mod ringwraiths;
 pub mod rising_of_the_day;
 #[path = "ltr/rivendell.rs"]
 pub mod rivendell;
+#[path = "ltc/rohirrim_chargers.rs"]
+pub mod rohirrim_chargers;
 #[path = "ltr/rohirrim_lancer.rs"]
 pub mod rohirrim_lancer;
 #[path = "mom/ruins_recluse.rs"]
@@ -805,6 +819,8 @@ pub mod sauron_lord_of_the_rings;
 pub mod sauron_the_dark_lord;
 #[path = "ltr/sauron_the_lidless_eye.rs"]
 pub mod sauron_the_lidless_eye;
+#[path = "moc/schema_thief.rs"]
+pub mod schema_thief;
 #[path = "mom/scorn_blade_berserker.rs"]
 pub mod scorn_blade_berserker;
 #[path = "mom/scrappy_bruiser.rs"]
@@ -827,6 +843,8 @@ pub mod seed_of_hope;
 pub mod seraph_of_new_capenna;
 #[path = "mom/serpent_blade_assailant.rs"]
 pub mod serpent_blade_assailant;
+#[path = "ltr/shadow_of_the_enemy.rs"]
+pub mod shadow_of_the_enemy;
 #[path = "ltr/shadow_summoning.rs"]
 pub mod shadow_summoning;
 #[path = "ltr/shadowfax_lord_of_horses.rs"]
@@ -929,6 +947,8 @@ pub mod the_black_gate;
 pub mod the_gaffer;
 #[path = "ltr/the_grey_havens.rs"]
 pub mod the_grey_havens;
+#[path = "mat/the_kenriths_royal_funeral.rs"]
+pub mod the_kenriths_royal_funeral;
 #[path = "ltr/the_mouth_of_sauron.rs"]
 pub mod the_mouth_of_sauron;
 #[path = "ltr/the_one_ring.rs"]

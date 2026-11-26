@@ -463,6 +463,11 @@ impl GameState {
         self.per_turn.cast_spells_this_turn.tracked |=
             super::reads::card_reads_first_spell_each_turn(def);
         self.per_turn.track_mana_types_spent.0 |= super::reads::card_reads_mana_types_spent(def);
+        self.per_turn.track_cast_origin_zone.0 |= super::reads::card_reads_cast_origin_zone(def);
+        self.per_turn.surveilled_cards.tracked |=
+            super::reads::card_reads_surveilled_this_turn(def);
+        self.per_turn.cards_foretold.tracked |= super::reads::card_reads_foretold_count(def);
+        self.per_turn.discard_history.tracked |= super::reads::card_reads_first_discard_batch(def);
         let base = self.card_base(def, entry.card);
         let card = CardRef {
             index: entry.card,
@@ -585,6 +590,11 @@ impl GameState {
         self.per_turn.cast_spells_this_turn.tracked |=
             super::reads::card_reads_first_spell_each_turn(def);
         self.per_turn.track_mana_types_spent.0 |= super::reads::card_reads_mana_types_spent(def);
+        self.per_turn.track_cast_origin_zone.0 |= super::reads::card_reads_cast_origin_zone(def);
+        self.per_turn.surveilled_cards.tracked |=
+            super::reads::card_reads_surveilled_this_turn(def);
+        self.per_turn.cards_foretold.tracked |= super::reads::card_reads_foretold_count(def);
+        self.per_turn.discard_history.tracked |= super::reads::card_reads_first_discard_batch(def);
         Ok(PrintedCard {
             base: self.card_base(def, index),
             cda: printed_pt_cda(def),

@@ -213,6 +213,10 @@ pub mod desperate_ritual;
 pub mod devoted_retainer;
 #[path = "5dn/devour_in_shadow.rs"]
 pub mod devour_in_shadow;
+#[path = "chk/devouring_greed.rs"]
+pub mod devouring_greed;
+#[path = "chk/devouring_rage.rs"]
+pub mod devouring_rage;
 #[path = "chk/distress.rs"]
 pub mod distress;
 #[path = "dst/dragon_s_claw.rs"]
@@ -547,6 +551,16 @@ pub mod moss_kami;
 pub mod mothrider_samurai;
 #[path = "dst/mycosynth_lattice.rs"]
 pub mod mycosynth_lattice;
+#[path = "chk/myojin_of_cleansing_fire.rs"]
+pub mod myojin_of_cleansing_fire;
+#[path = "chk/myojin_of_infinite_rage.rs"]
+pub mod myojin_of_infinite_rage;
+#[path = "chk/myojin_of_life_s_web.rs"]
+pub mod myojin_of_life_s_web;
+#[path = "chk/myojin_of_night_s_reach.rs"]
+pub mod myojin_of_night_s_reach;
+#[path = "chk/myojin_of_seeing_winds.rs"]
+pub mod myojin_of_seeing_winds;
 #[path = "dst/myr_landshaper.rs"]
 pub mod myr_landshaper;
 #[path = "dst/myr_matrix.rs"]
@@ -631,6 +645,8 @@ pub mod pentad_prism;
 pub mod pinecrest_ridge;
 #[path = "5dn/plasma_elemental.rs"]
 pub mod plasma_elemental;
+#[path = "5dn/plunge_into_darkness.rs"]
+pub mod plunge_into_darkness;
 #[path = "5dn/possessed_portal.rs"]
 pub mod possessed_portal;
 #[path = "dst/pristine_angel.rs"]
@@ -787,6 +803,8 @@ pub mod soratami_seer;
 pub mod sosuke_son_of_seshiro;
 #[path = "chk/soul_of_magma.rs"]
 pub mod soul_of_magma;
+#[path = "chk/soulblast.rs"]
+pub mod soulblast;
 #[path = "chk/soulless_revival.rs"]
 pub mod soulless_revival;
 #[path = "dst/soulscour.rs"]
@@ -917,6 +935,8 @@ pub mod vedalken_shackles;
 pub mod venerable_kumo;
 #[path = "dst/vex.rs"]
 pub mod vex;
+#[path = "5dn/vicious_betrayal.rs"]
+pub mod vicious_betrayal;
 #[path = "chk/vigilance.rs"]
 pub mod vigilance;
 #[path = "chk/villainous_ogre.rs"]

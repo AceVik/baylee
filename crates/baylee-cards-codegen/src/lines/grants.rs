@@ -42,3 +42,17 @@ pub(super) fn granted_cost(ability: &AbilityDef) -> Option<baylee_cards_dsl::Cos
         _ => None,
     }
 }
+
+/// Keyword grant phrase when an otherwise unshaped static grants `Encore` or
+/// `Embalm` (`Modifier::GrantsEncoreManaCost`, `Modifier::GrantsEmbalmManaCost`).
+pub(super) fn grants_keyword(ability: &AbilityDef) -> Option<&'static str> {
+    use baylee_cards_dsl::Modifier;
+    match ability {
+        AbilityDef::Static(rule) => match rule.modifier {
+            Modifier::GrantsEncoreManaCost => Some("has encore"),
+            Modifier::GrantsEmbalmManaCost => Some("has embalm"),
+            _ => None,
+        },
+        _ => None,
+    }
+}

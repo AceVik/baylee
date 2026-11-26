@@ -365,7 +365,9 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
                         .find(|k| matches!(k, CounterKind::Minus { .. }));
                 }
             }
-            Effect::PutEachCounterKindFromSource { .. } => {
+            Effect::PutEachCounterKindFromSource { .. }
+            | Effect::PutAllCountersFrom { .. }
+            | Effect::PutAllCountersFromIntoFound { .. } => {
                 m.size_counter = Some(CounterKind::P1P1);
             }
             Effect::Destroy { .. } | Effect::DestroyTargetSlots { .. } => {
@@ -419,7 +421,8 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
             | Effect::CreateTokenModified { .. }
             | Effect::CreateTokenAttacking { .. }
             | Effect::CreateTokenSized { .. }
-            | Effect::Amass { .. } => {
+            | Effect::Amass { .. }
+            | Effect::Empower { .. } => {
                 m.value = 500;
             }
             Effect::TakeExtraTurn | Effect::ExileLibraryAndShuffleHand { .. } => m.value = 10_000,

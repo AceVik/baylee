@@ -21,6 +21,8 @@ pub mod academy_ruins;
 pub mod adarkar_valkyrie;
 #[path = "csp/adarkar_windform.rs"]
 pub mod adarkar_windform;
+#[path = "dis/aethermage_s_touch.rs"]
+pub mod aethermage_s_touch;
 #[path = "gpt/agent_of_masks.rs"]
 pub mod agent_of_masks;
 #[path = "pcsp/allosaurus_rider.rs"]
@@ -215,6 +217,8 @@ pub mod debtors_knell;
 pub mod deepfire_elemental;
 #[path = "dis/delirium_skeins.rs"]
 pub mod delirium_skeins;
+#[path = "tsp/dementia_sliver.rs"]
+pub mod dementia_sliver;
 #[path = "dis/demon_s_jester.rs"]
 pub mod demon_s_jester;
 #[path = "tsp/demonic_collusion.rs"]
@@ -457,6 +461,8 @@ pub mod hypervolt_grasp;
 pub mod ib_halfheart_goblin_tactician;
 #[path = "tsp/icatian_crier.rs"]
 pub mod icatian_crier;
+#[path = "tsp/ignite_memories.rs"]
+pub mod ignite_memories;
 #[path = "csp/into_the_north.rs"]
 pub mod into_the_north;
 #[path = "gpt/invoke_the_firemind.rs"]
@@ -711,6 +717,8 @@ pub mod quilled_sliver;
 pub mod rabble_rouser;
 #[path = "dis/ragamuffyn.rs"]
 pub mod ragamuffyn;
+#[path = "dis/rakdos_augermage.rs"]
+pub mod rakdos_augermage;
 #[path = "dis/rakdos_carnarium.rs"]
 pub mod rakdos_carnarium;
 #[path = "dis/rakdos_guildmage.rs"]

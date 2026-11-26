@@ -173,6 +173,9 @@ impl Tx<'_> {
         if let Some(rest) = line.strip_prefix("Madness:") {
             return self.madness(rest);
         }
+        if let Some(rest) = line.strip_prefix("Mayhem:") {
+            return self.wave17b_mayhem(rest);
+        }
         if let Some(rest) = line.strip_prefix("Foretell:") {
             return self.foretell(rest);
         }
@@ -1665,6 +1668,10 @@ impl Tx<'_> {
                     .or_else(|| def.strip_prefix("Count$Warp."))
                     .map(|r| ("Condition::WarpCostPaid", r))
             })
+            .or_else(|| {
+                def.strip_prefix("Count$Mayhem.")
+                    .map(|r| ("Condition::MayhemCostPaid", r))
+            })
         {
             let Some((then_arm, else_arm)) = rest.split_once('.') else {
                 return false;
@@ -1750,6 +1757,10 @@ impl Tx<'_> {
                 | "Card.Warped+Self"
                 | "Card.Self+CastSa Spell.Warp"
                 | "Card.CastSa Spell.Warp+Self" => "Condition::WarpCostPaid".to_string(),
+                "Card.Self+Mayhem"
+                | "Card.Mayhem+Self"
+                | "Card.Self+CastSa Spell.Mayhem"
+                | "Card.CastSa Spell.Mayhem+Self" => "Condition::MayhemCostPaid".to_string(),
                 "Card.Self+wasCastByYou" | "Card.wasCastByYou+Self" => {
                     "Condition::SourceWasCastByYou".to_string()
                 }
@@ -2123,6 +2134,9 @@ impl Tx<'_> {
             return Some(expr);
         }
         if let Some(expr) = self.wave16a_etb_amount(def) {
+            return Some(expr);
+        }
+        if let Some(expr) = self.wave17b_etb_amount(def) {
             return Some(expr);
         }
         if def == "Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature" {

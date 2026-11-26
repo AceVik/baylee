@@ -103,6 +103,8 @@ pub mod cutthroat_centurion;
 pub mod distorted_curiosity;
 #[path = "one/dragonwing_glider.rs"]
 pub mod dragonwing_glider;
+#[path = "one/drivnod_carnage_dominus.rs"]
+pub mod drivnod_carnage_dominus;
 #[path = "one/dross_skullbomb.rs"]
 pub mod dross_skullbomb;
 #[path = "one/drown_in_ichor.rs"]
@@ -165,6 +167,8 @@ pub mod hazardous_blast;
 pub mod hexgold_halberd;
 #[path = "one/hexgold_hoverwings.rs"]
 pub mod hexgold_hoverwings;
+#[path = "pw23/ice_out.rs"]
+pub mod ice_out;
 #[path = "one/ichor_synthesizer.rs"]
 pub mod ichor_synthesizer;
 #[path = "one/ichorplate_golem.rs"]
@@ -189,6 +193,8 @@ pub mod jawbone_duelist;
 pub mod jor_kadeen_first_goldwarden;
 #[path = "onc/kemba_s_banner.rs"]
 pub mod kemba_s_banner;
+#[path = "one/kethek_crucible_goliath.rs"]
+pub mod kethek_crucible_goliath;
 #[path = "one/kuldotha_cackler.rs"]
 pub mod kuldotha_cackler;
 #[path = "one/lattice_blade_mantis.rs"]
@@ -301,6 +307,8 @@ pub mod skyscythe_engulfer;
 pub mod slobad_iron_goblin;
 #[path = "one/solphim_mayhem_dominus.rs"]
 pub mod solphim_mayhem_dominus;
+#[path = "one/soulless_jailer.rs"]
+pub mod soulless_jailer;
 #[path = "one/staff_of_compleation.rs"]
 pub mod staff_of_compleation;
 #[path = "one/stinging_hivemaster.rs"]
@@ -369,6 +377,8 @@ pub mod urabrask_s_anointer;
 pub mod urabrask_s_forge;
 #[path = "onc/urtet_remnant_of_memnarch.rs"]
 pub mod urtet_remnant_of_memnarch;
+#[path = "one/vanish_into_eternity.rs"]
+pub mod vanish_into_eternity;
 #[path = "one/vat_emergence.rs"]
 pub mod vat_emergence;
 #[path = "one/vat_of_rebirth.rs"]
@@ -399,3 +409,5 @@ pub mod whisper_of_the_dross;
 pub mod white_sun_s_twilight;
 #[path = "one/zealot_s_conviction.rs"]
 pub mod zealot_s_conviction;
+#[path = "one/zopandrel_hunger_dominus.rs"]
+pub mod zopandrel_hunger_dominus;

@@ -1351,6 +1351,7 @@ CastPlot = Aushecken
 CastImpending = Drohendes Unheil
 CastAwaken = Erwachen
 CastBeamMeUp = Beam mich hoch
+CastMayhem = Chaos
 DifferentManaValues = Wähle Ziele mit unterschiedlichen Manabeträgen
 CastDash = Sturmangriff
 CastBlitz = Blitzangriff

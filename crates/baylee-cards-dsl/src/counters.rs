@@ -261,6 +261,45 @@ pub const PLAGUE: CounterKind = CounterKind::Custom(71);
 /// Fellowship counters (Banner of Kinship).
 pub const FELLOWSHIP: CounterKind = CounterKind::Custom(72);
 
+/// Gem counters (Briber's Purse).
+pub const GEM: CounterKind = CounterKind::Custom(73);
+
+/// Hope counters (Dawn of a New Age).
+pub const HOPE: CounterKind = CounterKind::Custom(74);
+
+/// Fire counters (Fated Firepower).
+pub const FIRE: CounterKind = CounterKind::Custom(75);
+
+/// Task counters (Heliod's Punishment).
+pub const TASK: CounterKind = CounterKind::Custom(76);
+
+/// Suspect counters (Investigator's Journal).
+pub const SUSPECT: CounterKind = CounterKind::Custom(77);
+
+/// Reprieve counters (Magnanimous Magistrate).
+pub const REPRIEVE: CounterKind = CounterKind::Custom(78);
+
+/// Hour counters (Midnight Oil).
+pub const HOUR: CounterKind = CounterKind::Custom(79);
+
+/// Divinity counters (Myojin cycle).
+pub const DIVINITY: CounterKind = CounterKind::Custom(80);
+
+/// Revival counters (Nine-Lives Familiar).
+pub const REVIVAL: CounterKind = CounterKind::Custom(81);
+
+/// Film counters (Peter Parker's Camera).
+pub const FILM: CounterKind = CounterKind::Custom(82);
+
+/// Crystal counters (Prism Array).
+pub const CRYSTAL: CounterKind = CounterKind::Custom(83);
+
+/// Isolation counters (Quarantine Field).
+pub const ISOLATION: CounterKind = CounterKind::Custom(84);
+
+/// Brick counters (Sunset Pyramid).
+pub const BRICK: CounterKind = CounterKind::Custom(85);
+
 /// Every id this module assigns, with the word it stands for.
 ///
 /// It exists so the ids can be checked rather than trusted, which is the
@@ -339,6 +378,19 @@ pub const ASSIGNED: &[(&str, CounterKind)] = &[
     ("hit", HIT),
     ("plague", PLAGUE),
     ("fellowship", FELLOWSHIP),
+    ("gem", GEM),
+    ("hope", HOPE),
+    ("fire", FIRE),
+    ("task", TASK),
+    ("suspect", SUSPECT),
+    ("reprieve", REPRIEVE),
+    ("hour", HOUR),
+    ("divinity", DIVINITY),
+    ("revival", REVIVAL),
+    ("film", FILM),
+    ("crystal", CRYSTAL),
+    ("isolation", ISOLATION),
+    ("brick", BRICK),
 ];
 
 #[cfg(test)]

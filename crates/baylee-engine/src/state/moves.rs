@@ -925,6 +925,9 @@ impl GameState {
                             | crate::object::Rider::ControlledSubtypeOnCast(_)
                             | crate::object::Rider::BeheldCostPower(_, _, _)
                             | crate::object::Rider::EncoreAbility
+                            | crate::object::Rider::CastOriginZone(_)
+                            | crate::object::Rider::MayhemPaid
+                            | crate::object::Rider::UnearthAbility
                     )
                 });
             }

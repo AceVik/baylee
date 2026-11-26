@@ -1015,10 +1015,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             if squad_paid.is_none() && !offspring_paid {
                 continue;
             }
-            let times = crate::trigger::times_triggered(
+            let times = crate::trigger::times_triggered_at(
                 &self.state,
                 baylee_cards_dsl::TriggerEventKind::EntersBattlefield,
                 object,
+                Some(entry),
             );
             for _ in 0..times {
                 if let Some(n) = squad_paid {
@@ -1119,10 +1120,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             if already_printed {
                 continue;
             }
-            let times = crate::trigger::times_triggered(
+            let times = crate::trigger::times_triggered_at(
                 &self.state,
                 baylee_cards_dsl::TriggerEventKind::EntersBattlefield,
                 object,
+                Some(entry),
             );
             for _ in 0..times {
                 let mut trig = synthetic_copy_etb_trigger(object, entrant, gift_etb_fx(kind), None);
@@ -1174,10 +1176,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 if !has_impending {
                     continue;
                 }
-                let times = crate::trigger::times_triggered(
+                let times = crate::trigger::times_triggered_at(
                     &self.state,
                     baylee_cards_dsl::TriggerEventKind::Any,
                     id,
+                    Some(entry),
                 );
                 for _ in 0..times {
                     let mut trig =

@@ -503,6 +503,8 @@ pub mod flowstone_salamander;
 pub mod flowstone_sculpture;
 #[path = "tmp/flowstone_wyvern.rs"]
 pub mod flowstone_wyvern;
+#[path = "por/flux.rs"]
+pub mod flux;
 #[path = "wth/fog_elemental.rs"]
 pub mod fog_elemental;
 #[path = "tmp/fool_s_tome.rs"]

@@ -1030,6 +1030,7 @@ mod tests {
         "Invasion of Innistrad",
         "Invasion of Ixalan",
         "Invasion of Kaladesh",
+        "Invasion of Kaldheim",
         "Invasion of Karsus",
         "Invasion of Mercadia",
         "Invasion of Moag",

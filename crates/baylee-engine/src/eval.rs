@@ -527,6 +527,16 @@ pub(crate) fn matches_projected_with_choices(
                     .is_some_and(|p| obj.controlled_since <= p.turn_start_timestamp)
         }
         Filter::PutIntoGraveyardThisTurn => state.per_turn.entered_graveyard.contains(&obj.id),
+        Filter::SurveilledByYouThisTurn => {
+            obj.zone == crate::zone::Zone::Graveyard
+                && state.per_turn.surveilled_cards.items.contains(&(
+                    baylee_core::ids::DamageSourceRef {
+                        object: obj.id,
+                        version: obj.version,
+                    },
+                    you,
+                ))
+        }
         // The object's own counters. A leaves-the-battlefield trigger asks
         // the object as it last existed there, and `trigger::departed_matches`
         // hands in that object, counters and all.
@@ -980,6 +990,9 @@ pub(crate) fn matches_projected_with_choices(
         Filter::HasKeyword(k) => chars.keywords.contains(*k),
         Filter::Kicked => obj.kicked(),
         Filter::CastFromHand => obj.cast_history.was_from_hand(),
+        Filter::WasCast => obj.cast_history.caster().is_some(),
+        Filter::WasCastByYou => obj.cast_history.caster() == Some(you),
+        Filter::CastFromZone(zone) => object_was_cast_from_zone(obj, *zone),
         Filter::CmcAtMost(n) => chars.mana_value() <= *n,
         // The bound is the announced X on the ability's own source, which is
         // where `cast_wizard` writes it and what `res.x` is read from one
@@ -1439,7 +1452,11 @@ fn amount_reads_announced_x(amt: &baylee_cards_dsl::Amount, depth: u8) -> bool {
         | A::PermanentsSacrificedThisTurn { filter: f, .. }
         | A::SpellsCastMatchingThisTurn { filter: f, .. }
         | A::CreaturesAttackedThisTurn { filter: f, .. }
-        | A::DistinctManaValuesInZone { filter: f, .. } => reads_announced_x_at(f, depth + 1),
+        | A::DistinctManaValuesInZone { filter: f, .. }
+        | A::DistinctPowersAmong(f)
+        | A::HighestControlledCount { filter: f, .. }
+        | A::TotalManaValueInZone { filter: f, .. }
+        | A::DistinctExactManaCostsInZone { filter: f, .. } => reads_announced_x_at(f, depth + 1),
         _ => false,
     }
 }
@@ -1591,6 +1608,32 @@ fn object_is_modified(
                         && state.last_known_controller(att_id) == Some(host_ctrl))
             })
         })
+}
+
+#[must_use]
+pub(crate) fn object_was_cast_from_zone(
+    obj: &crate::object::GameObject,
+    zone: baylee_cards_dsl::ZoneRef,
+) -> bool {
+    use baylee_cards_dsl::ZoneRef;
+    if obj.cast_history.caster().is_none() {
+        return false;
+    }
+    match zone {
+        ZoneRef::Hand => obj.cast_history.was_from_hand(),
+        ZoneRef::Graveyard => obj.cast_history.was_from_graveyard(),
+        ZoneRef::Exile => obj.riders.contains(&crate::object::Rider::CastOriginZone(
+            crate::zone::Zone::Exile,
+        )),
+        ZoneRef::Library => obj.riders.contains(&crate::object::Rider::CastOriginZone(
+            crate::zone::Zone::Library,
+        )),
+        ZoneRef::Command => obj.riders.contains(&crate::object::Rider::CastOriginZone(
+            crate::zone::Zone::Command,
+        )),
+        ZoneRef::NotBattlefield => true,
+        ZoneRef::Battlefield | ZoneRef::Stack | ZoneRef::BattlefieldOrCommand => false,
+    }
 }
 
 #[cfg(test)]

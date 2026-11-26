@@ -810,6 +810,9 @@ fn render_face(
         if let Some(warp) = body.warp.as_deref() {
             fields.push(format!("warp = {warp}"));
         }
+        if let Some(mayhem) = body.mayhem.as_deref() {
+            fields.push(format!("mayhem = {mayhem}"));
+        }
         if let Some(optional_cost) = body.optional_cost.as_deref() {
             fields.push(format!("optional_cost = {optional_cost}"));
         }

@@ -1822,7 +1822,7 @@ fn reduce_cost_lowers_colored_dynamic_cycling_facedown_shared_and_self_stack() {
          S:Mode$ ReduceCost | ValidCard$ Card.ChosenType | Type$ Spell | Activator$ You | Amount$ 1",
         "Name:Bad\nTypes:Creature\nPT:8/8\n\
          S:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | EffectZone$ All | Color$ G | Amount$ X\n\
-         SVar:X:Count$Valid Creature.Green+YouCtrl",
+         SVar:X:Count$ThisTurnCast_Card",
         "Name:Bad\nTypes:Creature\nPT:2/2\n\
          S:Mode$ ReduceCost | ValidCard$ Creature | Type$ Spell | EffectZone$ All | Amount$ 1",
         "Name:Bad\nTypes:Instant\nA:SP$ Draw | NumCards$ 1\n\

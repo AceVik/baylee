@@ -85,7 +85,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 grantor: None,
             };
         }
-        let (eligible, ordinary) = casting::activation_increases(&self.state, source);
+        let (mut eligible, mut ordinary) = casting::activation_increases(&self.state, source);
+        let extra_ab_inc = self.extra_ability_mana_increases(player, source, ability_index);
+        ordinary = ordinary.saturating_add(extra_ab_inc.1);
+        eligible = eligible.saturating_add(extra_ab_inc.0);
         let increase = eligible.saturating_add(ordinary);
         let mut base_mana = cost.mana;
         if cost.parts.contains(&CostPart::PayAttachedManaCost)
@@ -172,6 +175,53 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
     }
 
+    fn extra_ability_mana_increases(
+        &self,
+        player: PlayerId,
+        source: ObjectId,
+        ability_index: u32,
+    ) -> (u32, u32) {
+        if !self.state.effects.may_change_or_forbid_abilities() {
+            return (0, 0);
+        }
+        let Some(object) = self.state.object(source) else {
+            return (0, 0);
+        };
+        let def = self.activation_definition(source, ability_index);
+        let is_mana = def.is_some_and(|a| a.is_mana_ability());
+        let is_loyalty = matches!(def, Some(AbilityDef::Loyalty { .. }));
+        let mut eligible = 0_u32;
+        let mut ordinary = 0_u32;
+        for effect in self.state.effects.iter() {
+            let (who, filter, amount) = match effect.modifier {
+                baylee_cards_dsl::Modifier::NonManaAbilitiesCostMore {
+                    who,
+                    filter,
+                    amount,
+                } if !is_mana => (who, filter, amount),
+                baylee_cards_dsl::Modifier::LoyaltyAbilitiesCostMore {
+                    who,
+                    filter,
+                    amount,
+                } if is_loyalty => (who, filter, amount),
+                _ => continue,
+            };
+            if amount == 0
+                || !self.ability_target_reduction_source_matches(
+                    player, source, object, effect, who, filter,
+                )
+            {
+                continue;
+            }
+            if casting::effect_is_un(&self.state, effect.source) {
+                eligible = eligible.saturating_add(amount);
+            } else {
+                ordinary = ordinary.saturating_add(amount);
+            }
+        }
+        (eligible, ordinary)
+    }
+
     pub(super) fn has_target_conditional_ability_reduction(
         &self,
         player: PlayerId,
@@ -183,27 +233,61 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let Some(object) = self.state.object(source) else {
             return false;
         };
-        self.state.effects.iter().any(|effect| {
-            let baylee_cards_dsl::Modifier::ReduceCostIfTargets {
-                who,
-                spell_filter,
-                reduction,
-                abilities: true,
-                ..
-            } = effect.modifier
-            else {
-                return false;
-            };
-            reduction != baylee_core::mana::ManaCost::ZERO
-                && self.ability_target_reduction_source_matches(
-                    player,
-                    source,
-                    object,
-                    effect,
+        self.state
+            .effects
+            .iter()
+            .any(|effect| match effect.modifier {
+                baylee_cards_dsl::Modifier::ReduceCostIfTargets {
                     who,
                     spell_filter,
-                )
-        })
+                    reduction,
+                    abilities: true,
+                    ..
+                } => {
+                    reduction != baylee_core::mana::ManaCost::ZERO
+                        && self.ability_target_reduction_source_matches(
+                            player,
+                            source,
+                            object,
+                            effect,
+                            who,
+                            spell_filter,
+                        )
+                }
+                baylee_cards_dsl::Modifier::RaiseCostIfTargets {
+                    who,
+                    spell_filter,
+                    extra_mana,
+                    extra_life,
+                    abilities: true,
+                    ..
+                } => {
+                    (extra_mana != baylee_core::mana::ManaCost::ZERO || extra_life > 0)
+                        && self.ability_target_reduction_source_matches(
+                            player,
+                            source,
+                            object,
+                            effect,
+                            who,
+                            spell_filter,
+                        )
+                }
+                baylee_cards_dsl::Modifier::EquipCostsLessIfTargets { who, amount, .. } => {
+                    amount > 0
+                        && object
+                            .characteristics()
+                            .subtypes
+                            .contains(baylee_core::generated::subtypes::artifact::EQUIPMENT)
+                        && eval::players_for_source(
+                            who,
+                            &self.state,
+                            effect.controller,
+                            effect.source,
+                        )
+                        .is_some_and(|players| players.contains(&player))
+                }
+                _ => false,
+            })
     }
 
     fn ability_target_reduction_source_matches(
@@ -641,43 +725,28 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             source,
             ability_index,
             object,
+            full,
+            equip,
             target_pricing,
             mana,
+            parts,
         );
     }
 
+    #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
     fn apply_target_conditional_activation_reductions(
         &self,
         player: PlayerId,
         source: ObjectId,
         ability_index: u32,
         object: &GameObject,
+        full: &baylee_core::mana::ManaCost,
+        equip: bool,
         target_pricing: ActivationTargetPricing<'_>,
         mana: &mut baylee_core::mana::ManaCost,
+        parts: &mut SmallVec<[CostPart; 4]>,
     ) {
         for effect in self.state.effects.iter() {
-            let baylee_cards_dsl::Modifier::ReduceCostIfTargets {
-                who,
-                spell_filter,
-                target_filter,
-                reduction,
-                abilities: true,
-            } = effect.modifier
-            else {
-                continue;
-            };
-            if reduction == baylee_core::mana::ManaCost::ZERO
-                || !self.ability_target_reduction_source_matches(
-                    player,
-                    source,
-                    object,
-                    effect,
-                    who,
-                    spell_filter,
-                )
-            {
-                continue;
-            }
             let context = crate::text_changes::RuleContext {
                 source: effect.source.unwrap_or(source),
                 text: self.state.effect_text(effect),
@@ -685,31 +754,220 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 resolved_subtype: effect.filter.chosen_subtype(),
                 reference: None,
             };
-            let target_matches = match target_pricing {
-                ActivationTargetPricing::Chosen(chosen) => chosen.iter().any(|&tid| {
-                    self.state.object(tid).is_some_and(|target| {
-                        eval::matches_with_context(
-                            target_filter,
-                            &self.state,
-                            target,
-                            effect.controller,
-                            context,
-                        )
-                    })
-                }),
-                ActivationTargetPricing::Preview => self.ability_preview_has_matching_target(
-                    player,
-                    source,
-                    ability_index,
-                    effect.controller,
-                    context,
+            match effect.modifier {
+                baylee_cards_dsl::Modifier::ReduceCostIfTargets {
+                    who,
+                    spell_filter,
                     target_filter,
-                ),
-            };
-            if target_matches {
-                *mana = mana.with_less_mana(&reduction, false);
+                    reduction,
+                    abilities: true,
+                } => {
+                    if reduction == baylee_core::mana::ManaCost::ZERO
+                        || !self.ability_target_reduction_source_matches(
+                            player,
+                            source,
+                            object,
+                            effect,
+                            who,
+                            spell_filter,
+                        )
+                    {
+                        continue;
+                    }
+                    let target_matches = match target_pricing {
+                        ActivationTargetPricing::Chosen(chosen) => chosen.iter().any(|&tid| {
+                            self.state.object(tid).is_some_and(|target| {
+                                eval::matches_with_context(
+                                    target_filter,
+                                    &self.state,
+                                    target,
+                                    effect.controller,
+                                    context,
+                                )
+                            })
+                        }),
+                        ActivationTargetPricing::Preview => self
+                            .ability_preview_has_matching_target(
+                                player,
+                                source,
+                                ability_index,
+                                effect.controller,
+                                context,
+                                target_filter,
+                            ),
+                    };
+                    if target_matches {
+                        *mana = mana.with_less_mana(&reduction, false);
+                    }
+                }
+                baylee_cards_dsl::Modifier::EquipCostsLessIfTargets {
+                    who,
+                    target_filter,
+                    amount,
+                } if equip && amount > 0 && full.generic_total() > 0 => {
+                    let outer_ok = matches!(
+                        effect.filter,
+                        crate::effects::EffectFilter::Dsl(
+                            baylee_cards_dsl::Filter::Any | baylee_cards_dsl::Filter::This
+                        ) | crate::effects::EffectFilter::DslControlledBy(_, _)
+                    ) || crate::effects::applies_to(&self.state, effect, object);
+                    let player_ok = eval::players_for_source(
+                        who,
+                        &self.state,
+                        effect.controller,
+                        effect.source,
+                    )
+                    .is_some_and(|players| players.contains(&player));
+                    if !outer_ok
+                        || !player_ok
+                        || !object
+                            .characteristics()
+                            .subtypes
+                            .contains(baylee_core::generated::subtypes::artifact::EQUIPMENT)
+                    {
+                        continue;
+                    }
+                    let target_matches = match target_pricing {
+                        ActivationTargetPricing::Chosen(chosen) => chosen.iter().any(|&tid| {
+                            self.state.object(tid).is_some_and(|target| {
+                                eval::matches_with_context(
+                                    target_filter,
+                                    &self.state,
+                                    target,
+                                    effect.controller,
+                                    context,
+                                )
+                            })
+                        }),
+                        ActivationTargetPricing::Preview => self
+                            .ability_preview_has_matching_target(
+                                player,
+                                source,
+                                ability_index,
+                                effect.controller,
+                                context,
+                                target_filter,
+                            ),
+                    };
+                    if target_matches {
+                        *mana = mana.with_less_generic(amount);
+                    }
+                }
+                baylee_cards_dsl::Modifier::RaiseCostIfTargets {
+                    who,
+                    spell_filter,
+                    target_filter,
+                    extra_mana,
+                    extra_life,
+                    abilities: true,
+                } => {
+                    if (extra_mana == baylee_core::mana::ManaCost::ZERO && extra_life == 0)
+                        || !self.ability_target_reduction_source_matches(
+                            player,
+                            source,
+                            object,
+                            effect,
+                            who,
+                            spell_filter,
+                        )
+                    {
+                        continue;
+                    }
+                    // On preview before targets are chosen, an optional/alternative
+                    // non-taxed target keeps the ability reachable at base cost;
+                    // once targets are chosen (or if no non-matching target exists),
+                    // the tax applies.
+                    let target_matches = match target_pricing {
+                        ActivationTargetPricing::Chosen(chosen) => chosen.iter().any(|&tid| {
+                            self.state.object(tid).is_some_and(|target| {
+                                eval::matches_with_context(
+                                    target_filter,
+                                    &self.state,
+                                    target,
+                                    effect.controller,
+                                    context,
+                                )
+                            })
+                        }),
+                        ActivationTargetPricing::Preview => {
+                            let inv = baylee_cards_dsl::Filter::Any;
+                            let _ = inv;
+                            self.ability_preview_all_targets_match(
+                                player,
+                                source,
+                                ability_index,
+                                effect.controller,
+                                context,
+                                target_filter,
+                            )
+                        }
+                    };
+                    if target_matches {
+                        if extra_mana != baylee_core::mana::ManaCost::ZERO {
+                            *mana = mana.combine(&extra_mana);
+                        }
+                        if extra_life > 0 {
+                            parts.push(CostPart::PayLife(
+                                u16::try_from(extra_life).unwrap_or(u16::MAX),
+                            ));
+                        }
+                    }
+                }
+                _ => {}
             }
         }
+    }
+
+    fn ability_preview_all_targets_match(
+        &self,
+        player: PlayerId,
+        source: ObjectId,
+        ability_index: u32,
+        controller: PlayerId,
+        rule_ctx: crate::text_changes::RuleContext,
+        target_filter: &'static baylee_cards_dsl::Filter,
+    ) -> bool {
+        let Some(ability) = self.activation_definition(source, ability_index) else {
+            return false;
+        };
+        let (AbilityDef::Activated {
+            targets: Some(req), ..
+        }
+        | AbilityDef::ActivatedConditional {
+            targets: Some(req), ..
+        }) = ability
+        else {
+            return false;
+        };
+        if req.min == 0 {
+            return false;
+        }
+        let ab_ctx = self.ability_rule_context(source, ability_index);
+        let wall_only = self.activation_wall_only(source, ability_index);
+        let pls = eval::target_player_options_from(&self.state, &req.spec, player, ab_ctx);
+        if !pls.is_empty() {
+            return false;
+        }
+        let objs = eval::target_options_in_domain(
+            &req.spec,
+            &self.state,
+            player,
+            ab_ctx,
+            self.activation_x,
+            wall_only,
+        );
+        !objs.is_empty()
+            && objs.iter().all(|&id| {
+                self.state.object(id).is_some_and(|target| {
+                    eval::matches_with_context(
+                        target_filter,
+                        &self.state,
+                        target,
+                        controller,
+                        rule_ctx,
+                    )
+                })
+            })
     }
 
     /// Whether `player` can pay an activation's `cost` some way that begins
@@ -1047,6 +1305,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::ExileFromGraveyard(_)
                 | CostPart::PutCounterOnOther { .. }
                 | CostPart::Behold(_)
+                | CostPart::BeholdAndExile(_)
                 | CostPart::RevealFromHand(_) => {
                     // **As many candidates as the cost asks questions.** A
                     // cost may print the same one more than once — Time
@@ -1836,6 +2095,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::ExileFromGraveyard(_)
                 | CostPart::PutCounterOnOther { .. }
                 | CostPart::Behold(_)
+                | CostPart::BeholdAndExile(_)
                 | CostPart::RevealFromHand(_) => {
                     let Some(&[card]) = answers.next().map(Vec::as_slice) else {
                         return Err(EngineError::IllegalAction(
@@ -1866,12 +2126,16 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     // printed cost's: that sentence is linked to it, and a
                     // Swamp a rule imposed is none of it (CR 607.2i).
                     if work.next <= cost.parts.len().saturating_sub(cost.imposed)
-                        && matches!(
+                        && (matches!(
                             part,
                             CostPart::Sacrifice(_)
                                 | CostPart::ExilePermanent(_)
                                 | CostPart::ExileFromGraveyard(_)
-                        )
+                        ) || (matches!(part, CostPart::BeholdAndExile(_))
+                            && self
+                                .state
+                                .object(card)
+                                .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)))
                     {
                         paid.sacrificed = self.state.object(card).map(|o| (card, o.version));
                         paid.sacrificed_lki = self

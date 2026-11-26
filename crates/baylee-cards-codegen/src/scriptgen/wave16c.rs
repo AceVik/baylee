@@ -1355,7 +1355,15 @@ impl Tx<'_> {
         };
         let max = match p.take("Max") {
             None => "Amount::Fixed(u32::MAX)".to_string(),
-            Some(raw) => self.amount_or_count_ext(&raw)?,
+            Some(raw) => self.amount_or_count_ext(&raw).or_else(|| {
+                (pay_cost == "Some(VariablePayKind::Life)"
+                    && (raw.trim() == "Count$YourLifeTotal/LimitMin.0"
+                        || self
+                            .svars
+                            .get(raw.trim())
+                            .is_some_and(|v| v.trim() == "Count$YourLifeTotal/LimitMin.0")))
+                .then(|| "Amount::LifeTotal(PlayerRel::You)".to_string())
+            })?,
         };
         if !p.exhausted() {
             return None;
