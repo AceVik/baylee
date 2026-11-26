@@ -3305,11 +3305,21 @@ fn wave10b_move_counter_and_move_counter_to_event() {
         "Name:MoveAll\nManaCost:1 U\nTypes:Instant\n\
          A:SP$ MoveCounter | Source$ Self | ValidTgts$ Creature | CounterType$ All | CounterNum$ All"
     ));
-    assert!(refused(
+    let move_unique = read(
         "Name:MoveUnique\nTypes:Land\n\
          A:AB$ TargetOnly | Cost$ 1 T | ValidTgts$ Permanent.YouCtrl | SubAbility$ Move\n\
-         SVar:Move:DB$ MoveCounter | Source$ ParentTarget | ValidTgts$ Permanent | TargetUnique$ True | CounterType$ Any | CounterNum$ 1"
-    ));
+         SVar:Move:DB$ MoveCounter | Source$ ParentTarget | ValidTgts$ Permanent | TargetUnique$ True | CounterType$ Any | CounterNum$ 1",
+    );
+    assert!(
+        move_unique.abilities[0].contains(
+            "Effect::MoveCounter { from: TargetSlot::First, to: TargetSlot::Second, kind: None }"
+        ) && move_unique
+            .statics
+            .contains("Filter::And(&[Filter::Any, Filter::Not(&Filter::Reference)])"),
+        "{} / {}",
+        move_unique.abilities[0],
+        move_unique.statics
+    );
 }
 
 #[test]
@@ -5368,7 +5378,7 @@ fn wave16c_incubate_exploited_warped_snow_and_supported_apis() {
 
 #[test]
 fn wave16c_multiply_counter_and_earthbend() {
-    // MultiplyCounter: self, targeted, and Valid filter; refuses Multiplier$ 3, omitted CounterType$, multi-target.
+    // MultiplyCounter: self, targeted, Valid filter, and multi-target; refuses Multiplier$ 3, omitted CounterType$.
     let dbl_valid = read(
         "Name:SpineDoubler\nManaCost:1 G\nTypes:Creature\nPT:2/2\n\
          A:AB$ MultiplyCounter | Cost$ 3 G G | Defined$ Valid Creature.YouCtrl | CounterType$ P1P1",
@@ -5399,10 +5409,17 @@ fn wave16c_multiply_counter_and_earthbend() {
         "Name:AllKindsBad\nManaCost:2 G\nTypes:Sorcery\n\
          A:SP$ MultiplyCounter | ValidTgts$ Creature | Multiplier$ 2"
     ));
-    assert!(refused(
-        "Name:MultiTargetDoubleBad\nManaCost:2 G\nTypes:Sorcery\n\
-         A:SP$ MultiplyCounter | ValidTgts$ Creature | TargetMin$ 0 | TargetMax$ 2 | CounterType$ P1P1"
-    ));
+    let dbl_multi = read(
+        "Name:MultiTargetDouble\nManaCost:2 G\nTypes:Sorcery\n\
+         A:SP$ MultiplyCounter | ValidTgts$ Creature | TargetMin$ 0 | TargetMax$ 2 | CounterType$ P1P1",
+    );
+    assert!(
+        dbl_multi.abilities[0].contains(
+            "Effect::RememberTargetsThen { then: &[Effect::DoubleCountersFilter { filter: &Filter::IsRemembered, kind: CounterKind::P1P1 }] }"
+        ) && dbl_multi.abilities[0].contains("TargetReq::up_to(TargetSpec::Object(&Filter::CREATURE), 2)"),
+        "{}",
+        dbl_multi.abilities[0]
+    );
 
     // Earthbend: implicit YOUR_LAND target; refuses Num$ X and chained double-Earthbend.
     let eb = read(

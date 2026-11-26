@@ -44,6 +44,7 @@ mod archon_kismet;
 mod atoms;
 mod chains;
 mod constants;
+mod counters;
 mod creature_type;
 mod damage_pair;
 mod dig;
