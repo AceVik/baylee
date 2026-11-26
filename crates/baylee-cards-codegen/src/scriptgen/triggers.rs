@@ -2983,6 +2983,7 @@ impl Tx<'_> {
         }
         let mut chain = Chain::default();
         self.trigger_is_self = trigger_is_self;
+        self.in_graveyard_trigger = zone == ", zone = TriggerZone::Graveyard";
         self.is_etb_self_trigger = trigger == "Trigger::ETB";
         self.trigger_blocks_creature = trigger.starts_with("Trigger::BlocksCreature(");
         self.damage_trigger_binds_source = Self::wave28b_trigger_binds_damage_source(&trigger);
@@ -3129,6 +3130,7 @@ impl Tx<'_> {
                 .is_some()
             {
                 self.trigger_is_self = false;
+                self.in_graveyard_trigger = false;
                 self.is_etb_self_trigger = false;
                 self.trigger_blocks_creature = false;
                 self.damage_trigger_binds_source = false;

@@ -5407,6 +5407,180 @@ impl CleanupTail {
 }
 
 /// Filter restriction decoded from `Play.ValidSA$` inside `RevealUntilThen` / `RepeatEachObject`.
+impl super::Tx<'_> {
+    /// Lower `Dig | DigNum$ 1 | ChangeNum$ All | DestinationZone$ Exile | RememberChanged$ True`
+    /// follow-ups for *Vaan, Street Thief* (cast exiled spell, else create token) and
+    /// *Omen Machine* (put land onto battlefield under event player's control, else cast free).
+    pub(super) fn try_dig_exile_remembered_play_or_land(
+        &mut self,
+        p: &mut super::Params,
+        sub: &mut Option<String>,
+        target: Option<&str>,
+        targets_here: bool,
+        targets_a_player: bool,
+    ) -> Option<Vec<String>> {
+        if targets_here && !targets_a_player {
+            return None;
+        }
+        if p.peek("DigNum") != Some("1")
+            || !matches!(p.peek("ChangeNum"), None | Some("All" | "1"))
+            || p.peek("DestinationZone") != Some("Exile")
+            || p.peek("RememberChanged") != Some("True")
+            || !matches!(p.peek("ChangeValid"), None | Some("Card"))
+            || p.has("Reveal")
+            || p.has("ExileFaceDown")
+            || p.has("Optional")
+            || p.has("DestinationZone2")
+            || !p.entries.iter().all(|(k, _)| {
+                matches!(
+                    k.as_str(),
+                    "Defined"
+                        | "DigNum"
+                        | "ChangeNum"
+                        | "DestinationZone"
+                        | "RememberChanged"
+                        | "ChangeValid"
+                        | "IsCurse"
+                ) || k.starts_with("Condition")
+            })
+        {
+            return None;
+        }
+        let s1_name = sub.as_deref()?.trim().to_string();
+        let s1_body = self.svars.get(&s1_name)?.clone();
+        let (s1_api, mut sp1) = super::Params::parse(&s1_body)?;
+        sp1.drop_prose();
+
+        let mut probe = p.clone();
+        probe.take("DigNum");
+        probe.take("ChangeNum");
+        probe.take("DestinationZone");
+        probe.take("RememberChanged");
+        probe.take("ChangeValid");
+        probe.take("IsCurse");
+        let who =
+            self.wave11_player_of_line(probe.take("Defined").as_deref(), target, targets_a_player)?;
+        if !Self::is_single_player_rel(who) || !probe.exhausted() {
+            return None;
+        }
+
+        let (effect, trailing) = if s1_api == "Play" {
+            self.dig_exile_remembered_vaan(&mut sp1, who)?
+        } else if s1_api == "ChangeZone" {
+            self.dig_exile_remembered_omen_machine(&mut sp1, who)?
+        } else {
+            return None;
+        };
+        *p = probe;
+        *sub = trailing;
+        Some(vec![effect])
+    }
+
+    fn dig_exile_remembered_vaan(
+        &mut self,
+        sp1: &mut super::Params,
+        who: &str,
+    ) -> Option<(String, Option<String>)> {
+        if sp1.take("Defined").as_deref() != Some("Remembered")
+            || sp1.take("Optional").as_deref() != Some("True")
+            || sp1.take("ForgetPlayed").as_deref() != Some("True")
+            || !matches!(sp1.take("Controller").as_deref(), None | Some("You"))
+        {
+            return None;
+        }
+        let cost = self.parse_play_cost_mode(sp1)?;
+        let (cast_only, sa_owner, sa_filter) = match sp1.take("ValidSA") {
+            None => (false, None, None),
+            Some(raw_sa) => {
+                let (owner, filter) = self.parse_play_sa_filter(&raw_sa)?;
+                (true, owner, filter)
+            }
+        };
+        if sa_owner.is_some() {
+            return None;
+        }
+        let filter_ref = self.combine_play_filters(None, sa_filter)?;
+        let s2_name = sp1.take("SubAbility")?;
+        if !sp1.exhausted() {
+            return None;
+        }
+        let s2_body = self.svars.get(s2_name.trim())?.clone();
+        let (s2_api, mut sp2) = super::Params::parse(&s2_body)?;
+        sp2.drop_prose();
+        if s2_api != "Token"
+            || sp2.take("ConditionDefined").as_deref() != Some("Remembered")
+            || sp2.take("ConditionPresent").as_deref() != Some("Card")
+            || !matches!(
+                sp2.take("ConditionCompare").as_deref(),
+                Some("GT0" | "GE1" | "EQ1")
+            )
+        {
+            return None;
+        }
+        let after_tok = sp2.take("SubAbility");
+        let tok_spec = Self::reconstruct_dig_spec(&s2_api, &sp2);
+        let mut tok_chain = super::Chain::default();
+        self.chain(&tok_spec, &mut tok_chain)?;
+        if tok_chain.effects.is_empty()
+            || tok_chain.target.is_some()
+            || tok_chain.second_target.is_some()
+        {
+            return None;
+        }
+        let trailing = self.wave29c_consume_remember_cleanup(after_tok)?;
+        let effect = format!(
+            "Effect::CaptureAffected {{              first: &[Effect::ExileTop {{ who: {who}, count: Amount::Fixed(1) }}],              then: &[Effect::ForEachRemembered {{ filter: &Filter::Any, effects: &[              Effect::Play {{ source: PlaySource::Subject(TargetSpec::EventObject),              filter: {filter_ref}, controller: PlayerRel::You, count: PlayCount::One,              cost: {cost}, cast_only: {cast_only}, copy: false,              exile_instead_of_graveyard: false, optional: true }}] }},              Effect::IfCondition {{ condition: Condition::AmountCompare {{              left: &Amount::CountOf {{ filter: &Filter::IsRemembered, zone: ZoneSel::ExileAll }},              op: AmountCmp::AtLeast, right: &Amount::Fixed(1) }},              then: &[{}], otherwise: &[] }}] }}",
+            tok_chain.effects.join(", ")
+        );
+        Some((effect, trailing))
+    }
+
+    fn dig_exile_remembered_omen_machine(
+        &mut self,
+        sp1: &mut super::Params,
+        who: &str,
+    ) -> Option<(String, Option<String>)> {
+        if !matches!(who, "PlayerRel::EventPlayer" | "PlayerRel::ActivePlayer")
+            || sp1.take("Origin").as_deref() != Some("Exile")
+            || sp1.take("Destination").as_deref() != Some("Battlefield")
+            || sp1.take("ChangeType").as_deref()
+                != Some("Land.IsRemembered+ControlledBy TriggeredPlayer")
+            || !matches!(sp1.take("ChangeNum").as_deref(), None | Some("1"))
+            || sp1.take("DefinedPlayer").as_deref() != Some("TriggeredPlayer")
+            || sp1.take("Chooser").as_deref() != Some("TriggeredPlayer")
+            || sp1.take("Hidden").as_deref() != Some("True")
+            || sp1.take("Mandatory").as_deref() != Some("True")
+        {
+            return None;
+        }
+        let s2_name = sp1.take("SubAbility")?;
+        if !sp1.exhausted() {
+            return None;
+        }
+        let s2_body = self.svars.get(s2_name.trim())?.clone();
+        let (s2_api, mut sp2) = super::Params::parse(&s2_body)?;
+        sp2.drop_prose();
+        if s2_api != "Play"
+            || sp2.take("ValidZone").as_deref() != Some("Exile")
+            || sp2.take("Controller").as_deref() != Some("TriggeredPlayer")
+            || sp2.take("Valid").as_deref() != Some("Card.IsRemembered")
+            || sp2.take("ValidSA").as_deref() != Some("Spell")
+            || sp2.take("WithoutManaCost").as_deref() != Some("True")
+            || !matches!(sp2.take("Optional").as_deref(), None | Some("False"))
+        {
+            return None;
+        }
+        let after_play = sp2.take("SubAbility");
+        if !sp2.exhausted() {
+            return None;
+        }
+        let trailing = self.wave29c_consume_remember_cleanup(after_play)?;
+        let effect = format!(
+            "Effect::CaptureAffected {{              first: &[Effect::ExileTop {{ who: {who}, count: Amount::Fixed(1) }}],              then: &[Effect::ForEachRemembered {{ filter: &Filter::LAND, effects: &[              Effect::MoveAndModify {{ subject: MoveSubject::Target(TargetSpec::EventObject),              expected_origin: Some(ZoneRef::Exile), blink: false, owner_control: true,              tapped: false, face: None, counters: None, modifiers: &[],              duration: Duration::Indefinitely, attach_source: false, when_source_leaves: None }}] }},              Effect::ForEachRemembered {{ filter: &Filter::NONLAND, effects: &[              Effect::Play {{ source: PlaySource::Subject(TargetSpec::EventObject),              filter: &Filter::Any, controller: {who}, count: PlayCount::One,              cost: PlayCostMode::WithoutPayingManaCost, cast_only: true, copy: false,              exile_instead_of_graveyard: false, optional: false }}] }}] }}"
+        );
+        Some((effect, trailing))
+    }
+}
 enum DigPlaySaFilter {
     AnySpell,
     Filtered(String),

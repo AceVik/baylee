@@ -749,6 +749,15 @@ impl Tx<'_> {
             }
             return self.wave29c_crabomination_chain(p, sub, target);
         }
+        if let Some(effs) = self.try_dig_exile_remembered_play_or_land(
+            p,
+            sub,
+            target,
+            targets_here,
+            targets_a_player,
+        ) {
+            return Some(effs);
+        }
         let sub_name = sub.as_deref()?.trim().to_string();
         let sub_body = self.svars.get(&sub_name)?.clone();
         let (s_api, mut sp) = Params::parse(&sub_body)?;
@@ -2859,7 +2868,10 @@ impl Tx<'_> {
     }
 
     #[allow(clippy::option_option)]
-    fn wave29c_consume_remember_cleanup(&self, next: Option<String>) -> Option<Option<String>> {
+    pub(super) fn wave29c_consume_remember_cleanup(
+        &self,
+        next: Option<String>,
+    ) -> Option<Option<String>> {
         let Some(name) = next else {
             return Some(None);
         };

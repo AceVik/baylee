@@ -1303,3 +1303,134 @@ fn wave23a_refusal_edge_cases() {
         dynamic.abilities
     );
 }
+
+#[test]
+fn dig_exile_top_filtered_conditional_vaan_and_omen_machine() {
+    let chandra = read(
+        "Name:Chandra, Dressed to Kill\nManaCost:1 R R\nTypes:Legendary Planeswalker Chandra\nLoyalty:3\n\
+         A:AB$ Dig | Cost$ AddCounter<1/LOYALTY> | Planeswalker$ True | Defined$ You | DigNum$ 1 | ChangeNum$ All | DestinationZone$ Exile | RememberChanged$ True | SubAbility$ DBEffect\n\
+         SVar:DBEffect:DB$ Effect | RememberObjects$ RememberedCard | ConditionDefined$ Remembered | ConditionPresent$ Card.Red | ConditionCompare$ GE1 | StaticAbilities$ STPlay | SubAbility$ DBCleanup | ForgetOnMoved$ Exile\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:STPlay:Mode$ Continuous | MayPlay$ True | Affected$ Card.IsRemembered+nonLand | AffectedZone$ Exile\n\
+         A:AB$ Dig | Cost$ SubCounter<7/LOYALTY> | Planeswalker$ True | Ultimate$ True | Defined$ You | DigNum$ 5 | ChangeNum$ All | DestinationZone$ Exile | RememberChanged$ True | SubAbility$ DBEffect2\n\
+         SVar:DBEffect2:DB$ Effect | RememberObjects$ RememberedCard | StaticAbilities$ STPlay2 | SubAbility$ DBEffect3 | ForgetOnMoved$ Exile\n\
+         SVar:DBEffect3:DB$ Effect | Name$ Emblem — Chandra | Triggers$ TRSpellCast | Duration$ Permanent | SubAbility$ DBCleanup\n\
+         SVar:STPlay2:Mode$ Continuous | MayPlay$ True | Affected$ Card.IsRemembered+Red+nonLand | AffectedZone$ Exile\n\
+         SVar:TRSpellCast:Mode$ SpellCast | ValidCard$ Card.Red | ValidActivatingPlayer$ You | TriggerZones$ Command | Execute$ TrigDealDamage\n\
+         SVar:TrigDealDamage:DB$ DealDamage | ValidTgts$ Any | NumDmg$ X\n\
+         SVar:X:TriggeredCard$CastTotalManaSpent",
+    );
+    assert!(
+        chandra.abilities[0].contains("Effect::CaptureAffected")
+            && chandra.abilities[0].contains("Effect::ExileTop")
+            && chandra.abilities[0].contains("Effect::GrantRememberedExilePermission")
+            && chandra.statics.contains("Color::Red"),
+        "{:?} / {}",
+        chandra.abilities[0],
+        chandra.statics
+    );
+    assert!(
+        chandra.abilities[1].contains("Effect::CaptureAffected")
+            && chandra.abilities[1].contains("Effect::ExileTop")
+            && chandra.abilities[1].contains("Effect::GrantRememberedExilePermission")
+            && chandra.abilities[1].contains("Effect::CreateEmblem")
+            && chandra.statics.contains("Color::Red"),
+        "{:?} / {}",
+        chandra.abilities[1],
+        chandra.statics
+    );
+
+    let omen = read(
+        "Name:Omen Machine\nManaCost:6\nTypes:Artifact\n\
+         T:Mode$ Phase | Phase$ Draw | ValidPlayer$ Player | Execute$ TrigOmenExileCard | TriggerZones$ Battlefield\n\
+         SVar:TrigOmenExileCard:DB$ Dig | DigNum$ 1 | ChangeNum$ All | Defined$ TriggeredPlayer | DestinationZone$ Exile | RememberChanged$ True | SubAbility$ DBOmenLand\n\
+         SVar:DBOmenLand:DB$ ChangeZone | Origin$ Exile | Destination$ Battlefield | ChangeType$ Land.IsRemembered+ControlledBy TriggeredPlayer | ChangeNum$ 1 | DefinedPlayer$ TriggeredPlayer | Chooser$ TriggeredPlayer | Hidden$ True | Mandatory$ True | SubAbility$ DBOmenPlay\n\
+         SVar:DBOmenPlay:DB$ Play | ValidZone$ Exile | Controller$ TriggeredPlayer | Valid$ Card.IsRemembered | ValidSA$ Spell | WithoutManaCost$ True | SubAbility$ DBOmenCleanup\n\
+         SVar:DBOmenCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        omen.abilities[0].contains("Effect::CaptureAffected")
+            && omen.abilities[0].contains("PlayerRel::ActivePlayer")
+            && omen.abilities[0].contains("Effect::ForEachRemembered")
+            && omen.abilities[0].contains("Effect::MoveAndModify")
+            && omen.abilities[0].contains("Effect::Play")
+            && omen.abilities[0].contains("PlayCostMode::WithoutPayingManaCost"),
+        "{:?}",
+        omen.abilities
+    );
+
+    let mut vaan_cats = cats();
+    vaan_cats.artifact.push("Treasure".into());
+    vaan_cats.normalize();
+    let treasure_lookup = TokenLookup::held(&[(
+        "c_a_treasure_sac",
+        "Name:Treasure Token\nTypes:Artifact Treasure\n\
+         A:AB$ Mana | Cost$ T Sac<1/CARDNAME/this token> | Produced$ Any",
+    )]);
+    let vaan_parsed = parse(
+        "Name:Vaan, Street Thief\nManaCost:2 R\nTypes:Legendary Creature Goblin\nPT:2/2\n\
+         T:Mode$ DamageDoneOnce | ValidSource$ Goblin.YouCtrl | TriggerZones$ Battlefield | ValidTarget$ Player | CombatDamage$ True | Execute$ TrigDig\n\
+         SVar:TrigDig:DB$ Dig | Defined$ TriggeredTarget | DigNum$ 1 | ChangeNum$ All | DestinationZone$ Exile | RememberChanged$ True | SubAbility$ DBPlay\n\
+         SVar:DBPlay:DB$ Play | Defined$ Remembered | ValidSA$ Spell | Optional$ True | ForgetPlayed$ True | SubAbility$ DBToken\n\
+         SVar:DBToken:DB$ Token | TokenScript$ c_a_treasure_sac | ConditionDefined$ Remembered | ConditionPresent$ Card | ConditionCompare$ GT0 | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    let vaan = transcode(&vaan_parsed, &vaan_cats, Some(&treasure_lookup)).unwrap_or_else(|| {
+        panic!(
+            "Vaan should transcode: {:?}",
+            refusal_reason(&vaan_parsed, &vaan_cats, Some(&treasure_lookup))
+        )
+    });
+    assert!(
+        vaan.abilities[0].contains("Effect::CaptureAffected")
+            && vaan.abilities[0].contains("Effect::ExileTop")
+            && vaan.abilities[0].contains("Effect::ForEachRemembered")
+            && vaan.abilities[0].contains("Effect::Play")
+            && vaan.abilities[0].contains("Effect::CreateToken"),
+        "{:?}",
+        vaan.abilities
+    );
+}
+
+#[test]
+fn dig_exile_top_conditional_and_remembered_play_refuse_unsafe_variants() {
+    assert!(refused(
+        "Name:BadCondZone\nManaCost:1 R\nTypes:Sorcery\n\
+         A:SP$ Dig | Defined$ You | DigNum$ 1 | ChangeNum$ All | DestinationZone$ Exile | RememberChanged$ True | SubAbility$ DBEffect\n\
+         SVar:DBEffect:DB$ Effect | RememberObjects$ RememberedCard | ConditionDefined$ TopOfLibrary | ConditionPresent$ Card.Red | ConditionCompare$ GE1 | StaticAbilities$ STPlay | SubAbility$ DBCleanup | ForgetOnMoved$ Exile\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:STPlay:Mode$ Continuous | MayPlay$ True | Affected$ Card.IsRemembered+nonLand | AffectedZone$ Exile"
+    ));
+    assert!(refused(
+        "Name:BadExileMultiAltExtra\nManaCost:1 R\nTypes:Sorcery\n\
+         A:SP$ Dig | Defined$ You | DigNum$ 5 | ChangeNum$ All | DestinationZone$ Exile | RememberChanged$ True | SubAbility$ DBEffect\n\
+         SVar:DBEffect:DB$ Effect | RememberObjects$ RememberedCard | StaticAbilities$ STPlay | SubAbility$ DBCleanup | ForgetOnMoved$ Exile\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:STPlay:Mode$ Continuous | MayPlay$ True | Affected$ Card.IsRemembered+Red+nonLand,Card.IsRemembered+Blue+nonLand | AffectedZone$ Exile"
+    ));
+    assert!(refused(
+        "Name:ColfenorFaceDown\nManaCost:2 B G\nTypes:Enchantment\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigDig\n\
+         SVar:TrigDig:DB$ Dig | DigNum$ 7 | ChangeNum$ All | DestinationZone$ Exile | ExileFaceDown$ True | NoReveal$ True | RememberChanged$ True | SubAbility$ DBEffect\n\
+         SVar:DBEffect:DB$ Effect | RememberObjects$ RememberedCard | StaticAbilities$ STPlay | SubAbility$ DBCleanup | ForgetOnMoved$ Exile\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:STPlay:Mode$ Continuous | MayPlay$ True | Affected$ Card.IsRemembered | AffectedZone$ Exile\n\
+         Oracle:When Colfenor's Plans enters, exile the top seven cards of your library face down. You may look at and play lands from among those cards."
+    ));
+    assert!(refused(
+        "Name:BadOmenOptional\nManaCost:6\nTypes:Artifact\n\
+         T:Mode$ Phase | Phase$ Draw | ValidPlayer$ Player | Execute$ TrigOmenExileCard | TriggerZones$ Battlefield\n\
+         SVar:TrigOmenExileCard:DB$ Dig | DigNum$ 1 | ChangeNum$ All | Defined$ TriggeredPlayer | DestinationZone$ Exile | RememberChanged$ True | SubAbility$ DBOmenLand\n\
+         SVar:DBOmenLand:DB$ ChangeZone | Origin$ Exile | Destination$ Battlefield | ChangeType$ Land.IsRemembered+ControlledBy TriggeredPlayer | ChangeNum$ 1 | DefinedPlayer$ TriggeredPlayer | Chooser$ TriggeredPlayer | Hidden$ True | SubAbility$ DBOmenPlay\n\
+         SVar:DBOmenPlay:DB$ Play | ValidZone$ Exile | Controller$ TriggeredPlayer | Valid$ Card.IsRemembered | ValidSA$ Spell | WithoutManaCost$ True | SubAbility$ DBOmenCleanup\n\
+         SVar:DBOmenCleanup:DB$ Cleanup | ClearRemembered$ True"
+    ));
+    assert!(refused(
+        "Name:BadVaanNoForget\nManaCost:2 R\nTypes:Creature Human Scout\nPT:2/2\n\
+         T:Mode$ DamageDoneOnce | ValidSource$ Scout.YouCtrl | TriggerZones$ Battlefield | ValidTarget$ Player | CombatDamage$ True | Execute$ TrigDig\n\
+         SVar:TrigDig:DB$ Dig | Defined$ TriggeredTarget | DigNum$ 1 | ChangeNum$ All | DestinationZone$ Exile | RememberChanged$ True | SubAbility$ DBPlay\n\
+         SVar:DBPlay:DB$ Play | Defined$ Remembered | ValidSA$ Spell | Optional$ True | SubAbility$ DBToken\n\
+         SVar:DBToken:DB$ Token | TokenScript$ r_1_1_goblin | ConditionDefined$ Remembered | ConditionPresent$ Card | ConditionCompare$ GT0 | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True"
+    ));
+}
