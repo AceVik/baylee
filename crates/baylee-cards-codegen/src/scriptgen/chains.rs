@@ -1435,7 +1435,7 @@ impl Tx<'_> {
                         return None;
                     }
                     effs
-                } else                 if sub.is_some()
+                } else if sub.is_some()
                     && p.peek("RememberObjects") == Some("Targeted")
                     && unless.is_none()
                     && dying.is_none()
@@ -6225,6 +6225,9 @@ impl Tx<'_> {
                 match p.take("Defined").as_deref() {
                     None => {}
                     Some("Self") if target.is_none() && !self.on_a_spell => {}
+                    Some("Targeted" | "ParentTarget")
+                        if !targets_here
+                            && target.is_some_and(|t| t.starts_with("TargetSpec::Object(")) => {}
                     // "Regenerate enchanted creature" (Regeneration): the
                     // Aura's host, which the filter binds to the source.
                     Some("Enchanted" | "Equipped") if target.is_none() => {
@@ -6232,6 +6235,21 @@ impl Tx<'_> {
                             "Effect::RegenerateAll { filter: &Filter::AttachedToBySource }"
                                 .to_string(),
                         ]);
+                    }
+                    Some(def) if !targets_here && def.starts_with("Valid ") => {
+                        let valid = def.strip_prefix("Valid ")?.trim();
+                        if valid.contains("targetedBy") && (!prior_target_used || target.is_none())
+                        {
+                            return None;
+                        }
+                        if p.has("RegenerationAbility") {
+                            return None;
+                        }
+                        let expr = self.filter_expr(valid)?;
+                        let filter_name = self.body.filter_static("REGENERATE", &expr);
+                        return Some(vec![format!(
+                            "Effect::RegenerateAll {{ filter: &{filter_name} }}"
+                        )]);
                     }
                     Some(_) => return None,
                 }
@@ -6501,28 +6519,57 @@ impl Tx<'_> {
             "TapOrUntap" if target.is_some() && p.take("Defined").is_none() => {
                 vec!["Effect::MayDo { effects: &[Effect::ToggleTapTarget] }".to_string()]
             }
-            "Tap" => match (p.take("Defined").as_deref(), target) {
-                (None, Some(t))
-                    if t.starts_with("TargetSpec::Object(")
-                        || t.starts_with("TargetSpec::ObjectOfEachOpponent(") =>
+            "Tap" => {
+                if !targets_here
+                    && p.has("CardChoices")
+                    && !p.has("Defined")
+                    && !p.has("Optional")
+                    && !p.has("Max")
+                    && !p.has("Min")
+                    && p.peek("AnyNumber") == Some("True")
                 {
-                    vec!["Effect::TapTarget".to_string()]
+                    let choices = p.peek("CardChoices")?.trim().to_string();
+                    if choices.contains("targetedBy") {
+                        return None;
+                    }
+                    if let Some(ca) = p.peek("ChoiceAmount") {
+                        let valid_ca = ca.trim().strip_prefix("Count$Valid ")?;
+                        if valid_ca != choices && !Self::same_valid_atoms(valid_ca, &choices) {
+                            return None;
+                        }
+                    }
+                    let expr = self.filter_expr(&choices)?;
+                    p.take("CardChoices");
+                    p.take("AnyNumber");
+                    p.take("ChoiceAmount");
+                    let filter_name = self.body.filter_static("TAP_CHOICE", &expr);
+                    return Some(vec![format!(
+                        "Effect::ChooseCardEx {{ chooser: PlayerRel::You, zone: ChooseZone::Battlefield, filter: &{filter_name}, min: 0, max: Amount::Fixed(255), reveal_chosen: false, movement: ChooseMove::None, not_chosen_movement: ChooseMove::None, then: &[Effect::TapEventObject], for_unchosen: &[] }}"
+                    )]);
                 }
-                (None, None) | (Some("Self"), _) => vec!["Effect::TapSelf".to_string()],
-                (Some("Targeted" | "ParentTarget"), Some(t))
-                    if t.starts_with("TargetSpec::Object(")
-                        || t.starts_with("TargetSpec::ObjectOfEachOpponent(") =>
-                {
-                    vec!["Effect::TapTarget".to_string()]
+                match (p.take("Defined").as_deref(), target) {
+                    (None, Some(t))
+                        if t.starts_with("TargetSpec::Object(")
+                            || t.starts_with("TargetSpec::ObjectOfEachOpponent(") =>
+                    {
+                        vec!["Effect::TapTarget".to_string()]
+                    }
+                    (None, None) | (Some("Self"), _) => vec!["Effect::TapSelf".to_string()],
+                    (Some("Targeted" | "ParentTarget"), Some(t))
+                        if t.starts_with("TargetSpec::Object(")
+                            || t.starts_with("TargetSpec::ObjectOfEachOpponent(") =>
+                    {
+                        vec!["Effect::TapTarget".to_string()]
+                    }
+                    (Some("Enchanted" | "Equipped"), _) => {
+                        vec!["Effect::TapAll { filter: &Filter::AttachedToBySource }".to_string()]
+                    }
+                    (Some(def), None) if self.is_event_object_defined(def) => {
+                        vec!["Effect::TapEventObject".to_string()]
+                    }
+                    _ => return None,
                 }
-                (Some("Enchanted" | "Equipped"), _) => {
-                    vec!["Effect::TapAll { filter: &Filter::AttachedToBySource }".to_string()]
-                }
-                (Some(def), None) if self.is_event_object_defined(def) => {
-                    vec!["Effect::TapEventObject".to_string()]
-                }
-                _ => return None,
-            },
+            }
             // `AB$ Untap` with no `ValidTgts$` is the source, not a target
             // — Basalt Monolith's "{3}: Untap this artifact". Read as
             // `UntapTarget` it would walk an empty `res.targets` and untap
@@ -6530,24 +6577,35 @@ impl Tx<'_> {
             // `Implemented` and does nothing. Nothing in the pool was
             // written that way (asserted in `untap_tests`); it was one
             // reference script away from being.
-            "Untap" if p.peek("UntapUpTo") == Some("True") => {
+            "Untap" if p.peek("UntapUpTo") == Some("True") && !p.has("Optional") => {
                 if targets_here || (target.is_some() && !prior_target_used) {
                     return None;
                 }
-                p.take("UntapUpTo");
-                p.take("IsCurse");
-                if !matches!(p.take("Defined").as_deref(), None | Some("You")) {
+                let raw_type = p
+                    .peek("UntapType")
+                    .unwrap_or("Permanent")
+                    .trim()
+                    .to_string();
+                if raw_type.contains("targetedBy") {
                     return None;
                 }
-                let raw_type = p.take("UntapType")?;
                 let count = p
-                    .take("Amount")?
+                    .peek("Amount")
+                    .unwrap_or("1")
                     .trim()
                     .parse::<u8>()
                     .ok()
                     .filter(|&n| n >= 1)?;
+                if !matches!(p.peek("Defined"), None | Some("You")) {
+                    return None;
+                }
                 let expr = self.filter_expr(&raw_type)?;
-                let filter = self.body.filter_static("UNTAP_CHOSEN", &expr);
+                p.take("UntapUpTo");
+                p.take("IsCurse");
+                p.take("Defined");
+                p.take("UntapType");
+                p.take("Amount");
+                let filter = self.body.filter_static("UNTAP_UP_TO", &expr);
                 vec![format!(
                     "Effect::UntapChosen {{ filter: &{filter}, count: {count} }}"
                 )]
@@ -8545,6 +8603,9 @@ impl Tx<'_> {
                 } else if eff == "Effect::UntapTarget"
                     || eff.starts_with("Effect::PumpTarget {")
                     || eff.starts_with("Effect::GainControlEx {")
+                    || eff.starts_with(
+                        "Effect::AddTempModifier { target: TargetSpec::Object(&Filter::Any),",
+                    )
                 {
                     Some(eff)
                 } else {

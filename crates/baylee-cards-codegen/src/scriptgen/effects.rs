@@ -4319,6 +4319,22 @@ impl Tx<'_> {
                 "Effect::ChangeController { new_controller: PlayerRel::Chosen }".to_string(),
             ]);
         }
+        if !self.on_a_spell
+            && p.peek("Defined") == Some("Self")
+            && p.peek("NewController") == Some("TargetedController")
+            && target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
+            && !p.has("LoseControl")
+            && !p.has("Untap")
+            && !p.has("AddKWs")
+            && !p.has("AllValid")
+        {
+            p.take("Defined");
+            p.take("NewController");
+            return Some(vec![
+                "Effect::ChangeController { new_controller: PlayerRel::ControllerOfTarget }"
+                    .to_string(),
+            ]);
+        }
         if targets_a_player && p.peek("AllValid").is_some() {
             return self.gain_control_all_ex(p, target, true);
         }
@@ -4435,7 +4451,8 @@ impl Tx<'_> {
     }
 
     fn gain_control_untargeted(&mut self, p: &mut Params) -> Option<Vec<String>> {
-        if p.peek("Defined") == Some("Self")
+        if !self.on_a_spell
+            && matches!(p.peek("Defined"), Some("Self" | "CorrectedSelf"))
             && p.peek("NewController").is_some()
             && !p.has("LoseControl")
             && !p.has("AddKWs")
@@ -4445,7 +4462,9 @@ impl Tx<'_> {
             if let Some(who) = self
                 .wave27c_gain_control_new_controller(&who_raw, false)
                 .or_else(|| self.player_of_line(Some(&who_raw), None, false))
-                && (who == "PlayerRel::RememberedController" || Self::is_single_player_rel(who))
+                && (who == "PlayerRel::RememberedController"
+                    || (who == "PlayerRel::Opponent" && p.peek("Defined") == Some("CorrectedSelf"))
+                    || Self::is_single_player_rel(who))
             {
                 p.take("NewController");
                 p.take("Defined");

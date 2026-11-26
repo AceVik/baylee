@@ -2497,7 +2497,6 @@ pub enum AttackTaxTarget {
     AnyDefender,
 }
 
-
 /// Keyword ability family matched by [`Modifier::ActivatedAbilitiesWithKeywordCostLess`].
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum ActivatedAbilityKind {
@@ -4199,6 +4198,7 @@ mod tests {
                 },
                 Layer::Ability,
             ),
+            (
                 Modifier::GrantEnchant(crate::TargetSpec::Object(&Filter::CREATURE)),
                 Layer::Ability,
             ),

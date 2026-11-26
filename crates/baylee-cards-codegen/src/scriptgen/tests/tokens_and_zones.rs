@@ -2696,3 +2696,176 @@ fn w20_switch_block_and_target_only_refusals() {
         assert!(refused(bad), "must refuse:\n{bad}");
     }
 }
+
+#[test]
+fn untap_up_to_unlocks_and_refusals() {
+    let cloud = read(
+        "Name:Cloud of Faeries\nManaCost:1 U\nTypes:Creature Faerie\nPT:1/1\nK:Flying\n\
+         T:Mode$ ChangesZone | ValidCard$ Card.Self | Origin$ Any | Destination$ Battlefield | Execute$ TrigUntap\n\
+         SVar:TrigUntap:DB$ Untap | UntapUpTo$ True | UntapType$ Land | Amount$ 2",
+    );
+    assert!(
+        cloud.abilities[0].contains("Effect::UntapChosen { filter: &Filter::LAND, count: 2 }"),
+        "{:?}",
+        cloud.abilities
+    );
+
+    let unwind = read(
+        "Name:Unwind\nManaCost:2 U\nTypes:Instant\n\
+         A:SP$ Counter | TargetType$ Spell | ValidTgts$ Card.nonCreature | SubAbility$ DBUntap\n\
+         SVar:DBUntap:DB$ Untap | UntapUpTo$ True | UntapType$ Land | Amount$ 3",
+    );
+    assert!(
+        unwind.abilities[0].contains("Effect::UntapChosen { filter: &Filter::LAND, count: 3 }"),
+        "{:?}",
+        unwind.abilities
+    );
+
+    let teferi = read(
+        "Name:Teferi\nManaCost:3 W U\nTypes:Legendary Planeswalker Teferi\nLoyalty:4\n\
+         A:AB$ Draw | Cost$ AddCounter<1/LOYALTY> | Planeswalker$ True | Defined$ You | NumCards$ 1 | SubAbility$ DelTrigUntap\n\
+         SVar:DelTrigUntap:DB$ DelayedTrigger | Mode$ Phase | Phase$ End of Turn | Execute$ TrigUntap\n\
+         SVar:TrigUntap:DB$ Untap | UntapUpTo$ True | UntapType$ Land | Amount$ 2 | Defined$ You",
+    );
+    assert!(
+        teferi.abilities[0].contains("Effect::UntapChosen { filter: &Filter::LAND, count: 2 }"),
+        "{:?}",
+        teferi.abilities
+    );
+
+    for bad in [
+        "Name:DynAmt\nManaCost:2 G\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | TriggerZones$ Battlefield | Execute$ TrigUntap\n\
+         SVar:TrigUntap:DB$ Untap | UntapUpTo$ True | UntapType$ Land | Amount$ X\nSVar:X:Count$Valid Creature",
+        "Name:OtherPlayer\nManaCost:3 U\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ Player | TriggerZones$ Battlefield | Execute$ TrigUntap\n\
+         SVar:TrigUntap:DB$ Untap | UntapUpTo$ True | UntapType$ Land | Amount$ 1 | Defined$ TriggeredPlayer",
+        "Name:ZeroUntap\nManaCost:U\nTypes:Instant\n\
+         A:SP$ Untap | UntapUpTo$ True | UntapType$ Land | Amount$ 0",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn regenerate_defined_targeted_and_valid_sweep() {
+    let necrobite = read(
+        "Name:Necrobite\nManaCost:2 B\nTypes:Instant\n\
+         A:SP$ Pump | ValidTgts$ Creature | KW$ Deathtouch | SubAbility$ DBRegen\n\
+         SVar:DBRegen:DB$ Regenerate | Defined$ Targeted",
+    );
+    assert!(
+        necrobite.abilities[0]
+            .contains("Effect::regenerate(TargetSpec::Object(&Filter::CREATURE))"),
+        "{:?}",
+        necrobite.abilities
+    );
+
+    let wrap = read(
+        "Name:Wrap in Vigor\nManaCost:1 G\nTypes:Instant\n\
+         A:SP$ Regenerate | Defined$ Valid Creature.YouCtrl",
+    );
+    assert!(
+        wrap.abilities[0].contains("Effect::RegenerateAll { filter: &"),
+        "{:?}",
+        wrap.abilities
+    );
+
+    let dabbling = read(
+        "Name:Dark Dabbling\nManaCost:2 B\nTypes:Instant\n\
+         A:SP$ Regenerate | ValidTgts$ Creature | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw | SubAbility$ DBRegenerate\n\
+         SVar:DBRegenerate:DB$ Regenerate | Defined$ Valid Creature.YouCtrl+!targetedBy | \
+         ConditionPresent$ Instant.YouOwn,Sorcery.YouOwn | ConditionZone$ Graveyard | ConditionCompare$ GE2",
+    );
+    assert!(
+        dabbling.abilities[0].contains("Effect::RegenerateAll { filter: &REGENERATE1 }")
+            && dabbling.statics.contains("REGENERATE1")
+            && dabbling.statics.contains("Filter::Not(&Filter::Reference)"),
+        "{dabbling:?}"
+    );
+
+    for bad in [
+        "Name:Soldevi\nManaCost:1\nTypes:Artifact Creature Soldier\nPT:1/1\n\
+         A:AB$ Regenerate | Cost$ 1 | ValidTgts$ Opponent | Defined$ Self | RegenerationAbility$ DBTrig\n\
+         SVar:DBTrig:DB$ Draw | NumCards$ 1",
+        "Name:NoPriorTarget\nManaCost:1 G\nTypes:Instant\n\
+         A:SP$ Regenerate | Defined$ Valid Creature.YouCtrl+!targetedBy",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn tap_card_choices_choose_card_ex_and_capture() {
+    let augusta = read(
+        "Name:Augusta\nManaCost:2 W\nTypes:Legendary Creature Human Cleric\nPT:1/3\n\
+         T:Mode$ AttackersDeclared | Execute$ DBUnTapAll | TriggerZones$ Battlefield | AttackingPlayer$ You\n\
+         SVar:DBUnTapAll:DB$ UntapAll | ValidCards$ Creature.YouCtrl | SubAbility$ DBTap\n\
+         SVar:DBTap:DB$ Tap | CardChoices$ Creature.YouCtrl+untapped | AnyNumber$ True | ChoiceAmount$ Count$Valid Creature.YouCtrl+untapped",
+    );
+    assert!(
+        augusta.abilities[0].contains("Effect::ChooseCardEx { chooser: PlayerRel::You, zone: ChooseZone::Battlefield, filter: &TAP_CHOICE1, min: 0, max: Amount::Fixed(255), reveal_chosen: false, movement: ChooseMove::None, not_chosen_movement: ChooseMove::None, then: &[Effect::TapEventObject], for_unchosen: &[] }"),
+        "{:?}",
+        augusta.abilities
+    );
+
+    let harmony = read(
+        "Name:Harmony of Nature\nManaCost:2 G\nTypes:Sorcery\n\
+         A:SP$ Tap | CardChoices$ Creature.YouCtrl+untapped | AnyNumber$ True | ChoiceAmount$ Count$Valid Creature.YouCtrl+untapped | RememberTapped$ True | SubAbility$ DBGainLife\n\
+         SVar:DBGainLife:DB$ GainLife | LifeAmount$ Z | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:Y:Remembered$Amount\n\
+         SVar:Z:SVar$Y/Times.4",
+    );
+    assert!(
+        harmony.abilities[0].contains("Effect::CaptureAffected { first: &[Effect::ChooseCardEx {")
+            && harmony.abilities[0]
+                .contains("Amount::Times { base: &Amount::RememberedCount, factor: 4 }"),
+        "{:?}",
+        harmony.abilities
+    );
+
+    let guild_summit = read(
+        "Name:Guild Summit\nManaCost:2 U\nTypes:Enchantment\n\
+         T:Mode$ ChangesZone | ValidCard$ Card.Self | Origin$ Any | Destination$ Battlefield | Execute$ GuestList | TriggerDescription$ When CARDNAME enters, you may tap any number of untapped creatures you control. Draw a card for each creature tapped this way.\n\
+         SVar:GuestList:DB$ Tap | CardChoices$ Creature.YouCtrl+untapped | AnyNumber$ True | ChoiceAmount$ Count$Valid Creature.YouCtrl+untapped | RememberTapped$ True | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw | Defined$ You | NumCards$ Y | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:Y:Remembered$Amount",
+    );
+    assert!(
+        guild_summit.abilities[0]
+            .contains("Effect::CaptureAffected { first: &[Effect::ChooseCardEx {")
+            && guild_summit.abilities[0]
+                .contains("Effect::DrawCards { amount: Amount::RememberedCount }"),
+        "{:?}",
+        guild_summit.abilities
+    );
+
+    let urge = read(
+        "Name:Urge to Feed\nManaCost:B B\nTypes:Instant\n\
+         A:SP$ Pump | ValidTgts$ Creature | NumAtt$ -3 | NumDef$ -3 | IsCurse$ True | SubAbility$ VampiricUrge\n\
+         SVar:VampiricUrge:DB$ Tap | CardChoices$ Creature.YouCtrl+untapped | AnyNumber$ True | ChoiceAmount$ Count$Valid Creature.YouCtrl+untapped | RememberTapped$ True | SubAbility$ VampiricFeed\n\
+         SVar:VampiricFeed:DB$ PutCounter | CounterType$ P1P1 | CounterNum$ 1 | Defined$ Remembered | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        urge.abilities[0].contains("Effect::PumpTarget {")
+            && urge.abilities[0].contains("Effect::CaptureAffected { first: &[Effect::ChooseCardEx {")
+            && urge.abilities[0].contains("Effect::AddCounterFilter { filter: &Filter::IsRemembered, kind: CounterKind::P1P1, amount: Amount::Fixed(1) }"),
+        "{:?}",
+        urge.abilities
+    );
+
+    for bad in [
+        "Name:MismatchedChoiceAmount\nManaCost:1 W\nTypes:Sorcery\n\
+         A:SP$ Tap | CardChoices$ Creature.YouCtrl+untapped | AnyNumber$ True | ChoiceAmount$ Count$Valid Artifact.YouCtrl+untapped",
+        "Name:FixedChoiceAmount\nManaCost:1 W\nTypes:Sorcery\n\
+         A:SP$ Tap | CardChoices$ Creature.YouCtrl+untapped | ChoiceAmount$ 2",
+        "Name:TargetedCardChoices\nManaCost:1 W\nTypes:Sorcery\n\
+         A:SP$ Tap | CardChoices$ Creature.YouCtrl+untapped+!targetedBy | AnyNumber$ True",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}

@@ -7260,3 +7260,74 @@ fn imprint_battlefield_to_exile_uses_linked_exile_when_read() {
         assert!(refused(bad), "must refuse: {bad}");
     }
 }
+
+#[test]
+fn gain_control_each_opponent_self_targeted_controller_and_fickle_efreet() {
+    let taskmaster = read(
+        "Name:Hideous Taskmaster\nManaCost:6 R\nTypes:Creature Eldrazi\nPT:7/2\nK:Devoid\n\
+         T:Mode$ SpellCast | ValidCard$ Card.Self | Execute$ TakeOneEach\n\
+         SVar:TakeOneEach:DB$ GainControl | ValidTgts$ Creature.OppCtrl | TargetMin$ 0 | \
+         TargetMax$ OneEach | TargetsForEachPlayer$ True | LoseControl$ EOT | Untap$ True | \
+         AddKWs$ Trample & Haste & Annihilator:1\n\
+         SVar:OneEach:PlayerCountOpponents$Amount\n\
+         K:Trample\nK:Haste\nK:Annihilator:1",
+    );
+    let tm = taskmaster
+        .abilities
+        .iter()
+        .find(|a| a.contains("Effect::GainControlEx"))
+        .expect("Hideous Taskmaster cast trigger");
+    assert!(
+        tm.contains("Effect::UntapTarget")
+            && tm.contains("Effect::GainControlEx { target: TargetSpec::ObjectOfEachOpponent(&Filter::CREATURE), to: PlayerRel::You, duration: Duration::UntilEndOfTurn")
+            && tm.contains("Effect::AddTempModifier { target: TargetSpec::Object(&Filter::Any),")
+            && tm.contains("targets = Some(TargetReq::up_to(TargetSpec::ObjectOfEachOpponent(&Filter::CREATURE), 255))"),
+        "{tm}"
+    );
+
+    let starke = read(
+        "Name:Starke\nManaCost:1 R R\nTypes:Legendary Creature Human Rogue\nPT:2/2\n\
+         A:AB$ Destroy | Cost$ T | ValidTgts$ Artifact,Creature | SubAbility$ TrigControl\n\
+         SVar:TrigControl:DB$ GainControl | Defined$ Self | NewController$ TargetedController",
+    );
+    assert!(
+        starke.abilities[0]
+            .contains("Effect::ChangeController { new_controller: PlayerRel::ControllerOfTarget }"),
+        "{:?}",
+        starke.abilities
+    );
+
+    let fickle = read(
+        "Name:Fickle\nManaCost:3 R\nTypes:Creature Efreet\nPT:5/2\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | TriggerZones$ Battlefield | Execute$ DelayTrig\n\
+         SVar:DelayTrig:DB$ DelayedTrigger | Mode$ Phase | Phase$ EndCombat | Execute$ TrigFlip\n\
+         SVar:TrigFlip:DB$ FlipCoin | LoseSubAbility$ DBGiveControl\n\
+         SVar:DBGiveControl:DB$ GainControl | Defined$ CorrectedSelf | NewController$ Opponent",
+    );
+    assert!(
+        fickle.abilities[0]
+            .contains("Effect::ChangeController { new_controller: PlayerRel::Opponent }"),
+        "{:?}",
+        fickle.abilities
+    );
+
+    for bad in [
+        // Spell-triggered target binding for Loki is not modelled yet.
+        "Name:LokiRefused\nManaCost:1 R R\nTypes:Creature God\nPT:3/3\n\
+         T:Mode$ SpellCast | ValidCard$ Card | Execute$ TrigGain | ValidActivatingPlayer$ You | \
+         IsSingleTarget$ True | TriggerZones$ Battlefield | TargetsValid$ Creature.inZoneBattlefield\n\
+         SVar:TrigGain:DB$ GainControl | Defined$ TriggeredSpellAbilityTargets | LoseControl$ EOT",
+        // CorrectedSelf is non-spell only.
+        "Name:SpellCorrectedSelf\nManaCost:1 R\nTypes:Instant\n\
+         A:SP$ GainControl | Defined$ CorrectedSelf | NewController$ Opponent",
+        // Starke pattern on a spell or with LoseControl$ must stay refused.
+        "Name:SpellStarke\nManaCost:1 R\nTypes:Sorcery\n\
+         A:SP$ Destroy | ValidTgts$ Creature | SubAbility$ TrigControl\n\
+         SVar:TrigControl:DB$ GainControl | Defined$ Self | NewController$ TargetedController",
+        "Name:TempStarke\nManaCost:1 R\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Destroy | Cost$ T | ValidTgts$ Creature | SubAbility$ TrigControl\n\
+         SVar:TrigControl:DB$ GainControl | Defined$ Self | NewController$ TargetedController | LoseControl$ EOT",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}

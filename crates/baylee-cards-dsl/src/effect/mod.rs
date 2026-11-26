@@ -6482,6 +6482,7 @@ pub enum Effect {
         enters_attacking: bool,
         /// The melded back-face characteristics and abilities.
         melded: &'static TokenDef,
+    },
     /// Transform the source permanent into an Aura enchantment with `enchant`,
     /// optionally losing the resolving ability, attach it to `target`, and
     /// optionally grant its activator a priority special action (`CR 116.2a`)
@@ -6701,6 +6702,48 @@ pub enum Effect {
         /// Optional spending restriction/rider on the produced mana.
         restriction: Option<ManaRestriction>,
     },
+    /// Multiply the number of counters of `kind` (or each counter kind present
+    /// when `kind` is `None`) on `subject` by `factor` (`CR 701.9e`: places
+    /// `(factor - 1) * count` counters through replacement effects). Appended
+    /// to preserve replay identities.
+    MultiplyCounters {
+        /// Permanent(s) or player(s) whose counters are multiplied.
+        subject: CounterSubject,
+        /// Specific counter kind, or `None` for each kind present.
+        kind: Option<CounterKind>,
+        /// Multiplier (`2` to double).
+        factor: u16,
+    },
+    /// Move counters from `from` onto `to` (`CR 122.5`), supporting fixed
+    /// counts, all counters, any number of counters, one of each kind not on
+    /// destination (*Goldberry*), filtered sources (*Slippery Bogbonder*,
+    /// *Aetherborn Marauder*, *Spike Cannibal*), and distribution among
+    /// filtered destinations (*Forgotten Ancient*). Appended to preserve replay
+    /// identities.
+    MoveCounters {
+        /// Source object(s) losing counters.
+        from: MoveCounterSource,
+        /// Destination object(s) receiving counters.
+        to: MoveCounterDest,
+        /// Specific counter kind, or `None` for any kind present.
+        kind: Option<CounterKind>,
+        /// How many counters to move.
+        count: MoveCounterCount,
+    },
+    /// Remove counters of `kind` (or any kind when `kind` is `None`) from
+    /// `subject` (`CR 122`), supporting exact amounts, up-to amounts, any
+    /// number, all counters, player counters, and non-targeted permanent
+    /// choices (*Ferropede*, *Hex Parasite*, *Thornmantle Striker*, *Rhys, the
+    /// Evermore*, *Eventide's Shadow*, *Mister Hyde*, *Final Act*). Appended
+    /// to preserve replay identities.
+    RemoveCounters {
+        /// Permanent(s) or player(s) losing counters.
+        subject: RemoveCounterSubject,
+        /// Specific counter kind, or `None` for any kind present.
+        kind: Option<CounterKind>,
+        /// How many counters to remove.
+        count: RemoveCounterCount,
+    },
 }
 
 /// Candidate player filter evaluated at resolution by [`Effect::ChoosePlayerEx`].
@@ -6757,48 +6800,6 @@ pub struct SecretNumberChoice {
     /// resolution player-memory so [`crate::Condition::YouAreRememberedPlayer`]
     /// holds afterward (*Menacing Ogre*).
     pub remember_highest: bool,
-    /// Multiply the number of counters of `kind` (or each counter kind present
-    /// when `kind` is `None`) on `subject` by `factor` (`CR 701.9e`: places
-    /// `(factor - 1) * count` counters through replacement effects). Appended
-    /// to preserve replay identities.
-    MultiplyCounters {
-        /// Permanent(s) or player(s) whose counters are multiplied.
-        subject: CounterSubject,
-        /// Specific counter kind, or `None` for each kind present.
-        kind: Option<CounterKind>,
-        /// Multiplier (`2` to double).
-        factor: u16,
-    },
-    /// Move counters from `from` onto `to` (`CR 122.5`), supporting fixed
-    /// counts, all counters, any number of counters, one of each kind not on
-    /// destination (*Goldberry*), filtered sources (*Slippery Bogbonder*,
-    /// *Aetherborn Marauder*, *Spike Cannibal*), and distribution among
-    /// filtered destinations (*Forgotten Ancient*). Appended to preserve replay
-    /// identities.
-    MoveCounters {
-        /// Source object(s) losing counters.
-        from: MoveCounterSource,
-        /// Destination object(s) receiving counters.
-        to: MoveCounterDest,
-        /// Specific counter kind, or `None` for any kind present.
-        kind: Option<CounterKind>,
-        /// How many counters to move.
-        count: MoveCounterCount,
-    },
-    /// Remove counters of `kind` (or any kind when `kind` is `None`) from
-    /// `subject` (`CR 122`), supporting exact amounts, up-to amounts, any
-    /// number, all counters, player counters, and non-targeted permanent
-    /// choices (*Ferropede*, *Hex Parasite*, *Thornmantle Striker*, *Rhys, the
-    /// Evermore*, *Eventide's Shadow*, *Mister Hyde*, *Final Act*). Appended
-    /// to preserve replay identities.
-    RemoveCounters {
-        /// Permanent(s) or player(s) losing counters.
-        subject: RemoveCounterSubject,
-        /// Specific counter kind, or `None` for any kind present.
-        kind: Option<CounterKind>,
-        /// How many counters to remove.
-        count: RemoveCounterCount,
-    },
 }
 
 /// Non-mana unless-cost offered to any player in APNAP order by [`Effect::AnyPlayerMayPayCost`].

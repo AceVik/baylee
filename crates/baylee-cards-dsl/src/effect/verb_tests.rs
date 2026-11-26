@@ -1459,6 +1459,9 @@ fn set_state_if_cant_body_is_visited() {
     });
     assert_eq!(seen, 2);
     assert!(exiled);
+}
+
+#[test]
 fn attach_chosen_then_and_relocate_attachment_bodies_are_visited() {
     static EFFECTS: &[Effect] = &[
         Effect::AttachChosenThen {
@@ -1487,6 +1490,9 @@ fn attach_chosen_then_and_relocate_attachment_bodies_are_visited() {
     });
     assert_eq!(seen, 4);
     assert!(unattached && drew);
+}
+
+#[test]
 fn choices_and_players_effect_bodies_are_visited() {
     static EFFECTS: &[Effect] = &[
         Effect::ChoosePlayerEx {

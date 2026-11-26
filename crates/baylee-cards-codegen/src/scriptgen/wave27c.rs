@@ -334,6 +334,7 @@ impl Tx<'_> {
             "Draw" => "RememberDrawn",
             "ChooseCard" => "RememberChosen",
             "Reveal" => "RememberRevealed",
+            "Tap" => "RememberTapped",
             _ => return None,
         };
         if p.peek(primary) == Some("True") {
@@ -389,6 +390,7 @@ impl Tx<'_> {
                 | "Destroy"
                 | "DestroyAll"
                 | "GainControl"
+                | "Tap"
                 | "Token"
                 | "CopyPermanent"
         ) || (matches!(api, "ChangeZone" | "ChangeZoneAll")

@@ -2026,7 +2026,6 @@ fn amt_reads_cast_origin_zone(amount: &baylee_cards_dsl::Amount, depth: u8) -> b
         | Amount::CreaturesAttackedThisTurn { filter: f, .. }
         | Amount::DistinctManaValuesInZone { filter: f, .. }
         | Amount::DistinctNames { filter: f, .. }
-
         | Amount::DistinctCardTypesInZone { filter: f, .. } => {
             filter_reads_cast_origin_zone(f, depth + 1)
         }
@@ -2122,7 +2121,7 @@ fn modifier_reads_cast_origin_zone(modifier: &baylee_cards_dsl::Modifier) -> boo
             ) || filter_reads_cast_origin_zone(filter, 0)
         }
 
-        | Modifier::ActivatedAbilitiesCostAdditional { filter, .. }
+        Modifier::ActivatedAbilitiesCostAdditional { filter, .. }
         | Modifier::RaiseCostIfTargetsYouOrPermanent {
             spell_filter: filter,
             ..
