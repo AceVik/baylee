@@ -130,3 +130,15 @@ list of assigned and pending matches.
 
 Player aliases, seat capabilities and lease deadlines exist only in gateway
 memory. Central owns the leagues, deck histories, seasons and rankings.
+
+## Running games
+
+`running_game` (migration 36) keeps each running casual game across a
+restart of the gateway: one row a game, the gateway's JSON at a version of
+its own (`keep::row::VERSION`, held by `the_row_keeps_its_shape`), written
+only while the game's record is started and not complete. The record's last
+piece removes the row in the same statement (`records::append`); the start
+removes rows of complete records (`running::forget_finished`) and reads the
+rest back (`keep::restore`). `records::stored_pieces` refuses a record that
+misses a piece, so a resume never goes on from a gap. The `schema::running`
+tests exercise it.

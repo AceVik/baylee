@@ -31,6 +31,22 @@ pub(super) async fn run_engine_socket(
         super::replica::run(&state, socket, &hello).await;
         return;
     }
+    // A game restored after a restart goes on from its stored record, read
+    // here, outside the lobby's lock, and only for the engine its token names.
+    let resume = match resume_record(&state, &game_id, &hello.token).await {
+        Ok(resume) => resume,
+        Err(why) => {
+            tracing::error!(game_id, why, "a restored game cannot be resumed");
+            let _ = send(&mut socket, &refusal(why)).await;
+            end_game(&state, &game_id);
+            return;
+        }
+    };
+    // Where the record goes on: the next piece, and the bytes already stored.
+    let resumed_at = resume
+        .as_ref()
+        .map(|(record, pieces)| (*pieces, record.len()));
+    let (resume_record, resume_pieces) = resume.unwrap_or_default();
     let (tx, mut rx) = mpsc::unbounded_channel();
     let setup = {
         let names = crate::seat_names(&state, &game_id).await;
@@ -82,6 +98,9 @@ pub(super) async fn run_engine_socket(
             };
             game.engine = Some(tx);
             game.engine_pid = Some(hello.pid).filter(|pid| *pid != 0 && game.engine_local);
+            // From here it is an ordinary running game: a link that closes
+            // ends it, as before.
+            game.kept = crate::lobby::Kept::Whole;
             let seats = game
                 .seats
                 .iter()
@@ -132,7 +151,8 @@ pub(super) async fn run_engine_socket(
                             .as_ref()
                             .expect("reserved identity")
                             .to_metadata(),
-                        ..Default::default()
+                        resume_record,
+                        resume_pieces,
                     })),
                 },
             ))
@@ -166,7 +186,23 @@ pub(super) async fn run_engine_socket(
         }
     }
     tracing::info!(game_id, "engine attached");
-    let mut record = crate::record::Sink::open(state.db.clone(), &game_id, opening, seats);
+    // Kept from its first stored piece: a game with none has nothing to
+    // resume from after a restart (`keep`).
+    let (first_stored, stored) = tokio::sync::oneshot::channel();
+    {
+        let state = state.clone();
+        let game_id = game_id.clone();
+        tokio::spawn(async move {
+            if stored.await.is_ok() {
+                state.keeper.touch(&game_id);
+            }
+        });
+    }
+    let mut record =
+        crate::record::Sink::open(state.db.clone(), &game_id, opening, seats, first_stored);
+    if let Some((pieces, bytes)) = resumed_at {
+        record.go_on_from(pieces, bytes);
+    }
     pump_engine(&state, &game_id, &mut socket, &mut rx, &mut record).await;
     // The socket is the game's lifeline: its state lives in that process and
     // nowhere else, so a link that closes before `GameEnded` is a game that
@@ -184,9 +220,43 @@ pub(super) async fn run_engine_socket(
     };
     if finished {
         tracing::warn!(game_id, "engine link lost; game closed");
+        state.keeper.touch(&game_id);
     }
     state.lobby_moved();
     stop_engine(&state, &game_id);
+}
+
+/// The stored record of `game_id` and how many pieces it has, when it is a
+/// game restored after a restart and `token` is its engine's; `None` for
+/// any other game or engine, which the attach then judges as it always did.
+///
+/// # Errors
+///
+/// When the record cannot be read whole: such a game cannot go on, and ends.
+async fn resume_record(
+    state: &Shared,
+    game_id: &str,
+    token: &str,
+) -> Result<Option<(Vec<u8>, u32)>, &'static str> {
+    let restored = state.lobby.lock().games.get(game_id).is_some_and(|game| {
+        game.restored()
+            && game.engine.is_none()
+            && game
+                .engine_token_hash
+                .as_ref()
+                .is_some_and(|h| auth::ct_eq(h, &auth::token_hash(token)))
+    });
+    if !restored {
+        return Ok(None);
+    }
+    match baylee_db::records::stored_pieces(&state.db, game_id).await {
+        Ok(Some((record, pieces))) if pieces > 0 => Ok(Some((record, pieces))),
+        Ok(_) => Err("the stored record is not there"),
+        Err(e) => {
+            tracing::error!(game_id, "reading the stored record: {e}");
+            Err("the stored record could not be read")
+        }
+    }
 }
 
 /// One game's routing: seat frames both ways, until the game ends.
@@ -228,7 +298,18 @@ async fn pump_engine(
                         }
                     }
                     // Never forwarded: the record is omniscient (#315).
-                    Incoming::Msg(v1::envelope::Msg::GameRecordChunk(piece)) => record.take(piece),
+                    Incoming::Msg(v1::envelope::Msg::GameRecordChunk(piece)) => {
+                        let was_cut = record.cut();
+                        record.take(piece);
+                        // No longer the whole game, so not one a restart
+                        // could resume (`keep`).
+                        if record.cut() && !was_cut {
+                            if let Some(game) = state.lobby.lock().games.get_mut(game_id) {
+                                game.kept = crate::lobby::Kept::Cut;
+                            }
+                            state.keeper.touch(game_id);
+                        }
+                    }
                     // A report's ask answered (#323): the piece it asked for
                     // came before this on the socket and is already handed
                     // to the writer, so the report is told once that is

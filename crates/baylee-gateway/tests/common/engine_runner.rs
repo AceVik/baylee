@@ -31,6 +31,7 @@ pub(super) async fn run_engine(
     }
 }
 
+#[allow(clippy::too_many_lines)] // the engine's loop: one arm a thing that wakes it
 async fn run_typed<D: baylee_engine::engine::LoopDetection>(
     start: v1::StartEngine,
     presets: tokio::sync::mpsc::UnboundedSender<baylee_core::preset::GamePreset>,
@@ -69,7 +70,24 @@ async fn run_typed<D: baylee_engine::engine::LoopDetection>(
             });
         }
         let next = armed.next();
+        // The record's own bound, as `baylee-engine-server` keeps it, for an
+        // agent that asks for it (`attach_agent_recording`).
+        let record_due = probe
+            .recording
+            .then(|| runner.record_deadline())
+            .flatten()
+            .map(|at| std::time::Duration::from_millis(at.saturating_sub(wall_ms())));
         let out = tokio::select! {
+            () = async {
+                match record_due {
+                    Some(due) => tokio::time::sleep(due).await,
+                    None => std::future::pending::<()>().await,
+                }
+            } => {
+                runner.measure_until(u64::try_from(measured_from.elapsed().as_millis()).unwrap());
+                runner.tell_time(wall_ms());
+                runner.flush_record_due()
+            }
             () = async {
                 match next {
                     Some((_, at)) => tokio::time::sleep_until(at).await,

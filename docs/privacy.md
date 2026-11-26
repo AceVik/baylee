@@ -625,7 +625,23 @@ own.
   - a waiting table goes 2 h after it opened (`WAITING_TIMEOUT_SECS`);
   - a finished game goes 1 h after it ended (`OVER_GRACE_SECS`), unless a
     rematch room still points at it;
-  - a restart loses all of it.
+  - a restart loses all of it but the running games below.
+- **Running games across a restart** (`crates/baylee-gateway/src/keep/`,
+  `docs/proposals/games-survive-restarts.md`): a running casual game is
+  also written to gateway Postgres `running_game`, one row a game: the
+  table's fields above (host, name, password hash, format, ban list copy)
+  and per chair the account id, the seat token's hash, the key of the
+  session the chair is bound to, the deck, team and seat bridge. It is
+  written from the game's first stored record piece, at most five seconds
+  behind memory, and removed when the game ends (with the record's last
+  piece, in the same statement), when a restart cannot resume it, and with
+  its record. Ranked duels, Tower runs and challenges have no row. A
+  restart reads the rows back; a chair of an account deleted meanwhile is
+  emptied first. A chair's session key is never a bearer: it is `central:`
+  and the `sid` of the Central session that took the chair, and a local
+  account's chair has none. The backup never saves the table, as it never
+  saves sessions (§"Backups"): after a restore it is there and empty, so no
+  game and no chair comes back from a backup.
 - **Removed early:** a deleted account's chairs are emptied at every table,
   waiting, running or over (`Lobby::forget_account`), and so are the
   chairs its seat bridges sat in; its seat and lobby sockets close. A
@@ -689,8 +705,9 @@ only waits while one runs (`/run/baylee-backup/run.lock`).
   the database's TLS key and superuser password, the roles' password hashes)
   go into a bundle encrypted separately to the owner's recovery key, which
   the server does not hold.
-- **Never saved:** the rows of sessions and confirmation links
-  (`session_token`, `confirmation`; Central's `sessions`, pairings, pending
+- **Never saved:** the rows of sessions, confirmation links and running
+  games (`session_token`, `confirmation`, `running_game`; Central's
+  `sessions`, pairings, pending
   e-mail codes, push subscriptions and the like), the feedback service's
   admin sessions, the card catalogs, and any log.
 - **Encrypted before upload:** restic encrypts everything on the server;

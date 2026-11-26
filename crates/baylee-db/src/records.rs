@@ -209,7 +209,9 @@ pub async fn finish(
 /// Adds piece `seq` of a game's record; the last piece marks it complete.
 ///
 /// Returns whether it was added: a piece already stored, or one for a game
-/// whose record was never started, is not.
+/// whose record was never started, is not. The last piece also removes the
+/// game from the running games the gateway keeps ([`crate::running`]), in
+/// the same statement, so a finished game is never resumed.
 ///
 /// # Errors
 ///
@@ -229,7 +231,8 @@ pub async fn append(
                  INSERT INTO game_record_chunk (game_id, seq, data) \
                  SELECT game_id, $2, $3 FROM game_record WHERE game_id = $1 \
                  ON CONFLICT DO NOTHING \
-                 RETURNING octet_length(data) AS n) \
+                 RETURNING octet_length(data) AS n), \
+             kept AS (DELETE FROM running_game WHERE game_id = $1 AND $4) \
              UPDATE game_record r SET \
                  bytes = r.bytes + piece.n, \
                  complete = r.complete OR $4, \
@@ -249,7 +252,9 @@ pub async fn append(
 ///
 /// # Errors
 ///
-/// When the statement fails.
+/// When the statement fails, and when a piece is missing between the first
+/// and the last: such a record is not the game, and a resume would go on
+/// from a piece the record does not have.
 pub async fn stored_pieces(
     db: &impl ConnectionTrait,
     game_id: &str,
@@ -262,18 +267,45 @@ pub async fn stored_pieces(
                            FROM game_record_chunk c WHERE c.game_id = r.game_id), ''::bytea) \
                    AS data, \
                  (SELECT count(*) FROM game_record_chunk c WHERE c.game_id = r.game_id) \
-                   AS pieces \
+                   AS pieces, \
+                 (SELECT coalesce(max(c.seq) + 1, 0)::bigint FROM game_record_chunk c \
+                  WHERE c.game_id = r.game_id) AS next \
              FROM game_record r WHERE r.game_id = $1",
             [game_id.into()],
         ))
         .await?;
     row.map(|row| {
         let pieces: i64 = row.try_get("", "pieces")?;
+        let next: i64 = row.try_get("", "next")?;
+        if pieces != next {
+            return Err(DbErr::Custom("the stored record misses a piece".into()));
+        }
         Ok((
             row.try_get("", "data")?,
             u32::try_from(pieces).map_err(|_| DbErr::Custom("piece count out of range".into()))?,
         ))
     })
+    .transpose()
+}
+
+/// The first piece of `game_id`'s record, which begins with its header;
+/// `None` while the record has none. For the gateway's start, which reads
+/// the header of every game it resumes and nothing more of it.
+///
+/// # Errors
+///
+/// When the statement fails.
+pub async fn first_piece(
+    db: &impl ConnectionTrait,
+    game_id: &str,
+) -> Result<Option<Vec<u8>>, DbErr> {
+    db.query_one_raw(Statement::from_sql_and_values(
+        db.get_database_backend(),
+        "SELECT data FROM game_record_chunk WHERE game_id = $1 AND seq = 0",
+        [game_id.into()],
+    ))
+    .await?
+    .map(|row| row.try_get("", "data"))
     .transpose()
 }
 

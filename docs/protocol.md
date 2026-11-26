@@ -2635,6 +2635,37 @@ turns 13 and 16):
   meanwhile is tried again for up to 15 minutes before a game's record is
   given up (`record.rs`, `RETRY_FOR`).
 
+**A running game outlives a restart of its gateway** (stopped, or killed),
+on the same engine build (`docs/proposals/games-survive-restarts.md`
+§"Step 3b"). From its record's first stored piece until it ends, the gateway
+keeps each running casual game in `running_game`: the room and who may open
+each chair (seat token hashes, the session key each chair is bound to), at
+most five seconds behind the lobby (`crates/baylee-gateway/src/keep/`). A reissued seat token
+(`POST /lobby/games/{id}/seat`) is kept before it is handed out, and the
+route answers `503` when it could not be; the write is tried again at
+every sweep, and until it goes through a restart restores the token before
+the reissue. A stop writes every game once
+more after the holds and then nothing. Ranked duels, Tower runs, challenges,
+and a game whose record stopped being stored are not kept.
+
+At start, before it serves, the gateway reads every kept game back, running
+and waiting for an engine; the preset and the engine artifact are its
+record's header. A kept chair of an account that is gone is emptied. A row
+that does not read, a record without a header and an artifact the gateway
+does not know each end that one game. When an agent offering the game's
+exact artifact says hello, the engine is ordered, also while an admission
+hold stands, and its `GameSetup` carries the stored record whole
+(`resume_record`) and how many pieces it is (`resume_pieces`): the engine
+plays it again on its own build only (another build ends the game with
+`the stored record does not resume on this engine`), checks every hash,
+opens the table without a curtain with every seat away, and goes on at
+piece `resume_pieces`. An engine that has not attached three minutes after
+the start ends its game (`keep::RESTORE_WAIT_SECS`). The attached engine's
+link takes messages up to 72 MiB, room for the largest record the gateway
+stores. A seat comes back as after a lost connection, with its token and a
+session the restarted gateway knows: a local session is in the database, a
+Central session comes back with the client's next sign-in.
+
 Where a piece breaks changes nothing else: the pieces are gzip members of
 their own, and the record they make is the same bytes with or without
 flushes (`flushes_at_any_moment_change_nothing_but_where_the_pieces_break`).

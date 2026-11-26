@@ -31,6 +31,7 @@ mod cosmetics;
 mod departure;
 mod engine;
 mod handle;
+mod keep;
 mod launch;
 mod llmaccess;
 mod lobby;

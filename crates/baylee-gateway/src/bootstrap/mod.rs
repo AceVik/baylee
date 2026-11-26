@@ -5,7 +5,7 @@ use super::{
     archive_replay, art, auth, authmode, banlists, blocks, catalog_search, catalog_text, central,
     chair, challenges, clock, connect_catalog, cors, cosmetics, create_game, deck_routes,
     departure, display_name, engine, game_cosmetics, game_ws, get, guest_cap, hand_over, health,
-    impressum_url, info, join_game, launch, leave_game, list_games, list_replays, list_seats,
+    impressum_url, info, join_game, keep, launch, leave_game, list_games, list_replays, list_seats,
     listen, lobby_stats, lobby_ws, metrics, namebook, open_database, pool, poolfacts, post,
     presence, put, record, recordexport, registration, rematch, replay_tape, replays, report, room,
     routes, seathost, sessions, set_ready, set_seat, share_replay, social, source, source_url,
@@ -218,6 +218,7 @@ pub(super) async fn run() {
         deck_images: Arc::new(cosmetics::Store::from_env()),
         feedback,
         record_flushes: record::Flushes::default(),
+        keeper: keep::Keeper::default(),
         tickets: wsticket::Tickets::new(ticket_ttl),
         legacy_until,
         chair_tickets: wsticket::Tickets::new(chair_ticket_ttl),
@@ -250,6 +251,10 @@ pub(super) async fn run() {
     blocks::spawn_refresh(state.clone());
     // Before serving, so it is done by the time anybody can upload (#301).
     account::sweep_pictures(&state).await;
+    // The running games kept before a restart, back in the lobby and waiting
+    // for their engines, before the writer that keeps them starts.
+    keep::restore(&state).await;
+    keep::spawn(state.clone());
     spawn_cleanup(state.clone());
     // A stop stores the running games' records first (`record::flush_on_stop`).
     record::flush_on_stop(state.clone());

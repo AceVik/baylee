@@ -50,6 +50,7 @@ pub(super) fn end_unattached(state: &Shared, game_id: &str, agent_id: &str) {
     if ended {
         crate::tower::ended(state, game_id);
         tracing::warn!(game_id, "engine did not attach; game closed");
+        state.keeper.touch(game_id);
         state.lobby_moved();
         stop_engine(state, game_id);
     }

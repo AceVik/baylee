@@ -42,6 +42,23 @@ pub enum SeatKind {
     Ai,
 }
 
+/// Where a game stands with the copy of it this gateway keeps across its
+/// restart (`keep`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum Kept {
+    /// Its record is whole: kept for as long as it is a game to keep
+    /// (`keep::keepable`).
+    #[default]
+    Whole,
+    /// Read back after a restart and not yet attached: its engine is
+    /// ordered on the artifact its record names and is sent the stored
+    /// record to resume from.
+    Restored,
+    /// Its record stopped being stored before the game ended (its bound, or
+    /// a piece out of order): no longer the whole game, so not kept.
+    Cut,
+}
+
 /// A seat in a lobby game.
 #[derive(Clone, Debug)]
 pub struct LobbySeat {
@@ -113,7 +130,7 @@ pub struct LobbySeat {
 
 /// A hosted model ordered for a chair (`seathost.rs`, `docs/protocol.md`
 /// §"Hosted language-model seats").
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct HostedChair {
     /// The gateway's order, which its chair ticket and its seat agent know.
     pub order: String,
@@ -141,7 +158,7 @@ impl HostedChair {
 }
 
 /// A seat bridge sitting in a chair on its host's word (`chair.rs`).
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Delegate {
     /// The account that handed the chair over and answers for it: the
     /// game's record names it (`game_record_seat.delegated_by`), and the
@@ -328,6 +345,9 @@ pub struct LobbyGame {
     pub(crate) execution: Option<baylee_protocol::execution::Identity>,
     /// The ordered writer is still committing this game's authoritative outcome.
     pub(crate) record_finalizing: bool,
+    /// Where the game stands with the copy this gateway keeps across its
+    /// restart (`keep`, `docs/proposals/games-survive-restarts.md`).
+    pub(crate) kept: Kept,
     /// Game id (`UUIDv7`).
     pub id: String,
     /// State.
@@ -448,6 +468,12 @@ pub struct LobbyGame {
 }
 
 impl LobbyGame {
+    /// Whether it was read back after a restart and waits to be resumed
+    /// ([`Kept::Restored`]).
+    pub(crate) fn restored(&self) -> bool {
+        self.kept == Kept::Restored
+    }
+
     /// A chair whose capability may be exercised. Replicated seats are
     /// available only on a caught-up primary with an unexpired generation lease.
     pub(crate) fn ranked_seat(&self, index: usize) -> Option<&LobbySeat> {
@@ -645,6 +671,7 @@ impl LobbyGame {
             challenge_executor: None,
             execution: None,
             record_finalizing: false,
+            kept: Kept::Whole,
             state: LobbyState::Waiting,
             host: None,
             name: String::new(),

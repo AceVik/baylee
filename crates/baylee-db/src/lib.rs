@@ -79,6 +79,7 @@ pub mod pictures;
 pub mod precons;
 pub mod ranked;
 pub mod records;
+pub mod running;
 pub mod social;
 pub mod stats;
 pub mod terms;

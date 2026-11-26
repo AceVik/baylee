@@ -40,6 +40,8 @@ mod challenges;
 mod old_friends;
 #[path = "schema/ranked.rs"]
 mod ranked;
+#[path = "schema/running.rs"]
+mod running;
 
 /// A database to run against, and the schema to run in.
 struct Sandbox {
