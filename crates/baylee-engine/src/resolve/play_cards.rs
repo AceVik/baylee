@@ -4,7 +4,6 @@ use super::{
     AwaitingOp, ChoicePrompt, Effect, GameState, ObjectId, Pending, Resolution, ZoneLocation,
     players_of, subjects,
 };
-use crate::eval;
 use crate::zone::Zone;
 use baylee_cards_dsl::{PlayCostMode, PlayCount, PlaySource, TargetSpec, ZoneRef};
 use baylee_core::ids::{DamageSourceRef, PlayerId};
@@ -74,14 +73,7 @@ pub(super) fn start(state: &GameState, res: &mut Resolution, op: &Effect) -> Opt
         else {
             continue;
         };
-        if eval::matches_for_x(
-            filter,
-            state,
-            obj,
-            res.controller,
-            res.rule_context(),
-            res.x,
-        ) {
+        if super::matches_in_resolution(filter, state, obj, res.controller, res, None) {
             cards.push(candidate);
         }
     }

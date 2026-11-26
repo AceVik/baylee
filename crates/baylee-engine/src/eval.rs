@@ -422,6 +422,7 @@ pub(crate) fn matches_projected_with_choices(
             }) || crate::effects::granted_activated(state, obj.id).any(|a| !a.mana_ability)
         }
         Filter::ControlledByYou => obj.controller == you,
+        Filter::ControlledByYourTeam => !state.is_opponent(obj.controller, you),
         Filter::ControlledByOpponent => state.is_opponent(obj.controller, you),
         Filter::ControlledByActivePlayer => obj.controller == state.turn.active,
         // CR 508.5: an attack trigger can belong to the attacker itself or
@@ -461,6 +462,28 @@ pub(crate) fn matches_projected_with_choices(
         Filter::AttackingYou => state.combat.attackers().iter().any(|attacker| {
             attacker.creature == obj.id
                 && attacker.defending == baylee_core::ids::Defender::Player(you)
+        }),
+        Filter::AttackingYouOrYourPlaneswalker => state.combat.attackers().iter().any(|attacker| {
+            attacker.creature == obj.id
+                && match attacker.defending {
+                    baylee_core::ids::Defender::Player(p) => p == you,
+                    baylee_core::ids::Defender::Planeswalker(pw) => {
+                        state.last_known_controller(pw) == Some(you)
+                    }
+                    baylee_core::ids::Defender::Battle(_) => false,
+                }
+        }),
+        Filter::DefendingPlayerIsYou => state.combat.attackers().iter().any(|attacker| {
+            attacker.creature == obj.id
+                && match attacker.defending {
+                    baylee_core::ids::Defender::Player(p) => p == you,
+                    baylee_core::ids::Defender::Planeswalker(pw) => {
+                        state.last_known_controller(pw) == Some(you)
+                    }
+                    baylee_core::ids::Defender::Battle(b) => {
+                        crate::battle::protector(state, b) == Some(you)
+                    }
+                }
         }),
         // CR 702.22: in the source's band, which the attack declared.
         Filter::BandedWithSource => {
@@ -739,6 +762,24 @@ pub(crate) fn matches_projected_with_choices(
                     .intersection(reference.characteristics().types)
                     .intersects(*types)
             }),
+        Filter::SharesCardTypeWithReference => context
+            .reference
+            .and_then(|reference| state.object(reference))
+            .is_some_and(|reference| chars.types.intersects(reference.characteristics().types)),
+        Filter::CastForBlitz => obj.riders.contains(&crate::object::Rider::Blitzed),
+        Filter::FirstMatchingSpellThisTurn(inner) => {
+            let items = &state.per_turn.cast_spells_this_turn.items;
+            let limit = items
+                .iter()
+                .position(|rec| rec.source.object == obj.id && rec.source.version == obj.version)
+                .unwrap_or(items.len());
+            let mut caster_seats = [obj.controller];
+            let _ = &mut caster_seats;
+            !items[..limit].iter().any(|rec| {
+                rec.controller == obj.controller
+                    && matches_with_context(inner, state, &rec.snapshot, you, context)
+            })
+        }
         Filter::SharesCreatureTypeWithOtherTarget => context.reference.is_none_or(|reference| {
             reference != obj.id
                 && state
@@ -970,6 +1011,34 @@ pub(crate) fn matches_projected_with_choices(
             }
         }
         Filter::ControlledByChooser => false,
+        Filter::ControlledByPlayerWhoChoseMode(mode) => state.object(this).is_some_and(|src| {
+            src.riders.iter().any(|r| {
+                matches!(
+                    r,
+                    crate::object::Rider::PlayerChosenMode(p, m)
+                        if *p == obj.controller && *m == *mode
+                )
+            })
+        }),
+        Filter::CreatedBySource => state.source_identity(this).is_some_and(|src_ref| {
+            obj.riders
+                .contains(&crate::object::Rider::CreatedBy(src_ref))
+        }),
+        Filter::AttachedHostOfRemembered => state
+            .resolution_remembered
+            .as_ref()
+            .filter(|(src, _)| *src == this)
+            .is_some_and(|(_, rem)| {
+                rem.iter().any(|r| {
+                    state.object(r.reference.object).is_some_and(|att| {
+                        att.zone == Zone::Battlefield
+                            && att.version == r.reference.version
+                            && att.attached_to == Some(obj.id)
+                    })
+                })
+            }),
+        Filter::OwnedBy(rel) => players_for_source(*rel, state, you, Some(this))
+            .is_some_and(|seats| seats.contains(&obj.owner)),
         Filter::SameManaValueAsSource => {
             source_mana_value(state, this).is_some_and(|mv| chars.mana_value() == mv)
         }

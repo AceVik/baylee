@@ -471,6 +471,9 @@ pub fn choice_prompt(prompt: ChoicePrompt) -> String {
             "Vote: choose the one you vote for. Every earlier ballot is public and in the log"
                 .into()
         }
+        ChoicePrompt::Waterbend => {
+            "Choose untapped artifacts and/or creatures to tap for waterbend".into()
+        }
         ChoicePrompt::Generic => "Choose cards".into(),
     }
 }

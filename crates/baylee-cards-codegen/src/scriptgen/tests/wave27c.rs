@@ -565,13 +565,10 @@ fn wave27c_honest_refusals_and_pure_paper_guardrails() {
          SVar:DBDraw:DB$ Draw | NumCards$ X | SubAbility$ DBCleanup\n\
          SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
          SVar:X:Remembered$Amount",
-        // RememberControlled$ (not captured by CaptureAffected).
+        // RememberControlled$ without a SubAbility$ must stay refused.
         "Name:BadRememberControlled\nManaCost:2 U\nTypes:Sorcery\n\
          A:SP$ TargetOnly | ValidTgts$ Opponent | SubAbility$ DBGain\n\
-         SVar:DBGain:DB$ GainControl | ValidTgts$ Permanent.YouCtrl | NewController$ ParentTarget | RememberControlled$ True | SubAbility$ DBDraw\n\
-         SVar:DBDraw:DB$ Draw | NumCards$ X | SubAbility$ DBCleanup\n\
-         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
-         SVar:X:Remembered$Amount",
+         SVar:DBGain:DB$ GainControl | ValidTgts$ Permanent.YouCtrl | NewController$ ParentTarget | RememberControlled$ True",
         // RememberedOwner (not a PlayerRel variant).
         "Name:BadRememberedOwner\nManaCost:2 W\nTypes:Sorcery\n\
          A:SP$ Destroy | ValidTgts$ Creature | RememberDestroyed$ True | SubAbility$ DBDraw\n\

@@ -761,7 +761,7 @@ fn names_without_targeting(object: &PublicObject) -> bool {
         |req: &Option<TargetReq>| req.is_none_or(|req| matches!(req.spec, TargetSpec::EventObject));
     let objects_only = objects().all(|id| id.is_some());
     match def {
-        AbilityDef::Ward { .. } => objects_only,
+        AbilityDef::Ward { .. } | AbilityDef::WardWaterbend { .. } => objects_only,
         AbilityDef::Triggered {
             targets,
             second_targets,

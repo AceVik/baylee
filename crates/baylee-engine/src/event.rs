@@ -97,6 +97,9 @@ pub enum GameEvent {
         tap_cost: bool,
         /// Whether the ability resolves without the stack as a mana ability.
         mana_ability: bool,
+        /// Whether the activated ability is a planeswalker loyalty ability (`CR 606`).
+        #[serde(default)]
+        loyalty: bool,
     },
     /// A copy or retargeted stack object acquired an object target.
     /// Casting/activation already announce their targets in their own events.

@@ -297,7 +297,8 @@ fn legal_targets_from(
                 | PlayerRel::LeastLifeOrTied
                 | PlayerRel::DefendingPlayer
                 | PlayerRel::OtherOpponents
-                | PlayerRel::ChosenBySource => {
+                | PlayerRel::ChosenBySource
+                | PlayerRel::PlayerToYourRight => {
                     return None;
                 }
             };
@@ -672,6 +673,11 @@ fn matches_at(
         | Filter::EnteredThisTurn
         | Filter::PutIntoGraveyardThisTurn
         | Filter::SurveilledByYouThisTurn
+        | Filter::ControlledByYourTeam
+        | Filter::ControlledByPlayerWhoChoseMode(_)
+        | Filter::CreatedBySource
+        | Filter::AttachedHostOfRemembered
+        | Filter::OwnedBy(_)
         // Which creatures attacked, and since when a controller has held a
         // permanent, are history of the same kind.
         | Filter::AttackedThisTurn
@@ -753,6 +759,13 @@ fn matches_at(
         | Filter::NotRemembered
         | Filter::SharesCardTypeWithRemembered
         | Filter::SharesNameWithRemembered
+        // Combat defending target, reference card type, blitz origin, and turn cast counts
+        // are engine/resolution context not readable from PlayerView alone.
+        | Filter::AttackingYouOrYourPlaneswalker
+        | Filter::DefendingPlayerIsYou
+        | Filter::SharesCardTypeWithReference
+        | Filter::CastForBlitz
+        | Filter::FirstMatchingSpellThisTurn(_)
         // Winnow asks this only while resolving, never while choosing a target.
         | Filter::SharesNameWithAnotherPermanent => return None,
         Filter::HasAnyCounter => object.counters.iter().any(|entry| entry.count > 0),

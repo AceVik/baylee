@@ -713,6 +713,28 @@ static WARD_PAY_OR_COUNTER: [[baylee_cards_dsl::Effect; 1]; 11] = [
     ward_pay_or_counter(10),
 ];
 
+const fn ward_waterbend_pay_or_counter(n: u32) -> [baylee_cards_dsl::Effect; 1] {
+    [baylee_cards_dsl::Effect::PlayerMayWaterbendOr {
+        player: baylee_cards_dsl::PlayerRel::ControllerOfTarget,
+        mana: baylee_cards_dsl::Amount::Fixed(n),
+        effect: &WARD_COUNTER,
+    }]
+}
+
+static WARD_WATERBEND_PAY_OR_COUNTER: [[baylee_cards_dsl::Effect; 1]; 11] = [
+    ward_waterbend_pay_or_counter(0),
+    ward_waterbend_pay_or_counter(1),
+    ward_waterbend_pay_or_counter(2),
+    ward_waterbend_pay_or_counter(3),
+    ward_waterbend_pay_or_counter(4),
+    ward_waterbend_pay_or_counter(5),
+    ward_waterbend_pay_or_counter(6),
+    ward_waterbend_pay_or_counter(7),
+    ward_waterbend_pay_or_counter(8),
+    ward_waterbend_pay_or_counter(9),
+    ward_waterbend_pay_or_counter(10),
+];
+
 fn begins_step(
     state: &GameState,
     began: crate::turn::Step,
@@ -1459,7 +1481,9 @@ fn collect_for_objects(
             && !obj.abilities(lookup).iter().any(|ability| {
                 matches!(
                     ability,
-                    AbilityDef::Ward { .. } | AbilityDef::Champion { .. }
+                    AbilityDef::Ward { .. }
+                        | AbilityDef::WardWaterbend { .. }
+                        | AbilityDef::Champion { .. }
                 ) || triggered_parts(ability)
                     .is_some_and(|firing| firing.zone.functions_on_battlefield())
             })
@@ -1601,16 +1625,17 @@ fn collect_for_objects(
             if phased_out_only {
                 break;
             }
-            let AbilityDef::Ward { mana } = ability else {
-                continue;
+            let synthetic_table = match ability {
+                AbilityDef::Ward { mana } => WARD_PAY_OR_COUNTER.get(usize::from(*mana)),
+                AbilityDef::WardWaterbend { mana } => {
+                    WARD_WATERBEND_PAY_OR_COUNTER.get(usize::from(*mana))
+                }
+                _ => continue,
             };
             if matching::ward_suppressed(state, obj) {
                 continue;
             }
-            let Some(synthetic) = WARD_PAY_OR_COUNTER
-                .get(usize::from(*mana))
-                .map(|effects| &effects[..])
-            else {
+            let Some(synthetic) = synthetic_table.map(|effects| &effects[..]) else {
                 continue; // a ward cost past the table's ceiling
             };
             for entry in events {

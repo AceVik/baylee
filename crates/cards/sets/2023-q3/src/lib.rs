@@ -159,6 +159,8 @@ pub mod faunsbane_troll;
 pub mod fell_horseman;
 #[path = "woe/ferocious_werefox.rs"]
 pub mod ferocious_werefox;
+#[path = "cmm/flayer_of_loyalties.rs"]
+pub mod flayer_of_loyalties;
 #[path = "woe/flick_a_coin.rs"]
 pub mod flick_a_coin;
 #[path = "woe/food_coma.rs"]
@@ -203,6 +205,8 @@ pub mod gylwain_casting_director;
 pub mod hamlet_glutton;
 #[path = "woe/harried_spearguard.rs"]
 pub mod harried_spearguard;
+#[path = "cmm/hatchery_sliver.rs"]
+pub mod hatchery_sliver;
 #[path = "pwoe/heartflame_duelist.rs"]
 pub mod heartflame_duelist;
 #[path = "woe/hearth_elemental.rs"]
@@ -523,3 +527,5 @@ pub mod witch_s_mark;
 pub mod witchstalker_frenzy;
 #[path = "woe/woodland_acolyte.rs"]
 pub mod woodland_acolyte;
+#[path = "cmm/zhulodok_void_gorger.rs"]
+pub mod zhulodok_void_gorger;

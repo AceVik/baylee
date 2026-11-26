@@ -1027,6 +1027,7 @@ impl HeuristicAgent {
             Amount::TargetPower => i64::from(target?.power?),
             Amount::TargetToughness => i64::from(target?.toughness?),
             Amount::TargetCmc => i64::from(target?.mana_value),
+            Amount::TotalTargetsManaValue => i64::from(target.map_or(0, |t| t.mana_value)),
             Amount::IfCondition { otherwise, .. } => {
                 return rec(*otherwise);
             }
@@ -3899,7 +3900,8 @@ impl HeuristicAgent {
                 | CostPart::ExileFromGraveyardX(_)
                 | CostPart::Behold(_)
                 | CostPart::BeholdAndExile(_)
-                | CostPart::RevealSelfFromHand => 0,
+                | CostPart::RevealSelfFromHand
+                | CostPart::WaterbendX => 0,
                 CostPart::RevealFromHand(filter) => {
                     if view
                         .hand
@@ -4038,6 +4040,7 @@ impl HeuristicAgent {
                 .min()?,
                 CostPart::TapN { .. } => return None,
                 CostPart::Crew(_) | CostPart::Saddle(_) => 80,
+                CostPart::Waterbend(n) => i64::from(*n) * 15,
                 CostPart::CraftMaterials { min, .. } => i64::from(*min) * 80,
                 CostPart::CollectEvidence(mv) => i64::from(*mv) * 5,
                 CostPart::ReturnToHand(filter) => own(filter, &|_| true)

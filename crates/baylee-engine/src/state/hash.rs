@@ -1461,6 +1461,25 @@ fn hash_waiting_turn_effects(
                 delayed.controller.hash(h);
                 h.u32(position(affected.object));
             }
+            crate::state::DelayedAction::FlickerformReturn {
+                source,
+                host,
+                ref auras,
+            } => {
+                h.u8(255);
+                h.u16(513);
+                delayed.controller.hash(h);
+                delayed.when.hash(h);
+                h.u32(position(source.object));
+                moves_since(state.object_or_departed(source.object), source.version).hash(h);
+                h.u32(position(host.object));
+                moves_since(state.object_or_departed(host.object), host.version).hash(h);
+                auras.len().hash(h);
+                for aura in auras {
+                    h.u32(position(aura.object));
+                    moves_since(state.object_or_departed(aura.object), aura.version).hash(h);
+                }
+            }
             _ => {}
         }
     }
@@ -2919,6 +2938,17 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u8(191);
                 h.u8(*face);
             }
+            Rider::ChosenMode(mode) => {
+                h.u8(255);
+                h.u16(507);
+                h.u8(*mode);
+            }
+            Rider::PlayerChosenMode(player, mode) => {
+                h.u8(255);
+                h.u16(508);
+                h.u8(player.get());
+                h.u8(*mode);
+            }
             Rider::CraftMaterial(mat) => {
                 h.u8(192);
                 mat.hash(h);
@@ -3420,6 +3450,49 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
             h.u8(255);
             h.u16(489);
         }
+        F::AttackingYouOrYourPlaneswalker => {
+            h.u8(255);
+            h.u16(495);
+        }
+        F::DefendingPlayerIsYou => {
+            h.u8(255);
+            h.u16(496);
+        }
+        F::SharesCardTypeWithReference => {
+            h.u8(255);
+            h.u16(497);
+        }
+        F::CastForBlitz => {
+            h.u8(255);
+            h.u16(498);
+        }
+        F::FirstMatchingSpellThisTurn(inner) => {
+            h.u8(255);
+            h.u16(499);
+            filter_hash(h, inner);
+        }
+        F::ControlledByYourTeam => {
+            h.u8(255);
+            h.u16(506);
+        }
+        F::ControlledByPlayerWhoChoseMode(mode) => {
+            h.u8(255);
+            h.u16(509);
+            h.u8(*mode);
+        }
+        F::CreatedBySource => {
+            h.u8(255);
+            h.u16(510);
+        }
+        F::AttachedHostOfRemembered => {
+            h.u8(255);
+            h.u16(511);
+        }
+        F::OwnedBy(rel) => {
+            h.u8(255);
+            h.u16(512);
+            rel.hash(h);
+        }
     }
 }
 
@@ -3455,6 +3528,7 @@ fn filter_amount_depth_exceeds(filter: &baylee_cards_dsl::Filter, depth: u8) -> 
         | F::SharesCreatureTypeWith(inner)
         | F::ControllerControls(inner)
         | F::TargetsYouControl(inner)
+        | F::FirstMatchingSpellThisTurn(inner)
         | F::ActivatedAbilityFrom(inner) => filter_amount_depth_exceeds(inner, depth),
         _ => false,
     }

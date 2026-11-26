@@ -583,6 +583,42 @@ pub enum Filter {
     /// there by `you` while surveilling this turn (`CR 701.25a`, `CR 400.7`;
     /// *Eye of Duskmantle*). Appended to preserve replay identities.
     SurveilledByYouThisTurn,
+    /// Attacking `you` or a planeswalker `you` control (`CR 508.1`;
+    /// `You,Planeswalker.YouCtrl`). Appended to preserve replay identities.
+    AttackingYouOrYourPlaneswalker,
+    /// Attacking a defender for which `you` are the defending player: `you`, a
+    /// planeswalker you control, or a battle you protect (`CR 508.5`;
+    /// *Kazuul, Tyrant of the Cliffs*). Appended to preserve replay identities.
+    DefendingPlayerIsYou,
+    /// Shares at least one card type with the resolving reference object (the
+    /// spell or ability's first target, else triggering event object, `CR 300.1`;
+    /// *Spirit-Sister's Call*). Appended to preserve replay identities.
+    SharesCardTypeWithReference,
+    /// Spell currently being cast (or cast-spell snapshot) whose blitz
+    /// alternative cost was chosen (`CR 702.152a`; *Henzie "Toolbox" Torre*).
+    /// Appended to preserve replay identities.
+    CastForBlitz,
+    /// Evaluates to `true` for a cast/prospective spell when no *earlier*
+    /// spell cast by that spell's controller earlier this turn matched `filter`
+    /// (*Anhelo*, *Ashad*, *Maelstrom Nexus*, *Peri Brown*, *The Fifteenth
+    /// Doctor*, *The Twelfth Doctor*, *Wild-Magic Sorcerer*). Appended to
+    /// preserve replay identities.
+    FirstMatchingSpellThisTurn(&'static Filter),
+    /// Controlled by a player who chose entry mode `u8` (`EnterModifier::EachPlayerChooseMode`;
+    /// *Archangel of Strife*). Appended to preserve replay identities.
+    ControlledByPlayerWhoChoseMode(u8),
+    /// A token permanent created by this ability's source incarnation
+    /// (`Rider::CreatedBy(source)`, *Faerie Artisans*). Appended to preserve replay identities.
+    CreatedBySource,
+    /// Permanent to which any currently resolution-remembered object is attached
+    /// (*Unforge*). Appended to preserve replay identities.
+    AttachedHostOfRemembered,
+    /// Card or permanent owned by a player named by `PlayerRel` (*Imposing Grandeur*).
+    /// Appended to preserve replay identities.
+    OwnedBy(crate::PlayerRel),
+    /// Controlled by `you` or a teammate (`CR 810.5`; same as [`Self::ControlledByYou`] in 1v1).
+    /// Appended to preserve replay identities.
+    ControlledByYourTeam,
 }
 
 /// Zone references for filters (engine zones, DSL view).

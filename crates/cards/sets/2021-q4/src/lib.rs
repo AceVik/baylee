@@ -77,6 +77,8 @@ pub mod change_of_fortune;
 pub mod child_of_the_pack;
 #[path = "vow/chill_of_the_grave.rs"]
 pub mod chill_of_the_grave;
+#[path = "vow/circle_of_confinement.rs"]
+pub mod circle_of_confinement;
 #[path = "vow/cobbled_lancer.rs"]
 pub mod cobbled_lancer;
 #[path = "vow/courier_bat.rs"]
@@ -205,6 +207,8 @@ pub mod hungry_ridgewolf;
 pub mod ill_tempered_loner;
 #[path = "voc/imperious_mindbreaker.rs"]
 pub mod imperious_mindbreaker;
+#[path = "voc/imposing_grandeur.rs"]
+pub mod imposing_grandeur;
 #[path = "vow/infestation_expert.rs"]
 pub mod infestation_expert;
 #[path = "pvow/investigator_s_journal.rs"]

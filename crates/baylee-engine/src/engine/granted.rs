@@ -244,6 +244,23 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         cost: &super::abilities::ActivationPrice,
         phyrexian_life: i32,
     ) -> bool {
+        self.can_plan_activation_with_x(
+            player,
+            source,
+            cost,
+            phyrexian_life,
+            self.activation_x.unwrap_or(0),
+        )
+    }
+
+    pub(super) fn can_plan_activation_with_x(
+        &self,
+        player: PlayerId,
+        source: baylee_core::ids::ObjectId,
+        cost: &super::abilities::ActivationPrice,
+        phyrexian_life: i32,
+        x: u32,
+    ) -> bool {
         use baylee_cards_dsl::CostPart;
         if let Some((idx, CostPart::Either(a, b))) = cost
             .parts
@@ -308,7 +325,22 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         ) {
             return false;
         }
-        let mana = cost.mana.with_x(self.activation_x.unwrap_or(0));
+        let wb_total = super::abilities::costs::waterbend_mana(&cost.parts, x);
+        let wb_taps = if wb_total > 0 {
+            super::abilities::costs::waterbend_tap_capacity(
+                &self.state,
+                player,
+                source,
+                &cost.parts,
+            )
+            .min(wb_total)
+        } else {
+            0
+        };
+        let mana = cost
+            .mana
+            .with_x(self.activation_x.unwrap_or(0))
+            .with_less_generic(wb_taps);
         if mana.symbols().next().is_none() {
             return true;
         }

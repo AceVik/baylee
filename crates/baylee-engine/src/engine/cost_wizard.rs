@@ -80,6 +80,8 @@ pub(crate) const fn needs_an_answer(part: &CostPart) -> bool {
             | CostPart::RevealFromHand(_)
             | CostPart::RevealFromHandX(_)
             | CostPart::CollectEvidence(_)
+            | CostPart::Waterbend(_)
+            | CostPart::WaterbendX
     )
 }
 
@@ -339,6 +341,9 @@ pub(crate) fn options_with_context(
                 })
                 .collect();
         }
+        CostPart::Waterbend(_) | CostPart::WaterbendX => {
+            return crate::casting::waterbend_sources(state, player);
+        }
         CostPart::RemoveAnyCounter {
             count,
             kind,
@@ -489,7 +494,11 @@ const fn spends_the_source_as(own: &CostPart, part: &CostPart) -> bool {
         (own, part),
         (
             CostPart::TapSelf,
-            CostPart::TapN { .. } | CostPart::TapOther(_) | CostPart::TapX(_)
+            CostPart::TapN { .. }
+                | CostPart::TapOther(_)
+                | CostPart::TapX(_)
+                | CostPart::Waterbend(_)
+                | CostPart::WaterbendX
         ) | (
             CostPart::SacrificeSelf,
             CostPart::Sacrifice(_)
@@ -523,6 +532,7 @@ pub(crate) const fn prompt(part: &CostPart) -> ChoicePrompt {
     match part {
         CostPart::Discard(_) | CostPart::DiscardX(_) => ChoicePrompt::CostDiscard,
         CostPart::TapN { .. } | CostPart::TapOther(_) | CostPart::TapX(_) => ChoicePrompt::CostTap,
+        CostPart::Waterbend(_) | CostPart::WaterbendX => ChoicePrompt::Waterbend,
         CostPart::Crew(power) => ChoicePrompt::CostCrew { power: *power },
         CostPart::Saddle(power) => ChoicePrompt::CostSaddle { power: *power },
         CostPart::ReturnToHand(_) | CostPart::ReturnUnblockedAttacker => ChoicePrompt::CostReturn,
@@ -623,6 +633,8 @@ pub(crate) fn pay(
             | CostPart::TapX(_)
             | CostPart::Crew(_)
             | CostPart::Saddle(_)
+            | CostPart::Waterbend(_)
+            | CostPart::WaterbendX
     ) {
         state.set_tapped(chosen, true);
         state.record_tap_event(chosen, true, Cause::Cost);

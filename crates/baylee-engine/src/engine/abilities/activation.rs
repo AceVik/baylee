@@ -173,7 +173,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let granted_definition = granted.map(|grant| grant.definition);
         // Loyalty abilities route to their own activation path first.
         if let Some(cost) = self.loyalty_cost(source, ability_index) {
-            return self.start_loyalty_activation(player, source, ability_index, targets, cost);
+            let res = self.start_loyalty_activation(player, source, ability_index, targets, cost);
+            if res.is_err() {
+                self.activating_grant = None;
+            }
+            return res;
         }
         if self.announce_activation_mode(player, source, ability_index)? {
             return Ok(());
@@ -417,7 +421,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let had_locked_price = locked_price.is_some();
         let (mut cost, mut fixed_mana_cost, additional_life) = locked_price.unwrap_or_else(|| {
             let price = |x| {
-                self.activation_price_for_targets(
+                self.activation_price_for_targets_x(
                     player,
                     source,
                     ability_index,
@@ -425,6 +429,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         mana: printed_cost.mana.with_x(x),
                         parts: printed_cost.parts,
                     },
+                    Some(x),
                     cost_reduction,
                     initial_target_pricing,
                 )
@@ -445,8 +450,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                              fixed: &mut baylee_core::mana::ManaCost,
                              at: usize,
                              chosen: &Cost| {
-            price.mana = price.mana.combine(&chosen.mana.with_x(settled_x));
-            *fixed = fixed.combine(&chosen.mana.with_x(0));
+            let wb = super::costs::waterbend_mana(chosen.parts, settled_x);
+            let wb0 = super::costs::waterbend_mana(chosen.parts, 0);
+            price.mana = price
+                .mana
+                .combine(&chosen.mana.with_x(settled_x).with_more_generic(wb));
+            *fixed = fixed.combine(&chosen.mana.with_x(0).with_more_generic(wb0));
             price.parts = price.parts[..at]
                 .iter()
                 .chain(chosen.parts)
@@ -1177,7 +1186,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 )
                 .collect();
             let final_pricing = super::costs::ActivationTargetPricing::Chosen(&final_targets);
-            let mut repriced = self.activation_price_for_targets(
+            let mut repriced = self.activation_price_for_targets_x(
                 player,
                 source,
                 ability_index,
@@ -1185,11 +1194,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     mana: printed_cost.mana.with_x(settled_x),
                     parts: printed_cost.parts,
                 },
+                Some(settled_x),
                 cost_reduction,
                 final_pricing,
             );
             let mut repriced_fixed = self
-                .activation_price_for_targets(
+                .activation_price_for_targets_x(
                     player,
                     source,
                     ability_index,
@@ -1197,6 +1207,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         mana: printed_cost.mana.with_x(0),
                         parts: printed_cost.parts,
                     },
+                    Some(0),
                     cost_reduction,
                     final_pricing,
                 )
@@ -1277,6 +1288,22 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             .is_empty())
                 }
                 Some(CostPart::CollectEvidence(0)) => true,
+                Some(part @ (CostPart::Waterbend(_) | CostPart::WaterbendX)) => {
+                    let wb_amount = match part {
+                        CostPart::Waterbend(n) => u32::from(*n),
+                        CostPart::WaterbendX => settled_x,
+                        _ => 0,
+                    };
+                    wb_amount == 0
+                        || cost.mana.generic_total() == 0
+                        || cost_wizard::menu(&self.state, player, source, priced_cost, part)
+                            .iter()
+                            .all(|id| {
+                                self.activation_cost_choices
+                                    .iter()
+                                    .any(|answer| answer.contains(id))
+                            })
+                }
                 _ => false,
             }
         {
@@ -1409,8 +1436,21 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     None,
                 )
             } else if let CostPart::CraftMaterials { max, .. } = part {
+                (*max, None)
+            } else if matches!(part, CostPart::Waterbend(_) | CostPart::WaterbendX) {
+                let wb_amount = match part {
+                    CostPart::Waterbend(n) => u32::from(*n),
+                    CostPart::WaterbendX => settled_x,
+                    _ => 0,
+                };
+                let room = wb_amount.min(cost.mana.generic_total());
                 (
-                    (*max).min(u8::try_from(options.len()).unwrap_or(u8::MAX)),
+                    u8::try_from(
+                        options
+                            .len()
+                            .min(usize::try_from(room).unwrap_or(usize::MAX)),
+                    )
+                    .unwrap_or(u8::MAX),
                     None,
                 )
             } else {
@@ -1435,7 +1475,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 } else {
                     u8::from(!matches!(
                         part,
-                        CostPart::Crew(0) | CostPart::Saddle(0) | CostPart::CollectEvidence(0)
+                        CostPart::Crew(0)
+                            | CostPart::Saddle(0)
+                            | CostPart::CollectEvidence(0)
+                            | CostPart::Waterbend(_)
+                            | CostPart::WaterbendX
                     ))
                 },
                 max,
@@ -1557,6 +1601,16 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     self.awaiting_answer = true;
                     return Ok(());
                 }
+            }
+        }
+        if !had_locked_price {
+            let wb_tapped: u32 = cost_wizard::asking_parts(cost.parts.as_slice())
+                .zip(self.activation_cost_choices.iter())
+                .filter(|(p, _)| matches!(p, CostPart::Waterbend(_) | CostPart::WaterbendX))
+                .map(|(_, chosen)| u32::try_from(chosen.len()).unwrap_or(u32::MAX))
+                .fold(0_u32, u32::saturating_add);
+            if wb_tapped > 0 {
+                cost.mana = cost.mana.with_less_generic(wb_tapped);
             }
         }
         if !self.can_pay_activation_price(
@@ -1738,6 +1792,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             player,
             tap_cost: cost.parts.contains(&baylee_cards_dsl::CostPart::TapSelf),
             mana_ability: ability.is_none(),
+            loyalty: false,
         });
         // Capture before an immediate mana instruction changes its observers.
         self.capture_cost_triggers();

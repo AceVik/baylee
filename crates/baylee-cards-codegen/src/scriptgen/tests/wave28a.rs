@@ -897,14 +897,14 @@ fn wave28a_p2_dynamic_filter_amounts_and_remembered_play_animate() {
     );
 
     // Refusals: LastDieRoll in dynamic filter (eval::amounts returns 0),
-    // Play | Defined$ Remembered with AllowRepeats (Mnemonic Deluge) or non-AI sVars$.
+    // Play | Defined$ Remembered with multi-copy Amount$ 3 without AllowRepeats$ True, or non-AI sVars$.
     for bad in [
         "Name:BadDieRollFilter\nManaCost:1 G\nTypes:Artifact\n\
          A:AB$ RollDice | Cost$ 4 G T | Defined$ You | Sides$ 8 | ResultSVar$ X | SubAbility$ DBReveal\n\
          SVar:DBReveal:DB$ DigUntil | Defined$ You | Valid$ Creature.cmcEQX | FoundDestination$ Battlefield | RevealedDestination$ Library | RevealedLibraryPosition$ -1 | RevealRandomOrder$ True",
         "Name:BadMultiRepeatPlay\nManaCost:6 U U U\nTypes:Sorcery\n\
          A:SP$ ChangeZone | ValidTgts$ Instant,Sorcery | Origin$ Graveyard | Destination$ Exile | RememberChanged$ True | SubAbility$ DBPlay\n\
-         SVar:DBPlay:DB$ Play | Defined$ Remembered | CopyCard$ True | Amount$ 3 | AllowRepeats$ True | Controller$ You | Optional$ True | WithoutManaCost$ True | ValidSA$ Spell | SubAbility$ DBCleanup\n\
+         SVar:DBPlay:DB$ Play | Defined$ Remembered | CopyCard$ True | Amount$ 3 | Controller$ You | Optional$ True | WithoutManaCost$ True | ValidSA$ Spell | SubAbility$ DBCleanup\n\
          SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
         "Name:BadNonAiSVars\nManaCost:2 B B\nTypes:Artifact\n\
          A:AB$ ChangeZone | Cost$ 2 B B T | ValidTgts$ Creature.YouOwn | Origin$ Graveyard | Destination$ Battlefield | RememberChanged$ True | SubAbility$ DBAnim\n\

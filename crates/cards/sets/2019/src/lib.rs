@@ -289,6 +289,8 @@ pub mod challenger_troll;
 pub mod chandra_novice_pyromancer;
 #[path = "m20/chandra_s_embercat.rs"]
 pub mod chandra_s_embercat;
+#[path = "m20/chandra_s_regulator.rs"]
+pub mod chandra_s_regulator;
 #[path = "war/chandra_s_triumph.rs"]
 pub mod chandra_s_triumph;
 #[path = "mh1/changeling_outcast.rs"]
@@ -345,6 +347,8 @@ pub mod collector_ouphe;
 pub mod collision;
 #[path = "m20/colossus_hammer.rs"]
 pub mod colossus_hammer;
+#[path = "pwar/command_the_dreadhorde.rs"]
+pub mod command_the_dreadhorde;
 #[path = "c19/commander_s_insignia.rs"]
 pub mod commander_s_insignia;
 #[path = "pwar/commence_the_endgame.rs"]
@@ -959,6 +963,8 @@ pub mod jousting_dummy;
 pub mod judith_the_scourge_diva;
 #[path = "rna/justiciar_s_portal.rs"]
 pub mod justiciar_s_portal;
+#[path = "c19/kadena_s_silencer.rs"]
+pub mod kadena_s_silencer;
 #[path = "c19/kadena_slinking_sorcerer.rs"]
 pub mod kadena_slinking_sorcerer;
 #[path = "pwar/karn_s_bastion.rs"]
@@ -1227,6 +1233,8 @@ pub mod oko_thief_of_crowns;
 pub mod omnath_locus_of_the_roil;
 #[path = "mh1/on_thin_ice.rs"]
 pub mod on_thin_ice;
+#[path = "eld/once_and_future.rs"]
+pub mod once_and_future;
 #[path = "mh1/oneirophage.rs"]
 pub mod oneirophage;
 #[path = "rna/open_the_gates.rs"]
@@ -1387,6 +1395,8 @@ pub mod retributive_wand;
 pub mod return_of_the_wildspeaker;
 #[path = "war/return_to_nature.rs"]
 pub mod return_to_nature;
+#[path = "eld/revenge_of_ravens.rs"]
+pub mod revenge_of_ravens;
 #[path = "sld/reverend_mother_jessica.rs"]
 pub mod reverend_mother_jessica;
 #[path = "rna/revival.rs"]
@@ -1757,12 +1767,18 @@ pub mod teyo_s_lightshield;
 pub mod teyo_the_shieldmage;
 #[path = "prna/teysa_karlov.rs"]
 pub mod teysa_karlov;
+#[path = "war/tezzeret_master_of_the_bridge.rs"]
+pub mod tezzeret_master_of_the_bridge;
 #[path = "c19/thalia_s_geistcaller.rs"]
 pub mod thalia_s_geistcaller;
 #[path = "eld/the_cauldron_of_eternity.rs"]
 pub mod the_cauldron_of_eternity;
 #[path = "eld/the_circle_of_loyalty.rs"]
 pub mod the_circle_of_loyalty;
+#[path = "sld/the_fifteenth_doctor.rs"]
+pub mod the_fifteenth_doctor;
+#[path = "mh1/the_first_sliver.rs"]
+pub mod the_first_sliver;
 #[path = "eld/the_great_henge.rs"]
 pub mod the_great_henge;
 #[path = "sld/the_meep.rs"]
@@ -1885,6 +1901,8 @@ pub mod unholy_indenture;
 pub mod universal_automaton;
 #[path = "war/unlikely_aid.rs"]
 pub mod unlikely_aid;
+#[path = "mh1/unsettled_mariner.rs"]
+pub mod unsettled_mariner;
 #[path = "mh1/urza_lord_high_artificer.rs"]
 pub mod urza_lord_high_artificer;
 #[path = "m20/vampire_of_the_dire_moon.rs"]

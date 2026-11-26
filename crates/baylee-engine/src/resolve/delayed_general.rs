@@ -148,6 +148,24 @@ pub(super) fn resolve_remembered(
             .collect(),
         TriggerRemember::SacrificedObject => sacrificed_contexts(state, res),
         TriggerRemember::EachExiledThisWay => exiled_this_way_contexts(state, res),
+        TriggerRemember::TargetAndSacrificed => {
+            let mut out = SmallVec::new();
+            if let Some(&target) = res.targets.first()
+                && state.object(target).is_some()
+            {
+                out.push(context_from_object(state, target, None));
+            }
+            for ctx in sacrificed_contexts(state, res) {
+                if let Some(id) = ctx.object
+                    && let Some(obj) = state
+                        .object(id)
+                        .filter(|o| o.zone == crate::zone::Zone::Graveyard)
+                {
+                    out.push(context_from_object(state, id, Some(obj.version)));
+                }
+            }
+            out
+        }
     }
 }
 
@@ -304,6 +322,7 @@ pub(super) fn register(
             condition,
             targets,
             remembered,
+            related_objects: Vec::new(),
         }))
     };
 
@@ -393,6 +412,29 @@ fn register_at_step(
             when: delayed_when,
             action: build_spec(None),
         });
+    } else if remember == TriggerRemember::TargetAndSacrificed {
+        let objects: Vec<DamageSourceRef> = resolve_remembered(state, res, remember)
+            .into_iter()
+            .filter_map(|ctx| {
+                let obj = ctx.object?;
+                let (ver, _) = ctx.identity?;
+                Some(DamageSourceRef {
+                    object: obj,
+                    version: ver,
+                })
+            })
+            .collect();
+        if !objects.is_empty() {
+            let mut action = build_spec(None);
+            if let DelayedAction::GeneralTrigger(spec) = &mut action {
+                spec.related_objects = objects;
+            }
+            state.delayed.push(DelayedTrigger {
+                controller: res.controller,
+                when: delayed_when,
+                action,
+            });
+        }
     } else {
         let contexts = resolve_remembered(state, res, remember);
         if contexts.is_empty()

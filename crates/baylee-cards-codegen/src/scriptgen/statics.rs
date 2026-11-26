@@ -439,6 +439,8 @@ impl Tx<'_> {
         }
         let (filter, implicit_cond) =
             if let Some((f, c)) = Self::soulbond_or_renown_affected(&affected) {
+                (f.to_string(), Some(c.to_string()))
+            } else if let Some((f, c)) = self.wave18b_chosen_mode_affected(&affected) {
                 (f.to_string(), Some(c))
             } else {
                 (self.filter_expr(&affected)?, None)
@@ -449,7 +451,7 @@ impl Tx<'_> {
         // registers and removes it as the condition changes.
         let base_cond =
             self.static_conditions(&mut p, "unclaimed parameter `Continuous.CheckSVar`")?;
-        let condition = Self::merge_static_condition(implicit_cond, &base_cond);
+        let condition = Self::merge_static_condition(implicit_cond.as_deref(), &base_cond);
         let mut out = Vec::new();
         let mut preconditioned_out = Vec::new();
         let mut self_granted = false;
@@ -1338,6 +1340,7 @@ impl Tx<'_> {
     /// and Layer 4/5 type/color modifiers that `baylee-engine` projects on
     /// `Zone::Stack`. Cast-time keywords (`Convoke`, `Delve`, `Cascade`,
     /// `Affinity`, `Flash`) stay honestly refused.
+    #[allow(clippy::too_many_lines)]
     fn stack_continuous_static(
         &mut self,
         mut p: Params,
@@ -1377,33 +1380,162 @@ impl Tx<'_> {
         } else {
             "Filter::Or(&[Filter::InZone(ZoneRef::Battlefield), Filter::InZone(ZoneRef::Stack)])"
         };
-        let filter = if base_filter == "Filter::Any" {
-            zone_clause.to_string()
-        } else {
-            format!("Filter::And(&[{base_filter}, {zone_clause}])")
-        };
+        let mut filter_clauses: Vec<String> = Vec::new();
+        if base_filter != "Filter::Any" {
+            filter_clauses.push(base_filter);
+        }
+        if p.peek("SVarCompare") == Some("EQ0")
+            && !p.has("CheckSecondSVar")
+            && let Some(var_name) = p.peek("CheckSVar")
+            && let Some(def) = self.svars.get(var_name.trim()).cloned()
+            && let Some(cast_valid) = def.trim().strip_prefix("Count$ThisTurnCast_")
+            && !cast_valid.contains(['$', '/'])
+        {
+            let cast_expr = self.filter_expr_in_zone(cast_valid, true)?;
+            let cast_name = self.body.filter_static("FIRST_SPELL", &cast_expr);
+            p.take("CheckSVar");
+            p.take("SVarCompare");
+            filter_clauses.push(format!("Filter::FirstMatchingSpellThisTurn(&{cast_name})"));
+        }
         let condition =
             self.static_conditions(&mut p, "unclaimed parameter `Continuous.CheckSVar`")?;
-        let mut out = Vec::new();
+        let mut bits = Vec::new();
+        let mut extra_modifiers = Vec::new();
+        let mut cascade_count: u8 = 0;
         if let Some(raw_kw) = p.take("AddKeyword") {
-            let mut bits = Vec::new();
             for word in raw_kw.split(" & ").map(str::trim).filter(|s| !s.is_empty()) {
-                let Some(bit) = stack_live_keyword_const(word) else {
-                    return self.deny(format!(
-                        "static ability reaching `AffectedZone$ {affected_zone}`"
-                    ));
-                };
-                bits.push(bit);
+                if let Some(bit) = stack_live_keyword_const(word) {
+                    bits.push(bit);
+                    continue;
+                }
+                match word {
+                    "Convoke" => bits.push("KeywordSet::CONVOKE"),
+                    "Improvise" => bits.push("KeywordSet::IMPROVISE"),
+                    "Delve" => bits.push("KeywordSet::DELVE"),
+                    "Conspire" => bits.push("KeywordSet::CONSPIRE"),
+                    "Demonstrate" => bits.push("KeywordSet::DEMONSTRATE"),
+                    "Cascade" => cascade_count = cascade_count.saturating_add(1),
+                    "Replicate:CardManaCost" => {
+                        extra_modifiers.push("Modifier::GrantReplicateCardManaCost".to_string());
+                    }
+                    "Blitz:CardManaCost" => {
+                        extra_modifiers.push("Modifier::GrantBlitzCardManaCost".to_string());
+                    }
+                    _ if word.starts_with("Casualty:") => {
+                        let Some(n) = word
+                            .strip_prefix("Casualty:")
+                            .and_then(|s| s.trim().parse::<u8>().ok())
+                            .filter(|&n| n > 0)
+                        else {
+                            return self.deny(format!(
+                                "static ability reaching `AffectedZone$ {affected_zone}`"
+                            ));
+                        };
+                        extra_modifiers.push(format!("Modifier::GrantCasualty({n})"));
+                    }
+                    _ if word.starts_with("Ripple:") => {
+                        let Some(n) = word
+                            .strip_prefix("Ripple:")
+                            .and_then(|s| s.trim().parse::<u8>().ok())
+                            .filter(|&n| n > 0)
+                        else {
+                            return self.deny(format!(
+                                "static ability reaching `AffectedZone$ {affected_zone}`"
+                            ));
+                        };
+                        extra_modifiers.push(format!("Modifier::GrantRipple({n})"));
+                    }
+                    _ if word.starts_with("Affinity:") => {
+                        let kind = word.strip_prefix("Affinity:").unwrap_or("").trim();
+                        if kind.is_empty() || kind.contains(['$', '/']) {
+                            return self.deny(format!(
+                                "static ability reaching `AffectedZone$ {affected_zone}`"
+                            ));
+                        }
+                        let aff_expr = self.filter_expr(kind)?;
+                        let aff_ref = if simple_const_filter(&aff_expr) {
+                            format!("&{aff_expr}")
+                        } else {
+                            format!("&{}", self.body.filter_static("AFFINITY", &aff_expr))
+                        };
+                        extra_modifiers.push(format!("Modifier::GrantAffinity({aff_ref})"));
+                    }
+                    _ if word.starts_with("Prowl:") => {
+                        let raw = word.strip_prefix("Prowl:").unwrap_or("").trim();
+                        let Some(mana) = super::printed_mana(raw) else {
+                            return self.deny(format!(
+                                "static ability reaching `AffectedZone$ {affected_zone}`"
+                            ));
+                        };
+                        if baylee_core::mana::ManaCost::try_parse(&mana).is_err() {
+                            return self.deny(format!(
+                                "static ability reaching `AffectedZone$ {affected_zone}`"
+                            ));
+                        }
+                        extra_modifiers.push(format!("Modifier::GrantProwl(mana!(\"{mana}\"))"));
+                    }
+                    _ if word.starts_with("Freerunning:") => {
+                        let raw = word.strip_prefix("Freerunning:").unwrap_or("").trim();
+                        let Some(mana) = super::printed_mana(raw) else {
+                            return self.deny(format!(
+                                "static ability reaching `AffectedZone$ {affected_zone}`"
+                            ));
+                        };
+                        if baylee_core::mana::ManaCost::try_parse(&mana).is_err() {
+                            return self.deny(format!(
+                                "static ability reaching `AffectedZone$ {affected_zone}`"
+                            ));
+                        }
+                        extra_modifiers
+                            .push(format!("Modifier::GrantFreerunning(mana!(\"{mana}\"))"));
+                    }
+                    _ if word.starts_with("Blitz:CardManaCost:") => {
+                        let extra_raw = word
+                            .strip_prefix("Blitz:CardManaCost:")
+                            .unwrap_or("")
+                            .trim();
+                        let Some(extra_valid) = extra_raw.strip_prefix("Spell.") else {
+                            return self.deny(format!(
+                                "static ability reaching `AffectedZone$ {affected_zone}`"
+                            ));
+                        };
+                        let extra_expr =
+                            self.filter_expr_in_zone(&format!("Card.{extra_valid}"), true)?;
+                        filter_clauses.push(extra_expr);
+                        extra_modifiers.push("Modifier::GrantBlitzCardManaCost".to_string());
+                    }
+                    _ => {
+                        return self.deny(format!(
+                            "static ability reaching `AffectedZone$ {affected_zone}`"
+                        ));
+                    }
+                }
             }
-            if let Some((head, tail)) = bits.split_first() {
-                let set = tail
-                    .iter()
-                    .fold((*head).to_string(), |acc, b| format!("{acc}.union({b})"));
-                out.push(Self::static_expr(
-                    &filter,
-                    &format!("Modifier::AddKeyword({set})"),
-                ));
-            }
+        }
+        filter_clauses.push(zone_clause.to_string());
+        let filter = if filter_clauses.len() == 1 {
+            filter_clauses.remove(0)
+        } else {
+            format!("Filter::And(&[{}])", filter_clauses.join(", "))
+        };
+        let mut out = Vec::new();
+        if let Some((head, tail)) = bits.split_first() {
+            let set = tail
+                .iter()
+                .fold((*head).to_string(), |acc, b| format!("{acc}.union({b})"));
+            out.push(Self::static_expr(
+                &filter,
+                &format!("Modifier::AddKeyword({set})"),
+            ));
+        }
+        if cascade_count > 0 {
+            out.push(Self::static_expr(
+                &filter,
+                &format!("Modifier::GrantCascade({cascade_count})"),
+            ));
+        }
+        for modifier in extra_modifiers {
+            out.push(Self::static_expr(&filter, &modifier));
         }
         if !p.has("RemoveLandTypes") {
             self.type_modifiers(&mut p, &filter, &mut out)?;
@@ -2089,6 +2221,7 @@ impl Tx<'_> {
     /// (poisoned, the monarch) stay unclaimed, and so does a negated one
     /// (`!controls…`): "unless defending player controls no untapped lands"
     /// is a different sentence.
+    #[allow(clippy::too_many_lines)]
     pub(super) fn cant_attack_unless(&mut self, mut p: Params) -> Option<()> {
         p.drop_prose();
         let zone = self.take_static_effect_zone(&mut p, "CantAttack")?;
@@ -2127,6 +2260,49 @@ impl Tx<'_> {
             self.body.abilities.push(Self::format_static_expr(
                 &attackers,
                 "Modifier::CantAttackYou",
+                zone,
+                &condition,
+            ));
+            return Some(());
+        }
+        if matches!(
+            p.peek("Target"),
+            Some("You,Planeswalker.YouCtrl" | "Planeswalker.YouCtrl,You")
+        ) && !p.has("UnlessDefender")
+        {
+            p.take("Target");
+            let condition =
+                self.static_conditions(&mut p, "unclaimed parameter `CantAttack.CheckSVar`")?;
+            if let Some(key) = p.first_key() {
+                self.note(format!("unclaimed parameter `CantAttack.{key}`"));
+                return None;
+            }
+            let attackers = self.filter_expr(&valid)?;
+            self.body.abilities.push(Self::format_static_expr(
+                &attackers,
+                "Modifier::CantAttackYouOrYourPlaneswalkers",
+                zone,
+                &condition,
+            ));
+            return Some(());
+        }
+        if p.peek("Target") == Some("Card.Self+AttachedTo Creature") && !p.has("UnlessDefender") {
+            p.take("Target");
+            let condition =
+                self.static_conditions(&mut p, "unclaimed parameter `CantAttack.CheckSVar`")?;
+            if let Some(key) = p.first_key() {
+                self.note(format!("unclaimed parameter `CantAttack.{key}`"));
+                return None;
+            }
+            let attackers = self.filter_expr(&valid)?;
+            let attackers_ref = if simple_const_filter(&attackers) {
+                format!("&{attackers}")
+            } else {
+                format!("&{}", self.body.filter_static("ATTACKER", &attackers))
+            };
+            self.body.abilities.push(Self::format_static_expr(
+                "Filter::And(&[Filter::This, Filter::AttachedTo(&Filter::CREATURE)])",
+                &format!("Modifier::CantBeAttackedBy({attackers_ref})"),
                 zone,
                 &condition,
             ));
@@ -2810,6 +2986,19 @@ impl Tx<'_> {
                 self_granted,
             )?;
         }
+        if filter == "Filter::This"
+            && allow_self_shortcut
+            && condition.contains("Condition::ChosenMode(")
+            && self.wave18b_try_self_conditional_grants(
+                p,
+                triggers.as_deref(),
+                statics.as_deref(),
+                condition,
+                self_granted,
+            )?
+        {
+            return Some(());
+        }
         if let Some(raw) = triggers {
             self.grant_triggered_list(&raw, filter, out)?;
         }
@@ -2868,7 +3057,7 @@ impl Tx<'_> {
         if parsed.non_battlefield_zone {
             return self.deny("a granted ability activated outside the battlefield".to_string());
         }
-        if parsed.extras.is_empty() {
+        if !parsed.is_loyalty && parsed.extras.is_empty() {
             return Some(GrantedActivated::Modifier(format!(
                 "Modifier::GrantActivated {{ cost: {}, effects: {}, mana_ability: {} }}",
                 parsed.cost, parsed.effects, parsed.mana_ability
@@ -3680,8 +3869,13 @@ impl Tx<'_> {
         ) {
             return self.reduce_cost_ability(p);
         }
+        let mut blitz_only = false;
         let face_down = match (spell_type.as_deref(), valid_spell.as_deref()) {
             (Some("Spell"), None | Some("Spell")) | (None, Some("Spell")) => false,
+            (Some("Spell") | None, Some("Spell.Blitz")) => {
+                blitz_only = true;
+                false
+            }
             (Some("Spell") | None, Some("Spell.isCastFaceDown")) => true,
             _ => return self.deny("static ability `S: Mode$ ReduceCost`".into()),
         };
@@ -3760,8 +3954,14 @@ impl Tx<'_> {
             return self.deny(format!("unclaimed parameter `ReduceCost.{key}`"));
         }
         let base_filter = self.filter_expr(&valid_card)?;
-        let filter =
-            Self::conjoin_filters(base_filter, target_filter.into_iter().chain(act_filter));
+        let filter = Self::conjoin_filters(
+            base_filter,
+            target_filter
+                .into_iter()
+                .map(str::to_string)
+                .chain(act_filter.map(str::to_string))
+                .chain(blitz_only.then(|| "Filter::CastForBlitz".to_string())),
+        );
         self.body
             .abilities
             .push(Self::format_static_expr(&filter, &modifier, zone, &cond));
@@ -7649,7 +7849,7 @@ mod wave16b_tests {
         ));
         assert!(stack_statics.abilities[3].contains("Modifier::AddType(TypeSet::ENCHANTMENT)"));
 
-        for unsupported_kw in ["Convoke", "Delve", "Cascade", "Affinity:Artifact", "Flash"] {
+        for unsupported_kw in ["Flash", "Assist", "Replicate:3", "Emerge:CardManaCost"] {
             assert!(
                 refused(&format!(
                     "Name:Unsupported Stack Grant\nManaCost:3 U\nTypes:Enchantment\n\

@@ -21,6 +21,26 @@ static CAST_COPIES: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effect::Co
     amount: baylee_cards_dsl::Amount::EventAmount,
 }];
 
+static CASCADE_EFFECT: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effect::Cascade];
+static DEMONSTRATE_EFFECT: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effect::Demonstrate];
+
+const fn ripple_effects(n: u8) -> &'static [baylee_cards_dsl::Effect] {
+    static R1: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effect::Ripple(1)];
+    static R2: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effect::Ripple(2)];
+    static R3: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effect::Ripple(3)];
+    static R4: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effect::Ripple(4)];
+    static R5: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effect::Ripple(5)];
+    static R6: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effect::Ripple(6)];
+    match n {
+        1 => R1,
+        2 => R2,
+        3 => R3,
+        4 => R4,
+        5 => R5,
+        _ => R6,
+    }
+}
+
 fn collect_granted_state_triggers(
     state: &GameState,
     obj: &crate::object::GameObject,
@@ -261,6 +281,7 @@ pub fn state_triggers(
 /// The engine drains each mutation batch before advancing the turn. Walking
 /// its cast events backwards recovers each event's earlier-spell count in
 /// linear time, without rescanning the turn's entire journal for every spell.
+#[allow(clippy::too_many_lines)]
 pub(super) fn cast_copy_triggers(
     state: &GameState,
     events: &[crate::event::JournalEntry],
@@ -355,6 +376,63 @@ pub(super) fn cast_copy_triggers(
                 synthetic_condition: None,
                 in_chosen_order: false,
             });
+        }
+        let mut push_keyword_trigger = |effects: &'static [baylee_cards_dsl::Effect]| {
+            collected.push(PendingTrigger {
+                text: TextChangeMap::IDENTITY,
+                source_version: Some(spell.version),
+                related_objects: None,
+                found_objects: None,
+                grantor: None,
+                event_subject: None,
+                event_ability: None,
+                event_object_identity: None,
+                counter_source_version: None,
+                event_amount: None,
+                event_player: None,
+                event_mana: None,
+                event_mana_value: None,
+                event_tap_snapshot: None,
+                event_departure: None,
+                source: object,
+                ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
+                abilities: None,
+                controller: player,
+                timestamp: spell.timestamp,
+                event_object: Some(object),
+                implicit_target: None,
+                synthetic_effects: Some(effects),
+                once_per_turn: false,
+                synthetic_target: None,
+                chosen_mode: None,
+                synthetic_condition: None,
+                in_chosen_order: false,
+            });
+        };
+        let demonstrate_instances = crate::layers::keyword_instances(
+            state,
+            spell,
+            baylee_cards_dsl::KeywordSet::DEMONSTRATE,
+        );
+        for _ in 0..demonstrate_instances {
+            push_keyword_trigger(DEMONSTRATE_EFFECT);
+        }
+        for fx in state.effects.iter() {
+            match fx.modifier {
+                baylee_cards_dsl::Modifier::GrantCascade(n)
+                    if n > 0 && crate::effects::applies_to(state, fx, spell) =>
+                {
+                    for _ in 0..n {
+                        push_keyword_trigger(CASCADE_EFFECT);
+                    }
+                }
+                baylee_cards_dsl::Modifier::GrantRipple(n)
+                    if n > 0 && crate::effects::applies_to(state, fx, spell) =>
+                {
+                    push_keyword_trigger(ripple_effects(n));
+                }
+                _ => {}
+            }
         }
     }
     triggers.extend(collected.into_iter().rev());

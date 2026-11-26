@@ -260,6 +260,12 @@ pub fn resume_chosen_player(state: &mut GameState, res: &mut Resolution, chosen:
             super::subjects::flush(state, res);
             flow
         }
+        Some(AwaitingOp::DemonstrateOpponent) => {
+            super::subjects::begin_resume(state, res);
+            let flow = super::immediate::resume_demonstrate_opponent(state, res, chosen);
+            super::subjects::flush(state, res);
+            flow
+        }
         _ => panic!("no player choice suspended"),
     }
 }

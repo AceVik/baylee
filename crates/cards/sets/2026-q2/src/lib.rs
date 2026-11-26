@@ -375,6 +375,8 @@ pub mod erode;
 pub mod essenceknit_scholar;
 #[path = "sos/eternal_student.rs"]
 pub mod eternal_student;
+#[path = "msh/evil_s_thrall.rs"]
+pub mod evil_s_thrall;
 #[path = "soc/excava_the_risen_past.rs"]
 pub mod excava_the_risen_past;
 #[path = "psos/exhibition_tidecaller.rs"]
@@ -639,6 +641,8 @@ pub mod iron_man_modern_marvel;
 pub mod iron_man_tony_stark;
 #[path = "msc/iron_suitcase.rs"]
 pub mod iron_suitcase;
+#[path = "msh/ironheart_clever_champion.rs"]
+pub mod ironheart_clever_champion;
 #[path = "msc/it_s_clobberin_time.rs"]
 pub mod it_s_clobberin_time;
 #[path = "msc/jack_of_hearts_volatile_hero.rs"]
@@ -927,6 +931,8 @@ pub mod pym_technologies;
 pub mod quake_agent_of_s_h_i_e_l_d;
 #[path = "sos/quandrix_charm.rs"]
 pub mod quandrix_charm;
+#[path = "psos/quandrix_the_proof.rs"]
+pub mod quandrix_the_proof;
 #[path = "msc/quantum_entanglement.rs"]
 pub mod quantum_entanglement;
 #[path = "msc/queen_mother_ramonda.rs"]
@@ -1047,6 +1053,8 @@ pub mod shuri_wakandan_inventor;
 pub mod sif_s_spearmaster;
 #[path = "sos/silverquill_charm.rs"]
 pub mod silverquill_charm;
+#[path = "psos/silverquill_the_disputant.rs"]
+pub mod silverquill_the_disputant;
 #[path = "msc/sky_cycle.rs"]
 pub mod sky_cycle;
 #[path = "psos/skycoach_conductor.rs"]
@@ -1277,6 +1285,8 @@ pub mod tva_bureaucrat;
 pub mod ulna_alley_shopkeep;
 #[path = "msc/ultimate_alliance.rs"]
 pub mod ultimate_alliance;
+#[path = "msc/ultimate_nullification.rs"]
+pub mod ultimate_nullification;
 #[path = "msc/ultimo_civilization_s_end.rs"]
 pub mod ultimo_civilization_s_end;
 #[path = "msh/ultron_artificial_malevolence.rs"]
@@ -1393,6 +1403,8 @@ pub mod winter_soldier_icy_assassin;
 pub mod wisdom_of_ages;
 #[path = "sos/witherbloom_charm.rs"]
 pub mod witherbloom_charm;
+#[path = "psos/witherbloom_the_balancer.rs"]
+pub mod witherbloom_the_balancer;
 #[path = "psos/withering_curse.rs"]
 pub mod withering_curse;
 #[path = "msc/wolfsbane_highland_hero.rs"]

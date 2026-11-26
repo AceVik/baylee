@@ -391,6 +391,7 @@ pub fn grants_in(
         AbilityDef::Unimplemented
         | AbilityDef::StartYourEngines
         | AbilityDef::Ward { .. }
+        | AbilityDef::WardWaterbend { .. }
         | AbilityDef::Toxic { .. }
         | AbilityDef::Prepared { .. }
         | AbilityDef::Echo { .. }
@@ -930,6 +931,7 @@ mod tests {
         "Lambholt Elder",
         "Scorned Villager",
         "Wolfbitten Captive",
+        "Jace, Vryn's Prodigy",
         "Nissa, Vastwood Seer",
         "Archangel Avacyn",
         "Arlinn Kord",
@@ -977,6 +979,7 @@ mod tests {
         "Birgi, God of Storytelling",
         "Esika, God of the Tree",
         "Halvar, God of Battle",
+        "Reidane, God of the Worthy",
         "Rowan, Scholar of Sparks",
         "Baneblade Scoundrel",
         "Bereaved Survivor",
@@ -1035,6 +1038,7 @@ mod tests {
         "Invasion of Mercadia",
         "Invasion of Moag",
         "Invasion of Muraganda",
+        "Invasion of Segovia",
         "Invasion of Shandalar",
         "Invasion of Theros",
         "Invasion of Tolvada",
@@ -1098,8 +1102,10 @@ mod tests {
         "Venat, Heart of Hydaelyn",
         "Vincent Valentine",
         "Eddie Brock",
+        "The Legend of Kuruk",
         "The Legend of Roku",
         "Ashling, Rekindled",
+        "Eirdu, Carrier of Dawn",
         "Oko, Lorwyn Liege",
         "Sygg, Wanderwine Wisdom",
         "Trystan, Callous Cultivator",

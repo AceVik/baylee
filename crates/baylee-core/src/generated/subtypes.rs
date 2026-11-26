@@ -490,6 +490,7 @@ pub mod planeswalker {
     pub const ELSPETH: SubtypeId = SubtypeId::new(429);
     pub const ERSTA: SubtypeId = SubtypeId::new(430);
     pub const ESTRID: SubtypeId = SubtypeId::new(431);
+    pub const EXPLAINER: SubtypeId = SubtypeId::new(539);
     pub const FEROZ: SubtypeId = SubtypeId::new(432);
     pub const FREYALISE: SubtypeId = SubtypeId::new(433);
     pub const GARRUK: SubtypeId = SubtypeId::new(434);
@@ -573,7 +574,7 @@ pub mod battle {
     pub const SIEGE: SubtypeId = SubtypeId::new(506);
 }
 
-pub const COUNT: u16 = 539;
+pub const COUNT: u16 = 540;
 
 // The bitmap has to have room for every id assigned above. A `SubtypeSet`
 // is a fixed number of words, so this is the whole bound: outgrowing it is
@@ -1057,6 +1058,7 @@ pub const ALL_PLANESWALKER_TYPES: SubtypeSet = SubtypeSet::from_slice(&[
     planeswalker::ELSPETH,
     planeswalker::ERSTA,
     planeswalker::ESTRID,
+    planeswalker::EXPLAINER,
     planeswalker::FEROZ,
     planeswalker::FREYALISE,
     planeswalker::GARRUK,
@@ -1708,6 +1710,7 @@ pub fn by_name(name: &str) -> Option<SubtypeId> {
         "trill" => creature::TRILL,
         "vau-n'akat" => creature::VAU_N_AKAT,
         "communicator" => artifact::COMMUNICATOR,
+        "explainer" => planeswalker::EXPLAINER,
         _ => return None,
     })
 }
@@ -2252,6 +2255,7 @@ pub static NAMES: &[&str] = &[
     "Trill",
     "Vau-N'Akat",
     "Communicator",
+    "Explainer",
 ];
 
 pub fn name(id: SubtypeId) -> Option<&'static str> {

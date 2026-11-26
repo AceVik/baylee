@@ -642,7 +642,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::BecomesTarget | T::EnchantedBecomesTarget | T::TargetedByOpponent { .. } => {
             &["becomes the target"]
         }
-        T::TurnedFaceUp => &["turned face up"],
+        T::TurnedFaceUp | T::TurnedFaceUpMatching(_) => &["turned face up"],
         T::TransformsIntoThis => &["transforms into"],
         T::Mutates => &["mutates"],
         T::UnlockThisDoor(_) => &["unlock this door"],
@@ -683,7 +683,8 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         | T::OneOrMoreAttack(_)
         | T::AttackWithAtLeast(_)
         | T::AttackWithAtLeastMatching { .. }
-        | T::AttackersDeclaredAtTarget { .. } => &["attack"],
+        | T::AttackersDeclaredAtTarget { .. }
+        | T::AttackersDeclaredAgainst { .. } => &["attack"],
         T::AttacksAlone(_) => &["exalted", "attacks alone"],
         // Cockatrice, "Whenever this creature blocks or becomes blocked by
         // a non-Wall creature". Its filter is the *other* creature, so it
@@ -742,6 +743,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::Expended { .. } => &["expend"],
         T::Clashed { .. } => &["clash"],
         T::DayNightChanges => &["day", "night"],
+        T::LoyaltyAbilityActivated { .. } => &["activate", "loyalty ability"],
     }
 }
 

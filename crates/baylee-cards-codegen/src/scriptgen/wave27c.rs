@@ -328,6 +328,7 @@ impl Tx<'_> {
             "Mill" => "RememberMilled",
             "Sacrifice" | "SacrificeAll" => "RememberSacrificed",
             "Destroy" | "DestroyAll" => "RememberDestroyed",
+            "GainControl" => "RememberControlled",
             "Token" | "CopyPermanent" => "RememberTokens",
             "Discard" => "RememberDiscarded",
             "Draw" => "RememberDrawn",
@@ -382,7 +383,13 @@ impl Tx<'_> {
     ) -> CaptureScope {
         let from_battlefield = matches!(
             api,
-            "Sacrifice" | "SacrificeAll" | "Destroy" | "DestroyAll" | "Token" | "CopyPermanent"
+            "Sacrifice"
+                | "SacrificeAll"
+                | "Destroy"
+                | "DestroyAll"
+                | "GainControl"
+                | "Token"
+                | "CopyPermanent"
         ) || (matches!(api, "ChangeZone" | "ChangeZoneAll")
             && p.peek("Origin") == Some("Battlefield"));
 
@@ -1760,12 +1767,21 @@ impl Tx<'_> {
     /// (`spell!`, `activated!`, `triggered!`, `loyalty!`, `chapter!`,
     /// `chapters!`) emit both fields cleanly.
     pub(super) fn wave27c_extra_target_req_expr(chain: &Chain) -> Option<String> {
-        let second = Self::format_slot_req(
-            chain.second_target.as_deref()?,
-            chain.second_target_up_to,
-            chain.second_target_range,
-            chain.second_target_constraint,
-        );
+        let second = if chain.second_target_is_x {
+            let spec = chain.second_target.as_deref()?;
+            let base = format!("TargetReq::x_targets({spec})");
+            match chain.second_target_constraint {
+                Some(c) => format!("{base}.with_constraint({c})"),
+                None => base,
+            }
+        } else {
+            Self::format_slot_req(
+                chain.second_target.as_deref()?,
+                chain.second_target_up_to,
+                chain.second_target_range,
+                chain.second_target_constraint,
+            )
+        };
         if let Some(third_spec) = chain.third_target.as_deref() {
             let third = Self::format_slot_req(
                 third_spec,
@@ -1811,7 +1827,7 @@ impl Tx<'_> {
         valid: &str,
         spec: &str,
         allow_multi: bool,
-    ) -> Option<(Option<u8>, Option<(u8, u8)>, Option<&'static str>)> {
+    ) -> Option<(bool, Option<u8>, Option<(u8, u8)>, Option<&'static str>)> {
         let constraint = match p.peek("TargetUnique") {
             None => None,
             Some("True") => {
@@ -1821,6 +1837,7 @@ impl Tx<'_> {
             Some(_) => return None,
         };
         let is_obj_spec = spec.starts_with("TargetSpec::Object(");
+        let mut is_x = false;
         let mut range = None;
         let up_to = if p.peek("TargetMin") == Some("1")
             && matches!(p.peek("TargetMax"), None | Some("1"))
@@ -1834,6 +1851,16 @@ impl Tx<'_> {
             p.take("TargetMin");
             p.take("TargetMax");
             Some(1)
+        } else if self.has_x
+            && allow_multi
+            && let (Some(min), Some(max)) = (p.peek("TargetMin"), p.peek("TargetMax"))
+            && min == max
+            && self.svars.get(min.trim()).map(|s| s.trim()) == Some("Count$xPaid")
+        {
+            p.take("TargetMin");
+            p.take("TargetMax");
+            is_x = true;
+            None
         } else if allow_multi
             && p.peek("TargetMin") == Some("0")
             && let Some(max) = p
@@ -1880,7 +1907,7 @@ impl Tx<'_> {
         } else {
             None
         };
-        Some((up_to, range, constraint))
+        Some((is_x, up_to, range, constraint))
     }
 
     /// Wave 27c hook in `chain_target`: handles
@@ -1915,7 +1942,7 @@ impl Tx<'_> {
                 return Some(false);
             }
             let allow_multi = Self::wave26c_second_target_multi_ok(api, p);
-            let Some((up_to, range, constraint)) =
+            let Some((false, up_to, range, constraint)) =
                 self.take_slot_bounds_and_unique(api, p, valid, spec, allow_multi)
             else {
                 return Some(false);
@@ -1952,18 +1979,31 @@ impl Tx<'_> {
 
         let is_slot2_before_slot3 = self.wave27c_slot2_general_allowed(api, p, chain, spec);
         let is_w29b_slot2 = self.wave29b_extra_target_slot2_allowed(api, p, chain, spec);
+        let is_w30b_slot2 = self.wave30b_extra_target_slot2_allowed(api, p, chain, spec);
 
-        if !is_bazaar_trader && !is_three_target_only && !is_slot2_before_slot3 && !is_w29b_slot2 {
+        if !is_bazaar_trader
+            && !is_three_target_only
+            && !is_slot2_before_slot3
+            && !is_w29b_slot2
+            && !is_w30b_slot2
+        {
             return Some(false);
         }
         let allow_multi = Self::wave26c_second_target_multi_ok(api, p)
-            || (api == "GainControl" && p.peek("NewController") == Some("ParentTarget"));
-        let Some((up_to, range, constraint)) =
+            || (api == "GainControl" && p.peek("NewController") == Some("ParentTarget"))
+            || self.wave30b_target_only_multi_safe(api, p)
+            || (api == "ChangeZone"
+                && spec.starts_with("TargetSpec::CardInFirstTargetsGraveyard(")
+                && p.peek("Origin") == Some("Graveyard")
+                && p.peek("Destination") == Some("Exile")
+                && p.peek("RememberChanged") == Some("True"));
+        let Some((is_x, up_to, range, constraint)) =
             self.take_slot_bounds_and_unique(api, p, valid, spec, allow_multi)
         else {
             return Some(false);
         };
         chain.second_target = Some(spec.to_string());
+        chain.second_target_is_x = is_x;
         chain.second_target_up_to = up_to;
         chain.second_target_range = range;
         chain.second_target_constraint = constraint;
@@ -1991,6 +2031,11 @@ impl Tx<'_> {
             return false;
         }
         let first_spec = chain.target.as_deref().unwrap_or_default();
+        if first_spec.starts_with("TargetSpec::CardInGraveyard(")
+            && second_spec.starts_with("TargetSpec::CardInGraveyard(")
+        {
+            return self.wave30b_is_all_gy_targets_followup(sp.peek("SubAbility"));
+        }
         if !first_spec.starts_with("TargetSpec::Object(")
             || !second_spec.starts_with("TargetSpec::Object(")
         {
@@ -2119,14 +2164,16 @@ impl Tx<'_> {
         }
         if api == "TargetOnly" {
             return chain.effects.is_empty()
-                && spec.starts_with("TargetSpec::Object(")
-                && (self.wave27c_can_all_targets_followup(p.peek("SubAbility"))
-                    || self.wave29b_can_three_slot_qualified_tap_untap(
-                        p.peek("SubAbility"),
-                        chain,
-                        chain.second_target.as_deref().unwrap_or_default(),
-                        p,
-                    ));
+                && ((Self::wave30b_graveyard_slots_share_rel(chain, Some(spec))
+                    && self.wave30b_is_all_gy_targets_followup(p.peek("SubAbility")))
+                    || (spec.starts_with("TargetSpec::Object(")
+                        && (self.wave27c_can_all_targets_followup(p.peek("SubAbility"))
+                            || self.wave29b_can_three_slot_qualified_tap_untap(
+                                p.peek("SubAbility"),
+                                chain,
+                                chain.second_target.as_deref().unwrap_or_default(),
+                                p,
+                            ))));
         }
         if p.has("UnlessResolveSubs")
             || !matches!(p.peek("Defined"), None | Some("Targeted"))
@@ -2182,6 +2229,7 @@ impl Tx<'_> {
             | "Explore" | "Suspect" | "CopyPermanent" | "Counter" | "PreventDamage" | "Draw"
             | "Discard" | "Mill" | "GainLife" | "LoseLife" | "Poison" | "Sacrifice" | "SetLife"
             | "SkipPhase" | "TakeInitiative" => true,
+            "AlterAttribute" => p.peek("Attributes") == Some("Suspected"),
             _ => false,
         }
     }
@@ -2331,6 +2379,10 @@ impl Tx<'_> {
             had_second_target,
             targets_here,
         ) {
+            return Some(step);
+        }
+
+        if let Some(step) = self.wave30b_multi_target_step(api, p, chain, targets_here) {
             return Some(step);
         }
 

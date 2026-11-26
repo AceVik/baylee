@@ -138,8 +138,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // coloured symbol of its colour (CR 702.51a), which `less` applies
         // the same way `can_cast` does (`casting::keyword_priced`).
         let reduction = casting::keyword_reduction(&self.state, face, player, card);
-        let less =
-            |cost: ManaCost| casting::keyword_priced(&self.state, face, player, &cost, reduction);
+        let less = |cost: ManaCost| {
+            casting::keyword_priced_for(&self.state, card, 0, face, player, &cost, reduction)
+        };
         let allowance = preview_adjustment.allowance(
             &self.state,
             casting::SpendFor::Spell(card),
@@ -498,8 +499,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 casting::keyword_reduction(&self.state, face, player, card)
             };
             let opt_priced = opt_adj.price(opt_mana, printed_reduction);
-            let opt_preview = casting::keyword_priced(
+            let opt_preview = casting::keyword_priced_for(
                 &self.state,
+                card,
+                0,
                 face,
                 player,
                 &opt_adj.price(min_opt_mana.with_x(0), printed_reduction),
@@ -778,6 +781,42 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     cost: price(alt.cost.mana),
                 });
             }
+            for (k, (cost, condition)) in
+                casting::granted_stack_alternatives(&self.state, player, card, 0)
+                    .into_iter()
+                    .enumerate()
+            {
+                let i = face.alternative_costs.len() + k;
+                let condition_ok =
+                    crate::eval::condition_holds(&self.state, player, card, condition);
+                let taxed = baylee_cards_dsl::Cost {
+                    mana: if defer_mana {
+                        ManaCost::ZERO
+                    } else {
+                        preview_price(cost)
+                    },
+                    parts: &[],
+                };
+                if !condition_ok
+                    || !self.can_afford(player, card, &taxed, casting::SpendFor::Spell(card))
+                    || casting::additional_payment_capacity_for(
+                        &self.state,
+                        player,
+                        card,
+                        face,
+                        Some(CastModeKind::Alternative(i)),
+                        &[],
+                    )
+                    .is_none()
+                {
+                    continue;
+                }
+                options.push(CastModeDesc {
+                    index: (options.len()) as u32,
+                    kind: CastModeKind::Alternative(i),
+                    cost: price(cost),
+                });
+            }
         }
         // Dash (CR 702.109a): its cost "rather than its mana cost", which is
         // an alternative cost (CR 118.9) paid by the rules for one (601.2b,
@@ -800,30 +839,49 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             }
         }
         // Blitz (CR 702.152a): its cost (mana + non-mana parts) "rather than its mana cost".
-        if front_timing_ok && let Some(blitz) = face.blitz {
+        if front_timing_ok
+            && let Some(blitz) = casting::effective_blitz_cost(&self.state, player, card, face, 0)
+        {
+            let blitz_form = Some(casting::SpellForm::Blitz);
+            let blitz_adj = casting::face_adjustment(&self.state, player, card, def, 0, blitz_form);
+            let blitz_preview_adj = blitz_adj.for_preview(casting::preview_cast_metric_bounds_for(
+                &self.state,
+                player,
+                card,
+                def,
+                0,
+                blitz_form,
+                casting::PreviewCastKind::Face,
+                &blitz_adj,
+            ));
+            let blitz_preview_mana = blitz_preview_adj.price(blitz.mana, printed_reduction);
             let taxed = baylee_cards_dsl::Cost {
                 mana: if defer_mana {
                     ManaCost::ZERO
                 } else {
-                    preview_price(blitz.mana)
+                    blitz_preview_mana
                 },
                 ..blitz
             };
-            if self.can_afford(player, card, &taxed, casting::SpendFor::Spell(card))
-                && casting::additional_payment_capacity_for(
-                    &self.state,
-                    player,
-                    card,
-                    face,
-                    Some(CastModeKind::Blitz),
-                    &[],
-                )
-                .is_some()
+            if self.can_afford(
+                player,
+                card,
+                &taxed,
+                casting::SpendFor::SpellAs(card, casting::SpellForm::Blitz),
+            ) && casting::additional_payment_capacity_for(
+                &self.state,
+                player,
+                card,
+                face,
+                Some(CastModeKind::Blitz),
+                &[],
+            )
+            .is_some()
             {
                 options.push(CastModeDesc {
                     index: (options.len()) as u32,
                     kind: CastModeKind::Blitz,
-                    cost: price(blitz.mana),
+                    cost: blitz_adj.price(blitz.mana, printed_reduction),
                 });
             }
         }

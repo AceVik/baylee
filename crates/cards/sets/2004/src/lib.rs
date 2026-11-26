@@ -237,6 +237,10 @@ pub mod early_frost;
 pub mod earthshaker;
 #[path = "5dn/ebon_drake.rs"]
 pub mod ebon_drake;
+#[path = "dst/echoing_calm.rs"]
+pub mod echoing_calm;
+#[path = "dst/echoing_ruin.rs"]
+pub mod echoing_ruin;
 #[path = "chk/eerie_procession.rs"]
 pub mod eerie_procession;
 #[path = "chk/eiganjo_castle.rs"]
@@ -549,6 +553,10 @@ pub mod moriok_rigger;
 pub mod moss_kami;
 #[path = "chk/mothrider_samurai.rs"]
 pub mod mothrider_samurai;
+#[path = "dst/murderous_spoils.rs"]
+pub mod murderous_spoils;
+#[path = "5dn/mycosynth_golem.rs"]
+pub mod mycosynth_golem;
 #[path = "dst/mycosynth_lattice.rs"]
 pub mod mycosynth_lattice;
 #[path = "chk/myojin_of_cleansing_fire.rs"]
@@ -687,6 +695,8 @@ pub mod razormane_masticore;
 pub mod reach_through_mists;
 #[path = "dst/reap_and_sow.rs"]
 pub mod reap_and_sow;
+#[path = "dst/rebuking_ceremony.rs"]
+pub mod rebuking_ceremony;
 #[path = "chk/reito_lantern.rs"]
 pub mod reito_lantern;
 #[path = "chk/rend_flesh.rs"]
@@ -733,6 +743,8 @@ pub mod sawtooth_thresher;
 pub mod scavenging_scarab;
 #[path = "5dn/screaming_fury.rs"]
 pub mod screaming_fury;
+#[path = "dst/scrounge.rs"]
+pub mod scrounge;
 #[path = "chk/scuttling_death.rs"]
 pub mod scuttling_death;
 #[path = "dst/second_sight.rs"]
@@ -913,6 +925,8 @@ pub mod tyrranax;
 pub mod uncontrollable_anger;
 #[path = "chk/unearthly_blizzard.rs"]
 pub mod unearthly_blizzard;
+#[path = "dst/unforge.rs"]
+pub mod unforge;
 #[path = "chk/unnatural_speed.rs"]
 pub mod unnatural_speed;
 #[path = "chk/untaidake_the_cloud_keeper.rs"]

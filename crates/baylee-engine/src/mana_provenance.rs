@@ -333,9 +333,13 @@ fn reads_source(filter: &Filter) -> bool {
         | Filter::HasManaAbility
         | Filter::HasNonManaActivatedAbility
         | Filter::ControlledByYou
+        | Filter::ControlledByYourTeam
         | Filter::ControlledByOpponent
         | Filter::ControlledByActivePlayer
         | Filter::OwnedByYou
+        | Filter::OwnedBy(_)
+        | Filter::CreatedBySource
+        | Filter::AttachedHostOfRemembered
         | Filter::Tapped
         | Filter::Untapped
         | Filter::EnteredThisTurn

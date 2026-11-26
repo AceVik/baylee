@@ -26,7 +26,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             .1;
         let selected = u32::try_from(wizard.delve_exiles.len() + wizard.convoke_taps.len())
             .unwrap_or(u32::MAX)
-            .saturating_sub(colored);
+            .saturating_sub(colored)
+            .saturating_add(wizard.harmonize_reduction(&self.state));
         frozen.allowance.reduced(selected)
     }
 
@@ -304,7 +305,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let extra_mana_red = with_targets
             .mana_reduction
             .with_less_mana(&without.mana_reduction, true);
-        let extra_red = with_targets.reduction.saturating_sub(without.reduction);
+        let avoided_increase = without.increase.saturating_sub(with_targets.increase);
+        let extra_red = with_targets
+            .reduction
+            .saturating_sub(without.reduction)
+            .saturating_add(avoided_increase);
         let mut frozen = self.frozen_spell_reduction_from(wizard, def, &without);
         frozen.total = frozen.total.saturating_add(extra_red);
         frozen.remainder = frozen.remainder.saturating_add(extra_red);
@@ -352,7 +357,20 @@ fn raw_option_cost(
             .iter()
             .fold(normal, |cost, additional| cost.combine(&additional.mana)),
         Some(CastModeKind::Kicked) => casting::kicked_mana_cost(face),
-        Some(CastModeKind::Alternative(index)) => face.alternative_costs[index].cost.mana,
+        Some(CastModeKind::Alternative(index)) => face.alternative_costs.get(index).map_or_else(
+            || {
+                let extra_idx = index.saturating_sub(face.alternative_costs.len());
+                casting::granted_stack_alternatives(
+                    state,
+                    wizard.player,
+                    wizard.card,
+                    wizard.face_index(),
+                )
+                .get(extra_idx)
+                .map_or(ManaCost::ZERO, |(cost, _)| *cost)
+            },
+            |a| a.cost.mana,
+        ),
         Some(CastModeKind::Prototype) => face.prototype.expect("prototype").cost,
         Some(CastModeKind::Disguise) => const { ManaCost::parse("{3}") },
         Some(CastModeKind::Miracle) => face.miracle.expect("miracle"),
@@ -362,7 +380,17 @@ fn raw_option_cost(
         Some(CastModeKind::BeamMeUp) => face.beam_me_up.expect("beam me up"),
         Some(CastModeKind::Mayhem) => face.mayhem.expect("mayhem"),
         Some(CastModeKind::Dash) => face.dash.expect("dash"),
-        Some(CastModeKind::Blitz) => face.blitz.expect("blitz").mana,
+        Some(CastModeKind::Blitz) => {
+            casting::effective_blitz_cost(
+                state,
+                wizard.player,
+                wizard.card,
+                face,
+                wizard.face_index(),
+            )
+            .expect("blitz")
+            .mana
+        }
         Some(CastModeKind::Warp) => face.warp.expect("warp").mana,
         Some(CastModeKind::Sneak) => {
             casting::sneak_cost_for(

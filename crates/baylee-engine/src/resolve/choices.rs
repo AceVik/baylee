@@ -147,6 +147,23 @@ pub(super) fn exec_choice(
             })
         }
         Effect::ChooseCreatureType { exclude } => Some(super::creature_type::choose(res, exclude)),
+        Effect::ChooseBasicLandType => Some(super::wave18c::choose_basic_land(res, you)),
+        Effect::AnyPlayerMayPayManaAmount {
+            mana,
+            on_payment,
+            effects,
+        } => {
+            let n = amount2(&mana, state, you, res);
+            let cost = baylee_core::mana::ManaCost::from_symbol_generic(n);
+            super::wave18c::any_player_pay_mana_amount_offer(
+                state, res, cost, on_payment, effects, 0,
+            )
+        }
+        Effect::AnyPlayerMayPayCost {
+            cost,
+            on_payment,
+            effects,
+        } => super::wave18c::any_player_pay_cost_offer(state, res, cost, on_payment, effects),
         Effect::PutCounterChoice {
             target,
             choices,
@@ -302,6 +319,91 @@ pub(super) fn exec_choice(
             };
             res.awaiting = Some(AwaitingOp::ChooseEffect { choices });
             Some(pending)
+        }
+        Effect::PlayerMayPayOneOfCostsOr {
+            player,
+            costs,
+            otherwise,
+        } => {
+            let player = players_of(player, state, you, res).first().copied()?;
+            if state.has_left(player) {
+                return None;
+            }
+            let payable: Vec<&'static baylee_cards_dsl::CostPart> = costs
+                .iter()
+                .filter(|cost| match cost {
+                    baylee_cards_dsl::CostPart::PayLife(amount) => {
+                        state.can_pay_life(player, i32::from(*amount))
+                    }
+                    _ => !resolution_cost_options(state, res, player, cost).is_empty(),
+                })
+                .collect();
+            if payable.is_empty() {
+                return run_nested(state, res, otherwise);
+            }
+            let options = (0..=payable.len())
+                .map(|i| crate::choice::CastModeDesc {
+                    index: u32::try_from(i).expect("cost choices fit u32"),
+                    kind: crate::choice::CastModeKind::Mode(i),
+                    cost: baylee_core::mana::ManaCost::ZERO,
+                })
+                .collect();
+            res.awaiting = Some(AwaitingOp::ChoosePayCostOrDecline {
+                player,
+                costs: payable,
+                otherwise,
+            });
+            Some(Pending::ChooseCastMode {
+                player,
+                object: res.source,
+                options,
+            })
+        }
+        Effect::PlayersChooseMode(spec) => {
+            let after_len = res.effects.len().saturating_sub(res.pc + 1);
+            if res
+                .subject
+                .repeat_frames
+                .last()
+                .is_some_and(|frame| frame.tail_from_end == after_len)
+            {
+                return super::wave3_ops::advance_repeat_frame(state, res, &[], op);
+            }
+            if spec.labels.is_empty() {
+                return None;
+            }
+            let mut seats = eval::players(spec.players, state, you).unwrap_or_default();
+            seats.sort_by_key(|p| crate::battle::sba::apnap_distance(state, *p));
+            seats.retain(|&p| !state.has_left(p));
+            let (&first, rest) = seats.split_first()?;
+            let mut remaining = rest.to_vec();
+            remaining.reverse();
+            let options = (0..spec.labels.len())
+                .map(|i| crate::choice::CastModeDesc {
+                    index: u32::try_from(i).expect("mode choices fit u32"),
+                    kind: crate::choice::CastModeKind::Mode(i),
+                    cost: baylee_core::mana::ManaCost::ZERO,
+                })
+                .collect();
+            res.awaiting = Some(AwaitingOp::PlayersChooseMode {
+                spec,
+                current: first,
+                remaining,
+                chosen: Vec::new(),
+            });
+            Some(Pending::ChooseCastMode {
+                player: first,
+                object: res.source,
+                options,
+            })
+        }
+        Effect::CreepingDread { damage } => super::wave18b::exec_creeping_dread(state, res, damage),
+        Effect::PhyrexianGrimoire { chooser } => {
+            super::wave18b::exec_phyrexian_grimoire(state, res, chooser)
+        }
+        Effect::TaintedPact => super::wave18b::step_tainted_pact(state, res, Vec::new()),
+        Effect::SearchLibraryAttachedToEvent { filter, optional } => {
+            super::wave18b::exec_search_library_attached_to_event(state, res, filter, optional)
         }
         Effect::ChooseOneRestricted {
             choices,
@@ -677,6 +779,24 @@ pub(super) fn exec_choice(
             Some(Pending::YesNo {
                 player,
                 prompt: YesNoPrompt::PayTax { mana },
+                source: resolving_ability(state, res),
+            })
+        }
+        Effect::PlayerMayWaterbendOr {
+            player: rel,
+            mana,
+            effect,
+        } => {
+            let player = payment_player(state, res, rel, op)?;
+            let mana = u16::try_from(amount2(&mana, state, you, res)).unwrap_or(u16::MAX);
+            res.awaiting = Some(AwaitingOp::PlayerMayWaterbendConfirm {
+                player,
+                mana,
+                effect,
+            });
+            Some(Pending::YesNo {
+                player,
+                prompt: YesNoPrompt::PayWaterbend { mana },
                 source: resolving_ability(state, res),
             })
         }
@@ -1224,11 +1344,14 @@ pub(super) fn exec_choice(
                 source: resolving_ability(state, res),
             })
         }
-        Effect::OwnerPutsOnTopOrBottom { target: _ } => {
-            // The chosen target; CR 608.2b has already dropped the ability
-            // if it is gone. A spell or a permanent, and nothing else:
-            // anything the target moved to since is a new object anyway.
-            let card = res.targets.first().copied()?;
+        Effect::OwnerPutsOnTopOrBottom { target } => {
+            // The chosen target (or event object inside ForEachRemembered);
+            // CR 608.2b has already dropped the ability if a target is gone.
+            let card = match target {
+                TargetSpec::EventObject => res.event_object?,
+                TargetSpec::ThisObject => res.source,
+                _ => res.targets.first().copied()?,
+            };
             let obj = state.object(card)?;
             if !matches!(
                 obj.zone,
@@ -1724,6 +1847,7 @@ pub(super) fn cost_part_names_this(part: &baylee_cards_dsl::CostPart) -> bool {
         | CostPart::RevealFromHand(f)
         | CostPart::RevealFromHandX(f)
         | CostPart::TapN { filter: f, .. }
+        | CostPart::TapOther(f)
         | CostPart::TapX(f)
         | CostPart::ReturnToHand(f)
         | CostPart::ExileFromGraveyard(f)

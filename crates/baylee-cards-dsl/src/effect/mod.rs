@@ -173,6 +173,11 @@ pub enum TriggerRemember {
     /// Register or queue one trigger separately for each card exiled earlier in
     /// this resolution (`ThisWayEntry::Exiled`).
     EachExiledThisWay,
+    /// Both the surviving chosen targets and the object(s) sacrificed to pay
+    /// this spell/ability's cost or effect, captured together for one delayed
+    /// trigger (*Rescue from the Underworld*, CR 603.7a). Appended to preserve
+    /// replay identities.
+    TargetAndSacrificed,
 }
 
 /// What gates an on-resolution reflexive stack trigger (CR 603.12).
@@ -6170,6 +6175,261 @@ pub enum Effect {
         /// Lifetime of the registered continuous effect(s).
         duration: crate::static_ability::Duration,
     },
+    /// Choose one of the five basic land types (Plains, Island, Swamp, Mountain, Forest).
+    ChooseBasicLandType,
+    /// Affected permanents become the basic land type chosen by `ChooseBasicLandType`.
+    BecomeChosenBasicLandType {
+        /// Which permanents gain the chosen basic land type (`TargetSpec::ThisObject`, targeted `res.targets`, or untargeted `TargetSpec::Object(filter)`).
+        target: TargetSpec,
+        /// Lifetime of the type-changing effect.
+        duration: crate::static_ability::Duration,
+    },
+    /// Any player (in APNAP order) may pay `mana`; runs `effects` if paid (`on_payment == true`) or not paid (`on_payment == false`).
+    AnyPlayerMayPayManaAmount {
+        /// Mana cost any player may pay.
+        mana: Amount,
+        /// Whether `effects` runs when paid (`true`) or when no player pays (`false`).
+        on_payment: bool,
+        /// Effects to execute when the condition holds.
+        effects: &'static [Effect],
+    },
+    /// Any player (in APNAP order) may pay `cost`; runs `effects` if paid (`on_payment == true`) or not paid (`on_payment == false`).
+    AnyPlayerMayPayCost {
+        /// Non-mana cost any player may pay (e.g. sacrifice, exile from graveyard, take damage).
+        cost: AnyPlayerCost,
+        /// Whether `effects` runs when paid (`true`) or when no player pays (`false`).
+        on_payment: bool,
+        /// Effects to execute when the condition holds.
+        effects: &'static [Effect],
+    },
+    /// Counter the spell or ability that caused this trigger (`Rider::EventAbility` or `res.event_object`).
+    CounterEventSpellOrAbility,
+    /// Counter target spell matching stack/target, putting it into `dest` instead of its owner's graveyard.
+    CounterTargetSpellTo(CounterDestination),
+    /// Counter every spell or ability on the stack matching `scope` and `filter` (CR 701.5a).
+    CounterAll {
+        /// Whether to counter spells, abilities, or both.
+        scope: CounterScope,
+        /// Stack filter selecting spells/abilities to counter.
+        filter: &'static Filter,
+    },
+    /// Register a delayed triggered ability at the start of the controller's next main phase adding X mana of any one color (where X is `TargetCmc`).
+    DelayedManaAnyColorAtNextMain,
+    /// Put the resolving source spell on the bottom of its owner's library (instead of the graveyard).
+    PutSourceOnBottomOfLibrary,
+    /// Destroy target permanent and all other permanents with the same name as it matching `filter`.
+    DestroyTargetAndSameName {
+        /// Filter applied to permanents sharing the target's name (and the target itself).
+        filter: &'static Filter,
+    },
+    /// Destroy all permanents matching `filter` attached to the target permanent, optionally destroying the target as well.
+    DestroyAllAttachedToTarget {
+        /// Filter selecting attached permanents to destroy.
+        filter: &'static Filter,
+        /// Whether to also destroy the target permanent itself.
+        destroy_target: bool,
+    },
+    /// Gain control of every permanent matching `filter` that is currently or was last-known attached to the target permanent.
+    GainControlLtbAttached {
+        /// Filter selecting attached permanents to gain control of.
+        filter: &'static Filter,
+        /// Lifetime of the control-changing effect.
+        duration: crate::static_ability::Duration,
+    },
+    /// Make matching/targeted attacking creature(s) become blocked (CR 509.1h).
+    BecomesBlocked(TargetSpec),
+    /// Demonstrate (`CR 702.148a`): when you cast this spell, you may copy it;
+    /// if you do, choose an opponent to also copy it (permanent copies become
+    /// tokens). Appended to preserve replay identities.
+    Demonstrate,
+    /// Ripple `N` (`CR 702.63a`): when you cast this spell, you may reveal the
+    /// top `N` cards of your library; you may cast any number of cards with the
+    /// same name as this spell from among them without paying their mana costs,
+    /// then put the rest on the bottom in a random order. Appended to preserve
+    /// replay identities.
+    Ripple(u8),
+    /// If a target was chosen (`res.targets` non-empty), its controller may pay
+    /// `{E}` equal to that target's mana value; only a successful payment runs
+    /// `then` (*Jolted Awake*, `CR 608.2d`). Appended to preserve replay
+    /// identities.
+    MayPayEnergyEqualToTargetCmcThen {
+        /// Instructions run when energy equal to the target's mana value is paid.
+        then: &'static [Effect],
+    },
+    /// Return every surviving object remembered by the enclosing delayed
+    /// trigger (`PendingTrigger::related_objects`) from the graveyard to the
+    /// battlefield (`CR 603.7a`, `CR 400.7`; *Rescue from the Underworld*).
+    /// Appended to preserve replay identities.
+    ReturnDelayedObjectsToBattlefield {
+        /// When `true`, return under owner's control; otherwise under controller's.
+        owner_control: bool,
+    },
+    /// Watch the first targeted graveyard card for the rest of the turn; when
+    /// you cast that exact card (`CR 400.7`), the resolving ability's source
+    /// permanent gains all activated abilities of that card until `duration`
+    /// (*Havengul Lich*). Appended to preserve replay identities.
+    GrantActivatedAbilitiesWhenTargetCast {
+        /// Duration of the stolen-abilities grant once the cast triggers.
+        duration: crate::static_ability::Duration,
+    },
+    /// A player may waterbend `{mana}` (`CR 701.67a`); if they don't, run
+    /// `effect` (*Waterbending Lesson*, *Ward—Waterbend {4}*).
+    /// Appended to preserve replay identities.
+    PlayerMayWaterbendOr {
+        /// Who decides.
+        player: PlayerRel,
+        /// Generic waterbend mana to pay, evaluated when resolving.
+        mana: Amount,
+        /// Consequence when they don't waterbend `{mana}`.
+        effect: &'static Effect,
+    },
+    /// Execute `effects` sequentially once for each living player matching
+    /// `players` in APNAP order, binding [`PlayerRel::EventPlayer`] on each pass.
+    ForEachPlayer {
+        /// Players to iterate over.
+        players: PlayerRel,
+        /// Instructions run for each player.
+        effects: &'static [Effect],
+    },
+    /// A player may pay one of several single-part costs; if they decline or
+    /// can pay none, execute `otherwise`.
+    PlayerMayPayOneOfCostsOr {
+        /// Player making the choice and paying.
+        player: PlayerRel,
+        /// Candidate non-mana costs.
+        costs: &'static [crate::CostPart],
+        /// Effects executed if no listed cost is paid.
+        otherwise: &'static [Effect],
+    },
+    /// Ask each player matching `players` to pick a mode (`0..branches.len()`),
+    /// optionally secretly (`Prisoner's Dilemma`), then apply `aggregate`.
+    PlayersChooseMode(MultiPlayerChoice),
+    /// Snapshot all currently existing objects matching `filter` as remembered
+    /// objects (CR 400.7 / CR 608.2h) while executing `then`.
+    CaptureMatching {
+        /// Filter evaluated at capture time.
+        filter: &'static Filter,
+        /// Instructions executed with those objects remembered.
+        then: &'static [Effect],
+    },
+    /// Snapshot the resolving instruction's `targets` as remembered objects
+    /// while executing `then` (*Torment of Venom*, *Unforge*).
+    RememberTargetsThen {
+        /// Instructions executed with targets remembered.
+        then: &'static [Effect],
+    },
+    /// Exile all cards in `who`'s hand (*Wheel of Potential*).
+    ExileHand {
+        /// Player(s) whose hand is exiled.
+        who: PlayerRel,
+    },
+    /// Grant `permission` to every currently remembered exiled card matching `filter`
+    /// (*Wheel of Potential*).
+    GrantRememberedExilePermission {
+        /// Filter evaluated against each remembered exiled card.
+        filter: &'static Filter,
+        /// Exile play/cast permission granted.
+        permission: crate::ExilePermission,
+    },
+    /// Each player discards a card in APNAP order; each opponent whose discarded card
+    /// shares a card type with the card you discarded loses `damage` life (*Creeping Dread*).
+    CreepingDread {
+        /// Life lost by each qualifying opponent.
+        damage: u16,
+    },
+    /// Exile the enchanted creature and all Auras attached to it; at the beginning of
+    /// the next end step, return that card and if you do return those Auras attached to it
+    /// (*Flickerform*).
+    Flickerform,
+    /// Internal delayed-trigger resolution body for [`Self::Flickerform`].
+    FlickerformReturnFromRelated,
+    /// Look at the top two cards of your graveyard; `chooser` chooses one of them to
+    /// exile and puts the other into your hand (*Phyrexian Grimoire*).
+    PhyrexianGrimoire {
+        /// Opponent choosing which card is exiled.
+        chooser: PlayerRel,
+    },
+    /// Exile the top card of your library; you may put it into your hand unless it shares
+    /// a name with another card exiled this way; repeat until put into hand, duplicate
+    /// name, or empty library (*Tainted Pact*).
+    TaintedPact,
+    /// Search your library for a card matching `filter` that can legally attach to
+    /// `EventObject`, put it onto the battlefield attached to it, then shuffle
+    /// (*Sovereigns of Lost Alara*).
+    SearchLibraryAttachedToEvent {
+        /// Filter on candidate cards (in addition to `can_attach`).
+        filter: &'static Filter,
+        /// Whether the player may fail to find / decline.
+        optional: bool,
+    },
+}
+
+/// Non-mana unless-cost offered to any player in APNAP order by [`Effect::AnyPlayerMayPayCost`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum AnyPlayerCost {
+    /// Have the resolving source deal `N` damage to the paying player.
+    DamageToYou(u16),
+    /// Sacrifice `count` permanents matching `filter`.
+    Sacrifice {
+        /// Permanents eligible to be sacrificed.
+        filter: &'static Filter,
+        /// Exact number of matching permanents to sacrifice.
+        count: u8,
+    },
+    /// Exile `count` cards matching `filter` from that player's graveyard.
+    ExileFromGraveyard {
+        /// Cards in graveyard eligible to be exiled.
+        filter: &'static Filter,
+        /// Exact number of matching graveyard cards to exile.
+        count: u8,
+    },
+}
+
+/// Which kinds of stack objects [`Effect::CounterAll`] can counter.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum CounterScope {
+    /// Only spells (`ObjectKind::Spell`).
+    Spells,
+    /// Only activated/triggered abilities (`ObjectKind::AbilityOnStack`).
+    Abilities,
+    /// Both spells and abilities on the stack.
+    SpellsAndAbilities,
+}
+
+/// Destination zone when countering a spell to somewhere other than its owner's graveyard.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum CounterDestination {
+    /// Return to its owner's hand.
+    Hand,
+    /// Put on top of its owner's library.
+    TopOfLibrary,
+    /// Put on the bottom of its owner's library.
+    BottomOfLibrary,
+}
+
+/// Multi-player modal choice specification for [`Effect::PlayersChooseMode`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct MultiPlayerChoice {
+    /// Players asked in APNAP order.
+    pub players: PlayerRel,
+    /// Labels shown for each mode (`0..labels.len()`).
+    pub labels: &'static [&'static str],
+    /// Branch bodies (`0..branches.len()`, indexed by chosen mode for [`MultiPlayerChoiceAggregate::PerModeChooser`]).
+    pub branches: &'static [&'static [Effect]],
+    /// Choices are made without revealing earlier players' selections until all have chosen.
+    pub secret: bool,
+    /// How collected choices produce resolution effects.
+    pub aggregate: MultiPlayerChoiceAggregate,
+}
+
+/// Outcome rule after every player answers [`Effect::PlayersChooseMode`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum MultiPlayerChoiceAggregate {
+    /// Run `branches[mode]` for each player who chose `mode`, ordered by mode index then APNAP.
+    PerModeChooser,
+    /// *Prisoner's Dilemma*: 0 = silence, 1 = snitch; all 0 -> 4 dmg each,
+    /// all 1 -> 8 dmg each, otherwise 12 dmg to each who chose 0.
+    PrisonersDilemma,
 }
 
 /// Which object's counters (or last-known battlefield counters, `CR 122.8`) are

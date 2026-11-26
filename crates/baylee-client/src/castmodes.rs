@@ -746,6 +746,8 @@ fn parts_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool 
         | CostPart::PayLifeX
         | CostPart::PayCommanderColors
         | CostPart::TapX(_)
+        | CostPart::Waterbend(_)
+        | CostPart::WaterbendX
         | CostPart::SacrificeX(_)
         | CostPart::SacrificeAll(_)
         | CostPart::ExileFromSingleGraveyard { .. }

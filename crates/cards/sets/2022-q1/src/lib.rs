@@ -13,6 +13,8 @@
 // What a card file names as `crate::…`.
 pub use baylee_cards_base::{filters, generated_tokens, tokens};
 
+#[path = "nec/access_denied.rs"]
+pub mod access_denied;
 #[path = "neo/acquisition_octopus.rs"]
 pub mod acquisition_octopus;
 #[path = "nec/aerial_surveyor.rs"]
@@ -161,6 +163,8 @@ pub mod gravelighter;
 pub mod greater_tanuki;
 #[path = "neo/guardians_of_oboro.rs"]
 pub mod guardians_of_oboro;
+#[path = "neo/heiko_yamazaki_the_general.rs"]
+pub mod heiko_yamazaki_the_general;
 #[path = "neo/heir_of_the_ancient_fang.rs"]
 pub mod heir_of_the_ancient_fang;
 #[path = "neo/high_speed_hoverbike.rs"]
@@ -253,6 +257,8 @@ pub mod michiko_s_reign_of_truth;
 pub mod mirrorshell_crab;
 #[path = "neo/mnemonic_sphere.rs"]
 pub mod mnemonic_sphere;
+#[path = "neo/moon_circuit_hacker.rs"]
+pub mod moon_circuit_hacker;
 #[path = "neo/moonfolk_puzzlemaker.rs"]
 pub mod moonfolk_puzzlemaker;
 #[path = "neo/moonsnare_prototype.rs"]
@@ -285,6 +291,8 @@ pub mod nezumi_bladeblesser;
 pub mod nezumi_prowler;
 #[path = "neo/ninja_s_kunai.rs"]
 pub mod ninja_s_kunai;
+#[path = "neo/norika_yamazaki_the_poet.rs"]
+pub mod norika_yamazaki_the_poet;
 #[path = "neo/okiba_reckoner_raid.rs"]
 pub mod okiba_reckoner_raid;
 #[path = "nec/one_with_the_kami.rs"]
@@ -371,6 +379,10 @@ pub mod sky_blessed_samurai;
 pub mod skyswimmer_koi;
 #[path = "neo/sokenzan_crucible_of_defiance.rs"]
 pub mod sokenzan_crucible_of_defiance;
+#[path = "neo/spinning_wheel_kick.rs"]
+pub mod spinning_wheel_kick;
+#[path = "neo/spirit_sister_s_call.rs"]
+pub mod spirit_sister_s_call;
 #[path = "neo/spirited_companion.rs"]
 pub mod spirited_companion;
 #[path = "neo/spring_leaf_avenger.rs"]
@@ -405,6 +417,8 @@ pub mod the_reality_chip;
 pub mod the_restoration_of_eiganjo;
 #[path = "neo/the_shattered_states_era.rs"]
 pub mod the_shattered_states_era;
+#[path = "neo/the_wandering_emperor.rs"]
+pub mod the_wandering_emperor;
 #[path = "neo/thundering_raiju.rs"]
 pub mod thundering_raiju;
 #[path = "neo/thundersteel_colossus.rs"]

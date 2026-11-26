@@ -19,6 +19,8 @@ pub mod aang_a_lot_to_learn;
 pub mod aang_and_katara;
 #[path = "tle/aang_s_defense.rs"]
 pub mod aang_s_defense;
+#[path = "ptla/aang_s_iceberg.rs"]
+pub mod aang_s_iceberg;
 #[path = "tle/aardvark_sloth.rs"]
 pub mod aardvark_sloth;
 #[path = "tla/abandon_attachments.rs"]
@@ -67,6 +69,8 @@ pub mod badgermole_cub;
 pub mod barrels_of_blasting_jelly;
 #[path = "tla/beetle_headed_merchants.rs"]
 pub mod beetle_headed_merchants;
+#[path = "tla/benevolent_river_spirit.rs"]
+pub mod benevolent_river_spirit;
 #[path = "tla/bitter_work.rs"]
 pub mod bitter_work;
 #[path = "tla/boar_q_pine.rs"]
@@ -119,6 +123,8 @@ pub mod cycle_of_renewal;
 pub mod dai_li_censor;
 #[path = "tla/dai_li_indoctrination.rs"]
 pub mod dai_li_indoctrination;
+#[path = "ptla/day_of_black_sun.rs"]
+pub mod day_of_black_sun;
 #[path = "tla/deadly_precision.rs"]
 pub mod deadly_precision;
 #[path = "tle/deer_dog.rs"]
@@ -213,6 +219,8 @@ pub mod firebending_lesson;
 pub mod firebending_student;
 #[path = "tla/first_time_flyer.rs"]
 pub mod first_time_flyer;
+#[path = "tla/flexible_waterbender.rs"]
+pub mod flexible_waterbender;
 #[path = "tla/flopsie_bumi_s_buddy.rs"]
 pub mod flopsie_bumi_s_buddy;
 #[path = "tle/flying_dolphin_fish.rs"]
@@ -223,6 +231,8 @@ pub mod foggy_bottom_swamp;
 pub mod foggy_swamp_hunters;
 #[path = "tla/foggy_swamp_spirit_keeper.rs"]
 pub mod foggy_swamp_spirit_keeper;
+#[path = "tla/foggy_swamp_vinebender.rs"]
+pub mod foggy_swamp_vinebender;
 #[path = "tla/forecasting_fortune_teller.rs"]
 pub mod forecasting_fortune_teller;
 #[path = "tle/founding_of_omashu.rs"]
@@ -235,8 +245,12 @@ pub mod freedom_fighter_recruit;
 pub mod frog_squirrels;
 #[path = "tla/gather_the_white_lotus.rs"]
 pub mod gather_the_white_lotus;
+#[path = "tla/geyser_leaper.rs"]
+pub mod geyser_leaper;
 #[path = "tle/giant_fly.rs"]
 pub mod giant_fly;
+#[path = "tla/giant_koi.rs"]
+pub mod giant_koi;
 #[path = "tle/gilacorn.rs"]
 pub mod gilacorn;
 #[path = "tla/glider_kids.rs"]
@@ -269,6 +283,8 @@ pub mod iguana_parrot;
 pub mod inspired_insurgent;
 #[path = "tla/invasion_reinforcements.rs"]
 pub mod invasion_reinforcements;
+#[path = "tla/invasion_submersible.rs"]
+pub mod invasion_submersible;
 #[path = "tla/invasion_tactics.rs"]
 pub mod invasion_tactics;
 #[path = "tle/iroh_dragon_of_the_west.rs"]
@@ -293,6 +309,8 @@ pub mod jet_s_brainwashing;
 pub mod joo_dee_one_of_many;
 #[path = "tla/june_bounty_hunter.rs"]
 pub mod june_bounty_hunter;
+#[path = "tla/katara_bending_prodigy.rs"]
+pub mod katara_bending_prodigy;
 #[path = "tle/katara_heroic_healer.rs"]
 pub mod katara_heroic_healer;
 #[path = "tle/katara_seeking_revenge.rs"]
@@ -375,6 +393,8 @@ pub mod mongoose_lizard;
 pub mod nightmares_and_daydreams;
 #[path = "tla/north_pole_gates.rs"]
 pub mod north_pole_gates;
+#[path = "tla/north_pole_patrol.rs"]
+pub mod north_pole_patrol;
 #[path = "tla/northern_air_temple.rs"]
 pub mod northern_air_temple;
 #[path = "ptla/obsessive_pursuit.rs"]
@@ -439,6 +459,8 @@ pub mod rowdy_snowballers;
 pub mod ruinous_waterbending;
 #[path = "tla/rumble_arena.rs"]
 pub mod rumble_arena;
+#[path = "tle/ruthless_waterbender.rs"]
+pub mod ruthless_waterbender;
 #[path = "tla/saber_tooth_moose_lion.rs"]
 pub mod saber_tooth_moose_lion;
 #[path = "tla/sandbenders_storm.rs"]
@@ -525,6 +547,8 @@ pub mod the_duke_rebel_sentry;
 pub mod the_earth_king;
 #[path = "ptla/the_fire_nation_drill.rs"]
 pub mod the_fire_nation_drill;
+#[path = "ptla/the_legend_of_kuruk.rs"]
+pub mod the_legend_of_kuruk;
 #[path = "ptla/the_legend_of_roku.rs"]
 pub mod the_legend_of_roku;
 #[path = "ptla/the_lion_turtle.rs"]
@@ -535,6 +559,8 @@ pub mod the_mechanist_aerial_artisan;
 pub mod the_spirit_oasis;
 #[path = "tle/the_terror_of_serpent_s_pass.rs"]
 pub mod the_terror_of_serpent_s_pass;
+#[path = "ptla/the_unagi_of_kyoshi_island.rs"]
+pub mod the_unagi_of_kyoshi_island;
 #[path = "ptla/the_walls_of_ba_sing_se.rs"]
 pub mod the_walls_of_ba_sing_se;
 #[path = "ptla/tiger_seal.rs"]
@@ -591,6 +617,14 @@ pub mod warship_scout;
 pub mod wartime_protestors;
 #[path = "tla/water_tribe_captain.rs"]
 pub mod water_tribe_captain;
+#[path = "tla/water_tribe_rallier.rs"]
+pub mod water_tribe_rallier;
+#[path = "tle/water_whip.rs"]
+pub mod water_whip;
+#[path = "ptla/waterbender_ascension.rs"]
+pub mod waterbender_ascension;
+#[path = "tla/waterbending_lesson.rs"]
+pub mod waterbending_lesson;
 #[path = "tla/waterbending_scroll.rs"]
 pub mod waterbending_scroll;
 #[path = "tla/white_lotus_hideout.rs"]
@@ -603,6 +637,8 @@ pub mod wolf_cove_villager;
 pub mod wolfbat;
 #[path = "tla/yip_yip.rs"]
 pub mod yip_yip;
+#[path = "ptla/yue_the_moon_spirit.rs"]
+pub mod yue_the_moon_spirit;
 #[path = "tla/yuyan_archers.rs"]
 pub mod yuyan_archers;
 #[path = "tla/zhao_ruthless_admiral.rs"]

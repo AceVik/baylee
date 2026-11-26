@@ -63,6 +63,8 @@ pub mod blight_pile;
 pub mod bog_badger;
 #[path = "dmu/bortuk_bonerattle.rs"]
 pub mod bortuk_bonerattle;
+#[path = "dmu/braids_arisen_nightmare.rs"]
+pub mod braids_arisen_nightmare;
 #[path = "dmu/braids_s_frightful_return.rs"]
 pub mod braids_s_frightful_return;
 #[path = "dmu/briar_hydra.rs"]
@@ -263,6 +265,8 @@ pub mod phyrexian_vivisector;
 pub mod phyrexian_warhorse;
 #[path = "dmu/pilfer.rs"]
 pub mod pilfer;
+#[path = "dmu/pixie_illusionist.rs"]
+pub mod pixie_illusionist;
 #[path = "dmu/plaza_of_heroes.rs"]
 pub mod plaza_of_heroes;
 #[path = "dmu/prayer_of_binding.rs"]
@@ -441,6 +445,8 @@ pub mod vineshaper_prodigy;
 pub mod vodalian_hexcatcher;
 #[path = "dmu/vodalian_mindsinger.rs"]
 pub mod vodalian_mindsinger;
+#[path = "dmu/vohar_vodalian_desecrator.rs"]
+pub mod vohar_vodalian_desecrator;
 #[path = "dmu/volshe_tideturner.rs"]
 pub mod volshe_tideturner;
 #[path = "dmu/walking_bulwark.rs"]

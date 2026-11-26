@@ -1330,6 +1330,7 @@ fn general_trigger_references(
 
 /// Every incarnation a delayed action names; also what a forked simulation
 /// checks for hidden cards (`GameState::audit_fork`).
+#[allow(clippy::too_many_lines)]
 pub(crate) fn delayed_references(action: &DelayedAction, out: &mut BTreeSet<DamageSourceRef>) {
     match *action {
         DelayedAction::RestrictAttacksForTurn { source, affected } => {
@@ -1347,6 +1348,15 @@ pub(crate) fn delayed_references(action: &DelayedAction, out: &mut BTreeSet<Dama
         } => {
             out.insert(source);
             out.extend(objects.iter().copied());
+        }
+        DelayedAction::FlickerformReturn {
+            source,
+            host,
+            ref auras,
+        } => {
+            out.insert(source);
+            out.insert(host);
+            out.extend(auras.iter().copied());
         }
         DelayedAction::Trigger {
             source,
@@ -1418,6 +1428,11 @@ pub(crate) fn delayed_references(action: &DelayedAction, out: &mut BTreeSet<Dama
             out.insert(DamageSourceRef { object, version });
         }
         DelayedAction::AddMana {
+            source,
+            source_version,
+            ..
+        }
+        | DelayedAction::AddManaAnyColor {
             source,
             source_version,
             ..

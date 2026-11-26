@@ -63,6 +63,8 @@ pub mod bakersbane_duo;
 pub mod ballad_of_the_black_flag;
 #[path = "dsk/balustrade_wurm.rs"]
 pub mod balustrade_wurm;
+#[path = "dsc/barbflare_gremlin.rs"]
+pub mod barbflare_gremlin;
 #[path = "blb/bark_knuckle_boxer.rs"]
 pub mod bark_knuckle_boxer;
 #[path = "blb/barkform_harvester.rs"]
@@ -623,6 +625,8 @@ pub mod overpowering_attack;
 pub mod overprotect;
 #[path = "dsk/painter_s_studio.rs"]
 pub mod painter_s_studio;
+#[path = "acr/palazzo_archers.rs"]
+pub mod palazzo_archers;
 #[path = "dsk/patched_plaything.rs"]
 pub mod patched_plaything;
 #[path = "blb/patchwork_banner.rs"]
@@ -641,6 +645,8 @@ pub mod perch_protection;
 pub mod persistent_marshstalker;
 #[path = "acr/phantom_blade.rs"]
 pub mod phantom_blade;
+#[path = "dsc/phenomenon_investigators.rs"]
+pub mod phenomenon_investigators;
 #[path = "dsk/piggy_bank.rs"]
 pub mod piggy_bank;
 #[path = "blb/pileated_provisioner.rs"]
@@ -721,6 +727,8 @@ pub mod rooftop_bypass;
 pub mod rootcast_apprenticeship;
 #[path = "dsk/rootwise_survivor.rs"]
 pub mod rootwise_survivor;
+#[path = "acr/roshan_hidden_magister.rs"]
+pub mod roshan_hidden_magister;
 #[path = "blb/roughshod_duo.rs"]
 pub mod roughshod_duo;
 #[path = "blb/rust_shield_rampager.rs"]
@@ -815,6 +823,8 @@ pub mod starforged_sword;
 pub mod starlit_soothsayer;
 #[path = "blb/starscape_cleric.rs"]
 pub mod starscape_cleric;
+#[path = "blb/starseer_mentor.rs"]
+pub mod starseer_mentor;
 #[path = "blb/steampath_charger.rs"]
 pub mod steampath_charger;
 #[path = "blc/steelburr_champion.rs"]
@@ -881,6 +891,8 @@ pub mod they_came_from_the_pipes;
 pub mod thickest_in_the_thicket;
 #[path = "blb/thistledown_players.rs"]
 pub mod thistledown_players;
+#[path = "blb/thornplate_intimidator.rs"]
+pub mod thornplate_intimidator;
 #[path = "dsk/thornspire_verge.rs"]
 pub mod thornspire_verge;
 #[path = "blb/thornvault_forager.rs"]
@@ -995,6 +1007,8 @@ pub mod wick_the_whorled_mind;
 pub mod wickerfolk_thresher;
 #[path = "dsk/wildfire_wickerfolk.rs"]
 pub mod wildfire_wickerfolk;
+#[path = "blc/wildsear_scouring_maw.rs"]
+pub mod wildsear_scouring_maw;
 #[path = "dsk/winter_s_intervention.rs"]
 pub mod winter_s_intervention;
 #[path = "dsk/withering_torment.rs"]

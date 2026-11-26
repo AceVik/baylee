@@ -229,6 +229,8 @@ pub mod eclipsed_kithkin;
 pub mod eclipsed_merrow;
 #[path = "ecl/eclipsed_realms.rs"]
 pub mod eclipsed_realms;
+#[path = "ecl/eirdu_carrier_of_dawn.rs"]
+pub mod eirdu_carrier_of_dawn;
 #[path = "ecl/elder_auntie.rs"]
 pub mod elder_auntie;
 #[path = "tmc/electric_seaweed.rs"]
@@ -311,6 +313,8 @@ pub mod glamer_gifter;
 pub mod glamermite;
 #[path = "ecl/glen_elendra_guardian.rs"]
 pub mod glen_elendra_guardian;
+#[path = "ecl/glen_elendra_s_answer.rs"]
+pub mod glen_elendra_s_answer;
 #[path = "ecl/glister_bairn.rs"]
 pub mod glister_bairn;
 #[path = "ecl/gloom_ripper.rs"]
@@ -587,6 +591,8 @@ pub mod pyrrhic_strike;
 pub mod quintessential_katana;
 #[path = "tmt/ragamuffin_raptor.rs"]
 pub mod ragamuffin_raptor;
+#[path = "ecl/raiding_schemes.rs"]
+pub mod raiding_schemes;
 #[path = "ecc/rain_slicked_copse.rs"]
 pub mod rain_slicked_copse;
 #[path = "tmt/raph_mikey_troublemakers.rs"]
@@ -791,6 +797,8 @@ pub mod turtle_blimp;
 pub mod turtle_lair;
 #[path = "tmt/turtle_power.rs"]
 pub mod turtle_power;
+#[path = "tmt/turtles_in_time.rs"]
+pub mod turtles_in_time;
 #[path = "ecl/tweeze.rs"]
 pub mod tweeze;
 #[path = "ecl/twinflame_travelers.rs"]

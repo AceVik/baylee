@@ -202,6 +202,8 @@ pub enum PlayerRel {
     /// *Stuffy Doll*, *Sewer Nemesis*, *Sawhorn Nemesis*, *Canker Abomination*).
     /// Appended to preserve replay identities.
     ChosenBySource,
+    /// The player seated immediately to the resolving controller's right (preceding in turn order).
+    PlayerToYourRight,
 }
 
 impl PlayerRel {
@@ -447,7 +449,7 @@ impl TargetReq {
     #[must_use]
     pub const fn bounds(self, x: u32) -> (u32, u32) {
         if self.count_is_x {
-            (x, x)
+            (if self.is_up_to_x() { 0 } else { x }, x)
         } else {
             (
                 self.min as u32,
@@ -458,6 +460,12 @@ impl TargetReq {
                 },
             )
         }
+    }
+
+    /// Whether an X-scaled count is "up to X" (`0..=X`) rather than "exactly X".
+    #[must_use]
+    pub const fn is_up_to_x(self) -> bool {
+        self.count_is_x && self.max == 254
     }
 
     /// Up to one target.
@@ -490,6 +498,18 @@ impl TargetReq {
             spec,
             min: 0,
             max: 255,
+            count_is_x: true,
+            distinct_mana_values: false,
+            chooser: crate::TargetChooser::Controller,
+        }
+    }
+
+    /// Up to X targets (`Support X`, etc.).
+    pub const fn up_to_x(spec: TargetSpec) -> Self {
+        Self {
+            spec,
+            min: 0,
+            max: 254,
             count_is_x: true,
             distinct_mana_values: false,
             chooser: crate::TargetChooser::Controller,

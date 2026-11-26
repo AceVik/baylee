@@ -279,6 +279,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             casting::SpellForm::Foretell(c) | casting::SpellForm::Impending(c) => c,
             casting::SpellForm::OptionalCost(c) => def.faces[face].mana_cost.combine(&c),
             casting::SpellForm::Plot => baylee_core::mana::ManaCost::ZERO,
+            casting::SpellForm::Blitz => {
+                casting::effective_blitz_cost(&self.state, player, card, &def.faces[face], face)
+                    .map_or(def.faces[face].mana_cost, |c| c.mana)
+            }
         });
         let preview = if matches!(form, Some(casting::SpellForm::Disguise)) {
             casting::PreviewDynamicDelta::default()
@@ -340,9 +344,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             .fold(0, u32::saturating_add)
     }
 
-    #[allow(clippy::too_many_lines)]
     #[doc(hidden)]
     pub fn compute_legal(&self, player: PlayerId) -> LegalActions {
+        self.compute_legal_inner(player, true)
+    }
+
+    pub(in crate::engine) fn compute_legal_for_mana(&self, player: PlayerId) -> LegalActions {
+        self.compute_legal_inner(player, false)
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn compute_legal_inner(&self, player: PlayerId, check_assist: bool) -> LegalActions {
         let adjustments = self.spell_adjustments(player);
         let mut legal = LegalActions {
             can_pass: true,
@@ -779,9 +791,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         third_targets,
                         ..
                     } => {
-                        // Loyalty abilities: sorcery timing, once per turn
-                        // per walker, enough loyalty for negative costs.
-                        if obj.controller != player || !sorcery_timing || self.loyalty_used(id) {
+                        // Loyalty abilities: sorcery timing (unless granted
+                        // instant timing), once per turn per walker, enough
+                        // loyalty for negative costs.
+                        let loyalty_timing =
+                            sorcery_timing || self.may_activate_loyalty_as_instant(player, id);
+                        if obj.controller != player || !loyalty_timing || self.loyalty_used(id) {
                             continue;
                         }
                         let loyalty = obj.counters.get(baylee_cards_dsl::CounterKind::Loyalty);
@@ -1043,7 +1058,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         if !legal.unpaid_suspend.is_empty() && !self.offers_mana(&legal) {
             legal.unpaid_suspend.clear();
         }
-        self.settle_payable(player, &mut legal);
+        self.settle_payable(player, &mut legal, check_assist);
         self.narrow_under_chosen_names(player, &mut legal);
         self.narrow_under_split_second(&mut legal);
         self.narrow_to_mana_window(player, &mut legal);
@@ -1132,6 +1147,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 || def.is_some_and(casting::has_priced_ways)
                 || (self.state.effects.may_change_or_forbid_abilities()
                     && casting::sneak_cost_for(&self.state, player, card, def, 0).is_some())
+                || (self.state.effects.may_change_spell_costs()
+                    && (def.is_some_and(|d| {
+                        casting::effective_blitz_cost(&self.state, player, card, &d.faces[0], 0)
+                            .is_some()
+                    }) || !casting::granted_stack_alternatives(&self.state, player, card, 0)
+                        .is_empty()))
                 || casting::has_alt_cast_grant(&self.state, &self.lookup, player, card);
             if !priced || self.commanded_card(card) {
                 continue;

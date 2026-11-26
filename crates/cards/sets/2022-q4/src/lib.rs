@@ -13,6 +13,8 @@
 // What a card file names as `crate::…`.
 pub use baylee_cards_base::{filters, generated_tokens, tokens};
 
+#[path = "40k/abaddon_the_despoiler.rs"]
+pub mod abaddon_the_despoiler;
 #[path = "40k/aberrant.rs"]
 pub mod aberrant;
 #[path = "40k/acolyte_hybrid.rs"]

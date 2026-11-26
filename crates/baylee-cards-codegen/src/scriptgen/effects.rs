@@ -1071,6 +1071,7 @@ impl Tx<'_> {
                             | "Enlisted"
                             | "Sacrificed"
                             | "Taps"
+                            | "TapsForMana"
                             | "Untaps"
                             | "TurnFaceUp"
                             | "Transformed"
@@ -2302,6 +2303,12 @@ impl Tx<'_> {
             (*self.unclaimed.borrow_mut()).clone_from(&saved_unclaimed);
             self.body.statics.truncate(saved_statics_len);
             if let Some(effects) = self.wave29a_effect_api(p, target) {
+                return Some(effects);
+            }
+            p.clone_from(&snap);
+            (*self.unclaimed.borrow_mut()).clone_from(&saved_unclaimed);
+            self.body.statics.truncate(saved_statics_len);
+            if let Some(effects) = self.wave30a_effect_api(p, target) {
                 return Some(effects);
             }
             *p = snap;
@@ -4052,6 +4059,8 @@ impl Tx<'_> {
         Some(match raw {
             None => "Duration::Permanent",
             Some("EOT") => "Duration::UntilEndOfTurn",
+            Some("UntilTheEndOfYourNextTurn") => "Duration::UntilEndOfYourNextTurn",
+            Some("EndOfCombat") => "Duration::UntilEndOfCombat",
             Some("LeavesPlay") if !self.on_a_spell => "Duration::WhileSourceOnBattlefield",
             Some("LeavesPlay,LoseControl" | "LoseControl,LeavesPlay") if !self.on_a_spell => {
                 "Duration::WhileYouControlSource"
@@ -4117,7 +4126,7 @@ impl Tx<'_> {
         &mut self,
         p: &mut Params,
         target: Option<&str>,
-        targets_here: bool,
+        _targets_here: bool,
         targets_a_player: bool,
     ) -> Option<Vec<String>> {
         if target == Some("TargetSpec::Player(PlayerRel::Chosen)")
@@ -4154,8 +4163,7 @@ impl Tx<'_> {
             p.take("SVar:X:Count");
         }
         match p.take("Defined").as_deref() {
-            None => {}
-            Some("Targeted") if !targets_here => {}
+            None | Some("Targeted") => {}
             Some(_) => return None,
         }
         let new_ctrl_raw = p.take("NewController");
@@ -4172,6 +4180,8 @@ impl Tx<'_> {
         }
         let duration = match p.take("LoseControl").as_deref() {
             Some("EOT") => "Duration::UntilEndOfTurn",
+            Some("UntilTheEndOfYourNextTurn") => "Duration::UntilEndOfYourNextTurn",
+            Some("EndOfCombat") => "Duration::UntilEndOfCombat",
             Some("LeavesPlay") if !self.on_a_spell => "Duration::WhileSourceOnBattlefield",
             Some("LeavesPlay,LoseControl" | "LoseControl,LeavesPlay") if !self.on_a_spell => {
                 "Duration::WhileYouControlSource"
@@ -5660,6 +5670,12 @@ impl Tx<'_> {
             if cp.take("ClearRemembered").as_deref() != Some("True") {
                 return self.deny("cleanup other than `ClearRemembered$ True`".into());
             }
+            if self.wave30a_allow_clear_imprinted
+                && let Some(imp) = cp.take("ClearImprinted")
+                && imp != "True"
+            {
+                return self.deny("cleanup with invalid `ClearImprinted$`".into());
+            }
             *sub = cp.take("SubAbility");
             if let Some(key) = cp.first_key() {
                 return self.deny(format!("unclaimed parameter `Cleanup.{key}`"));
@@ -6555,12 +6571,15 @@ impl Tx<'_> {
                 }
             }
             ("Battlefield", "Library", true)
-                if p.take("LibraryPosition").as_deref() == Some("0") =>
+                if !p.has("DestinationAlternative")
+                    && !p.has("Shuffle")
+                    && matches!(p.take("LibraryPosition").as_deref(), None | Some("0")) =>
             {
                 vec!["Effect::PutSourceOnTopOfLibrary".to_string()]
             }
             ("Battlefield", "Library", false)
-                if target.starts_with("TargetSpec::Object(")
+                if (target.starts_with("TargetSpec::Object(")
+                    || target.starts_with("TargetSpec::ObjectOfEachOpponent("))
                     && !p.has("DestinationAlternative") =>
             {
                 p.take("IsCurse");
@@ -6571,7 +6590,7 @@ impl Tx<'_> {
                     (Some("True"), None | Some("0" | "-1")) => {
                         vec!["Effect::ShuffleTargetsIntoOwnersLibraries".to_string()]
                     }
-                    (None, Some("0")) => {
+                    (None, None | Some("0")) => {
                         vec!["Effect::PutTargetOnTopOfLibrary".to_string()]
                     }
                     (None, Some("-1")) => {
@@ -6601,6 +6620,11 @@ impl Tx<'_> {
                         return None;
                     }
                     p.take("Duration");
+                    if p.peek("RememberChanged") == Some("True")
+                        && self.wave30a_can_claim_linked_exile_remembered()
+                    {
+                        p.take("RememberChanged");
+                    }
                     return Some(vec![format!(
                         "Effect::exile_until({target}, ExileUntil::SourceLeavesBattlefield)"
                     )]);
@@ -6798,7 +6822,7 @@ impl Tx<'_> {
         Some((kind.as_str(), n))
     }
 
-    fn take_with_counters_amount(
+    pub(super) fn take_with_counters_amount(
         &mut self,
         p: &mut Params,
     ) -> Result<Option<(String, String)>, ()> {
@@ -6822,7 +6846,7 @@ impl Tx<'_> {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn format_move_and_modify(
+    pub(super) fn format_move_and_modify(
         subject: &str,
         expected_origin: Option<&str>,
         blink: bool,
@@ -6849,7 +6873,7 @@ impl Tx<'_> {
         )
     }
 
-    fn take_optional_static_effect(
+    pub(super) fn take_optional_static_effect(
         &mut self,
         p: &mut Params,
         moved_is_creature: bool,
@@ -7048,7 +7072,9 @@ impl Tx<'_> {
                     && ((origin == "Battlefield"
                         && (matches!(destination, "Hand" | "Exile")
                             || (destination == "Library"
-                                && p.peek("LibraryPosition") == Some("0"))))
+                                && !p.has("DestinationAlternative")
+                                && !p.has("Shuffle")
+                                && matches!(p.peek("LibraryPosition"), None | Some("0")))))
                         || (origin == "Graveyard"
                             && matches!(destination, "Battlefield" | "Hand" | "Exile"))
                         || (origin == "Exile" && matches!(destination, "Hand" | "Graveyard")))
@@ -9476,6 +9502,7 @@ impl Tx<'_> {
                             | "SpellCast"
                             | "SpellCastOrCopy"
                             | "Taps"
+                            | "TapsForMana"
                             | "Untaps"
                             | "TurnFaceUp"
                             | "Transformed"
@@ -9712,6 +9739,9 @@ impl Tx<'_> {
             return Some(expr);
         }
         if let Some(expr) = self.wave29c_amount_ext(trimmed, &resolved) {
+            return Some(expr);
+        }
+        if let Some(expr) = self.wave30a_amount_ext(trimmed, &resolved) {
             return Some(expr);
         }
         *self.unclaimed.borrow_mut() = after_unclaimed;
@@ -11168,6 +11198,7 @@ impl Tx<'_> {
                 | "PlayerRel::EnchantedPlayer"
                 | "PlayerRel::FirstTargetPlayerOrController"
                 | "PlayerRel::ThirdTargetPlayerOrController"
+                | "PlayerRel::PlayerToYourRight"
         )
     }
 
@@ -17629,6 +17660,11 @@ impl Tx<'_> {
         {
             return Some(effs);
         }
+        if let Some(effs) =
+            self.wave30a_remembered_chain(api, p, sub, target, targets_here, single_target)
+        {
+            return Some(effs);
+        }
         if api == "ChangeZone"
             && single_target
             && p.peek("Origin") == Some("Graveyard")
@@ -17932,7 +17968,7 @@ impl Tx<'_> {
     /// Whether a lowered `Filter` expression (possibly naming a hoisted
     /// `static NAME: Filter = ...;` in `statics`) is guaranteed to exclude all
     /// lands (including Artifact Lands, Dryad Arbor, and Enchantment Lands).
-    fn filter_excludes_lands(expr: &str, statics: &str, depth: u8) -> bool {
+    pub(super) fn filter_excludes_lands(expr: &str, statics: &str, depth: u8) -> bool {
         if depth > 8 {
             return false;
         }

@@ -907,6 +907,10 @@ impl Tx<'_> {
                 state.has_controller = true;
                 "Filter::ControlledByYou".to_string()
             }
+            "YourTeamCtrl" => {
+                state.has_controller = true;
+                "Filter::ControlledByYourTeam".to_string()
+            }
             "YouDontCtrl" | "ControlledBy Player.Other" => {
                 state.has_controller = true;
                 "Filter::Not(&Filter::ControlledByYou)".to_string()
@@ -920,6 +924,10 @@ impl Tx<'_> {
             {
                 state.has_controller = true;
                 "Filter::ControlledBy(PlayerRel::ChosenBySource)".to_string()
+            }
+            other if !card_zone && let Some(expr) = self.wave18b_controlled_by_noted(other) => {
+                state.has_controller = true;
+                expr
             }
             "ActivePlayerCtrl" | "ControlledBy Player.Active" | "ControlledBy ActivePlayer" => {
                 state.has_controller = true;
@@ -1309,6 +1317,12 @@ impl Tx<'_> {
             "sharesNameWith ExiledWith" | "sharesNameWith Imprinted" => {
                 "Filter::SameNameAsLinkedExile".to_string()
             }
+            "sharesNameWith Remembered.ExiledWithSource"
+                if self.capture_scope.is_none()
+                    && self.wave30a_can_claim_linked_exile_remembered() =>
+            {
+                "Filter::SameNameAsLinkedExile".to_string()
+            }
             "!sharesNameWith ExiledWith" | "!sharesNameWith Imprinted" => {
                 "Filter::Not(&Filter::SameNameAsLinkedExile)".to_string()
             }
@@ -1650,6 +1664,7 @@ impl Tx<'_> {
                 || alt.contains("sharesCreatureTypeWith Valid ")
                 || alt.contains("SharesCreatureTypeWith Valid ")
                 || alt.contains("ControlledBy Player.")
+                || alt.contains("sharesNameWith Remembered.")
             {
                 let Some((base, tail)) = alt.split_once('.') else {
                     return self.deny(format!("filter base `{}`", alt.trim()));
@@ -1677,7 +1692,16 @@ impl Tx<'_> {
                     {
                         saw_embedded = true;
                     }
-                    parts.push(t);
+                    if let Some(after) =
+                        t.strip_prefix("sharesNameWith Remembered.ExiledWithSource.")
+                    {
+                        parts.push("sharesNameWith Remembered.ExiledWithSource");
+                        for extra in after.split('.').map(str::trim).filter(|a| !a.is_empty()) {
+                            parts.push(extra);
+                        }
+                    } else {
+                        parts.push(t);
+                    }
                 }
                 parts
             } else {
@@ -2420,6 +2444,15 @@ impl Tx<'_> {
                 ) =>
             {
                 "PlayerRel::DefendingPlayer"
+            }
+            "NextPlayerToYourRight" => "PlayerRel::PlayerToYourRight",
+            "TriggeredAttackingPlayer"
+                if matches!(
+                    trigger,
+                    Some("Attacks" | "AttackersDeclared" | "AttackerBlocked" | "AttackerUnblocked")
+                ) =>
+            {
+                "PlayerRel::EventPlayer"
             }
             other if self.wave27c_remembered_player_rel(other).is_some() => {
                 self.wave27c_remembered_player_rel(other)?

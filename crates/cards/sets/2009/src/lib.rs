@@ -385,6 +385,8 @@ pub mod griffin_sentinel;
 pub mod grim_discovery;
 #[path = "arb/grixis_grimblade.rs"]
 pub mod grixis_grimblade;
+#[path = "con_/grixis_illusionist.rs"]
+pub mod grixis_illusionist;
 #[path = "con_/grixis_slavedriver.rs"]
 pub mod grixis_slavedriver;
 #[path = "arb/grixis_sojourners.rs"]
@@ -519,6 +521,8 @@ pub mod kraken_hatchling;
 pub mod kranioceros;
 #[path = "zen/landbind_ritual.rs"]
 pub mod landbind_ritual;
+#[path = "con_/lapse_of_certainty.rs"]
+pub mod lapse_of_certainty;
 #[path = "arb/lavalanche.rs"]
 pub mod lavalanche;
 #[path = "arb/leonin_armorguard.rs"]
@@ -551,6 +555,8 @@ pub mod lurking_predators;
 pub mod madrush_cyclops;
 #[path = "con_/maelstrom_archangel.rs"]
 pub mod maelstrom_archangel;
+#[path = "arb/maelstrom_nexus.rs"]
+pub mod maelstrom_nexus;
 #[path = "arb/maelstrom_pulse.rs"]
 pub mod maelstrom_pulse;
 #[path = "m10/magebane_armor.rs"]
@@ -887,6 +893,8 @@ pub mod soul_s_majesty;
 pub mod soul_stair_expedition;
 #[path = "arb/soulquake.rs"]
 pub mod soulquake;
+#[path = "arb/sovereigns_of_lost_alara.rs"]
+pub mod sovereigns_of_lost_alara;
 #[path = "zen/spell_pierce.rs"]
 pub mod spell_pierce;
 #[path = "arb/spellbound_dragon.rs"]

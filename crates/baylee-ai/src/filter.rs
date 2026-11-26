@@ -554,6 +554,11 @@ impl HeuristicAgent {
             | Filter::EnteredThisTurn
             | Filter::PutIntoGraveyardThisTurn
             | Filter::SurveilledByYouThisTurn
+            | Filter::ControlledByYourTeam
+            | Filter::ControlledByPlayerWhoChoseMode(_)
+            | Filter::CreatedBySource
+            | Filter::AttachedHostOfRemembered
+            | Filter::OwnedBy(_)
             | Filter::AttackedThisTurn
             | Filter::ControlledSinceTurnBegan
             | Filter::SharesSubtypeWithCommander
@@ -614,7 +619,12 @@ impl HeuristicAgent {
         | Filter::IsRemembered
         | Filter::NotRemembered
         | Filter::SharesCardTypeWithRemembered
-        | Filter::SharesNameWithRemembered => None,
+        | Filter::SharesNameWithRemembered
+        | Filter::AttackingYouOrYourPlaneswalker
+        | Filter::DefendingPlayerIsYou
+        | Filter::SharesCardTypeWithReference
+        | Filter::CastForBlitz
+        | Filter::FirstMatchingSpellThisTurn(_) => None,
         }
     }
 
@@ -1090,8 +1100,13 @@ impl HeuristicAgent {
             .map(|c| c.card)
             .or_else(|| view.object(object).and_then(|o| o.card))
             .and_then(crate::policy::face)
-            .and_then(|face| face.alternative_costs.get(index))
-            .is_some_and(|alt| alt.cost.parts.is_empty())
+            .is_some_and(|face| {
+                face.alternative_costs
+                    .get(index)
+                    .map_or(index >= face.alternative_costs.len(), |alt| {
+                        alt.cost.parts.is_empty()
+                    })
+            })
     }
 
     /// Whether alternative cost `index` is a pure-upside mana-only conditional
@@ -1103,18 +1118,21 @@ impl HeuristicAgent {
             .map(|c| c.card)
             .or_else(|| view.object(object).and_then(|o| o.card))
             .and_then(crate::policy::face)
-            .and_then(|face| face.alternative_costs.get(index))
-            .is_some_and(|alt| {
-                alt.cost.parts.is_empty()
-                    && matches!(
-                        alt.condition,
-                        baylee_cards_dsl::AltCondition::If(
-                            baylee_cards_dsl::Condition::OpponentLostLifeThisTurn
-                                | baylee_cards_dsl::Condition::Surge
-                                | baylee_cards_dsl::Condition::Prowl
-                                | baylee_cards_dsl::Condition::DealtCombatDamageToPlayerByAssassinOrCommanderThisTurn
-                        )
-                    )
+            .is_some_and(|face| {
+                face.alternative_costs
+                    .get(index)
+                    .map_or(index >= face.alternative_costs.len(), |alt| {
+                        alt.cost.parts.is_empty()
+                            && matches!(
+                                alt.condition,
+                                baylee_cards_dsl::AltCondition::If(
+                                    baylee_cards_dsl::Condition::OpponentLostLifeThisTurn
+                                        | baylee_cards_dsl::Condition::Surge
+                                        | baylee_cards_dsl::Condition::Prowl
+                                        | baylee_cards_dsl::Condition::DealtCombatDamageToPlayerByAssassinOrCommanderThisTurn
+                                )
+                            )
+                    })
             })
     }
 
@@ -1501,7 +1519,8 @@ impl HeuristicAgent {
             | PlayerRel::ControllerOfAttached
             | PlayerRel::EnchantedPlayer
             | PlayerRel::OtherOpponents
-            | PlayerRel::ChosenBySource => {
+            | PlayerRel::ChosenBySource
+            | PlayerRel::PlayerToYourRight => {
                 return None;
             }
         })

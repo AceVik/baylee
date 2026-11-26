@@ -1357,6 +1357,10 @@ pub enum Rider {
     /// Marks a granted stack ability whose resolution runs Unearth (`CR 702.84a`;
     /// *Sedris*, *Dregscape Sliver*, *Mishra, Tamer of Mak Fawa*).
     UnearthAbility,
+    /// Permanent entered with mode `u8` chosen (`EnterModifier::ChooseMode`).
+    ChosenMode(u8),
+    /// Player `PlayerId` chose entry mode `u8` as this permanent entered (`EnterModifier::EachPlayerChooseMode`).
+    PlayerChosenMode(PlayerId, u8),
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -1452,6 +1456,8 @@ impl Rider {
             | Self::AttachmentHostLeft
             | Self::TriggerSourceVersion(_)
             | Self::CounterSourceVersion(_)
+            | Self::ChosenMode(_)
+            | Self::PlayerChosenMode(_, _)
             | Self::Flashback
             | Self::ExileInsteadOfGraveyard
             | Self::Buyback

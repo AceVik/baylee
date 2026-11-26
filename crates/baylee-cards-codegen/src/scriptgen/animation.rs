@@ -231,6 +231,7 @@ impl Tx<'_> {
             Some("UntilYourNextTurn") => "Duration::UntilYourNextTurn",
             Some("UntilYourNextUpkeep") => "Duration::UntilYourNextUpkeep",
             Some("UntilTheEndOfYourNextUpkeep") => "Duration::UntilEndOfYourNextUpkeep",
+            Some("UntilTheEndOfYourNextTurn") => "Duration::UntilEndOfYourNextTurn",
             Some("UntilHostLeavesPlay" | "AsLongAsInPlay") => "Duration::WhileSourceOnBattlefield",
             Some("AsLongAsControl") => "Duration::WhileYouControlSource",
             Some("UntilUntaps") => {

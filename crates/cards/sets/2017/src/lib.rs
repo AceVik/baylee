@@ -749,6 +749,8 @@ pub mod initiate_s_companion;
 pub mod inspiring_cleric;
 #[path = "aer/inspiring_roar.rs"]
 pub mod inspiring_roar;
+#[path = "aer/inspiring_statuary.rs"]
+pub mod inspiring_statuary;
 #[path = "akh/insult.rs"]
 pub mod insult;
 #[path = "aer/invigorated_rampage.rs"]
@@ -941,6 +943,8 @@ pub mod nest_robber;
 pub mod never;
 #[path = "hou/nicol_bolas_god_pharaoh.rs"]
 pub mod nicol_bolas_god_pharaoh;
+#[path = "hou/nicol_bolas_the_deceiver.rs"]
+pub mod nicol_bolas_the_deceiver;
 #[path = "aer/night_market_aeronaut.rs"]
 pub mod night_market_aeronaut;
 #[path = "aer/night_market_guard.rs"]
@@ -1203,6 +1207,10 @@ pub mod samut_voice_of_dissent;
 pub mod sanctum_seeker;
 #[path = "hou/sand_strangler.rs"]
 pub mod sand_strangler;
+#[path = "akh/sandwurm_convergence.rs"]
+pub mod sandwurm_convergence;
+#[path = "pxln/sanguine_sacrament.rs"]
+pub mod sanguine_sacrament;
 #[path = "xln/savage_stomp.rs"]
 pub mod savage_stomp;
 #[path = "akh/scaled_behemoth.rs"]
@@ -1313,6 +1321,8 @@ pub mod sorcerous_spyglass;
 pub mod soulstinger;
 #[path = "akh/sparring_mummy.rs"]
 pub mod sparring_mummy;
+#[path = "pxln/spell_swindle.rs"]
+pub mod spell_swindle;
 #[path = "hou/spellweaver_eternal.rs"]
 pub mod spellweaver_eternal;
 #[path = "xln/spike_tailed_ceratops.rs"]
@@ -1443,6 +1453,12 @@ pub mod tilonalli_s_knight;
 pub mod tishana_s_wayfinder;
 #[path = "pxln/tishana_voice_of_thunder.rs"]
 pub mod tishana_voice_of_thunder;
+#[path = "hou/torment_of_hailfire.rs"]
+pub mod torment_of_hailfire;
+#[path = "hou/torment_of_scarabs.rs"]
+pub mod torment_of_scarabs;
+#[path = "hou/torment_of_venom.rs"]
+pub mod torment_of_venom;
 #[path = "c17/traverse_the_outlands.rs"]
 pub mod traverse_the_outlands;
 #[path = "aer/treasure_keeper.rs"]

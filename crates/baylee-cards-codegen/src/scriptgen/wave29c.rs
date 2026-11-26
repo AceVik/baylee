@@ -1117,7 +1117,8 @@ impl Tx<'_> {
         if matches!(
             defined_copy,
             Some("ExiledWith" | "ValidExile Card.ExiledWithSource")
-        ) {
+        ) || self.wave30c_allow_imprinted_copy_permanent(defined_copy)
+        {
             return Some(wrap(&|amt| {
                 format!(
                     "Effect::ChooseCardEx {{ chooser: PlayerRel::You, zone: ChooseZone::LinkedExile, \

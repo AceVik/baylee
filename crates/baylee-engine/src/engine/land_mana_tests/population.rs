@@ -384,10 +384,10 @@ const FULL_CORPUS_OTHER_PERMANENTS: Bounds = Bounds {
     promises: 309..=309,
     creature_promises: 136..=136,
     unparsed: 164..=164,
-    fully_read: 650,
+    fully_read: 651,
     costly_lines: 218..=218,
     triggered_lines: 87..=87,
-    granted_lines: 98..=98,
+    granted_lines: 99..=99,
     self_granted: 11..=11,
     busy: 0,
     not_implemented: 0,
@@ -423,17 +423,17 @@ fn check_other_permanent_population(tally: &Tally) {
     );
     assert_eq!(
         eligible,
-        [460, 352, 13],
+        [460, 353, 13],
         "the coverage-tier population changed"
     );
     assert_eq!(
         readable,
-        [398, 252, 0],
+        [398, 253, 0],
         "the readable coverage tiers changed"
     );
     let expected: usize = readable.iter().sum();
     assert_eq!(
-        expected, 650,
+        expected, 651,
         "the independently enumerated full-corpus population changed; review additions/removals before updating its pin"
     );
     assert_eq!(
