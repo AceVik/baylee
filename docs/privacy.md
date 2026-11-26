@@ -697,12 +697,19 @@ only waits while one runs (`/run/baylee-backup/run.lock`).
   only ciphertext leaves it, for the owner's Google Drive (Google Ireland
   Limited), which holds no key. The app may touch only files it created
   itself (OAuth scope `drive.file`).
-- **How long:** snapshots that hold short-lived data (undelivered chat
-  messages and their deliveries, contact messages) are kept at most 14
-  days; the nightly archive, which leaves those tables' rows out, at most 12
-  months. The blocks a dropped snapshot alone used are deleted from Google
-  Drive at the next weekly prune, without Drive's trash: so at most 21 days
-  and at most 12 months and one week on Drive.
+- **How long, on Google Drive itself:** data in the hourly snapshots
+  (which also hold short-lived data: undelivered chat messages and their
+  deliveries, contact messages) **höchstens 14 Tage** (at most 14 days);
+  the nightly archive, which leaves those tables' rows out, **höchstens 12
+  Monate** (at most 12 months). The program forgets every hourly snapshot
+  older than 13 days and every archive snapshot older than 51 weeks,
+  counted from now whether backups run or not, and prunes every night at
+  01:30 with nothing left in partly used packs (`--max-unused 0`) and
+  without Drive's trash. So a deleted record is gone from Drive within 14
+  days at most; in normal running the hourly set's last snapshot holding it
+  is dropped about 13 days after the deletion and the next night's prune
+  removes its data. The worked example is in that repository's
+  `src/set.rs`.
 - **Deleted accounts:** each run records the ids (UUIDs only) of gateway
   and Central accounts deleted since the run before, in a list that is part
   of every snapshot. After a restore of an older snapshot those accounts are
