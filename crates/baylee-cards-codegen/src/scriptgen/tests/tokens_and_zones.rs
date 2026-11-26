@@ -2043,3 +2043,103 @@ fn wave23b_create_token_sized_refusals() {
         assert!(refused_sized(bad), "must refuse: {bad}");
     }
 }
+
+#[test]
+fn wave20_attach_player_and_distinct_mana_targets() {
+    // Archnemesis: `DB$ Attach | Object$ Self | Defined$ TriggeredAttackingPlayer` -> `TargetSpec::Player(PlayerRel::EventPlayer)`.
+    let archnemesis = read(
+        "Name:ArchnemesisLike\nManaCost:3 B\nTypes:Enchantment Aura\n\
+         K:Enchant:Opponent\n\
+         T:Mode$ AttackersDeclared | AttackedTarget$ You | TriggerZones$ Battlefield | Execute$ TrigAttach | OptionalDecider$ You\n\
+         SVar:TrigAttach:DB$ Attach | Object$ Self | Defined$ TriggeredAttackingPlayer",
+    );
+    assert!(
+        archnemesis.abilities.iter().any(|a| {
+            a.contains("Effect::AttachSelf { target: TargetSpec::Player(PlayerRel::EventPlayer) }")
+        }),
+        "{:?}",
+        archnemesis.abilities
+    );
+
+    // Ardenn: `ValidTgts$ Permanent,Player` + `Defined$ Targeted` + `Object$ Valid Aura.YouCtrl,Equipment.YouCtrl`.
+    let mut ardenn_cats = cats();
+    ardenn_cats.creature.push("Kor".into());
+    ardenn_cats.creature.push("Scout".into());
+    ardenn_cats.artifact.push("Equipment".into());
+    ardenn_cats.enchantment.push("Aura".into());
+    ardenn_cats.normalize();
+    let ardenn = transcode(
+        &parse(
+            "Name:ArdennLike\nManaCost:2 W\nTypes:Creature Kor Scout\nPT:2/2\n\
+             T:Mode$ Phase | Phase$ BeginCombat | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigAttach | OptionalDecider$ You\n\
+             SVar:TrigAttach:DB$ Attach | Defined$ Targeted | ValidTgts$ Permanent,Player | Object$ Valid Aura.YouCtrl,Equipment.YouCtrl | Optional$ True",
+        ),
+        &ardenn_cats,
+        None,
+    )
+    .expect("ArdennLike should transcode");
+    let ardenn_trig = &ardenn.abilities[0];
+    assert!(
+        ardenn_trig.contains("TargetSpec::PlayerOrObject(&")
+            && ardenn_trig.contains("Effect::AttachChosen {")
+            && ardenn_trig.contains("optional: true"),
+        "{ardenn_trig}"
+    );
+
+    // Agadeem's Awakening: `TargetMin$ 0 | TargetMax$ Y` with superset `Count$ValidGraveyard Creature.YouOwn`
+    // and `TargetsWithDifferentCMC$ True` -> `TargetReq { distinct_mana_values: true, ..TargetReq::up_to(..., 255) }`.
+    let agadeem = read(
+        "Name:AgadeemLike\nManaCost:X B B B\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Battlefield | TargetMin$ 0 | TargetMax$ Y | ValidTgts$ Creature.YouOwn+cmcLEX | TargetsWithDifferentCMC$ True\n\
+         SVar:X:Count$xPaid\n\
+         SVar:Y:Count$ValidGraveyard Creature.YouOwn",
+    );
+    assert!(
+        agadeem.abilities[0].contains("TargetReq { distinct_mana_values: true, ..TargetReq::up_to(TargetSpec::CardInGraveyard(")
+            && agadeem.abilities[0].contains("Effect::GraveyardToBattlefield {"),
+        "{}",
+        agadeem.abilities[0]
+    );
+
+    // Grind // Dust: `Creature.counters_GE1_M1M1` paired with `Count$Valid Creature.counters_GE_M1M1`.
+    let dust = read(
+        "Name:DustLike\nManaCost:3 W\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | ValidTgts$ Creature.counters_GE1_M1M1 | TargetMin$ 0 | TargetMax$ MaxTargets | Origin$ Battlefield | Destination$ Exile\n\
+         SVar:MaxTargets:Count$Valid Creature.counters_GE_M1M1",
+    );
+    assert!(
+        dust.abilities[0].contains("Effect::exile(TargetSpec::Object(")
+            && dust.abilities[0].contains("TargetReq::up_to(TargetSpec::Object(")
+            && dust.abilities[0].contains(", 255)"),
+        "{}",
+        dust.abilities[0]
+    );
+
+    // Honest refusals: optional self-attach to event player, Permanent,Player on Destroy,
+    // invalid/single-target TargetsWithDifferentCMC, mismatched counter upper bound, and Scheming Symmetry.
+    for bad in [
+        "Name:BadOptionalPlayerAttach\nManaCost:1 W\nTypes:Enchantment Aura\nK:Enchant:Player\n\
+         T:Mode$ AttackersDeclared | AttackedTarget$ You | TriggerZones$ Battlefield | Execute$ TrigAttach\n\
+         SVar:TrigAttach:DB$ Attach | Object$ Self | Defined$ TriggeredAttackingPlayer | Optional$ True",
+        "Name:BadDestroyPermPlayer\nManaCost:3 B\nTypes:Sorcery\n\
+         A:SP$ Destroy | ValidTgts$ Permanent,Player",
+        "Name:BadDistinctCmcSingle\nManaCost:2 B\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Battlefield | ValidTgts$ Creature.YouOwn | TargetsWithDifferentCMC$ True",
+        "Name:BadDistinctCmcMaybe\nManaCost:2 B\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Battlefield | TargetMin$ 0 | TargetMax$ 2 | ValidTgts$ Creature.YouOwn | TargetsWithDifferentCMC$ Maybe",
+        "Name:BadSupersetMax\nManaCost:X B B\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Battlefield | TargetMin$ 0 | TargetMax$ Y | ValidTgts$ Creature.YouOwn+cmcLEX | TargetsWithDifferentCMC$ True\n\
+         SVar:X:Count$xPaid\nSVar:Y:Count$ValidGraveyard Artifact.YouOwn",
+        "Name:BadCounterMax\nManaCost:3 W\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | ValidTgts$ Creature.counters_GE1_M1M1 | TargetMin$ 0 | TargetMax$ MaxTargets | Origin$ Battlefield | Destination$ Exile\n\
+         SVar:MaxTargets:Count$Valid Creature.counters_GE2_M1M1",
+        "Name:SchemingSymmetryLike\nManaCost:B\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | ValidTgts$ Player | TargetMin$ 2 | TargetMax$ 2 | Origin$ Library | Destination$ Library | ChangeType$ Card | ChangeNum$ 1",
+    ] {
+        assert!(
+            refused(bad),
+            "must refuse:
+{bad}"
+        );
+    }
+}

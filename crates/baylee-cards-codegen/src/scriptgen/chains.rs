@@ -180,6 +180,7 @@ impl Tx<'_> {
             let saved_range = chain.target_range;
             let saved_is_x = chain.target_is_x;
             let saved_up_to_x = chain.target_up_to_x;
+            let saved_distinct_cmc = chain.target_distinct_mana_values;
             let saved_constraint = chain.target_constraint;
             let saved_second = chain.second_target.clone();
             let saved_second_up_to = chain.second_target_up_to;
@@ -197,6 +198,7 @@ impl Tx<'_> {
             chain.target_range = saved_range;
             chain.target_is_x = saved_is_x;
             chain.target_up_to_x = saved_up_to_x;
+            chain.target_distinct_mana_values = saved_distinct_cmc;
             chain.target_constraint = saved_constraint;
             chain.second_target = saved_second;
             chain.second_target_up_to = saved_second_up_to;
@@ -1006,16 +1008,26 @@ impl Tx<'_> {
             && api == "ChangeZone"
             && p.peek("Origin") == Some("Graveyard")
             && p.peek("Destination") == Some("Battlefield")
-            && p.peek("RememberChanged") == Some("True")
-            && (self.sub_is_api(sub.as_deref(), "PutCounter")
-                || self.sub_is_api(sub.as_deref(), "Animate")
-                || sub
-                    .as_deref()
-                    .and_then(|s| self.svars.get(s.trim()))
-                    .and_then(|b| Params::parse(b))
-                    .is_some_and(|(s_api, sp)| {
-                        s_api == "Pump" && sp.peek("Duration") == Some("Permanent")
-                    }))
+            && ((p.peek("RememberChanged") == Some("True")
+                && (self.sub_is_api(sub.as_deref(), "PutCounter")
+                    || self.sub_is_api(sub.as_deref(), "Animate")
+                    || sub
+                        .as_deref()
+                        .and_then(|s| self.svars.get(s.trim()))
+                        .and_then(|b| Params::parse(b))
+                        .is_some_and(|(s_api, sp)| {
+                            s_api == "Pump" && sp.peek("Duration") == Some("Permanent")
+                        })))
+                || (!p.has("RememberChanged")
+                    && sub
+                        .as_deref()
+                        .and_then(|s| self.svars.get(s.trim()))
+                        .and_then(|b| Params::parse(b))
+                        .is_some_and(|(s_api, sp)| {
+                            s_api == "Pump"
+                                && sp.peek("Defined") == Some("Targeted")
+                                && sp.peek("Duration") == Some("Permanent")
+                        })))
             // This specialized move-and-modify reader has no delayed zone move.
             // Let the general CaptureAffected reader handle AtEOT chains instead.
             && sub
@@ -1352,6 +1364,7 @@ impl Tx<'_> {
             let saved_exact = chain.target_exact;
             let saved_is_x = chain.target_is_x;
             let saved_up_to_x = chain.target_up_to_x;
+            let saved_distinct_cmc = chain.target_distinct_mana_values;
             let saved_constraint = chain.target_constraint;
             let saved_unclaimed = self.unclaimed.borrow().clone();
             let saved_statics_len = self.body.statics.len();
@@ -1365,6 +1378,7 @@ impl Tx<'_> {
                 chain.target_exact = saved_exact;
                 chain.target_is_x = saved_is_x;
                 chain.target_up_to_x = saved_up_to_x;
+                chain.target_distinct_mana_values = saved_distinct_cmc;
                 chain.target_constraint = saved_constraint;
                 *self.unclaimed.borrow_mut() = saved_unclaimed;
                 self.body.statics.truncate(saved_statics_len);
@@ -1660,6 +1674,7 @@ impl Tx<'_> {
                 let saved_exact = chain.target_exact;
                 let saved_is_x = chain.target_is_x;
                 let saved_up_to_x = chain.target_up_to_x;
+                let saved_distinct_cmc = chain.target_distinct_mana_values;
                 let saved_constraint = chain.target_constraint;
                 let saved_unclaimed = self.unclaimed.borrow().clone();
                 let saved_statics_len = self.body.statics.len();
@@ -1689,6 +1704,7 @@ impl Tx<'_> {
                     chain.target_exact = saved_exact;
                     chain.target_is_x = saved_is_x;
                     chain.target_up_to_x = saved_up_to_x;
+                    chain.target_distinct_mana_values = saved_distinct_cmc;
                     chain.target_constraint = saved_constraint;
                     *self.unclaimed.borrow_mut() = saved_unclaimed;
                     self.body.statics.truncate(saved_statics_len);
@@ -1719,6 +1735,7 @@ impl Tx<'_> {
                 let saved_exact = chain.target_exact;
                 let saved_is_x = chain.target_is_x;
                 let saved_up_to_x = chain.target_up_to_x;
+                let saved_distinct_cmc = chain.target_distinct_mana_values;
                 let saved_constraint = chain.target_constraint;
                 let saved_unclaimed = self.unclaimed.borrow().clone();
                 let saved_statics_len = self.body.statics.len();
@@ -1748,6 +1765,7 @@ impl Tx<'_> {
                     chain.target_exact = saved_exact;
                     chain.target_is_x = saved_is_x;
                     chain.target_up_to_x = saved_up_to_x;
+                    chain.target_distinct_mana_values = saved_distinct_cmc;
                     chain.target_constraint = saved_constraint;
                     *self.unclaimed.borrow_mut() = saved_unclaimed;
                     self.body.statics.truncate(saved_statics_len);
@@ -3634,6 +3652,10 @@ impl Tx<'_> {
                                             &cv.replace("YouOwn", "YouCtrl"),
                                             &valid.replace("YouOwn", "YouCtrl"),
                                         )
+                                        || Self::is_valid_superset(
+                                            &cv.replace("YouOwn", "YouCtrl"),
+                                            &valid.replace("YouOwn", "YouCtrl"),
+                                        )
                                 }))
                     })
                 {
@@ -3668,7 +3690,8 @@ impl Tx<'_> {
                     let multi = chain.target_up_to.is_some_and(|m| m > 1)
                         || chain.target_exact.is_some_and(|n| n > 1)
                         || chain.target_range.is_some()
-                        || chain.target_is_x;
+                        || chain.target_is_x
+                        || chain.target_up_to_x;
                     // Reuse `apply_same_controller_target_req`'s exact object-only
                     // and multi-target validation.
                     self.apply_same_controller_target_req("TargetReq", &spec, multi)?;
@@ -3676,6 +3699,27 @@ impl Tx<'_> {
                 }
                 Some(other) => {
                     return self.deny(format!("`TargetsWithSameController$ {other}`"));
+                }
+            }
+            match p.take("TargetsWithDifferentCMC").as_deref() {
+                None | Some("False") => {}
+                Some("True") => {
+                    let multi = chain.target_up_to.is_some_and(|m| m > 1)
+                        || chain.target_exact.is_some_and(|n| n > 1)
+                        || chain.target_range.is_some()
+                        || chain.target_is_x
+                        || chain.target_up_to_x;
+                    let is_card_or_obj = spec.starts_with("TargetSpec::Object(")
+                        || spec.starts_with("TargetSpec::CardInGraveyard(");
+                    if !is_card_or_obj || !multi {
+                        return self.deny(
+                            "`TargetsWithDifferentCMC$` outside multi-object targets".to_string(),
+                        );
+                    }
+                    chain.target_distinct_mana_values = true;
+                }
+                Some(other) => {
+                    return self.deny(format!("`TargetsWithDifferentCMC$ {other}`"));
                 }
             }
             chain.target = Some(spec);
@@ -5934,6 +5978,7 @@ impl Tx<'_> {
             "Clone" => self.become_copy_effect(p, target, targets_here, false)?,
             "Pump" => self
                 .wave29b_pump_effect(p, aimed, target, false)
+                .or_else(|| self.pump_vanishing_effect(p, aimed))
                 .or_else(|| self.pump_effect(p, aimed, false))?,
             "PumpAll" => {
                 self.pump_all_effect(p, target, targets_here, targets_a_player, prior_target_used)?
@@ -6293,10 +6338,20 @@ impl Tx<'_> {
                 }
                 match (p.take("Object").as_deref(), p.take("Defined").as_deref()) {
                     (None | Some("Self"), Some(def)) => {
-                        if optional || target.is_some() || !self.is_event_object_defined(def) {
+                        if optional || target.is_some() {
                             return None;
                         }
-                        vec!["Effect::AttachSelf { target: TargetSpec::EventObject }".to_string()]
+                        if self.is_event_object_defined(def) {
+                            vec![
+                                "Effect::AttachSelf { target: TargetSpec::EventObject }"
+                                    .to_string(),
+                            ]
+                        } else {
+                            let rel = self.wave11_trigger_player_rel(def)?;
+                            vec![format!(
+                                "Effect::AttachSelf {{ target: TargetSpec::Player({rel}) }}"
+                            )]
+                        }
                     }
                     (None | Some("Self"), None) => {
                         let tgt = target.filter(|t| t.starts_with("TargetSpec::Object("))?;
@@ -7760,27 +7815,45 @@ impl Tx<'_> {
         (!out.is_empty()).then(|| out.join(","))
     }
 
+    fn parse_normalized_valid_alts(s: &str) -> Vec<(String, Vec<String>)> {
+        let mut alts: Vec<(String, Vec<String>)> = s
+            .split(',')
+            .map(|alt| {
+                let alt = alt.trim();
+                let (base, rest) = alt.split_once('.').unwrap_or((alt, ""));
+                let mut atoms: Vec<String> = rest
+                    .split('+')
+                    .map(str::trim)
+                    .filter(|x| !x.is_empty())
+                    .map(|atom| {
+                        atom.strip_prefix("counters_GE_")
+                            .map_or_else(|| atom.to_string(), |k| format!("counters_GE1_{k}"))
+                    })
+                    .collect();
+                atoms.sort();
+                (base.trim().to_string(), atoms)
+            })
+            .collect();
+        alts.sort();
+        alts
+    }
+
     pub(super) fn same_valid_atoms(a: &str, b: &str) -> bool {
-        let normalize = |s: &str| -> Vec<(String, Vec<String>)> {
-            let mut alts: Vec<(String, Vec<String>)> = s
-                .split(',')
-                .map(|alt| {
-                    let alt = alt.trim();
-                    let (base, rest) = alt.split_once('.').unwrap_or((alt, ""));
-                    let mut atoms: Vec<String> = rest
-                        .split('+')
-                        .map(str::trim)
-                        .filter(|x| !x.is_empty())
-                        .map(str::to_string)
-                        .collect();
-                    atoms.sort();
-                    (base.trim().to_string(), atoms)
+        Self::parse_normalized_valid_alts(a) == Self::parse_normalized_valid_alts(b)
+    }
+
+    /// True when every alternative in `sub` is a conjunction refinement of some
+    /// alternative in `sup` (same base type and all `+` atoms of `sup` present),
+    /// ensuring `Count$Valid* <sup>` is an exact upper bound for `sub`.
+    pub(super) fn is_valid_superset(sup: &str, sub: &str) -> bool {
+        let sup_alts = Self::parse_normalized_valid_alts(sup);
+        let sub_alts = Self::parse_normalized_valid_alts(sub);
+        !sub_alts.is_empty()
+            && sub_alts.iter().all(|(s_base, s_atoms)| {
+                sup_alts.iter().any(|(c_base, c_atoms)| {
+                    c_base == s_base && c_atoms.iter().all(|a| s_atoms.contains(a))
                 })
-                .collect();
-            alts.sort();
-            alts
-        };
-        normalize(a) == normalize(b)
+            })
     }
 
     /// Reads `Draw<N/You>` used as a loot cost or switched `UnlessCost$`.
@@ -8276,6 +8349,7 @@ impl Tx<'_> {
                 target_exact: chain.target_exact,
                 target_range: chain.target_range,
                 target_unique: chain.target_unique,
+                target_distinct_mana_values: chain.target_distinct_mana_values,
                 target_constraint: chain.target_constraint,
                 second_target: chain.second_target.clone(),
                 second_target_up_to: chain.second_target_up_to,
@@ -8291,6 +8365,7 @@ impl Tx<'_> {
                 || branch_chain.target_range != chain.target_range
                 || branch_chain.target_is_x != chain.target_is_x
                 || branch_chain.target_up_to_x != chain.target_up_to_x
+                || branch_chain.target_distinct_mana_values != chain.target_distinct_mana_values
                 || branch_chain.target_constraint != chain.target_constraint
             {
                 return None;
@@ -9256,6 +9331,7 @@ impl Tx<'_> {
                 target_up_to: chain.target_up_to,
                 target_exact: chain.target_exact,
                 target_unique: chain.target_unique,
+                target_distinct_mana_values: chain.target_distinct_mana_values,
                 target_constraint: chain.target_constraint,
                 second_target: chain.second_target.clone(),
                 second_target_up_to: chain.second_target_up_to,

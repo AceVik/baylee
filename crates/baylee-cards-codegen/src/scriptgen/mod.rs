@@ -428,6 +428,7 @@ struct Chain {
     target_exact: Option<u8>,
     target_range: Option<(u8, u8)>,
     target_unique: bool,
+    target_distinct_mana_values: bool,
     target_constraint: Option<&'static str>,
     second_target: Option<String>,
     second_target_is_x: bool,

@@ -1306,7 +1306,9 @@ impl Tx<'_> {
             )]);
         }
         if matches!(def_raw.as_str(), "Targeted" | "ParentTarget") {
-            let tgt = target.filter(|t| t.starts_with("TargetSpec::Object("))?;
+            let tgt = target.filter(|t| {
+                t.starts_with("TargetSpec::Object(") || t.starts_with("TargetSpec::PlayerOrObject(")
+            })?;
             return Some(vec![format!(
                 "Effect::AttachChosen {{ filter: &{att_name}, to: {tgt}, \
                  max: {max_expr}, optional: {optional} }}"

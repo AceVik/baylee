@@ -6055,3 +6055,67 @@ fn destroy_with_a_name_twin_condition_is_checked_only_on_resolution() {
         "Count$Valid Creature.sharesNameWith Targeted"
     )));
 }
+
+#[test]
+fn wave20_reanimate_cumulative_upkeep_and_vanishing_pump() {
+    // Dreams of the Dead: `ChangeZone` (Graveyard -> Battlefield) chained to
+    // `DB$ Pump | Defined$ Targeted | Duration$ Permanent | KW$ Cumulative upkeep:2 | LeaveBattlefield$ Exile`.
+    let dreams = read(
+        "Name:DreamsOfTheDeadLike\nManaCost:3 U\nTypes:Enchantment\n\
+         A:AB$ ChangeZone | Cost$ 1 U | Origin$ Graveyard | Destination$ Battlefield | ValidTgts$ Creature.White+YouCtrl,Creature.Black+YouCtrl | SubAbility$ DBPump\n\
+         SVar:DBPump:DB$ Pump | KW$ Cumulative upkeep:2 | LeaveBattlefield$ Exile | Defined$ Targeted | Duration$ Permanent",
+    );
+    let ability = &dreams.abilities[0];
+    assert!(
+        ability.contains("Effect::GraveyardToBattlefieldModified {")
+            && ability.contains("Modifier::ExileInsteadOfLeavingBattlefield")
+            && ability.contains("Modifier::GrantTriggered {")
+            && ability.contains(
+                "Amount::Times { base: &Amount::CountersOnSource(counters::AGE), factor: 2 }"
+            ),
+        "{ability}"
+    );
+
+    // Maelstrom Djinn: `DB$ Pump | Defined$ Self | KW$ Vanishing | Duration$ Permanent`.
+    let djinn = read(
+        "Name:MaelstromDjinnLike\nManaCost:7 U\nTypes:Creature Djinn\nPT:5/6\n\
+         T:Mode$ TurnFaceUp | ValidCard$ Card.Self | Execute$ TrigVanishing | TriggerZones$ Battlefield\n\
+         SVar:TrigVanishing:DB$ PutCounter | CounterType$ TIME | CounterNum$ 2 | SubAbility$ DBPump\n\
+         SVar:DBPump:DB$ Pump | Defined$ Self | KW$ Vanishing | Duration$ Permanent",
+    );
+    assert!(
+        djinn
+            .statics
+            .contains("Trigger::StepBegin { step: StepKind::Upkeep, whose: PlayerRel::You }")
+            && djinn
+                .statics
+                .contains("Condition::CountersOnSelf(CounterKind::Time, 1)")
+            && djinn.abilities[0]
+                .contains("Modifier::GrantTriggeredDefinition(&GRANTED_TRIGGER_1)")
+            && djinn.abilities[0]
+                .contains("Trigger::LastCounterRemoved { kind: CounterKind::Time, by: None }"),
+        "{} / {:?}",
+        djinn.statics,
+        djinn.abilities
+    );
+
+    // Honest refusals: temporary Vanishing, targeted Vanishing, non-Exile LeaveBattlefield, and invalid cumulative cost.
+    for bad in [
+        "Name:BadTempVanishing\nManaCost:2 U\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Pump | Cost$ U | Defined$ Self | KW$ Vanishing",
+        "Name:BadTargetedVanishing\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ Pump | ValidTgts$ Creature | KW$ Vanishing | Duration$ Permanent",
+        "Name:BadLeaveHand\nManaCost:3 U\nTypes:Enchantment\n\
+         A:AB$ ChangeZone | Cost$ 1 U | Origin$ Graveyard | Destination$ Battlefield | ValidTgts$ Creature.YouOwn | SubAbility$ DBPump\n\
+         SVar:DBPump:DB$ Pump | LeaveBattlefield$ Hand | Defined$ Targeted | Duration$ Permanent",
+        "Name:BadCumulativeCost\nManaCost:3 U\nTypes:Enchantment\n\
+         A:AB$ ChangeZone | Cost$ 1 U | Origin$ Graveyard | Destination$ Battlefield | ValidTgts$ Creature.YouOwn | SubAbility$ DBPump\n\
+         SVar:DBPump:DB$ Pump | KW$ Cumulative upkeep:BadCost | Defined$ Targeted | Duration$ Permanent",
+    ] {
+        assert!(
+            refused(bad),
+            "must refuse:
+{bad}"
+        );
+    }
+}

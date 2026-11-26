@@ -1027,28 +1027,20 @@ impl Tx<'_> {
     }
 
     fn activated_target_suffix(chain: &Chain) -> String {
-        chain.target.as_ref().map_or_default(|t| {
-            if let Some(max) = chain.target_up_to {
-                if max == 1 {
-                    format!(", targets = Some(TargetReq::up_to_one({t}))")
-                } else {
-                    format!(", targets = Some(TargetReq::up_to({t}, {max}))")
-                }
-            } else if let Some(n) = chain.target_exact {
-                format!(", targets = Some(TargetReq::exactly({t}, {n}))")
-            } else if let Some((min, max)) = chain.target_range {
-                format!(
-                    ", targets = Some({})",
-                    Self::wave28a_format_range_req(t, min, max)
-                )
-            } else if chain.target_up_to_x {
-                format!(", targets = Some(TargetReq::up_to_x({t}))")
-            } else if chain.target_is_x {
-                format!(", targets = Some(TargetReq::x_targets({t}))")
-            } else {
-                format!(", target = Some({t})")
-            }
-        })
+        let Some(t) = chain.target.as_deref() else {
+            return String::new();
+        };
+        if chain.target_up_to.is_none()
+            && chain.target_exact.is_none()
+            && chain.target_range.is_none()
+            && !chain.target_up_to_x
+            && !chain.target_is_x
+            && chain.target_constraint.is_none()
+            && !chain.target_distinct_mana_values
+        {
+            return format!(", target = Some({t})");
+        }
+        Self::target_req_expr(chain).map_or_default(|req| format!(", targets = Some({req})"))
     }
 
     fn activated_timing_suffix(
@@ -1539,9 +1531,14 @@ impl Tx<'_> {
         } else {
             format!("TargetReq::one({t})")
         };
-        Some(match chain.target_constraint {
+        let req = match chain.target_constraint {
             Some(constraint) => format!("{base}.with_constraint({constraint})"),
             None => base,
+        };
+        Some(if chain.target_distinct_mana_values {
+            format!("TargetReq {{ distinct_mana_values: true, ..{req} }}")
+        } else {
+            req
         })
     }
 
