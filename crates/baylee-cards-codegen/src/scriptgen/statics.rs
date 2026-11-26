@@ -5945,6 +5945,8 @@ impl Tx<'_> {
                 || a.contains("ExileMatchingWithSource")
                 || a.contains("ExileTopLinked")
                 || a.contains("RevealUntilFound::ExileLinked")
+                || a.contains("Effect::ExileLinked")
+                || a.contains("Effect::exile_linked(")
                 || a.contains("link_to_source: true")
         });
         let Some(zone_plan) = plan_alt_cast_zones(

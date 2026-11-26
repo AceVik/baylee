@@ -8352,3 +8352,168 @@ fn clone_second_target_accepts_up_to_one_first_target() {
     );
     assert!(refused(&script.replace("TargetMax$ 1", "TargetMax$ 2")));
 }
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn present_zone_exile_graveyard_daytime_and_linked_exile_may_play_unlocks() {
+    let exile_gate = read(
+        "Name:Exile Gate God\nManaCost:1 W B\nTypes:Legendary Creature God\nPT:4/4\n\
+         S:Mode$ CantAttack,CantBlock | ValidCard$ Card.Self | IsPresent$ Card | PresentZone$ Exile | PresentCompare$ LT7",
+    );
+    assert!(
+        exile_gate.abilities.iter().any(|a| a.contains(
+            "Condition::Not(&Condition::AmountAtLeast(Amount::CountOf { filter: &Filter::Any, zone: ZoneSel::ExileAll }, 7))"
+        )),
+        "{:?}",
+        exile_gate.abilities
+    );
+
+    let dreadlight = read(
+        "Name:Dreadlight Monstrosity\nManaCost:4 U U\nTypes:Creature Crab Horror\nPT:5/5\n\
+         K:Ward:2\n\
+         A:AB$ Effect | Cost$ 3 U U | RememberObjects$ Self | ExileOnMoved$ Battlefield | StaticAbilities$ Unblockable | IsPresent$ Card.YouOwn | PresentZone$ Exile\n\
+         SVar:Unblockable:Mode$ CantBlockBy | ValidAttacker$ Card.IsRemembered",
+    );
+    assert!(
+        dreadlight.abilities[1]
+            .contains("Amount::CountOf { filter: &Filter::OwnedByYou, zone: ZoneSel::ExileAll }"),
+        "{:?} / {}",
+        dreadlight.abilities,
+        dreadlight.statics
+    );
+
+    let galefang = read(
+        "Name:Howling Galefang\nManaCost:2 G G\nTypes:Creature Beast\nPT:4/4\n\
+         K:Vigilance\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Haste | IsPresent$ Card.AdventureCard+YouOwn | PresentZone$ Exile",
+    );
+    assert!(
+        galefang.abilities[0].contains("ZoneSel::ExileAll")
+            && galefang.statics.contains("Filter::HasAdventure")
+            && galefang.statics.contains("Filter::OwnedByYou"),
+        "{:?} / {}",
+        galefang.abilities,
+        galefang.statics
+    );
+
+    let all_hallows = read(
+        "Name:All Hallow's Eve\nManaCost:2 B B\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Origin$ Stack | Destination$ Exile | RememberChanged$ True | SubAbility$ DBPutCounter\n\
+         SVar:DBPutCounter:DB$ PutCounter | Defined$ Remembered | CounterType$ SCREAM | CounterNum$ 2 | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | IsPresent$ Card.Self+counters_GE1_SCREAM | PresentZone$ Exile | Execute$ TrigRemoveCounter | TriggerZones$ Exile\n\
+         SVar:TrigRemoveCounter:DB$ RemoveCounter | Defined$ Self | CounterType$ SCREAM | CounterNum$ 1 | SubAbility$ DBMoveToGraveyard\n\
+         SVar:DBMoveToGraveyard:DB$ ChangeZone | Origin$ Exile | Destination$ Graveyard | Defined$ Self | SubAbility$ DBResurrection | ConditionDefined$ Self | ConditionPresent$ Card.counters_EQ0_SCREAM\n\
+         SVar:DBResurrection:DB$ ChangeZoneAll | Origin$ Graveyard | Destination$ Battlefield | ChangeType$ Creature | ConditionDefined$ Self | ConditionPresent$ Card.counters_EQ0_SCREAM",
+    );
+    assert!(
+        all_hallows.abilities[0].contains("Effect::ExileSourceWithCounters")
+            && all_hallows.abilities[1].contains("zone = TriggerZone::Exile")
+            && all_hallows.abilities[1].contains("Condition::SourceMatches(")
+            && all_hallows.abilities[1].contains("Effect::MoveSourceToOwnerGraveyard"),
+        "{:?}",
+        all_hallows.abilities
+    );
+    assert!(
+        all_hallows
+            .statics
+            .contains("Filter::InZone(ZoneRef::Exile)")
+            && all_hallows.statics.contains("counters::SCREAM"),
+        "{}",
+        all_hallows.statics
+    );
+
+    let profane = read(
+        "Name:Profane Procession\nManaCost:1 W B\nTypes:Legendary Enchantment\n\
+         A:AB$ ChangeZone | Cost$ 3 W B | ValidTgts$ Creature | Origin$ Battlefield | Destination$ Exile | SubAbility$ DBTransform\n\
+         SVar:DBTransform:DB$ SetState | ConditionZone$ Exile | ConditionPresent$ Card.ExiledWithSource | ConditionCompare$ GE3 | Defined$ Self | Mode$ Transform",
+    );
+    assert!(
+        profane.abilities[0].contains("Effect::exile_linked(")
+            && profane.abilities[0]
+                .contains("Amount::CountOf { filter: &Filter::Any, zone: ZoneSel::LinkedExile }"),
+        "{:?}",
+        profane.abilities
+    );
+
+    let sunstreak = read(
+        "Name:Sunstreak Phoenix\nManaCost:2 R R\nTypes:Creature Phoenix\nPT:4/2\n\
+         K:Flying\n\
+         R:Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | DayTime$ Neither | ReplaceWith$ DoDay | ReplacementResult$ Updated\n\
+         SVar:DoDay:DB$ DayTime | Value$ Day\n\
+         T:Mode$ DayTimeChanges | Execute$ TrigReturn | TriggerZones$ Graveyard\n\
+         SVar:TrigReturn:AB$ ChangeZone | Cost$ 1 R | Origin$ Graveyard | Destination$ Battlefield | Tapped$ True",
+    );
+    assert!(
+        sunstreak.enter_modifiers == ["EnterModifier::BecomeDayIfNeither"]
+            && sunstreak.abilities.iter().any(|a| {
+                a.contains("Trigger::DayNightChanges")
+                    && a.contains("zone = TriggerZone::Graveyard")
+                    && a.contains("Effect::ReturnSourceFromGraveyard")
+            }),
+        "{:?} / {:?}",
+        sunstreak.enter_modifiers,
+        sunstreak.abilities
+    );
+
+    let dawnhand = read(
+        "Name:Dawnhand Dissident\nManaCost:B\nTypes:Creature Elf Warlock\nPT:1/2\n\
+         A:AB$ Surveil | Cost$ T Blight<1> | Amount$ 1\n\
+         A:AB$ ChangeZone | Cost$ T Blight<2> | Origin$ Graveyard | Destination$ Exile | ValidTgts$ Card\n\
+         S:Mode$ Continuous | Affected$ Creature.YouOwn+ExiledWithSource | Condition$ PlayerTurn | MayPlay$ True | EffectZone$ Battlefield | AffectedZone$ Exile | RaiseCost$ RemoveAnyCounter<3/Any/Creature>\n\
+         Oracle:{T}, Blight 1: Surveil 1.\\n{T}, Blight 2: Exile target card from a graveyard.\\nDuring your turn, you may cast creature spells from among cards you own exiled with this creature by removing three counters from among creatures you control in addition to paying their other costs.",
+    );
+    assert!(
+        dawnhand.abilities[1].contains("Effect::exile_linked(")
+            && dawnhand.abilities[2].contains("zones: AltCastZones::LinkedExile")
+            && dawnhand.abilities[2].contains("AltCastPrice::NormalPlus("),
+        "{:?}",
+        dawnhand.abilities
+    );
+}
+
+#[test]
+fn exile_present_and_linked_exile_soundness_refusal_guards() {
+    // 2HG soundness: OppOwn in PresentZone$ Exile stays refused.
+    assert!(refused(
+        "Name:Warden of the Beyond\nManaCost:2 W\nTypes:Creature Human Wizard\nPT:2/2\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddPower$ 2 | AddToughness$ 2 | IsPresent$ Card.OppOwn | PresentZone$ Exile"
+    ));
+
+    // Linked-exile MayPlay beside an unlinked Dig -> ExileTop producer stays refused (Rona).
+    assert!(refused(
+        "Name:Rona, Disciple of Gix\nManaCost:1 U B\nTypes:Legendary Creature Human Artificer\nPT:2/2\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ HistoricExile | OptionalDecider$ You\n\
+         SVar:HistoricExile:DB$ ChangeZone | ValidTgts$ Card.Historic+YouOwn | Origin$ Graveyard | Destination$ Exile\n\
+         S:Mode$ Continuous | MayPlay$ True | Affected$ Card.nonLand+ExiledWithSource | AffectedZone$ Exile\n\
+         A:AB$ Dig | Cost$ 4 T | Defined$ You | DigNum$ 1 | ChangeNum$ All | DestinationZone$ Exile"
+    ));
+
+    // Suspended self-present, Redemptor ExiledWithSource$CardPower, Intrepid CastSa Spell.MayPlaySource,
+    // Kaldring TgtZone$ Graveyard + tapped land, Deathmist FaceDown GY return, Surveil GY trigger, Discard.UnlessType stay refused.
+    for script in [
+        "Name:Curse of the Cabal\nManaCost:9 B\nTypes:Sorcery\nK:Suspend:2:2 B B\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ Player | Execute$ TrigCurse | TriggerZones$ Exile | IsPresent$ Card.suspended+Self | PresentZone$ Exile\n\
+         SVar:TrigCurse:DB$ Draw | Defined$ You | NumCards$ 1",
+        "Name:Redemptor Dreadnought\nManaCost:5\nTypes:Artifact Creature\nPT:4/4\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ TrigPump | IsPresent$ Card.ExiledWithSource | PresentZone$ Exile\n\
+         SVar:TrigPump:DB$ Pump | Defined$ Self | NumDef$ +Y | NumAtt$ +Y\n\
+         SVar:Y:Count$ValidExile Card.ExiledWithSource$CardPower",
+        "Name:Intrepid Paleontologist\nManaCost:1 G\nTypes:Creature Human Druid\nPT:2/2\n\
+         A:AB$ ChangeZone | Cost$ 2 | Origin$ Graveyard | Destination$ Exile | ValidTgts$ Card\n\
+         S:Mode$ Continuous | MayPlay$ True | Affected$ Dinosaur.ExiledWithSource+YouOwn | AffectedZone$ Exile\n\
+         T:Mode$ SpellCast | ValidCard$ Card.CastSa Spell.MayPlaySource | Execute$ TrigEffect | Static$ True | TriggerZones$ Battlefield\n\
+         SVar:TrigEffect:DB$ Draw | Defined$ You | NumCards$ 1",
+        "Name:Deathmist Raptor\nManaCost:1 G G\nTypes:Creature Dinosaur Beast\nPT:3/3\n\
+         T:Mode$ TurnFaceUp | ValidCard$ Permanent.YouCtrl | Execute$ TrigChange | TriggerZones$ Graveyard | OptionalDecider$ You\n\
+         SVar:TrigChange:DB$ ChangeZone | Origin$ Graveyard | Destination$ Battlefield | FaceDown$ True",
+        "Name:Blood Operative\nManaCost:1 B B\nTypes:Creature Vampire Assassin\nPT:3/1\n\
+         T:Mode$ Surveil | ValidPlayer$ You | Execute$ TrigReturn | TriggerZones$ Graveyard | IsPresent$ Card.StrictlySelf | PresentZone$ Graveyard | PresentPlayer$ You\n\
+         SVar:TrigReturn:DB$ ChangeZone | Defined$ Self | Origin$ Graveyard | Destination$ Hand",
+        "Name:Compulsive Research\nManaCost:2 U\nTypes:Sorcery\n\
+         A:SP$ Draw | NumCards$ 3 | SubAbility$ DBDiscard\n\
+         SVar:DBDiscard:DB$ Discard | NumCards$ 2 | Mode$ TgtChoose | UnlessType$ Land",
+    ] {
+        assert!(refused(script), "must refuse: {script}");
+    }
+}
