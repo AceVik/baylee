@@ -3305,21 +3305,11 @@ fn wave10b_move_counter_and_move_counter_to_event() {
         "Name:MoveAll\nManaCost:1 U\nTypes:Instant\n\
          A:SP$ MoveCounter | Source$ Self | ValidTgts$ Creature | CounterType$ All | CounterNum$ All"
     ));
-    let move_unique = read(
+    assert!(refused(
         "Name:MoveUnique\nTypes:Land\n\
          A:AB$ TargetOnly | Cost$ 1 T | ValidTgts$ Permanent.YouCtrl | SubAbility$ Move\n\
-         SVar:Move:DB$ MoveCounter | Source$ ParentTarget | ValidTgts$ Permanent | TargetUnique$ True | CounterType$ Any | CounterNum$ 1",
-    );
-    assert!(
-        move_unique.abilities[0].contains(
-            "Effect::MoveCounter { from: TargetSlot::First, to: TargetSlot::Second, kind: None }"
-        ) && move_unique
-            .statics
-            .contains("Filter::And(&[Filter::Any, Filter::Not(&Filter::Reference)])"),
-        "{} / {}",
-        move_unique.abilities[0],
-        move_unique.statics
-    );
+         SVar:Move:DB$ MoveCounter | Source$ ParentTarget | ValidTgts$ Permanent | TargetUnique$ True | CounterType$ Any | CounterNum$ 1"
+    ));
 }
 
 #[test]

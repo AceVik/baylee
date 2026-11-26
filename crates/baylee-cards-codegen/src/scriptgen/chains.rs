@@ -3148,10 +3148,7 @@ impl Tx<'_> {
                         self.change_targets_target(valid, p.peek("TargetType"))
                     } else if chain.target.is_some()
                         && (chain.target_unique
-                            || matches!(
-                                api,
-                                "Fight" | "DealDamage" | "Clone" | "Tap" | "Untap" | "MoveCounter"
-                            ))
+                            || matches!(api, "Fight" | "DealDamage" | "Clone" | "Tap" | "Untap"))
                         && p.peek("TargetUnique") == Some("True")
                         && api != "Counter"
                     {
@@ -3328,6 +3325,7 @@ impl Tx<'_> {
                     is_obj_spec
                         && single_object_first
                         && p.peek("Source") == Some("ParentTarget")
+                        && !has_target_unique
                         && no_riders(p)
                 }
                 "TargetOnly" => {

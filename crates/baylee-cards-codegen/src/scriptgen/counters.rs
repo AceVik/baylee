@@ -311,9 +311,14 @@ impl Tx<'_> {
             target_unique: chain.target_unique,
             target_constraint: chain.target_constraint,
             second_target: chain.second_target.clone(),
+            second_target_is_x: chain.second_target_is_x,
             second_target_up_to: chain.second_target_up_to,
             second_target_range: chain.second_target_range,
+            second_target_constraint: chain.second_target_constraint,
             third_target: chain.third_target.clone(),
+            third_target_up_to: chain.third_target_up_to,
+            third_target_range: chain.third_target_range,
+            third_target_constraint: chain.third_target_constraint,
             ..Chain::default()
         };
         self.chain_inner(&single_spec, &mut child_chain)?;
@@ -329,9 +334,14 @@ impl Tx<'_> {
         chain.target_unique = child_chain.target_unique;
         chain.target_constraint = child_chain.target_constraint;
         chain.second_target = child_chain.second_target;
+        chain.second_target_is_x = child_chain.second_target_is_x;
         chain.second_target_up_to = child_chain.second_target_up_to;
         chain.second_target_range = child_chain.second_target_range;
+        chain.second_target_constraint = child_chain.second_target_constraint;
         chain.third_target = child_chain.third_target;
+        chain.third_target_up_to = child_chain.third_target_up_to;
+        chain.third_target_range = child_chain.third_target_range;
+        chain.third_target_constraint = child_chain.third_target_constraint;
         chain.could_add_mana |= child_chain.could_add_mana;
         chain.moves_library |= child_chain.moves_library;
         Some((cond, next_sub, child_chain.effects))
