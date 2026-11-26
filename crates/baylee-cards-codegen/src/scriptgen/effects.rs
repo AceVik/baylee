@@ -4719,13 +4719,36 @@ impl Tx<'_> {
         let Some(eff_name) = sub.take() else {
             return self.deny("top-of-library exile without `SubAbility$`".into());
         };
-        let (spec, next_sub) = self.consume_remembered_exile_play_effect(
+        let (spec, cond_present, next_sub) = self.consume_remembered_exile_play_effect_cond(
             &eff_name,
             who == "PlayerRel::You",
+            true,
             "top-of-library exile",
         )?;
         if let Some(cname) = next_sub {
             self.consume_optional_remember_cleanup(cname, sub)?;
+        }
+        let cond_filter = match cond_present.as_deref() {
+            Some(raw) => {
+                if fixed_count != Some(1) {
+                    return self
+                        .deny("multi-card conditional top-of-library exile permission".into());
+                }
+                Some(self.filter_expr_in_zone(raw, true)?)
+            }
+            None => None,
+        };
+        if cond_filter.is_some() || spec.extra_filter.is_some() {
+            let expr = match (cond_filter, spec.extra_filter.clone()) {
+                (Some(a), Some(b)) => format!("Filter::And(&[{a}, {b}])"),
+                (Some(f), None) | (None, Some(f)) => f,
+                (None, None) => unreachable!(),
+            };
+            let filter_name = self.body.filter_static("EXILE_PLAY", &expr);
+            let permission = spec.to_expr();
+            return Some(vec![format!(
+                "Effect::CaptureAffected {{ first: &[Effect::ExileTop {{ who: {who},                  count: {amount_expr} }}], then: &[Effect::GrantRememberedExilePermission {{                  filter: &{filter_name}, permission: {permission} }}] }}"
+            )]);
         }
         if spec.cast_only
             && spec.spell_types.is_none()
@@ -5485,6 +5508,25 @@ impl Tx<'_> {
         allow_you_own: bool,
         context: &str,
     ) -> Option<(ExilePermissionSpec, Option<String>)> {
+        let (spec, cond_present, next_sub) = self.consume_remembered_exile_play_effect_cond(
+            eff_name,
+            allow_you_own,
+            false,
+            context,
+        )?;
+        if cond_present.is_some() || spec.extra_filter.is_some() {
+            return self.deny(format!("{context} with unsupported exile filter"));
+        }
+        Some((spec, next_sub))
+    }
+
+    fn consume_remembered_exile_play_effect_cond(
+        &mut self,
+        eff_name: &str,
+        allow_you_own: bool,
+        allow_cond_and_extra: bool,
+        context: &str,
+    ) -> Option<(ExilePermissionSpec, Option<String>, Option<String>)> {
         let Some(eff_body) = self.svars.get(eff_name).cloned() else {
             return self.deny(format!("`SubAbility$ {eff_name}` names no SVar"));
         };
@@ -5509,6 +5551,18 @@ impl Tx<'_> {
                 "a {context} follow-up other than an exiled-card play permission"
             ));
         }
+        let cond_present = if allow_cond_and_extra
+            && ep.peek("ConditionDefined") == Some("Remembered")
+            && matches!(
+                ep.peek("ConditionCompare"),
+                None | Some("GE1" | "EQ1" | "GT0")
+            ) {
+            ep.take("ConditionDefined");
+            ep.take("ConditionCompare");
+            ep.take("ConditionPresent")
+        } else {
+            None
+        };
         let raw_duration = ep.take("Duration");
         let Some(static_name) = ep.take("StaticAbilities") else {
             return self.deny(format!("{context} `Effect` without `StaticAbilities$`"));
@@ -5548,7 +5602,10 @@ impl Tx<'_> {
             allow_you_own,
             raw_duration.as_deref(),
         )?;
-        Some((spec, next_sub))
+        if !allow_cond_and_extra && spec.extra_filter.is_some() {
+            return self.deny(format!("{context} with unsupported exile filter"));
+        }
+        Some((spec, cond_present, next_sub))
     }
 
     /// Parses a `ChooseCard(ChoiceZone$ Exile)` follow-up `DB$ Effect` (with an
@@ -5625,6 +5682,9 @@ impl Tx<'_> {
             allow_you_own,
             raw_duration.as_deref(),
         )?;
+        if spec.extra_filter.is_some() {
+            return None;
+        }
         let trailing = self.strip_chosen_card_cleanup_tail(next_sub);
         Some((spec, trailing))
     }
@@ -5692,8 +5752,8 @@ impl Tx<'_> {
             }
         };
         let affected = sp.take("Affected")?;
-        let Some((cast_only, spell_types)) =
-            Self::parse_exile_affected(&affected, marker, allow_you_own)
+        let Some((cast_only, spell_types, extra_filter)) =
+            self.parse_exile_affected(&affected, marker, allow_you_own)
         else {
             return self.deny(format!(
                 "exile play static ability with unsupported `Affected$ {affected}`"
@@ -5744,16 +5804,18 @@ impl Tx<'_> {
             window,
             cast_only,
             spell_types,
+            extra_filter,
             free,
             mana,
         })
     }
 
     fn parse_exile_affected(
+        &self,
         affected: &str,
         marker: ExileAffectedMarker,
         allow_you_own: bool,
-    ) -> Option<(bool, Option<String>)> {
+    ) -> Option<(bool, Option<String>, Option<String>)> {
         let is_marker = |atom: &str| match marker {
             ExileAffectedMarker::LinkedSource => {
                 matches!(atom, "ExiledWithEffectSource" | "ExiledWithSource")
@@ -5771,6 +5833,7 @@ impl Tx<'_> {
         let mut type_bits: Vec<&'static str> = Vec::new();
         let mut saw_nonland = false;
         let mut saw_untyped = false;
+        let mut extra_atoms: Vec<&str> = Vec::new();
         for alt in &alts {
             let mut parts = alt
                 .split(['.', '+'])
@@ -5798,6 +5861,15 @@ impl Tx<'_> {
                     && alt_type.is_none()
                 {
                     alt_type = Some(tc);
+                } else if marker == ExileAffectedMarker::Remembered
+                    && alts.len() == 1
+                    && base == "Card"
+                    && !atom.contains("Remembered")
+                    && !atom.contains("Imprinted")
+                    && !atom.contains("Chosen")
+                    && !atom.contains("ExiledWith")
+                {
+                    extra_atoms.push(atom);
                 } else {
                     return None;
                 }
@@ -5811,20 +5883,29 @@ impl Tx<'_> {
                 saw_untyped = true;
             }
         }
+        let extra_filter = if extra_atoms.is_empty() {
+            None
+        } else {
+            if alts.len() != 1 || !type_bits.is_empty() {
+                return None;
+            }
+            let raw = format!("Card.{}", extra_atoms.join("+"));
+            Some(self.filter_expr_in_zone(&raw, true)?)
+        };
         if saw_untyped {
             if alts.len() != 1 || !type_bits.is_empty() {
                 return None;
             }
-            return Some((saw_nonland, None));
+            return Some((saw_nonland, None, extra_filter));
         }
-        if type_bits.is_empty() {
+        if type_bits.is_empty() || extra_filter.is_some() {
             return None;
         }
         let mut expr = type_bits[0].to_string();
         for bit in &type_bits[1..] {
             expr = format!("{expr}.union({bit})");
         }
-        Some((saw_nonland, Some(expr)))
+        Some((saw_nonland, Some(expr), None))
     }
 
     pub(super) fn consume_optional_remember_cleanup(
@@ -6091,10 +6172,11 @@ impl Tx<'_> {
     }
 
     pub(super) fn has_linked_exile_reader(&self) -> bool {
-        self.svars
-            .values()
-            .any(|s| s.contains("Defined$ ExiledWith") || s.contains("Card.ExiledWithSource"))
-            || self.oracle.to_ascii_lowercase().contains("exiled with ")
+        self.svars.values().any(|s| {
+            s.contains("Defined$ ExiledWith")
+                || s.contains(".ExiledWithSource")
+                || s.contains("+ExiledWithSource")
+        }) || self.oracle.to_ascii_lowercase().contains("exiled with ")
     }
 
     /// Whether every line that reads this card's linked exile is the plain
@@ -7899,6 +7981,9 @@ impl Tx<'_> {
         None
     }
 
+    /// Like [`Self::strip_your_graveyard_owner`], also accepting `YouCtrl` on
+    /// `ValidZone$ Graveyard` scripts (*Chandra Ablaze*), where every card in
+    /// your graveyard is owned by you (`CR 400.3`).
     pub(super) fn strip_graveyard_owner(valid: &str) -> Option<(Option<&'static str>, String)> {
         if let Some(stripped) = Self::strip_your_graveyard_owner(valid) {
             return Some((Some("PlayerRel::You"), stripped));
@@ -7918,7 +8003,11 @@ impl Tx<'_> {
                 .filter(|a| !a.is_empty())
             {
                 let parsed = match atom {
-                    "OppOwn" | "OppCtrl" | "YouDontOwn" => Some("PlayerRel::EachOpponent"),
+                    "OppOwn"
+                    | "OppCtrl"
+                    | "YouDontOwn"
+                    | "OwnedBy Player.Opponent"
+                    | "OwnedBy Opponent" => Some("PlayerRel::EachOpponent"),
                     "TargetedPlayerOwn" | "TargetedPlayerCtrl" => Some("PlayerRel::Chosen"),
                     _ if atom.contains("Ctrl") || atom.contains("Own") => return None,
                     _ => None,
@@ -10774,7 +10863,7 @@ impl Tx<'_> {
         let copy_target = match defined_copy.as_deref() {
             None if targets_here => obj_target?.to_string(),
             Some("Targeted" | "ParentTarget") => obj_target?.to_string(),
-            Some("Self") if !self.on_a_spell && (target.is_none() || targets_a_player) => {
+            Some("Self") if !self.on_a_spell && (!targets_here || targets_a_player) => {
                 "TargetSpec::ThisObject".to_string()
             }
             Some("Enchanted" | "Equipped")
@@ -10821,6 +10910,9 @@ impl Tx<'_> {
         targets_here: bool,
         second_target_here: bool,
     ) -> Option<Vec<String>> {
+        if p.peek("Choices").is_some() {
+            return self.clone_choices_effect(p, target, second_target_here);
+        }
         if !matches!(p.take("CloneZone").as_deref(), None | Some("Battlefield")) {
             return None;
         }
@@ -16287,6 +16379,13 @@ impl Tx<'_> {
         sub: Option<&str>,
     ) -> Option<(String, Option<String>)> {
         if !remember_revealed {
+            if library == "PlayerRel::You"
+                && count == "Amount::Fixed(1)"
+                && let Some(sub_name) = sub
+                && let Some(res) = self.peek_no_peek_clone(library, sub_name)
+            {
+                return Some(res);
+            }
             return Some((
                 format!(
                     "Effect::RevealTop {{ player: {library}, count: {count}, \
@@ -21006,6 +21105,19 @@ impl Tx<'_> {
             let filter_ref = self.combine_play_filters(None, sa_filter)?;
             return Some((source, filter_ref));
         }
+        if valid.is_none()
+            && valid_zone.is_none()
+            && sa_owner.is_none()
+            && target.is_none()
+            && !self.on_a_spell
+            && self.in_graveyard_trigger
+        {
+            let filter_ref = self.combine_play_filters(None, sa_filter)?;
+            return Some((
+                "PlaySource::Subject(TargetSpec::ThisObject)".to_string(),
+                filter_ref,
+            ));
+        }
         let valid_raw = valid?;
         let zone_raw = valid_zone.unwrap_or_else(|| "Hand".to_string());
         if zone_raw == "Exile" && valid_raw == "Card.Self" && !self.on_a_spell && sa_owner.is_none()
@@ -21028,6 +21140,17 @@ impl Tx<'_> {
             let filter_ref = self.combine_play_filters(base, sa_filter)?;
             return Some(("PlaySource::LinkedExile".to_string(), filter_ref));
         }
+        self.parse_play_zone_source_and_filter(&valid_raw, &zone_raw, target, sa_owner, sa_filter)
+    }
+
+    fn parse_play_zone_source_and_filter(
+        &mut self,
+        valid_raw: &str,
+        zone_raw: &str,
+        target: Option<&str>,
+        sa_owner: Option<&'static str>,
+        sa_filter: Option<String>,
+    ) -> Option<(String, String)> {
         if valid_raw.contains("IsRemembered")
             || valid_raw.contains("IsImprinted")
             || valid_raw.contains("ExiledWith")
@@ -21035,7 +21158,7 @@ impl Tx<'_> {
         {
             return None;
         }
-        let zone_ref = match zone_raw.as_str() {
+        let zone_ref = match zone_raw {
             "Hand" => "ZoneRef::Hand",
             "Graveyard" => "ZoneRef::Graveyard",
             "Exile" => "ZoneRef::Exile",
@@ -21045,7 +21168,7 @@ impl Tx<'_> {
             }
             _ => return None,
         };
-        let (mut valid_owner, cleaned) = Self::strip_graveyard_owner(&valid_raw)?;
+        let (mut valid_owner, cleaned) = Self::strip_graveyard_owner(valid_raw)?;
         // The untargeted instant-or-sorcery permission says whose graveyards it can use.
         // An upstream owned-card restriction would exclude the other graveyards.
         if zone_ref == "ZoneRef::Graveyard"
@@ -21135,8 +21258,25 @@ impl Tx<'_> {
             None | Some("1") => "PlayCount::One".to_string(),
             Some("All") => "PlayCount::All".to_string(),
             Some(raw) => {
-                let n: u8 = self.plain_num(raw)?.try_into().ok().filter(|&n| n >= 2)?;
-                format!("PlayCount::UpTo({n})")
+                let valid_peek = p.peek("Valid");
+                let is_all_graveyard = optional
+                    && p.peek("ValidZone") == Some("Graveyard")
+                    && matches!(p.peek("Controller"), None | Some("You"))
+                    && valid_peek.is_some_and(|vp| {
+                        let norm_vp = vp
+                            .replace("+YouCtrl", "+YouOwn")
+                            .replace(".YouCtrl", ".YouOwn");
+                        self.svars
+                            .get(raw)
+                            .and_then(|s| s.trim().strip_prefix("Count$ValidGraveyard "))
+                            .is_some_and(|gv| gv.trim() == norm_vp)
+                    });
+                if is_all_graveyard {
+                    "PlayCount::All".to_string()
+                } else {
+                    let n: u8 = self.plain_num(raw)?.try_into().ok().filter(|&n| n >= 2)?;
+                    format!("PlayCount::UpTo({n})")
+                }
             }
         };
         let controller =
@@ -22591,6 +22731,7 @@ pub(super) struct ExilePermissionSpec {
     window: &'static str,
     cast_only: bool,
     spell_types: Option<String>,
+    extra_filter: Option<String>,
     free: bool,
     mana: &'static str,
 }

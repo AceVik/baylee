@@ -6503,4 +6503,242 @@ SVar:RPrevent:Event$ DamageDone | Prevent$ True | IsCombat$ True | ValidSource$ 
         "{}",
         chance.abilities[0]
     );
+
+fn clone_choices_exile_link_and_top_of_library_clone_and_copy_self_after_target() {
+    let cytoshape = read(
+        "Name:Cytoshape\nManaCost:1 G U\nTypes:Instant\n\
+         A:SP$ Clone | Choices$ Creature.nonLegendary | ChoiceTitle$ Choose a nonlegendary creature to copy | ValidTgts$ Creature | TgtPrompt$ Choose target creature to become a copy | Duration$ UntilEndOfTurn",
+    );
+    assert!(
+        cytoshape.abilities[0].contains("Effect::ChooseCardEx")
+            && cytoshape.abilities[0].contains("ChooseZone::Battlefield")
+            && cytoshape.abilities[0].contains("Effect::BecomeCopy")
+            && cytoshape.abilities[0].contains("subject: TargetSlot::First")
+            && cytoshape.abilities[0].contains("original: TargetSpec::EventObject")
+            && cytoshape.abilities[0].contains("until_eot: true"),
+        "{:?}",
+        cytoshape.abilities
+    );
+
+    let deepfathom = read(
+        "Name:Deepfathom Echo\nManaCost:2 G U\nTypes:Creature Merfolk Spirit\nPT:4/4\n\
+         T:Mode$ Phase | Phase$ BeginCombat | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigExplore\n\
+         SVar:TrigExplore:DB$ Explore | SubAbility$ DBClone\n\
+         SVar:DBClone:DB$ Clone | Choices$ Creature.Other+YouCtrl | ChoiceTitle$ Select another target creature you control | Optional$ True | Duration$ UntilEndOfTurn",
+    );
+    assert!(
+        deepfathom.abilities[0].contains("Effect::Explore")
+            && deepfathom.abilities[0].contains("min: 0")
+            && deepfathom.abilities[0].contains("subject: TargetSlot::This")
+            && deepfathom.abilities[0].contains("original: TargetSpec::EventObject"),
+        "{:?}",
+        deepfathom.abilities
+    );
+
+    let reflection = read(
+        "Name:Reflection Net\nManaCost:1 W U\nTypes:Artifact\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigExile\n\
+         SVar:TrigExile:DB$ ChangeZone | Origin$ Battlefield | Destination$ Exile | ValidTgts$ Creature | Duration$ UntilHostLeavesPlay\n\
+         A:AB$ Clone | Cost$ 2 | CloneTarget$ Targeted | ChoiceZone$ Exile | Choices$ Card.Creature+ExiledWithSource | ValidTgts$ Creature.YouCtrl | GameActivationLimit$ 1",
+    );
+    assert!(
+        reflection.abilities[1].contains("ChooseZone::LinkedExile")
+            && reflection.abilities[1].contains("Effect::BecomeCopy")
+            && reflection.abilities[1].contains("subject: TargetSlot::First")
+            && reflection.abilities[1].contains("original: TargetSpec::EventObject"),
+        "{:?}",
+        reflection.abilities
+    );
+
+    let lazav_parsed = parse(
+        "Name:Lazav, Wearer of Faces\nManaCost:U B\nTypes:Legendary Creature Wizard\nPT:2/3\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ TrigExile\n\
+         SVar:TrigExile:DB$ ChangeZone | Origin$ Graveyard | Destination$ Exile | ValidTgts$ Card | SubAbility$ DBInvestigate\n\
+         SVar:DBInvestigate:DB$ Investigate\n\
+         T:Mode$ Sacrificed | ValidPlayer$ You | ValidCard$ Clue.YouCtrl | Execute$ TrigClone | TriggerZones$ Battlefield\n\
+         SVar:TrigClone:DB$ Clone | Choices$ Creature.ExiledWithSource | ChoiceZone$ Exile | Optional$ True | Duration$ UntilEndOfTurn",
+    );
+    let lazav = transcode(&lazav_parsed, &cats(), Some(&tokens())).unwrap_or_else(|| {
+        panic!(
+            "Lazav should transcode: {:?}",
+            refusal_reason(&lazav_parsed, &cats(), Some(&tokens()))
+        )
+    });
+    assert!(
+        lazav.abilities[1].contains("ChooseZone::LinkedExile")
+            && lazav.abilities[1].contains("min: 0")
+            && lazav.abilities[1].contains("Effect::BecomeCopy")
+            && lazav.abilities[1].contains("subject: TargetSlot::This"),
+        "{:?}",
+        lazav.abilities
+    );
+
+    let vesuvan = read(
+        "Name:Vesuvan Drifter\nManaCost:2 U\nTypes:Creature Shapeshifter\nPT:2/4\nK:Flying\n\
+         S:Mode$ Continuous | Affected$ Card.TopLibrary+YouCtrl | AffectedZone$ Library | MayLookAt$ You\n\
+         T:Mode$ Phase | Phase$ BeginCombat | TriggerZones$ Battlefield | Execute$ TrigReveal | OptionalDecider$ You\n\
+         SVar:TrigReveal:DB$ PeekAndReveal | NoPeek$ True | SubAbility$ DBClone\n\
+         SVar:DBClone:DB$ Clone | ConditionDefined$ TopOfLibrary | ConditionPresent$ Creature | Defined$ TopOfLibrary | CloneTarget$ Self | Duration$ UntilEndOfTurn | AddKeywords$ Flying",
+    );
+    assert!(
+        vesuvan.abilities[1].contains("Effect::RevealTop")
+            && vesuvan.abilities[1].contains("Effect::BecomeCopy")
+            && vesuvan.abilities[1].contains("subject: TargetSlot::This")
+            && vesuvan.abilities[1].contains("original: TargetSpec::EventObject")
+            && vesuvan.abilities[1].contains("KeywordSet::FLYING"),
+        "{:?}",
+        vesuvan.abilities
+    );
+
+    let amoeba = read(
+        "Name:Giant Space Amoeba\nManaCost:4 U\nTypes:Creature Germ\nPT:3/3\nK:Flying\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ TrigPump\n\
+         SVar:TrigPump:DB$ Pump | ValidTgts$ Creature.ControlledBy TriggeredDefendingPlayer | NumAtt$ -3 | IsCurse$ True | SubAbility$ DBCopy\n\
+         SVar:DBCopy:DB$ CopyPermanent | Defined$ Self",
+    );
+    assert!(
+        amoeba.abilities[0].contains("Effect::CreateTokenCopy")
+            && amoeba.abilities[0].contains("target: TargetSpec::ThisObject"),
+        "{:?}",
+        amoeba.abilities
+    );
+}
+
+#[test]
+fn clone_choices_and_copy_self_refuse_unsupported_variants() {
+    assert!(refused(
+        "Name:BadExclude\nManaCost:1 G U\nTypes:Instant\n\
+         A:SP$ Clone | Choices$ Creature | ValidTgts$ Creature | ExcludeChosen$ True | Duration$ UntilEndOfTurn"
+    ));
+    assert!(refused(
+        "Name:BadZone\nManaCost:1 U B\nTypes:Instant\n\
+         A:SP$ Clone | ChoiceZone$ Graveyard | Choices$ Creature | ValidTgts$ Creature | Duration$ UntilEndOfTurn"
+    ));
+    assert!(refused(
+        "Name:BadUnlinkedExile\nManaCost:1 U B\nTypes:Artifact\nK:Delve\n\
+         A:AB$ Clone | Cost$ 2 | CloneTarget$ Targeted | ChoiceZone$ Exile | Choices$ Card.Creature+ExiledWithSource | ValidTgts$ Creature.YouCtrl"
+    ));
+    assert!(refused(
+        "Name:BadDuration\nManaCost:1 G U\nTypes:Instant\n\
+         A:SP$ Clone | Choices$ Creature | ValidTgts$ Creature | Duration$ UntilYourNextTurn"
+    ));
+    assert!(refused(
+        "Name:BadCopyDefined\nManaCost:2 U\nTypes:Instant\n\
+         A:SP$ CopyPermanent | Defined$ Sacrificed"
+    ));
+    assert!(refused(
+        "Name:BadPeekClone\nManaCost:2 U\nTypes:Creature Shapeshifter\nPT:2/4\n\
+         T:Mode$ Phase | Phase$ BeginCombat | TriggerZones$ Battlefield | Execute$ TrigReveal\n\
+         SVar:TrigReveal:DB$ PeekAndReveal | NoPeek$ True | SubAbility$ DBClone\n\
+         SVar:DBClone:DB$ Clone | ConditionDefined$ Remembered | ConditionPresent$ Creature | Defined$ TopOfLibrary | CloneTarget$ Self | Duration$ UntilEndOfTurn"
+    ));
+    assert!(refused(
+        "Name:BadSecondTargetCloneChoices\nManaCost:2 U G\nTypes:Sorcery\n\
+         A:SP$ Pump | ValidTgts$ Creature | NumAtt$ 1 | SubAbility$ DBClone\n\
+         SVar:DBClone:DB$ Clone | ValidTgts$ Creature | CloneTarget$ ParentTarget | Choices$ Creature | Duration$ UntilEndOfTurn"
+    ));
+}
+
+#[test]
+fn play_graveyard_self_trigger_opponent_exile_chandra_ablaze_and_counter_exile_play() {
+    let syrix = read(
+        "Name:Syrix, Carrier of the Flame\nManaCost:2 B R\nTypes:Legendary Creature Wizard\nPT:3/3\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Wizard.Other+YouCtrl | TriggerZones$ Graveyard | Execute$ TrigPlay | OptionalDecider$ You\n\
+         SVar:TrigPlay:DB$ Play | Optional$ True",
+    );
+    assert!(
+        syrix.abilities[0].contains("TriggerZone::Graveyard")
+            && syrix.abilities[0].contains("Effect::Play")
+            && syrix.abilities[0].contains("PlaySource::Subject(TargetSpec::ThisObject)"),
+        "{:?}",
+        syrix.abilities
+    );
+
+    let thunderblade = read(
+        "Name:Thunderblade Charge\nManaCost:1 R R\nTypes:Sorcery\n\
+         A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 3\n\
+         T:Mode$ DamageDoneOnce | CombatDamage$ True | ValidSource$ Creature.YouCtrl | ValidTarget$ Player | TriggerZones$ Graveyard | PresentZone$ Graveyard | IsPresent$ Card.StrictlySelf | Execute$ TrigPlay\n\
+         SVar:TrigPlay:AB$ Play | Cost$ 2 R R R | WithoutManaCost$ True | Optional$ True",
+    );
+    assert!(
+        thunderblade.abilities[1].contains("TriggerZone::Graveyard")
+            && thunderblade.abilities[1].contains("Effect::Play")
+            && thunderblade.abilities[1].contains("PlaySource::Subject(TargetSpec::ThisObject)")
+            && thunderblade.abilities[1].contains("PlayCostMode::WithoutPayingManaCost"),
+        "{:?}",
+        thunderblade.abilities
+    );
+
+    let ashiok = read(
+        "Name:Ashiok, Nightmare Muse\nManaCost:3 U B\nTypes:Legendary Planeswalker Ashiok\nLoyalty:5\n\
+         A:AB$ Play | Cost$ SubCounter<7/LOYALTY> | Planeswalker$ True | Ultimate$ True | Valid$ Card.faceUp+OwnedBy Player.Opponent | ValidSA$ Spell | ValidZone$ Exile | WithoutManaCost$ True | Amount$ 3 | Optional$ True",
+    );
+    assert!(
+        ashiok.abilities[0].contains("Effect::Play")
+            && ashiok.abilities[0].contains("PlayerRel::EachOpponent")
+            && ashiok.abilities[0].contains("PlayCount::UpTo(3)"),
+        "{:?}",
+        ashiok.abilities
+    );
+
+    let chandra_ablaze = read(
+        "Name:Chandra Ablaze\nManaCost:4 R R\nTypes:Legendary Planeswalker Chandra\nLoyalty:5\n\
+         A:AB$ Play | Cost$ SubCounter<7/LOYALTY> | Valid$ Instant.Red+YouCtrl,Sorcery.Red+YouCtrl | ValidZone$ Graveyard | WithoutManaCost$ True | Planeswalker$ True | Ultimate$ True | Amount$ ChandraX | Controller$ You | Optional$ True\n\
+         SVar:ChandraX:Count$ValidGraveyard Instant.Red+YouOwn,Sorcery.Red+YouOwn",
+    );
+    assert!(
+        chandra_ablaze.abilities[0].contains("Effect::Play")
+            && chandra_ablaze.abilities[0].contains("PlayCount::All")
+            && chandra_ablaze.abilities[0].contains("PlayCostMode::WithoutPayingManaCost"),
+        "{:?}",
+        chandra_ablaze.abilities
+    );
+
+    let transcendent = read(
+        "Name:Transcendent Dragon\nManaCost:4 U U\nTypes:Creature Dragon\nPT:4/3\nK:Flash\nK:Flying\n\
+         T:Mode$ ChangesZone | ValidCard$ Card.wasCastByYou+Self | Destination$ Battlefield | Execute$ TrigCounter\n\
+         SVar:TrigCounter:DB$ Counter | TargetType$ Spell | ValidTgts$ Card | RememberCountered$ True | Destination$ Exile | SubAbility$ DBPlay\n\
+         SVar:DBPlay:DB$ Play | Valid$ Card.nonLand+IsRemembered | ValidSA$ Spell | ValidZone$ Exile | WithoutManaCost$ True | Controller$ You | Optional$ True | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        transcendent.abilities[0].contains("Effect::CaptureAffected")
+            && transcendent.abilities[0].contains("Effect::CounterTargetSpellToExile")
+            && transcendent.abilities[0].contains("Effect::ForEachRemembered")
+            && transcendent.abilities[0].contains("Effect::Play")
+            && transcendent.abilities[0].contains("PlaySource::Subject(TargetSpec::EventObject)")
+            && transcendent.abilities[0].contains("PlayCostMode::WithoutPayingManaCost"),
+        "{:?}",
+        transcendent.abilities
+    );
+
+    assert!(refused(
+        "Name:BadHandOppCtrl\nManaCost:2 U\nTypes:Sorcery\n\
+         A:SP$ Play | Valid$ Card.ControlledBy Opponent | ValidZone$ Hand | WithoutManaCost$ True | Optional$ True"
+    ));
+    assert!(refused(
+        "Name:BadAmountMismatch\nManaCost:4 R R\nTypes:Sorcery\n\
+         A:SP$ Play | Valid$ Instant.Red+YouCtrl | ValidZone$ Graveyard | WithoutManaCost$ True | Amount$ ChandraX | Optional$ True\n\
+         SVar:ChandraX:Count$ValidGraveyard Sorcery.Red+YouOwn"
+    ));
+    assert!(refused(
+        "Name:BadCounterDest\nManaCost:4 U U\nTypes:Creature Dragon\nPT:4/3\n\
+         T:Mode$ ChangesZone | ValidCard$ Card.Self | Destination$ Battlefield | Execute$ TrigCounter\n\
+         SVar:TrigCounter:DB$ Counter | TargetType$ Spell | ValidTgts$ Card | RememberCountered$ True | Destination$ Graveyard | SubAbility$ DBPlay\n\
+         SVar:DBPlay:DB$ Play | Valid$ Card.nonLand+IsRemembered | ValidSA$ Spell | ValidZone$ Exile | WithoutManaCost$ True | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True"
+    ));
+    assert!(refused(
+        "Name:BadGraveyardTriggerFlagLeak\nManaCost:2 B R\nTypes:Creature Wizard\nPT:3/3\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Wizard.Other+YouCtrl | TriggerZones$ Graveyard | Execute$ TrigPlayGy | OptionalDecider$ You\n\
+         SVar:TrigPlayGy:DB$ Play | Optional$ True\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigPlayBf\n\
+         SVar:TrigPlayBf:DB$ Play | Optional$ True"
+    ));
+    assert!(refused(
+        "Name:BadDelayedGraveyardPlay\nManaCost:2 B R\nTypes:Creature Wizard\nPT:3/3\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self | TriggerZones$ Graveyard | Execute$ TrigDelay\n\
+         SVar:TrigDelay:DB$ DelayedTrigger | Mode$ Phase | Phase$ End of Turn | Execute$ DBPlay\n\
+         SVar:DBPlay:DB$ Play | Optional$ True"
+    ));
 }

@@ -3130,6 +3130,7 @@ impl Tx<'_> {
         }
         let mut chain = Chain::default();
         self.trigger_is_self = trigger_is_self;
+        self.in_graveyard_trigger = zone == ", zone = TriggerZone::Graveyard";
         self.is_etb_self_trigger = trigger == "Trigger::ETB";
         self.trigger_self_etb_kicked = trigger_self_etb_kicked;
         self.trigger_changes_zone_to_graveyard =
@@ -3279,6 +3280,7 @@ impl Tx<'_> {
                 .is_some()
             {
                 self.trigger_is_self = false;
+                self.in_graveyard_trigger = false;
                 self.is_etb_self_trigger = false;
                 self.trigger_self_etb_kicked = false;
                 self.trigger_changes_zone_to_graveyard = false;
@@ -3300,6 +3302,7 @@ impl Tx<'_> {
             self.trigger_mode = saved_trigger_mode;
         }
         self.trigger_is_self = false;
+        self.in_graveyard_trigger = false;
         self.is_etb_self_trigger = false;
         self.trigger_self_etb_kicked = false;
         self.trigger_changes_zone_to_graveyard = false;
@@ -4426,12 +4429,16 @@ impl Tx<'_> {
         let saved_mode = std::mem::replace(&mut self.trigger_mode, inner_trigger_mode);
         let saved_self = std::mem::replace(&mut self.trigger_is_self, false);
         let saved_dies = std::mem::replace(&mut self.trigger_changes_zone_to_graveyard, false);
+
+        let saved_gy_trigger = std::mem::replace(&mut self.in_graveyard_trigger, false);
         let saved_block = self.block_line.take();
         let read = self.chain(body, &mut inner);
         self.in_delayed = saved_delayed;
         self.trigger_mode = saved_mode;
         self.trigger_is_self = saved_self;
         self.trigger_changes_zone_to_graveyard = saved_dies;
+
+        self.in_graveyard_trigger = saved_gy_trigger;
         self.block_line = saved_block;
         read?;
         if inner.second_target.is_some() {

@@ -1747,7 +1747,21 @@ impl Tx<'_> {
                     self.body.statics.truncate(saved_statics_len);
                 }
             }
-            if api == "Counter"
+            if special_effects.is_none()
+                && api == "Counter"
+                && !second_target_here
+                && sub.is_some()
+                && unless.is_none()
+                && dying.is_none()
+                && at_end.is_none()
+                && !optional_counter
+                && let Some(effects) =
+                    self.counter_to_exile_play_chain(&mut p, &mut sub, target.as_deref())
+            {
+                special_effects = Some(effects);
+            }
+            if special_effects.is_none()
+                && api == "Counter"
                 && sub.is_none()
                 && (p.peek("RememberCountered") == Some("True")
                     || p.peek("RememberCounteredSA") == Some("True")
