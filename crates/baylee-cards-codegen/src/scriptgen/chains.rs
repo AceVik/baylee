@@ -539,6 +539,10 @@ impl Tx<'_> {
                 chain.effects.push(eff);
                 return Some(());
             }
+            if let Some(effects) = self.try_fiery_gambit_repeat(&p, sub.as_deref(), chain) {
+                chain.effects.extend(effects);
+                return Some(());
+            }
             return self.repeat_process_chain(p, sub.as_deref(), chain);
         }
         if api == "Vote" {
@@ -3390,6 +3394,13 @@ impl Tx<'_> {
                         self.counter_or_stack_target(valid, p.peek("TargetType"), false)
                     } else if api == "ChangeTargets" {
                         self.change_targets_target(valid, p.peek("TargetType"))
+                    } else if api == "ExchangeControl"
+                        && chain.target.is_some()
+                        && p.peek("TargetsWithSharedCardType") == Some("ParentTarget")
+                        && p.has("TargetsWithSharedTypes")
+                        && p.peek("TargetUnique") == Some("True")
+                    {
+                        self.exchange_shared_type_target(valid, p)
                     } else if chain.target.is_some()
                         && (chain.target_unique
                             || matches!(api, "Fight" | "DealDamage" | "Clone" | "Tap" | "Untap"))
@@ -3586,8 +3597,17 @@ impl Tx<'_> {
                         && no_riders(p)
                 }
                 "Clone" => {
+                    let clone_first_ok = chain
+                        .target
+                        .as_deref()
+                        .is_some_and(|t| t.starts_with("TargetSpec::Object("))
+                        && chain.target_exact.is_none()
+                        && chain.target_range.is_none()
+                        && !chain.target_is_x
+                        && chain.target_constraint.is_none()
+                        && chain.target_up_to.is_none_or(|n| n == 1);
                     is_obj_spec
-                        && single_object_first
+                        && clone_first_ok
                         && p.peek("CloneTarget") == Some("ParentTarget")
                         && no_riders(p)
                 }
@@ -3596,7 +3616,7 @@ impl Tx<'_> {
                         && single_object_first
                         && chain.effects.is_empty()
                         && p.peek("Defined") == Some("ParentTarget")
-                        && !has_target_unique
+                        && !p.has("TargetUnique")
                         && no_riders(p)
                 }
                 "Destroy" => {
@@ -11223,6 +11243,7 @@ impl Tx<'_> {
             }
             "Phases" => !p.has("WontPhaseInNormal"),
             "DealDamage" => !p.has("DividedAsYouChoose") && !p.has("ExcessSVar"),
+            "Effect" => Self::slot_remembered_effect_ok(second_spec, p),
             "Destroy" | "Pump" | "RemoveCounter" | "Tap" | "Untap" | "TapOrUntap" | "Detain"
             | "Goad" | "Animate" | "Regenerate" | "SetState" | "MustBlock" | "Connive"
             | "Explore" | "Suspect" | "CopyPermanent" | "Counter" | "PreventDamage" | "Draw"

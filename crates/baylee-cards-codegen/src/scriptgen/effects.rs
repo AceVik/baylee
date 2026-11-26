@@ -6117,10 +6117,24 @@ impl Tx<'_> {
             if let Some(key) = dp.first_key() {
                 return self.deny(format!("unclaimed parameter `BlinkReturn.{key}`"));
             }
+            let plain_blink =
+                !tapped && face.is_none() && counters.is_none() && modifiers.is_empty();
+            if plain_blink
+                && let Some(ref cname) = cleanup_name
+                && let Some(effects) = self.exile_blink_branch_remembered_followup(
+                    cname,
+                    &format!(
+                        "Effect::Blink {{ target: {blink_target}, owner_control: {owner_control} }}"
+                    ),
+                    sub,
+                )
+            {
+                return Some(effects);
+            }
             if let Some(cname) = cleanup_name {
                 self.consume_optional_remember_cleanup(cname, sub)?;
             }
-            if tapped || face.is_some() || counters.is_some() || !modifiers.is_empty() {
+            if !plain_blink {
                 return Some(vec![Self::format_move_and_modify(
                     &format!("MoveSubject::Target({blink_target})"),
                     None,
@@ -22817,6 +22831,286 @@ impl Tx<'_> {
             chain.effects.extend(effects);
         }
         Some(())
+    }
+
+    pub(super) fn exchange_shared_type_target(
+        &mut self,
+        valid: &str,
+        p: &mut Params,
+    ) -> Option<String> {
+        if p.take("TargetUnique").as_deref() != Some("True")
+            || p.take("TargetsWithSharedCardType").as_deref() != Some("ParentTarget")
+        {
+            return None;
+        }
+        let raw_types = p.take("TargetsWithSharedTypes")?;
+        let mut type_consts = Vec::new();
+        for atom in raw_types
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
+            let ts = match atom {
+                "Artifact" => "TypeSet::ARTIFACT",
+                "Battle" => "TypeSet::BATTLE",
+                "Creature" => "TypeSet::CREATURE",
+                "Enchantment" => "TypeSet::ENCHANTMENT",
+                "Instant" => "TypeSet::INSTANT",
+                "Kindred" | "Tribal" => "TypeSet::KINDRED",
+                "Land" => "TypeSet::LAND",
+                "Planeswalker" => "TypeSet::PLANESWALKER",
+                "Sorcery" => "TypeSet::SORCERY",
+                _ => return None,
+            };
+            type_consts.push(ts);
+        }
+        if type_consts.is_empty() {
+            return None;
+        }
+        let mut types_expr = type_consts[0].to_string();
+        for ts in &type_consts[1..] {
+            types_expr = format!("{types_expr}.union({ts})");
+        }
+        let mut parts = Vec::new();
+        if valid != "Permanent" {
+            parts.push(self.filter_expr(valid)?);
+        }
+        parts.push("Filter::Not(&Filter::Reference)".to_string());
+        parts.push(format!("Filter::SharesTypeWithReference({types_expr})"));
+        let expr = format!("Filter::And(&[{}])", parts.join(", "));
+        let name = self.body.filter_static("TARGET", &expr);
+        Some(format!("TargetSpec::Object(&{name})"))
+    }
+
+    fn exile_blink_branch_remembered_followup(
+        &mut self,
+        branch_name: &str,
+        blink_expr: &str,
+        outer_sub: &mut Option<String>,
+    ) -> Option<Vec<String>> {
+        let body = self.svars.get(branch_name.trim())?.clone();
+        let (api, mut bp) = Params::parse(&body)?;
+        if api != "Branch" {
+            return None;
+        }
+        bp.drop_prose();
+        let var = bp.take("BranchConditionSVar")?;
+        if !matches!(
+            bp.take("BranchConditionSVarCompare").as_deref(),
+            None | Some("GE1")
+        ) {
+            return None;
+        }
+        let true_sub = bp.take("TrueSubAbility");
+        let false_sub = bp.take("FalseSubAbility");
+        if true_sub.is_none() || false_sub.is_none() {
+            return None;
+        }
+        let branch_next = bp.take("SubAbility");
+        if !bp.exhausted() {
+            return None;
+        }
+        let var_body = self.svars.get(var.trim())?.trim().to_string();
+        let cond_valid = var_body.strip_prefix("Remembered$Valid ")?.trim();
+        if cond_valid.contains("Remembered") {
+            return None;
+        }
+        let (then_effs, then_tail) =
+            self.compile_blink_remembered_branch_arm(true_sub.as_deref())?;
+        let (else_effs, else_tail) =
+            self.compile_blink_remembered_branch_arm(false_sub.as_deref())?;
+        if then_effs.is_empty()
+            || else_effs.is_empty()
+            || then_tail.is_some()
+            || else_tail.is_some()
+        {
+            return None;
+        }
+        let cond_expr = self.filter_expr(cond_valid)?;
+        let cond_filter = self.body.filter_static("COND", &cond_expr);
+        *outer_sub = branch_next;
+        Some(vec![
+            blink_expr.to_string(),
+            format!(
+                "Effect::IfTargetMatchesElse {{ filter: &{cond_filter}, then: &[{}], otherwise: &[{}] }}",
+                then_effs.join(", "),
+                else_effs.join(", "),
+            ),
+        ])
+    }
+
+    fn compile_blink_remembered_branch_arm(
+        &mut self,
+        start: Option<&str>,
+    ) -> Option<(Vec<String>, Option<String>)> {
+        let name = start?;
+        let body = self.svars.get(name.trim())?.clone();
+        let (arm_api, mut ap) = Params::parse(&body)?;
+        ap.drop_prose();
+        if ap.take("Defined").as_deref() != Some("Remembered") {
+            return None;
+        }
+        let tail_name = ap.take("SubAbility");
+        let effs = match arm_api.as_str() {
+            "Tap" => {
+                if !ap.exhausted() {
+                    return None;
+                }
+                vec!["Effect::TapTarget".to_string()]
+            }
+            "PutCounter" => {
+                let code = ap.take("CounterType")?;
+                let kind = super::counter_kind(&code)?;
+                let num_raw = ap.take("CounterNum").unwrap_or_else(|| "1".to_string());
+                let amount = self.amount_or_count_ext(&num_raw)?;
+                if !ap.exhausted() {
+                    return None;
+                }
+                vec![format!(
+                    "Effect::AddCounter {{ kind: {kind}, amount: {amount} }}"
+                )]
+            }
+            _ => return None,
+        };
+        let mut arm_next = tail_name;
+        if let Some(cname) = arm_next.take() {
+            self.consume_optional_remember_cleanup(cname, &mut arm_next)?;
+        }
+        Some((effs, arm_next))
+    }
+
+    pub(super) fn try_fiery_gambit_repeat(
+        &self,
+        p: &Params,
+        sub: Option<&str>,
+        chain: &Chain,
+    ) -> Option<Vec<String>> {
+        if chain.target.as_deref() != Some("TargetSpec::Object(&Filter::CREATURE)")
+            || chain.target_is_x
+            || chain.target_up_to.is_some()
+            || chain.target_exact.is_some()
+            || chain.target_range.is_some()
+            || chain.target_constraint.is_some()
+            || !chain.effects.is_empty()
+        {
+            return None;
+        }
+        let mut rp = p.clone();
+        rp.drop_prose();
+        let flip_name = rp.take("RepeatSubAbility")?;
+        let loss_var = rp.take("RepeatCheckSVar")?;
+        if rp.take("RepeatSVarCompare").as_deref() != Some("EQ0")
+            || rp.take("RepeatOptional").as_deref() != Some("True")
+            || !rp.exhausted()
+            || self.svars.get(loss_var.trim()).map(String::as_str) != Some("Number$0")
+        {
+            return None;
+        }
+
+        let (flip_api, mut fp) = Params::parse(self.svars.get(flip_name.trim())?)?;
+        fp.drop_prose();
+        let win_name = fp.take("WinSubAbility")?;
+        let lose_name = fp.take("LoseSubAbility")?;
+        if flip_api != "FlipCoin" || !fp.exhausted() {
+            return None;
+        }
+
+        let (inc_w_api, mut iwp) = Params::parse(self.svars.get(win_name.trim())?)?;
+        iwp.drop_prose();
+        let win_var = iwp.take("SVar")?;
+        if inc_w_api != "StoreSVar"
+            || iwp.take("Type").as_deref() != Some("CountSVar")
+            || iwp.take("Expression").as_deref() != Some(&format!("{win_var}/Plus.1"))
+            || !iwp.exhausted()
+            || self.svars.get(win_var.trim()).map(String::as_str) != Some("Number$0")
+        {
+            return None;
+        }
+
+        let (inc_l_api, mut ilp) = Params::parse(self.svars.get(lose_name.trim())?)?;
+        ilp.drop_prose();
+        let reset_name = ilp.take("SubAbility")?;
+        if inc_l_api != "StoreSVar"
+            || ilp.take("SVar").as_deref() != Some(loss_var.as_str())
+            || ilp.take("Type").as_deref() != Some("CountSVar")
+            || ilp.take("Expression").as_deref() != Some(&format!("{loss_var}/Plus.1"))
+            || !ilp.exhausted()
+        {
+            return None;
+        }
+
+        let (rst_api, mut rtp) = Params::parse(self.svars.get(reset_name.trim())?)?;
+        rtp.drop_prose();
+        if rst_api != "StoreSVar"
+            || rtp.take("SVar").as_deref() != Some(win_var.as_str())
+            || rtp.take("Type").as_deref() != Some("Number")
+            || rtp.take("Expression").as_deref() != Some("0")
+            || !rtp.exhausted()
+        {
+            return None;
+        }
+
+        let step2 = self.match_fiery_gambit_step(
+            sub?,
+            "DealDamage",
+            &[("Defined", "Targeted"), ("NumDmg", "3")],
+            &win_var,
+            &[None, Some("GE1")],
+            true,
+        )?;
+        let step3 = self.match_fiery_gambit_step(
+            &step2,
+            "DealDamage",
+            &[("Defined", "Player.Opponent"), ("NumDmg", "6")],
+            &win_var,
+            &[Some("GE2")],
+            true,
+        )?;
+        let step4 = self.match_fiery_gambit_step(
+            &step3,
+            "Draw",
+            &[("Defined", "You"), ("NumCards", "9")],
+            &win_var,
+            &[Some("GE3")],
+            true,
+        )?;
+        self.match_fiery_gambit_step(
+            &step4,
+            "UntapAll",
+            &[("ValidCards", "Land.YouCtrl")],
+            &win_var,
+            &[Some("GE3")],
+            false,
+        )?;
+        Some(vec![
+            "Effect::FlipCoinsUntilLossOrStopCumulative".to_string(),
+        ])
+    }
+
+    fn match_fiery_gambit_step(
+        &self,
+        name: &str,
+        expected_api: &str,
+        required_kv: &[(&str, &str)],
+        win_var: &str,
+        allowed_cmps: &[Option<&str>],
+        expect_sub: bool,
+    ) -> Option<String> {
+        let (api, mut step_p) = Params::parse(self.svars.get(name.trim())?)?;
+        step_p.drop_prose();
+        let next_sub = step_p.take("SubAbility");
+        if api != expected_api
+            || next_sub.is_some() != expect_sub
+            || step_p.take("ConditionCheckSVar").as_deref() != Some(win_var)
+            || !allowed_cmps.contains(&step_p.take("ConditionSVarCompare").as_deref())
+            || required_kv
+                .iter()
+                .any(|&(k, v)| step_p.take(k).as_deref() != Some(v))
+            || !step_p.exhausted()
+        {
+            return None;
+        }
+        Some(next_sub.unwrap_or_default())
     }
 }
 

@@ -2194,6 +2194,21 @@ impl Tx<'_> {
     }
 
     /// Shared allowlist for Slot 2 / Slot 3 `WithSecondTarget` / `WithThirdTarget` APIs.
+    pub(super) fn slot_remembered_effect_ok(spec: &str, p: &Params) -> bool {
+        spec.starts_with("TargetSpec::Object(")
+            && matches!(
+                p.peek("RememberObjects"),
+                Some("Targeted" | "ThisTargetedCard")
+            )
+            && !p.has("SubAbility")
+            && !p.has("Triggers")
+            && !p.has("Abilities")
+            && !p.has("UnlessCost")
+            && !p.has("ReplaceDyingDefined")
+            && !p.has("AtEOT")
+            && !p.entries.iter().any(|(k, _)| k.starts_with("Condition"))
+    }
+
     fn wave27c_general_slot_api_ok(api: &str, p: &Params, spec: &str) -> bool {
         match api {
             "ChangeZone" => {
@@ -2215,6 +2230,7 @@ impl Tx<'_> {
             | "AnimateAll" => {
                 matches!(spec, "TargetSpec::AnyPlayer" | "TargetSpec::AnyOpponent")
             }
+            "Effect" => Self::slot_remembered_effect_ok(spec, p),
             "Token" => {
                 (matches!(spec, "TargetSpec::AnyPlayer" | "TargetSpec::AnyOpponent")
                     && matches!(

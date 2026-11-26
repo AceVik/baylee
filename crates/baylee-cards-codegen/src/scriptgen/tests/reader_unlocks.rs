@@ -8198,3 +8198,148 @@ fn cg_damage_life_triggers_life_and_refusal_guards() {
         assert!(refused(bad), "must refuse:\n{bad}");
     }
 }
+
+#[test]
+fn hallowed_respite_blink_branch_remembered_followup() {
+    let script = "Name:Hallowed Respite\nManaCost:W U\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | ValidTgts$ Creature.nonLegendary | Origin$ Battlefield | Destination$ Exile | RememberTargets$ True | SubAbility$ DBReturn\n\
+         SVar:DBReturn:DB$ ChangeZone | Defined$ Remembered | Origin$ All | Destination$ Battlefield | SubAbility$ DBBranch\n\
+         SVar:DBBranch:DB$ Branch | BranchConditionSVar$ X | TrueSubAbility$ PutCounter | FalseSubAbility$ Tap\n\
+         SVar:PutCounter:DB$ PutCounter | Defined$ Remembered | CounterType$ P1P1 | CounterNum$ 1 | SubAbility$ DBCleanup\n\
+         SVar:Tap:DB$ Tap | Defined$ Remembered | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$Valid Creature.YouCtrl";
+    let body = read(script);
+    let ability = &body.abilities[0];
+    assert!(
+        ability.contains("Effect::Blink { target: TargetSpec::Object(&TARGET1), owner_control: true }")
+            && ability.contains("Effect::IfTargetMatchesElse { filter: &Filter::YOUR_CREATURE, then: &[Effect::AddCounter { kind: CounterKind::P1P1, amount: Amount::Fixed(1) }], otherwise: &[Effect::TapTarget] }")
+            && ability.contains("targets = Some(TargetReq::one(TargetSpec::Object(&TARGET1)))"),
+        "{ability}"
+    );
+
+    assert!(refused(&script.replace(
+        "Remembered$Valid Creature.YouCtrl",
+        "Remembered$Amount"
+    )));
+    assert!(refused(&script.replace("CounterNum$ 1", "CounterNum$ X")));
+    assert!(refused(&script.replace(
+        "SVar:Tap:DB$ Tap | Defined$ Remembered | SubAbility$ DBCleanup",
+        "SVar:Tap:DB$ Tap | Defined$ Targeted | SubAbility$ DBCleanup"
+    )));
+    assert!(refused(&script.replace(
+        "SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+        "SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True | SubAbility$ Extra\nSVar:Extra:DB$ Draw | NumCards$ 1"
+    )));
+}
+
+#[test]
+fn fiery_gambit_repeat_flip_coins() {
+    let script = "Name:Fiery Gambit\nManaCost:2 R\nTypes:Sorcery\n\
+         A:SP$ TargetOnly | ValidTgts$ Creature | SubAbility$ RepeatFlip\n\
+         SVar:RepeatFlip:DB$ Repeat | RepeatSubAbility$ FlipAgain | RepeatCheckSVar$ Loss | RepeatSVarCompare$ EQ0 | RepeatOptional$ True | SubAbility$ DamageCreature\n\
+         SVar:FlipAgain:DB$ FlipCoin | WinSubAbility$ IncrementWins | LoseSubAbility$ IncrementLoss\n\
+         SVar:IncrementWins:DB$ StoreSVar | SVar$ Win | Type$ CountSVar | Expression$ Win/Plus.1\n\
+         SVar:IncrementLoss:DB$ StoreSVar | SVar$ Loss | Type$ CountSVar | Expression$ Loss/Plus.1 | SubAbility$ ResetWins\n\
+         SVar:ResetWins:DB$ StoreSVar | SVar$ Win | Type$ Number | Expression$ 0\n\
+         SVar:DamageCreature:DB$ DealDamage | Defined$ Targeted | NumDmg$ 3 | ConditionCheckSVar$ Win | SubAbility$ DamageOpponents\n\
+         SVar:DamageOpponents:DB$ DealDamage | Defined$ Player.Opponent | NumDmg$ 6 | ConditionCheckSVar$ Win | ConditionSVarCompare$ GE2 | SubAbility$ DrawNine\n\
+         SVar:DrawNine:DB$ Draw | Defined$ You | NumCards$ 9 | ConditionCheckSVar$ Win | ConditionSVarCompare$ GE3 | SubAbility$ UntapLands\n\
+         SVar:UntapLands:DB$ UntapAll | ValidCards$ Land.YouCtrl | ConditionCheckSVar$ Win | ConditionSVarCompare$ GE3\n\
+         SVar:Win:Number$0\n\
+         SVar:Loss:Number$0";
+    let body = read(script);
+    assert_eq!(
+        body.abilities[0],
+        "spell!(&[Effect::FlipCoinsUntilLossOrStopCumulative], targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))"
+    );
+
+    assert!(refused(&script.replace("NumDmg$ 3", "NumDmg$ 4")));
+    assert!(refused(&script.replace("NumCards$ 9", "NumCards$ 7")));
+    assert!(refused(
+        &script.replace("RepeatOptional$ True", "RepeatOptional$ False")
+    ));
+}
+
+#[test]
+fn legerdemain_exchange_shared_type_second_target() {
+    let script = "Name:Legerdemain\nManaCost:2 U U\nTypes:Sorcery\n\
+         A:SP$ TargetOnly | ValidTgts$ Artifact,Creature | SubAbility$ DBExchange\n\
+         SVar:DBExchange:DB$ ExchangeControl | Defined$ ParentTarget | ValidTgts$ Permanent | TargetsWithSharedCardType$ ParentTarget | TargetsWithSharedTypes$ Artifact,Creature | TargetUnique$ True";
+    let body = read(script);
+    assert_eq!(
+        body.abilities[0],
+        "spell!(&[Effect::ExchangeControl], targets = Some(TargetReq::one(TargetSpec::Object(&Filter::ARTIFACT_OR_CREATURE))), second_targets = Some(TargetReq::one(TargetSpec::Object(&TARGET1))))"
+    );
+    assert!(
+        body.statics.contains(
+            "Filter::And(&[Filter::Not(&Filter::Reference), Filter::SharesTypeWithReference(TypeSet::ARTIFACT.union(TypeSet::CREATURE))])"
+        ),
+        "{}",
+        body.statics
+    );
+
+    assert!(refused(&script.replace(" | TargetUnique$ True", "")));
+    assert!(refused(&script.replace(
+        "TargetsWithSharedTypes$ Artifact,Creature",
+        "TargetsWithSharedTypes$ Conspiracy"
+    )));
+    assert!(refused(
+        &script.replace("Defined$ ParentTarget", "Defined$ Self")
+    ));
+}
+
+#[test]
+fn twisted_fates_and_contagion_engine_put_counter_all_stay_refused() {
+    // `Effect::AddCounterFilter` resolves via `matches_with_context`, where
+    // `Filter::ControlledBy(PlayerRel::Chosen)` evaluates to `false`.
+    let twisted = "Name:Twisted Fates\nManaCost:2 W W B\nTypes:Sorcery\n\
+         A:SP$ Destroy | ValidTgts$ Permanent.nonLand | SubAbility$ DBPutCounterAll\n\
+         SVar:DBPutCounterAll:DB$ PutCounterAll | ValidTgts$ Player | ValidCards$ Creature | CounterType$ P1P1 | CounterNum$ 1";
+    let contagion = "Name:Contagion Engine\nManaCost:6\nTypes:Artifact\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigPutCounterAll\n\
+         A:AB$ Proliferate | Cost$ 4 T | Amount$ 2\n\
+         SVar:TrigPutCounterAll:DB$ PutCounterAll | ValidTgts$ Player | ValidCards$ Creature | IsCurse$ True | CounterType$ M1M1 | CounterNum$ 1";
+    let meadowboon = "Name:Meadowboon\nManaCost:2 W W\nTypes:Creature Elemental\nPT:3/3\nK:Evoke:3 W\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Any | ValidCard$ Card.Self | Execute$ TrigPutCounterAll\n\
+         SVar:TrigPutCounterAll:DB$ PutCounterAll | ValidTgts$ Player | TgtPrompt$ Select a player | ValidCards$ Creature | CounterType$ P1P1 | CounterNum$ 1";
+    assert!(refused(twisted));
+    assert!(refused(contagion));
+    assert!(refused(meadowboon));
+}
+
+#[test]
+fn azorius_ploy_second_target_combat_prevention_effect() {
+    let script = "Name:Azorius Ploy\nManaCost:1 W W U\nTypes:Instant\n\
+         A:SP$ Effect | ValidTgts$ Creature | ReplacementEffects$ RPrevent1 | RememberObjects$ ThisTargetedCard | ExileOnMoved$ Battlefield | SubAbility$ DBEffect\n\
+         SVar:DBEffect:DB$ Effect | ValidTgts$ Creature | ReplacementEffects$ RPrevent2 | RememberObjects$ ThisTargetedCard | ExileOnMoved$ Battlefield\n\
+         SVar:RPrevent1:Event$ DamageDone | Prevent$ True | IsCombat$ True | ValidSource$ Card.IsRemembered\n\
+         SVar:RPrevent2:Event$ DamageDone | Prevent$ True | IsCombat$ True | ValidTarget$ Card.IsRemembered";
+    let body = read(script);
+    assert_eq!(
+        body.abilities[0],
+        "spell!(&[Effect::ModifyTargets { modifier: Modifier::PreventDamageFromIt, duration: Duration::UntilEndOfTurn }, Effect::WithSecondTarget(&[Effect::ModifyTargets { modifier: Modifier::PreventDamageToIt, duration: Duration::UntilEndOfTurn }])], targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))), second_targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))"
+    );
+
+    assert!(refused(&script.replace(
+        "ExileOnMoved$ Battlefield",
+        "ExileOnMoved$ Battlefield | ConditionPresent$ Creature.YouCtrl"
+    )));
+    assert!(refused(&script.replace(
+        "DBEffect:DB$ Effect | ValidTgts$ Creature | ReplacementEffects$ RPrevent2 | RememberObjects$ ThisTargetedCard",
+        "DBEffect:DB$ Effect | ValidTgts$ Creature | ReplacementEffects$ RPrevent2 | RememberObjects$ Self"
+    )));
+}
+
+#[test]
+fn clone_second_target_accepts_up_to_one_first_target() {
+    let script = "Name:UpToClone\nManaCost:2 U\nTypes:Sorcery\n\
+         A:SP$ TargetOnly | ValidTgts$ Creature.YouCtrl | TargetMin$ 0 | TargetMax$ 1 | SubAbility$ DBClone\n\
+         SVar:DBClone:DB$ Clone | CloneTarget$ ParentTarget | ValidTgts$ Creature.OppCtrl | TargetUnique$ True";
+    let body = read(script);
+    assert_eq!(
+        body.abilities[0],
+        "spell!(&[Effect::BecomeCopy { subject: TargetSlot::First, subject_filter: None, original: TargetSpec::ThisObject, original_is_second_target: true, until_eot: false, mods: &[] }], targets = Some(TargetReq::up_to_one(TargetSpec::Object(&Filter::YOUR_CREATURE))), second_targets = Some(TargetReq::one(TargetSpec::Object(&TARGET1))))"
+    );
+    assert!(refused(&script.replace("TargetMax$ 1", "TargetMax$ 2")));
+}
