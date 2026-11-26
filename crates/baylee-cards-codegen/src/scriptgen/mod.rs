@@ -103,6 +103,7 @@ mod wave30a;
 mod wave30b;
 mod wave30c;
 mod wave30d;
+mod zone_grants;
 mod zones;
 
 use atoms::{
@@ -744,6 +745,8 @@ struct Tx<'a> {
     /// script was refused. Recorded rather than derived, because a
     /// second list of each rule's keys would rot the first time a
     /// rule learned a new one.
+    current_rule_idx: Option<usize>,
+    paired_may_play: zone_grants::PairedMayPlayState,
     unclaimed: std::cell::RefCell<Option<String>>,
 }
 
@@ -876,6 +879,8 @@ impl<'a> Tx<'a> {
             etb_player_chosen_modes: Vec::new(),
             melded_face: None,
             body: CardBody::default(),
+            current_rule_idx: None,
+            paired_may_play: zone_grants::PairedMayPlayState::detect(script),
             unclaimed: std::cell::RefCell::new(None),
         }
     }
@@ -1196,12 +1201,13 @@ fn transcode_face_with_meld(
     {
         tx.keyword(line)?;
     }
-    for (kind, spec) in &script.rules {
+    for (idx, (kind, spec)) in script.rules.iter().enumerate() {
         if *kind == 'S' && is_optional_cost_static(spec) {
             continue;
         }
-        tx.rule(*kind, spec)?;
+        tx.rule_with_index(idx, *kind, spec)?;
     }
+    tx.paired_may_play_all_consumed()?;
     if tx
         .body
         .abilities

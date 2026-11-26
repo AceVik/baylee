@@ -3645,6 +3645,21 @@ impl Tx<'_> {
         }
     }
 
+    pub(super) fn rule_with_index(
+        &mut self,
+        rule_idx: usize,
+        kind: char,
+        spec: &str,
+    ) -> Option<()> {
+        if self.is_consumed_may_play_companion(rule_idx) {
+            return Some(());
+        }
+        let prev_idx = self.current_rule_idx.replace(rule_idx);
+        let res = self.rule(kind, spec);
+        self.current_rule_idx = prev_idx;
+        res
+    }
+
     pub(super) fn rule(&mut self, kind: char, spec: &str) -> Option<()> {
         self.has_x = kind == 'A';
         self.on_a_spell = kind == 'A' && spec.trim_start().starts_with("SP$");

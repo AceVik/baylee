@@ -3023,8 +3023,14 @@ impl Tx<'_> {
         }
         if let Some(valid_raw) = raw.strip_prefix("Count$Valid ") {
             if let Some(distinct_valid) = valid_raw.strip_suffix("$DifferentCardNames") {
-                let Some(Bound::AtLeast(n)) = bound else {
-                    return None;
+                let (negated, n) = match bound {
+                    Some(Bound::AtLeast(n)) => (false, n),
+                    Some(Bound::AtMost(max)) => {
+                        let min = u16::try_from(u32::from(max) + 1).ok()?;
+                        let min_u8 = u8::try_from(min).ok()?;
+                        (true, u16::from(min_u8))
+                    }
+                    _ => return None,
                 };
                 let relative = distinct_valid.split(',').any(|alt| {
                     alt.split(['.', '+']).any(|a| {
@@ -3047,7 +3053,12 @@ impl Tx<'_> {
                 }
                 let expr = self.filter_expr(distinct_valid)?;
                 let name = self.body.filter_static("CHECK", &expr);
-                return Some(format!("Condition::ControlDistinctNames(&{name}, {n})"));
+                let cond = format!("Condition::ControlDistinctNames(&{name}, {n})");
+                return Some(if negated {
+                    format!("Condition::Not(&{cond})")
+                } else {
+                    cond
+                });
             }
             let valid = match valid_raw.split_once("/Plus.") {
                 None => valid_raw.to_string(),

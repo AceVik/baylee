@@ -1518,6 +1518,11 @@ impl Tx<'_> {
             && p.peek("MayPlay") == Some("True")
             && !p.has("MayPlayAltManaCost")
             && !p.has("MayPlayWithoutManaCost")
+            && !p.has("ReplaceGraveyard")
+            && !p.has("MayPlayIgnoreColor")
+            && !p.has("MayPlayIgnoreType")
+            && !p.has("MayPlaySnowIgnoreColor")
+            && !self.has_paired_may_play_on_current_rule()
         {
             return ZoneContinuousOutcome::Handled(self.continuous_graveyard_play_dispatch(p));
         }
@@ -1525,6 +1530,7 @@ impl Tx<'_> {
             && p.peek("EffectZone") == Some("Graveyard")
             && p.peek("Affected") == Some("Card.Self")
             && p.peek("MayPlay") == Some("True")
+            && !self.has_paired_may_play_on_current_rule()
         {
             return ZoneContinuousOutcome::Handled(self.continuous_graveyard_self_play_wave14a(p));
         }

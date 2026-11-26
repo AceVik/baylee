@@ -3795,9 +3795,9 @@ fn wave13b_refusal_boundaries() {
         "Name:BadGraveScopeOpp\nManaCost:1 B\nTypes:Sorcery\n\
          A:SP$ LoseLife | ValidTgts$ Player | LifeAmount$ X\n\
          SVar:X:TargetedPlayer$ValidGraveyard Creature.OppOwn",
-        "Name:BadEnteredFromBf\nManaCost:1 B\nTypes:Sorcery\n\
+        "Name:BadEnteredFromUnknown\nManaCost:1 B\nTypes:Sorcery\n\
          A:SP$ GainLife | Defined$ You | LifeAmount$ X\n\
-         SVar:X:Count$ValidGraveyard Creature.ThisTurnEnteredFrom_Battlefield",
+         SVar:X:Count$ValidGraveyard Creature.ThisTurnEnteredFrom_Nowhere",
         "Name:BadActivatedPayLifeX\nTypes:Artifact\n\
          A:AB$ Draw | Cost$ PayLife<X> | NumCards$ 1\n\
          SVar:X:Count$xPaid",

@@ -733,12 +733,31 @@ impl Tx<'_> {
         let Some(kw) = p.take("AddKeyword") else {
             return self.deny("static ability reaching `AffectedZone$ Graveyard`".into());
         };
-        let Some((modifier, needs_graveyard_zone)) =
+        let Some((mut modifier, needs_graveyard_zone)) =
             Self::wave16b_graveyard_grant_modifier(&kw, true)
         else {
             return self.deny("static ability reaching `AffectedZone$ Graveyard`".into());
         };
-        let cond = self.condition_any(&mut p)?;
+        if modifier == "Modifier::GrantsBeamMeUpManaCost { cant_return_source: false }"
+            && self.has_cant_be_beamed_up_for_current_rule()
+        {
+            modifier = "Modifier::GrantsBeamMeUpManaCost { cant_return_source: true }".to_string();
+        }
+        let Ok(phase_cond) = super::zone_grants::has_phases_cond(&mut p) else {
+            return self.deny("static ability reaching `AffectedZone$ Graveyard`".into());
+        };
+        let mut cond = self.condition_any(&mut p)?;
+        if let Some(pc) = phase_cond {
+            cond = match cond
+                .strip_prefix(", condition = Some(")
+                .and_then(|s| s.strip_suffix(')'))
+            {
+                Some(existing) => {
+                    format!(", condition = Some(Condition::All(&[{pc}, {existing}]))")
+                }
+                None => format!(", condition = Some({pc})"),
+            };
+        }
         if !p.exhausted() {
             return self.deny("static ability reaching `AffectedZone$ Graveyard`".into());
         }
@@ -3885,7 +3904,7 @@ fn scope_controlled_by_you(valid: &str) -> String {
         .join(",")
 }
 
-fn conjoin_filter_expr(expr: &str, extra: &str) -> String {
+pub(super) fn conjoin_filter_expr(expr: &str, extra: &str) -> String {
     if expr == "Filter::Any" {
         return extra.to_string();
     }
