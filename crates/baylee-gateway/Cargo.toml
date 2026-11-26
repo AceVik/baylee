@@ -127,4 +127,6 @@ baylee-seat.workspace = true
 # A seat agent (hosted language-model seats), in process, with a launcher
 # that plays its bridges in process too.
 baylee-seathost.workspace = true
+# Paused time, so a test of the record writer's retries does not wait them out.
+tokio = { workspace = true, features = ["test-util"] }
 tokio-tungstenite.workspace = true

@@ -412,6 +412,15 @@ channels:
               repeated bool seat_accounts = 5;
               // Frozen execution identity; must match the receiving executable.
               bytes execution = 6;
+              // A game picked up again after its server restarted
+              // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+              // stored it, the pieces in order as one gzip stream, which the engine plays
+              // again input by input and goes on from. Only a record this very artifact
+              // played resumes. Empty for a new game.
+              bytes resume_record = 7;
+              // With `resume_record`: how many pieces of the record are stored, the `seq`
+              // of the engine's next `GameRecordChunk`.
+              uint32 resume_pieces = 8;
             }
 
             // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -583,6 +592,11 @@ channels:
               string game_id = 1;
               // The gateway's, echoed back; says which ask an answer is for.
               uint64 nonce = 2;
+              // The gateway is stopping: once it has answered, the engine moves nothing
+              // more (no answer taken, no clock, no house move, no curtain) until its
+              // link closes, so the record it sent is the whole game a restart resumes
+              // (`docs/proposals/games-survive-restarts.md`).
+              bool hold = 3;
             }
 
             // Gateway → engine: an admin ends this game from the console
@@ -1238,6 +1252,15 @@ channels:
               repeated bool seat_accounts = 5;
               // Frozen execution identity; must match the receiving executable.
               bytes execution = 6;
+              // A game picked up again after its server restarted
+              // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+              // stored it, the pieces in order as one gzip stream, which the engine plays
+              // again input by input and goes on from. Only a record this very artifact
+              // played resumes. Empty for a new game.
+              bytes resume_record = 7;
+              // With `resume_record`: how many pieces of the record are stored, the `seq`
+              // of the engine's next `GameRecordChunk`.
+              uint32 resume_pieces = 8;
             }
 
             // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -1409,6 +1432,11 @@ channels:
               string game_id = 1;
               // The gateway's, echoed back; says which ask an answer is for.
               uint64 nonce = 2;
+              // The gateway is stopping: once it has answered, the engine moves nothing
+              // more (no answer taken, no clock, no house move, no curtain) until its
+              // link closes, so the record it sent is the whole game a restart resumes
+              // (`docs/proposals/games-survive-restarts.md`).
+              bool hold = 3;
             }
 
             // Gateway → engine: an admin ends this game from the console
@@ -2073,6 +2101,15 @@ channels:
               repeated bool seat_accounts = 5;
               // Frozen execution identity; must match the receiving executable.
               bytes execution = 6;
+              // A game picked up again after its server restarted
+              // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+              // stored it, the pieces in order as one gzip stream, which the engine plays
+              // again input by input and goes on from. Only a record this very artifact
+              // played resumes. Empty for a new game.
+              bytes resume_record = 7;
+              // With `resume_record`: how many pieces of the record are stored, the `seq`
+              // of the engine's next `GameRecordChunk`.
+              uint32 resume_pieces = 8;
             }
 
             // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -2244,6 +2281,11 @@ channels:
               string game_id = 1;
               // The gateway's, echoed back; says which ask an answer is for.
               uint64 nonce = 2;
+              // The gateway is stopping: once it has answered, the engine moves nothing
+              // more (no answer taken, no clock, no house move, no curtain) until its
+              // link closes, so the record it sent is the whole game a restart resumes
+              // (`docs/proposals/games-survive-restarts.md`).
+              bool hold = 3;
             }
 
             // Gateway → engine: an admin ends this game from the console
@@ -2850,6 +2892,15 @@ channels:
               repeated bool seat_accounts = 5;
               // Frozen execution identity; must match the receiving executable.
               bytes execution = 6;
+              // A game picked up again after its server restarted
+              // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+              // stored it, the pieces in order as one gzip stream, which the engine plays
+              // again input by input and goes on from. Only a record this very artifact
+              // played resumes. Empty for a new game.
+              bytes resume_record = 7;
+              // With `resume_record`: how many pieces of the record are stored, the `seq`
+              // of the engine's next `GameRecordChunk`.
+              uint32 resume_pieces = 8;
             }
 
             // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -3021,6 +3072,11 @@ channels:
               string game_id = 1;
               // The gateway's, echoed back; says which ask an answer is for.
               uint64 nonce = 2;
+              // The gateway is stopping: once it has answered, the engine moves nothing
+              // more (no answer taken, no clock, no house move, no curtain) until its
+              // link closes, so the record it sent is the whole game a restart resumes
+              // (`docs/proposals/games-survive-restarts.md`).
+              bool hold = 3;
             }
 
             // Gateway → engine: an admin ends this game from the console
@@ -3627,6 +3683,15 @@ channels:
               repeated bool seat_accounts = 5;
               // Frozen execution identity; must match the receiving executable.
               bytes execution = 6;
+              // A game picked up again after its server restarted
+              // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+              // stored it, the pieces in order as one gzip stream, which the engine plays
+              // again input by input and goes on from. Only a record this very artifact
+              // played resumes. Empty for a new game.
+              bytes resume_record = 7;
+              // With `resume_record`: how many pieces of the record are stored, the `seq`
+              // of the engine's next `GameRecordChunk`.
+              uint32 resume_pieces = 8;
             }
 
             // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -3798,6 +3863,11 @@ channels:
               string game_id = 1;
               // The gateway's, echoed back; says which ask an answer is for.
               uint64 nonce = 2;
+              // The gateway is stopping: once it has answered, the engine moves nothing
+              // more (no answer taken, no clock, no house move, no curtain) until its
+              // link closes, so the record it sent is the whole game a restart resumes
+              // (`docs/proposals/games-survive-restarts.md`).
+              bool hold = 3;
             }
 
             // Gateway → engine: an admin ends this game from the console
@@ -4406,6 +4476,15 @@ channels:
               repeated bool seat_accounts = 5;
               // Frozen execution identity; must match the receiving executable.
               bytes execution = 6;
+              // A game picked up again after its server restarted
+              // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+              // stored it, the pieces in order as one gzip stream, which the engine plays
+              // again input by input and goes on from. Only a record this very artifact
+              // played resumes. Empty for a new game.
+              bytes resume_record = 7;
+              // With `resume_record`: how many pieces of the record are stored, the `seq`
+              // of the engine's next `GameRecordChunk`.
+              uint32 resume_pieces = 8;
             }
 
             // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -4577,6 +4656,11 @@ channels:
               string game_id = 1;
               // The gateway's, echoed back; says which ask an answer is for.
               uint64 nonce = 2;
+              // The gateway is stopping: once it has answered, the engine moves nothing
+              // more (no answer taken, no clock, no house move, no curtain) until its
+              // link closes, so the record it sent is the whole game a restart resumes
+              // (`docs/proposals/games-survive-restarts.md`).
+              bool hold = 3;
             }
 
             // Gateway → engine: an admin ends this game from the console
@@ -5187,6 +5271,15 @@ channels:
               repeated bool seat_accounts = 5;
               // Frozen execution identity; must match the receiving executable.
               bytes execution = 6;
+              // A game picked up again after its server restarted
+              // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+              // stored it, the pieces in order as one gzip stream, which the engine plays
+              // again input by input and goes on from. Only a record this very artifact
+              // played resumes. Empty for a new game.
+              bytes resume_record = 7;
+              // With `resume_record`: how many pieces of the record are stored, the `seq`
+              // of the engine's next `GameRecordChunk`.
+              uint32 resume_pieces = 8;
             }
 
             // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -5358,6 +5451,11 @@ channels:
               string game_id = 1;
               // The gateway's, echoed back; says which ask an answer is for.
               uint64 nonce = 2;
+              // The gateway is stopping: once it has answered, the engine moves nothing
+              // more (no answer taken, no clock, no house move, no curtain) until its
+              // link closes, so the record it sent is the whole game a restart resumes
+              // (`docs/proposals/games-survive-restarts.md`).
+              bool hold = 3;
             }
 
             // Gateway → engine: an admin ends this game from the console
@@ -6020,6 +6118,15 @@ channels:
               repeated bool seat_accounts = 5;
               // Frozen execution identity; must match the receiving executable.
               bytes execution = 6;
+              // A game picked up again after its server restarted
+              // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+              // stored it, the pieces in order as one gzip stream, which the engine plays
+              // again input by input and goes on from. Only a record this very artifact
+              // played resumes. Empty for a new game.
+              bytes resume_record = 7;
+              // With `resume_record`: how many pieces of the record are stored, the `seq`
+              // of the engine's next `GameRecordChunk`.
+              uint32 resume_pieces = 8;
             }
 
             // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -6191,6 +6298,11 @@ channels:
               string game_id = 1;
               // The gateway's, echoed back; says which ask an answer is for.
               uint64 nonce = 2;
+              // The gateway is stopping: once it has answered, the engine moves nothing
+              // more (no answer taken, no clock, no house move, no curtain) until its
+              // link closes, so the record it sent is the whole game a restart resumes
+              // (`docs/proposals/games-survive-restarts.md`).
+              bool hold = 3;
             }
 
             // Gateway → engine: an admin ends this game from the console
@@ -6797,6 +6909,15 @@ channels:
               repeated bool seat_accounts = 5;
               // Frozen execution identity; must match the receiving executable.
               bytes execution = 6;
+              // A game picked up again after its server restarted
+              // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+              // stored it, the pieces in order as one gzip stream, which the engine plays
+              // again input by input and goes on from. Only a record this very artifact
+              // played resumes. Empty for a new game.
+              bytes resume_record = 7;
+              // With `resume_record`: how many pieces of the record are stored, the `seq`
+              // of the engine's next `GameRecordChunk`.
+              uint32 resume_pieces = 8;
             }
 
             // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -6968,6 +7089,11 @@ channels:
               string game_id = 1;
               // The gateway's, echoed back; says which ask an answer is for.
               uint64 nonce = 2;
+              // The gateway is stopping: once it has answered, the engine moves nothing
+              // more (no answer taken, no clock, no house move, no curtain) until its
+              // link closes, so the record it sent is the whole game a restart resumes
+              // (`docs/proposals/games-survive-restarts.md`).
+              bool hold = 3;
             }
 
             // Gateway → engine: an admin ends this game from the console
@@ -7574,6 +7700,15 @@ channels:
               repeated bool seat_accounts = 5;
               // Frozen execution identity; must match the receiving executable.
               bytes execution = 6;
+              // A game picked up again after its server restarted
+              // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+              // stored it, the pieces in order as one gzip stream, which the engine plays
+              // again input by input and goes on from. Only a record this very artifact
+              // played resumes. Empty for a new game.
+              bytes resume_record = 7;
+              // With `resume_record`: how many pieces of the record are stored, the `seq`
+              // of the engine's next `GameRecordChunk`.
+              uint32 resume_pieces = 8;
             }
 
             // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -7745,6 +7880,11 @@ channels:
               string game_id = 1;
               // The gateway's, echoed back; says which ask an answer is for.
               uint64 nonce = 2;
+              // The gateway is stopping: once it has answered, the engine moves nothing
+              // more (no answer taken, no clock, no house move, no curtain) until its
+              // link closes, so the record it sent is the whole game a restart resumes
+              // (`docs/proposals/games-survive-restarts.md`).
+              bool hold = 3;
             }
 
             // Gateway → engine: an admin ends this game from the console
@@ -8353,6 +8493,15 @@ channels:
               repeated bool seat_accounts = 5;
               // Frozen execution identity; must match the receiving executable.
               bytes execution = 6;
+              // A game picked up again after its server restarted
+              // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+              // stored it, the pieces in order as one gzip stream, which the engine plays
+              // again input by input and goes on from. Only a record this very artifact
+              // played resumes. Empty for a new game.
+              bytes resume_record = 7;
+              // With `resume_record`: how many pieces of the record are stored, the `seq`
+              // of the engine's next `GameRecordChunk`.
+              uint32 resume_pieces = 8;
             }
 
             // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -8524,6 +8673,11 @@ channels:
               string game_id = 1;
               // The gateway's, echoed back; says which ask an answer is for.
               uint64 nonce = 2;
+              // The gateway is stopping: once it has answered, the engine moves nothing
+              // more (no answer taken, no clock, no house move, no curtain) until its
+              // link closes, so the record it sent is the whole game a restart resumes
+              // (`docs/proposals/games-survive-restarts.md`).
+              bool hold = 3;
             }
 
             // Gateway → engine: an admin ends this game from the console
@@ -9735,6 +9889,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -9906,6 +10069,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -10512,6 +10680,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -10683,6 +10860,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -11289,6 +11471,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -11460,6 +11651,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -12066,6 +12262,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -12237,6 +12442,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -12843,6 +13053,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -13014,6 +13233,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -13620,6 +13844,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -13791,6 +14024,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -14397,6 +14635,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -14568,6 +14815,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -15180,6 +15432,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -15351,6 +15612,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -15957,6 +16223,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -16128,6 +16403,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -16734,6 +17014,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -16905,6 +17194,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -17511,6 +17805,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -17682,6 +17985,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -18288,6 +18596,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -18459,6 +18776,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -19065,6 +19387,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -19236,6 +19567,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -19842,6 +20178,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -20013,6 +20358,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -20625,6 +20975,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -20796,6 +21155,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -21402,6 +21766,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -21573,6 +21946,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -22185,6 +22563,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -22356,6 +22743,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -22962,6 +23354,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -23133,6 +23534,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -23739,6 +24145,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -23910,6 +24325,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -24516,6 +24936,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -24687,6 +25116,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -25293,6 +25727,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -25464,6 +25907,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -26070,6 +26518,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -26241,6 +26698,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -26847,6 +27309,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -27018,6 +27489,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -27624,6 +28100,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -27795,6 +28280,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -28401,6 +28891,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -28572,6 +29071,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -29178,6 +29682,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -29349,6 +29862,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -29955,6 +30473,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -30126,6 +30653,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -30732,6 +31264,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -30903,6 +31444,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -31509,6 +32055,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -31680,6 +32235,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -32286,6 +32846,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -32457,6 +33026,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -33063,6 +33637,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -33234,6 +33817,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -33840,6 +34428,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -34011,6 +34608,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -34617,6 +35219,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -34788,6 +35399,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -35394,6 +36010,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -35565,6 +36190,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -36171,6 +36801,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -36342,6 +36981,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -36948,6 +37592,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -37119,6 +37772,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -37725,6 +38383,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -37896,6 +38563,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -38502,6 +39174,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -38673,6 +39354,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -39279,6 +39965,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -39450,6 +40145,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console
@@ -40056,6 +40756,15 @@ components:
             repeated bool seat_accounts = 5;
             // Frozen execution identity; must match the receiving executable.
             bytes execution = 6;
+            // A game picked up again after its server restarted
+            // (`docs/proposals/games-survive-restarts.md`): its record as the gateway
+            // stored it, the pieces in order as one gzip stream, which the engine plays
+            // again input by input and goes on from. Only a record this very artifact
+            // played resumes. Empty for a new game.
+            bytes resume_record = 7;
+            // With `resume_record`: how many pieces of the record are stored, the `seq`
+            // of the engine's next `GameRecordChunk`.
+            uint32 resume_pieces = 8;
           }
 
           // Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
@@ -40227,6 +40936,11 @@ components:
             string game_id = 1;
             // The gateway's, echoed back; says which ask an answer is for.
             uint64 nonce = 2;
+            // The gateway is stopping: once it has answered, the engine moves nothing
+            // more (no answer taken, no clock, no house move, no curtain) until its
+            // link closes, so the record it sent is the whole game a restart resumes
+            // (`docs/proposals/games-survive-restarts.md`).
+            bool hold = 3;
           }
 
           // Gateway → engine: an admin ends this game from the console

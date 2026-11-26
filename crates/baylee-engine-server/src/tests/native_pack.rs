@@ -99,6 +99,7 @@ fn native_host_record_projects_only_with_the_same_compiled_registry() {
             msg: Some(v1::envelope::Msg::FlushRecord(v1::FlushRecord {
                 game_id: "native".into(),
                 nonce: 7,
+                hold: false,
             })),
         },
         &[],

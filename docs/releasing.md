@@ -795,6 +795,15 @@ The reboot timer uses the same admission setting. It keeps the owner alive
 through the drain, verifies a fresh held-admission health response before
 rebooting, and releases only its own hold when the night window closes.
 An existing hold from another operation is never adopted or removed.
+It also waits while a backup runs. The backups are made by the separate
+private `baylee-backup` service (repository `AceVik/baylee-backup`, its
+`docs/backup.md`), whose every run holds `/run/baylee-backup/run.lock`;
+`baylee-reboot` takes that lock before it holds admission and keeps it
+until it has asked for the reboot (`BAYLEE_REBOOT_BACKUP_LOCK` moves the
+path for the reboot's tests only). That service also brings a deploy hook,
+`50-baylee-backup` (`docs/deploy-hooks.md`), that takes a `vor-deploy`
+snapshot in `before-switch`: with it installed, a deploy does not switch
+without one.
 
 ### Where the gateway listens
 

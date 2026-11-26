@@ -707,6 +707,24 @@ pub(super) fn top_right_controls(
         ))
         .id();
     let cluster = header_controls(commands, state, kit, music_on, false);
+    // The public ladder, readable without an account, stands with the
+    // corner's other tools rather than among the community's links.
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let table = keys::table_of(state).name;
+        let ladder = header_icon_btn(
+            commands,
+            kit,
+            crate::hud::glyph::TROPHY,
+            false,
+            Phrase::RankedBoard.text(state.lobby.lang()),
+            (
+                Press::Ranked(crate::lobby::ranked::Action::Open),
+                Stop::new(table, "ranked"),
+            ),
+        );
+        commands.entity(cluster).insert_children(0, &[ladder]);
+    }
     commands.entity(holder).add_child(cluster);
     holder
 }
@@ -1513,28 +1531,7 @@ pub(super) fn community_row(
         ),
     );
     commands.entity(row).add_child(website);
-    #[cfg(not(target_arch = "wasm32"))]
-    add_ranked_board(commands, state, kit, row);
     row
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn add_ranked_board(commands: &mut Commands, state: &LobbyState, kit: Kit, row: Entity) {
-    let lang = state.lobby.lang();
-    let table = keys::table_of(state).name;
-    let ranked = controls::button_compact(
-        commands,
-        kit,
-        Some(crate::hud::glyph::TROPHY),
-        Phrase::RankedBoard.text(lang),
-        Weight::Secondary,
-        Live::Yes,
-        (
-            Press::Ranked(crate::lobby::ranked::Action::Open),
-            Stop::new(table, "ranked"),
-        ),
-    );
-    commands.entity(row).add_child(ranked);
 }
 
 const WHATSAPP_GREEN: Color = Color::srgb(0.32, 0.82, 0.49);
@@ -1986,100 +1983,14 @@ pub(super) fn community_dialog(
         dialog,
     );
 
-    // Header row with icon badge + title + close button.
-    let head = commands
-        .spawn((
-            Node {
-                width: Val::Percent(100.0),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::SpaceBetween,
-                column_gap: kit.m.px(10.0),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    let head_left = commands
-        .spawn((
-            Node {
-                align_items: AlignItems::Center,
-                column_gap: kit.m.px(10.0),
-                flex_shrink: 1.0,
-                min_width: px_fixed(0.0),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    let badge = commands
-        .spawn((
-            Node {
-                width: px_fixed(32.0),
-                height: px_fixed(32.0),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                border: UiRect::all(px_fixed(1.0)),
-                border_radius: BorderRadius::all(px_fixed(8.0)),
-                flex_shrink: 0.0,
-                ..default()
-            },
-            BackgroundColor(accent.with_alpha(0.14)),
-            BorderColor::all(accent.with_alpha(0.50)),
-            Pickable::IGNORE,
-        ))
-        .id();
-    let badge_icon = commands
-        .spawn((
-            Text::new(icon_glyph.to_string()),
-            crate::hud::icon_tf(kit.fonts, kit.m.text),
-            TextColor(accent),
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(badge).add_child(badge_icon);
-    let title = commands
-        .spawn((
-            Text::new(title_str),
-            crate::hud::tf_bold(kit.fonts, kit.m.text * 1.08),
-            TextColor(tokens::INK),
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(head_left).add_children(&[badge, title]);
-
-    let close_face = commands
-        .spawn((
-            Role::Button,
-            Node {
-                width: px_fixed(30.0),
-                height: px_fixed(30.0),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                border: UiRect::all(px_fixed(1.0)),
-                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
-                ..default()
-            },
-            BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.04)),
-            BorderColor::all(tokens::BORDER),
-            crate::ambience::Feel::tinting_to(Color::srgba(1.0, 1.0, 1.0, 0.04), tokens::HOVER),
-        ))
-        .id();
-    let close_icon = commands
-        .spawn((
-            Text::new("\u{f00d}"),
-            crate::hud::icon_tf(kit.fonts, kit.m.small),
-            TextColor(tokens::MUTED),
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(close_face).add_child(close_icon);
-    let close_btn = controls::hit(
+    let head = glass_head(
         commands,
         kit,
-        close_face,
+        icon_glyph,
+        accent,
+        title_str,
         Press::Front(FrontPress::CloseCommunityDialog),
     );
-    commands.entity(head).add_children(&[head_left, close_btn]);
 
     let detail = commands
         .spawn((
@@ -2190,6 +2101,27 @@ pub(super) fn qr(commands: &mut Commands, code: &super::super::source::Code) -> 
     qr_frame(commands, picture)
 }
 
+/// A code drawn `side` wide whatever its module count, in its frame: the
+/// donation sheet's three stand at one size, side by side.
+pub(super) fn qr_sized(
+    commands: &mut Commands,
+    code: &super::super::source::Code,
+    side: Val,
+) -> Entity {
+    let picture = commands
+        .spawn((
+            ImageNode::new(code.image.clone()),
+            Node {
+                width: side,
+                height: side,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    qr_frame(commands, picture)
+}
+
 /// The thin dark frame a code stands in.
 fn qr_frame(commands: &mut Commands, picture: Entity) -> Entity {
     commands
@@ -2246,4 +2178,104 @@ pub(crate) fn about(
     scrolled: &Scrolled,
 ) {
     super::about::about(commands, root, state, kit, scrolled);
+}
+
+/// A glass dialog's head (the community and donation sheets): the glyph on
+/// its tinted tile, the title, and the close cross at the far end.
+pub(super) fn glass_head(
+    commands: &mut Commands,
+    kit: Kit,
+    glyph: char,
+    accent: Color,
+    title: &str,
+    close: Press,
+) -> Entity {
+    let head = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::SpaceBetween,
+                column_gap: kit.m.px(10.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let head_left = commands
+        .spawn((
+            Node {
+                align_items: AlignItems::Center,
+                column_gap: kit.m.px(10.0),
+                flex_shrink: 1.0,
+                min_width: px_fixed(0.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let badge = commands
+        .spawn((
+            Node {
+                width: px_fixed(32.0),
+                height: px_fixed(32.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(8.0)),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            BackgroundColor(accent.with_alpha(0.14)),
+            BorderColor::all(accent.with_alpha(0.50)),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let badge_icon = commands
+        .spawn((
+            Text::new(glyph.to_string()),
+            crate::hud::icon_tf(kit.fonts, kit.m.text),
+            TextColor(accent),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(badge).add_child(badge_icon);
+    let title = commands
+        .spawn((
+            Text::new(title),
+            crate::hud::tf_bold(kit.fonts, kit.m.text * 1.08),
+            TextColor(tokens::INK),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(head_left).add_children(&[badge, title]);
+    let close_face = commands
+        .spawn((
+            Role::Button,
+            Node {
+                width: px_fixed(30.0),
+                height: px_fixed(30.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.04)),
+            BorderColor::all(tokens::BORDER),
+            crate::ambience::Feel::tinting_to(Color::srgba(1.0, 1.0, 1.0, 0.04), tokens::HOVER),
+        ))
+        .id();
+    let close_icon = commands
+        .spawn((
+            Text::new("\u{f00d}"),
+            crate::hud::icon_tf(kit.fonts, kit.m.small),
+            TextColor(tokens::MUTED),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(close_face).add_child(close_icon);
+    let close_btn = controls::hit(commands, kit, close_face, close);
+    commands.entity(head).add_children(&[head_left, close_btn]);
+    head
 }

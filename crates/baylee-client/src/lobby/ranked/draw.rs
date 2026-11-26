@@ -13,6 +13,7 @@ use bevy::prelude::*;
 #[derive(Component)]
 pub(super) struct Page {
     metrics: ShellMetrics,
+    title: Entity,
     formats: Entity,
     board: Board,
 }
@@ -33,6 +34,9 @@ pub(super) struct Painted {
     rows: Option<(Vec<api::Row>, usize, Option<Phrase>)>,
     seasons: Option<(Vec<api::Season>, bool, bool)>,
     pager: Option<Pager>,
+    /// The title the page wears: Ranked play for an account that can queue,
+    /// Leaderboards for a guest reading the ladder.
+    title: Option<Phrase>,
 }
 
 #[derive(PartialEq, Eq)]
@@ -88,10 +92,12 @@ pub(in crate::lobby) fn draw(
         crate::shellkit::Frame::Wide | crate::shellkit::Frame::Vast
     );
     let page = page_root(commands, root, kit, compact);
-    let formats = masthead(commands, page, kit);
-    let board = board_panel(commands, page, kit, metrics, compact, scrolled);
+    let (title, formats) = masthead(commands, page, kit);
+    let band = desk_and_board(commands, page, kit, compact);
+    let board = board_panel(commands, band, kit, metrics, compact, scrolled);
     commands.entity(page).insert(Page {
         metrics: kit.m,
+        title,
         formats,
         board,
     });
@@ -142,7 +148,7 @@ fn page_root(commands: &mut Commands, root: Entity, kit: Kit, compact: bool) -> 
     page
 }
 
-fn masthead(commands: &mut Commands, page: Entity, kit: Kit) -> Entity {
+fn masthead(commands: &mut Commands, page: Entity, kit: Kit) -> (Entity, Entity) {
     let top = surfaces::panel(commands, kit, percent(100));
     commands
         .entity(top)
@@ -180,7 +186,57 @@ fn masthead(commands: &mut Commands, page: Entity, kit: Kit) -> Entity {
     commands
         .entity(top)
         .add_children(&[back, title, grow, formats]);
-    formats
+    (title, formats)
+}
+
+/// The page's body: the account's desk (its standing and the queue) beside
+/// the public ladder on a wide window, above it on a narrow one. The desk
+/// keeps one width whatever it says, so the ladder beside it never moves.
+fn desk_and_board(commands: &mut Commands, page: Entity, kit: Kit, compact: bool) -> Entity {
+    let band = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                flex_grow: if compact { 0.0 } else { 1.0 },
+                flex_shrink: if compact { 0.0 } else { 1.0 },
+                min_height: px(0),
+                flex_direction: if compact {
+                    FlexDirection::Column
+                } else {
+                    FlexDirection::Row
+                },
+                column_gap: kit.m.space(2),
+                row_gap: kit.m.space(2),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(page).add_child(band);
+    let desk = surfaces::panel(
+        commands,
+        kit,
+        if compact {
+            percent(100)
+        } else {
+            kit.m.px(400.0)
+        },
+    );
+    commands
+        .entity(desk)
+        .entry::<Node>()
+        .and_modify(move |mut n| {
+            n.flex_shrink = 0.0;
+            n.min_height = px(0);
+            n.row_gap = kit.m.space(2);
+            if !compact {
+                n.overflow = Overflow::scroll_y();
+            }
+        });
+    commands.entity(desk).insert(Pickable::default());
+    commands.entity(band).add_child(desk);
+    super::inline::desk(commands, desk, kit);
+    band
 }
 
 fn board_panel(
@@ -208,6 +264,9 @@ fn board_panel(
                 n.flex_shrink = 0.0;
                 n.height = Val::Vh(66.0);
                 n.min_height = kit.m.px(320.0);
+            } else {
+                // Beside the desk, the ladder takes the rest of the line.
+                n.flex_basis = px(0);
             }
         });
     commands.entity(content).add_child(board);
@@ -256,7 +315,7 @@ fn board_panel(
             Pickable::default(),
         ))
         .id();
-    scrollbars::attach(commands, board, list, metrics);
+    scrollbars::attach_stable(commands, board, list, metrics);
     let pager = parts::row(commands, kit, true);
     commands.entity(board).add_child(pager);
     Board {
@@ -351,6 +410,17 @@ pub(super) fn patch(
         }
         painted.scroll = Some(viewport);
     }
+    let title = if state.has_central_account() {
+        Phrase::RankedTitle
+    } else {
+        Phrase::RankedBoard
+    };
+    if painted.title != Some(title) {
+        painted.title = Some(title);
+        commands
+            .entity(slots.title)
+            .insert(Text::new(title.text(kit.lang())));
+    }
     paint_controls(&mut commands, slots, kit, ui, &mut painted);
     paint_board(&mut commands, &slots.board, kit, &state, &mut painted);
 }
@@ -442,16 +512,7 @@ fn paint_board(
         .is_some_and(|(r, o, n)| r.as_slice() == entries && *o == offset && *n == notice)
     {
         commands.entity(board.list).despawn_children();
-        if let Some(msg) = notice {
-            label(
-                commands,
-                board.list,
-                kit,
-                msg.text(lang),
-                kit.m.text,
-                tokens::MUTED,
-            );
-        }
+        paint_notice(commands, board.list, kit, notice);
         for (i, row) in entries.iter().enumerate() {
             board_row(commands, board.list, kit, row, offset + i + 1, i);
         }
@@ -504,6 +565,10 @@ fn paint_pager(commands: &mut Commands, container: Entity, kit: Kit, pager: &Pag
     commands.entity(container).add_child(season_button);
     let grow = parts::grow(commands);
     commands.entity(container).add_child(grow);
+    // A single page turns nowhere: no arrows to read and refuse.
+    if !pager.previous && !pager.next {
+        return;
+    }
     for (i, (on, forward, icon, txt)) in [
         (
             pager.previous,
@@ -533,5 +598,41 @@ fn paint_pager(commands: &mut Commands, container: Entity, kit: Kit, pager: &Pag
             orders::item(commands, b, &ORDER, "pager", i);
         }
         commands.entity(container).add_child(b);
+    }
+}
+
+/// What the ladder's list says instead of rows: skeleton rows while they
+/// come, the kit's empty state for a group nobody is placed in yet, a
+/// failure as a line.
+fn paint_notice(commands: &mut Commands, list: Entity, kit: Kit, notice: Option<Phrase>) {
+    let lang = kit.lang();
+    match notice {
+        Some(Phrase::ChallengeLoading) => {
+            let rows = crate::shellkit::states::skeleton(commands, kit, 6);
+            commands.entity(list).add_child(rows);
+        }
+        Some(Phrase::RankedBoardEmpty) => {
+            let empty = crate::shellkit::states::empty(
+                commands,
+                kit,
+                glyph::TROPHY,
+                Phrase::RankedBoardEmpty.text(lang),
+                None,
+            );
+            commands.entity(empty).entry::<Node>().and_modify(|mut n| {
+                n.flex_grow = 1.0;
+                n.justify_content = JustifyContent::Center;
+            });
+            commands.entity(list).add_child(empty);
+        }
+        Some(msg) => label(
+            commands,
+            list,
+            kit,
+            msg.text(lang),
+            kit.m.text,
+            tokens::MUTED,
+        ),
+        None => {}
     }
 }

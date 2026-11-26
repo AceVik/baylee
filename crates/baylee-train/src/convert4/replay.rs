@@ -257,7 +257,7 @@ fn replay_feature_frames_with<D: baylee_engine::engine::LoopDetection>(
     for line in lines {
         match line? {
             Line::Header { .. } => return Err("second header in record".to_owned()),
-            Line::Chair { .. } => {}
+            Line::Chair { .. } | Line::Connection { .. } | Line::Setting { .. } => {}
             Line::DeclaredMind { seat, mind, .. } => {
                 if (seat as usize) < MAX_SEATS {
                     seat_minds[seat as usize] = Some(mind.kind);

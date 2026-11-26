@@ -166,8 +166,16 @@ pub(super) fn banner(commands: &mut Commands, root: Entity, kit: Kit, art: Scene
     commands.entity(root).add_child(image);
 }
 
-/// A number with its name under it, one of a row of equal cells.
-pub(super) fn stat(commands: &mut Commands, root: Entity, kit: Kit, value: &str, name: &str) {
+/// A number behind its glyph with its name under it, one of a row of equal
+/// cells.
+pub(super) fn stat(
+    commands: &mut Commands,
+    root: Entity,
+    kit: Kit,
+    icon: char,
+    value: &str,
+    name: &str,
+) {
     let cell = commands
         .spawn((
             Node {
@@ -189,11 +197,27 @@ pub(super) fn stat(commands: &mut Commands, root: Entity, kit: Kit, value: &str,
         .id();
     let number = commands
         .spawn((
-            Text::new(value),
-            tf_bold(kit.fonts, kit.m.head),
-            TextColor(tokens::INK),
+            Node {
+                align_items: AlignItems::Center,
+                column_gap: kit.m.px(8.0),
+                ..default()
+            },
             Pickable::IGNORE,
         ))
+        .with_children(|line| {
+            line.spawn((
+                Text::new(icon.to_string()),
+                crate::hud::icon_tf(kit.fonts, kit.m.text * 0.9),
+                TextColor(tokens::ACCENT),
+                Pickable::IGNORE,
+            ));
+            line.spawn((
+                Text::new(value),
+                tf_bold(kit.fonts, kit.m.head),
+                TextColor(tokens::INK),
+                Pickable::IGNORE,
+            ));
+        })
         .id();
     let name = commands
         .spawn((

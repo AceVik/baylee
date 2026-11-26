@@ -226,6 +226,107 @@ pub(super) fn marked_line(
     row
 }
 
+/// A thin bar `share` (0..=1) full, `width` wide: a badge's way to its next
+/// tier, a newcomer's placement games. Drawn once; it never animates its
+/// width, so nothing beside it moves.
+pub(super) fn meter(
+    commands: &mut Commands,
+    kit: Kit,
+    share: f32,
+    width: Val,
+    ink: Color,
+) -> Entity {
+    let track = commands
+        .spawn((
+            Node {
+                width,
+                height: kit.m.px(4.0),
+                flex_shrink: 0.0,
+                border_radius: BorderRadius::all(kit.m.px(2.0)),
+                overflow: Overflow::clip(),
+                ..default()
+            },
+            BackgroundColor(tokens::CONTROL),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let fill = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0 * share.clamp(0.0, 1.0)),
+                height: Val::Percent(100.0),
+                border_radius: BorderRadius::all(kit.m.px(2.0)),
+                ..default()
+            },
+            BackgroundColor(ink),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(track).add_child(fill);
+    track
+}
+
+/// The medal of a ranking's first three places: gold, silver, bronze.
+pub(super) fn medal(place: usize) -> Option<Color> {
+    match place {
+        1 => Some(tokens::GOLD),
+        2 => Some(tokens::SILVER),
+        3 => Some(tokens::BRONZE),
+        _ => None,
+    }
+}
+
+/// A place in a ranking, `width` wide: its number, with the medal before it
+/// on the first three. Every ranking draws its places with it, so a leader
+/// reads the same on a task's board and on the ranked ladder.
+pub(super) fn place_cell(
+    commands: &mut Commands,
+    kit: Kit,
+    place: usize,
+    width: Val,
+    size: f32,
+    ink: Color,
+) -> Entity {
+    let cell = commands
+        .spawn((
+            Node {
+                width,
+                flex_shrink: 0.0,
+                align_items: AlignItems::Center,
+                column_gap: kit.m.px(5.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    if let Some(metal) = medal(place) {
+        let mark = commands
+            .spawn((
+                Text::new(crate::hud::glyph::MEDAL.to_string()),
+                icon_tf(kit.fonts, size * 0.9),
+                TextColor(metal),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(cell).add_child(mark);
+    }
+    let number = commands
+        .spawn((
+            Text::new(place.to_string()),
+            if medal(place).is_some() {
+                tf_bold(kit.fonts, size)
+            } else {
+                tf(kit.fonts, size)
+            },
+            TextColor(medal(place).unwrap_or(ink)),
+            TextLayout::no_wrap(),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(cell).add_child(number);
+    cell
+}
+
 /// A section's caption: small capitals in muted ink ("YOUR NEXT GAME").
 pub(super) fn caption(commands: &mut Commands, kit: Kit, text: &str) -> Entity {
     commands

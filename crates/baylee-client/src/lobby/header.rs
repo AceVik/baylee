@@ -1814,11 +1814,15 @@ pub(super) fn toast_lane(
             .retain(|(_, kind, _, _)| !matches!(kind, ToastKind::Status(_)));
     } else if current_status != toasts.last_status {
         toasts.last_status = current_status.to_string();
-        toasts
-            .shown
-            .retain(|(_, kind, _, _)| !matches!(kind, ToastKind::Status(_)));
-        let said = baylee_client_core::i18n::sentence_case(&toasts.last_status).into_owned();
-        toasts.stand(0, ToastKind::Status(state.lobby.tone()), said);
+        // A line that is no news (signed in, playing offline, a table being
+        // arranged) stands where it is said and leaves the lane as it was.
+        if !state.lobby.status_quiet() {
+            toasts
+                .shown
+                .retain(|(_, kind, _, _)| !matches!(kind, ToastKind::Status(_)));
+            let said = baylee_client_core::i18n::sentence_case(&toasts.last_status).into_owned();
+            toasts.stand(0, ToastKind::Status(state.lobby.tone()), said);
+        }
     }
     if state.bell.rung() > toasts.rung {
         let new = usize::try_from(state.bell.rung() - toasts.rung).unwrap_or(usize::MAX);

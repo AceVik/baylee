@@ -675,6 +675,61 @@ own.
   (`baylee-agent/src/lib.rs`), which the agent's comment notes is visible in
   that machine's process list.
 
+## Backups
+
+The production server is backed up by `baylee-backup`, a separate private
+program (repository `AceVik/baylee-backup`; its `docs/backup.md` is the
+full account). Nothing in this repository writes a backup; `baylee-reboot`
+only waits while one runs (`/run/baylee-backup/run.lock`).
+
+- **What:** every hour (`voll`) and every night (`archiv`), a dump of the
+  gateway's, Central's and the feedback service's databases, the deck
+  images, the challenge and seat-agent state directories, and copies of the
+  host's configuration. The secrets (the services' settings files and keys,
+  the database's TLS key and superuser password, the roles' password hashes)
+  go into a bundle encrypted separately to the owner's recovery key, which
+  the server does not hold.
+- **Never saved:** the rows of sessions and confirmation links
+  (`session_token`, `confirmation`; Central's `sessions`, pairings, pending
+  e-mail codes, push subscriptions and the like), the feedback service's
+  admin sessions, the card catalogs, and any log.
+- **Encrypted before upload:** restic encrypts everything on the server;
+  only ciphertext leaves it, for the owner's Google Drive (Google Ireland
+  Limited), which holds no key. The app may touch only files it created
+  itself (OAuth scope `drive.file`).
+- **How long, on Google Drive itself:** data in the hourly snapshots
+  (which also hold short-lived data: undelivered chat messages and their
+  deliveries, contact messages) **höchstens 14 Tage** (at most 14 days);
+  the nightly archive, which leaves those tables' rows out, **höchstens 12
+  Monate** (at most 12 months). The program forgets every hourly snapshot
+  older than 13 days and every archive snapshot older than 51 weeks,
+  counted from now whether backups run or not, and prunes every night at
+  01:30 with nothing left in partly used packs (`--max-unused 0`) and
+  without Drive's trash. So a deleted record is gone from Drive within 14
+  days at most; in normal running the hourly set's last snapshot holding it
+  is dropped about 13 days after the deletion and the next night's prune
+  removes its data. The worked example is in that repository's
+  `src/set.rs`.
+- **Deleted accounts:** each run records the ids (UUIDs only) of gateway
+  and Central accounts deleted since the run before, in a list that is part
+  of every snapshot. After a restore of an older snapshot those accounts are
+  deleted again: on the gateway through its own deletion
+  (`DELETE /admin/accounts/{id}`); on Central through its own operator
+  erasure (`central-service --erase-accounts-stdin`) where the installed
+  Central has it, else the program names the ids and the step for a
+  person. Until a restore, a deleted account stays in older backups as
+  long as they are kept (above).
+- **A replaced database on the server:** a restore of a snapshot older
+  than the live database's schema (after a deploy whose migration went
+  wrong) keeps the live database it replaces, renamed
+  `<name>_before_restore_<time>`, in the same PostgreSQL on the server, so
+  that it can be put back. It holds everything the live database held at
+  the restore, so an account deleted after the restore stays in it,
+  **until the operator discards it**
+  (`baylee-backup restore discard-previous`); nothing removes
+  it by itself and there is no upper bound, but the program warns every day
+  once one is older than 7 days. It is in no backup.
+
 ## Logs
 
 - **Where:** every binary logs through `tracing_subscriber::fmt` to stdout,
@@ -888,6 +943,7 @@ Kept apart from the table above so the two strands' rows merge cleanly.
 | Internal notes on a report (author, an admin's name; time; the admin's text, never a player's data by the UI's rule) | `feedback_note` | with the report | the author's removal; the report's purge |
 | An admin's saved views (a name and a list's query string) and which reports they opened | `feedback_view`, `feedback_seen` | until the admin is removed (or the report purged) | the admin's own removal of a view; `admin remove` |
 | Failed feedback sign-ins per address and per name | the service's memory | 15 minutes, a restart forgets them | the limiter itself; never written down |
+| Wrong tokens on the feedback service's token routes per address (an IPv6 address per /64); a process on the server itself is not counted | the service's memory | 15 minutes, a restart forgets them | the limiter itself; never written down or logged |
 
 - **The record names nobody.** Seats are numbers; the seat names the engine
   was told never enter it. The only link to a person is `game_record_seat`
@@ -1179,7 +1235,8 @@ to weigh, not conclusions.
    client still sends its session or seat token in a socket's address, and
    `/auth/confirm?token=` always does; whatever access log sits in front of
    the gateway sees those.
-4. **Retention of stdout logs and of backups** is not set anywhere in the
+4. **Retention of stdout logs** is not set anywhere in the repository.
+   Backups have their own (§"Backups"), set in the separate `baylee-backup`
    repository.
 5. **Game records** (#315) are kept without a time limit. The record names
    no account; who sat in a seat is `game_record_seat.account_id` (and

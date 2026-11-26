@@ -21,6 +21,14 @@ impl<D: LoopDetection, R: SessionRegistry, T: crate::recording::Transport> Engin
     /// moves the game — in which case the question is new and the allowance
     /// is whole — or is answered the same way by both.
     pub fn handle(&mut self, envelope: Envelope, remaining: &[(Clock, u32)]) -> Vec<Envelope> {
+        // A held game answers another flush and nothing else: no seat, no
+        // setting, no close moves it until its link closes.
+        if self.held {
+            return match envelope.msg {
+                Some(v1::envelope::Msg::FlushRecord(flush)) => self.flush_record(flush.nonce, true),
+                _ => Vec::new(),
+            };
+        }
         self.set_readings(remaining);
         self.absorb_clock();
         match envelope.msg {
@@ -29,7 +37,9 @@ impl<D: LoopDetection, R: SessionRegistry, T: crate::recording::Transport> Engin
             Some(v1::envelope::Msg::SeatDetached(detached)) => self.detach(detached),
             Some(v1::envelope::Msg::SeatFrame(frame)) => self.seat_frame(&frame),
             Some(v1::envelope::Msg::SpectatorsChanged(changed)) => self.spectators_changed(changed),
-            Some(v1::envelope::Msg::FlushRecord(flush)) => self.flush_record(flush.nonce),
+            Some(v1::envelope::Msg::FlushRecord(flush)) => {
+                self.flush_record(flush.nonce, flush.hold)
+            }
             Some(v1::envelope::Msg::CloseGame(close)) => self.close(&close.reason),
             _ => Vec::new(),
         }

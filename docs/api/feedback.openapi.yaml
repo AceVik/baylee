@@ -2584,6 +2584,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
+        "408":
+          description: The body did not arrive within 120 seconds
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
         "413":
           description: >-
             The text is over 20000 characters, `client` over 2 MiB, the record over its
@@ -2592,8 +2598,17 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: >-
+            Too many wrong credentials from this address in the last 15 minutes, or this
+            gateway's token has filed its reports or bytes for the last hour
+            (`FEEDBACK_INTAKE_PER_HOUR`, `FEEDBACK_INTAKE_MIB_PER_HOUR`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
         "503":
-          description: The database is unavailable
+          description: The database is unavailable, or no intake slot came free within 5 seconds
           content:
             application/json:
               schema:
@@ -2791,6 +2806,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: Too many wrong credentials from this address in the last 15 minutes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
         "503":
           description: The database is unavailable
           content:
@@ -2832,6 +2853,12 @@ paths:
                 $ref: "#/components/schemas/ErrorBody"
         "404":
           description: No such report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: Too many wrong credentials from this address in the last 15 minutes
           content:
             application/json:
               schema:
@@ -2892,6 +2919,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: Too many wrong credentials from this address in the last 15 minutes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
         "503":
           description: The database is unavailable
           content:
@@ -2928,6 +2961,12 @@ paths:
                 $ref: "#/components/schemas/ErrorBody"
         "404":
           description: No such report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: Too many wrong credentials from this address in the last 15 minutes
           content:
             application/json:
               schema:
@@ -2984,6 +3023,12 @@ paths:
                 $ref: "#/components/schemas/ErrorBody"
         "404":
           description: No such report, or it has no record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: Too many wrong credentials from this address in the last 15 minutes
           content:
             application/json:
               schema:
@@ -5146,7 +5191,8 @@ components:
       scheme: bearer
       description: >-
         A gateway's intake token, one of `FEEDBACK_GATEWAY_TOKENS`. The report is filed
-        under the name that token is configured with.
+        under the name that token is configured with, and counts against that gateway's
+        budget an hour.
     readToken:
       type: http
       scheme: bearer

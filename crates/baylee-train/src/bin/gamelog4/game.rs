@@ -236,7 +236,10 @@ impl Game {
                     turn: *turn,
                 })?,
                 Line::Header { .. } => bail!("a second header inside the record"),
-                Line::Chair { .. } | Line::DeclaredMind { .. } => {}
+                Line::Chair { .. }
+                | Line::Connection { .. }
+                | Line::Setting { .. }
+                | Line::DeclaredMind { .. } => {}
             }
         }
         if sources.next().is_some() {

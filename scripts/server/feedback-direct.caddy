@@ -1,8 +1,9 @@
 # The feedback service's public routes: `POST /client/reports`, where a
 # client signed in to no gateway reports (docs/feedback.md §"Straight from
 # a client"), `POST /site/contact`, the landing
-# page's contact form (§"The landing page's contact form"), and for now
-# `POST /intake/reports`, a gateway's intake (§"Intake", #408).
+# page's contact form (§"The landing page's contact form"), and
+# `POST /intake/reports`, a gateway's intake (§"Intake"; public for good,
+# owner 25.11.2026, #408).
 #
 # Directives for the feedback service's own site block. Only these
 # routes are passed on here; the read routes and the web UI are the operator's
@@ -53,12 +54,16 @@ handle @baylee_contact {
 }
 
 # A gateway's intake, public since 31.10.2026 so a gateway on another
-# machine reaches it (the trainer's collector, token name `collector`). The
-# service checks the gateway's intake token before it reads the body, and
-# stops a body past `MAX_INTAKE_BYTES` (a 64 MiB record in base64, 2 MiB of
-# client details and room: about 88 MiB); the proxy's 512 MiB (owner,
-# 31.10.2026) is a ceiling above that. The owner wants this route closed
-# again later (#408).
+# machine reaches it (the trainer's collector, token name `collector`), and
+# public for good since 25.11.2026 (owner, #408). The service checks the
+# gateway's intake token before it reads the body, shuts out an address
+# after 20 wrong tokens in 15 minutes, holds each gateway to its budget an
+# hour and the intake to four bodies at once, two of one gateway
+# (docs/feedback.md §"Intake"), and stops a body past `MAX_INTAKE_BYTES` (a
+# 64 MiB record in base64, 2 MiB of client details and room: about
+# 88 MiB); the proxy's 512 MiB (owner, 31.10.2026) is a ceiling above that.
+# The limiter counts the client's address only with
+# FEEDBACK_TRUSTED_PROXIES=127.0.0.1, as above.
 @baylee_intake path /intake/reports
 handle @baylee_intake {
 	request_body {

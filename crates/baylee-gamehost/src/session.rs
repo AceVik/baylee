@@ -466,7 +466,7 @@ impl<D: baylee_engine::engine::LoopDetection, R: crate::session::SessionRegistry
                 self.minds[at] = Some(Mind::undeclared());
             }
         }
-        record.input(seat, by, action, &self.engine);
+        record.input(seat, by, action, &self.engine, self.log.sealed());
         if !record.ended()
             && let Pending::GameOver(result) = self.engine.pending()
         {

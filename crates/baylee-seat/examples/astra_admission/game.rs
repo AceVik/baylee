@@ -417,7 +417,7 @@ pub(super) fn audit(attempt: &Path, approved_decks: &Path, pins: &Pins<'_>) -> R
                 );
                 terminal = Some(json!({"n":n, "turn":turn, "reason":reason}));
             }
-            Line::Chair { .. } => {}
+            Line::Chair { .. } | Line::Connection { .. } | Line::Setting { .. } => {}
             Line::Header { .. } => anyhow::bail!("Second record header"),
         }
     }

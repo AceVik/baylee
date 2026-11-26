@@ -380,13 +380,17 @@ default and is meant to sit behind a TLS reverse proxy.
 | `FEEDBACK_BIND` | `127.0.0.1:28780` |
 | `FEEDBACK_POOL` | database connections, 4 |
 | `FEEDBACK_WEB_DIR` | the built web UI (`web/feedback/dist`); unset = no page, `/` is `404` |
-| `FEEDBACK_TRUSTED_PROXIES` | comma-separated addresses whose `X-Forwarded-For` the sign-in limiter and the direct route's allowance believe; an entry that is not an address refuses startup |
+| `FEEDBACK_TRUSTED_PROXIES` | comma-separated addresses whose `X-Forwarded-For` the sign-in limiter, the token routes' limiter (§"Intake") and the direct route's allowance believe; an entry that is not an address refuses startup |
+| `FEEDBACK_INTAKE_PER_HOUR` | reports one gateway's intake token may file an hour, 2000 (§"Intake"); a whole number of at least 1, anything else refuses startup |
+| `FEEDBACK_INTAKE_MIB_PER_HOUR` | MiB of intake bodies one gateway's intake token may send an hour, 1024 (§"Intake"); a whole number of at least 1, anything else refuses startup |
 | `FEEDBACK_DIRECT_KEY` | turns on `POST /client/reports` and keys its reporter pseudonyms; at least 16 characters and none of the tokens. Unset, the route answers `503`. Never change it if a device's reports should stay linkable |
 | `FEEDBACK_CONTACT_ORIGINS` | turns on `POST /site/contact` for the pages served at these origins, comma-separated: each `https://host[:port]`, or `http://` for `localhost`, `127.0.0.1` or `[::1]` only (a page tried on this machine); a path, a trailing slash, credentials or plain `http://` to anywhere else refuses startup. Unset, the route answers `503` |
 
 Every token is at least 16 characters and no token may be given twice; the
 service refuses to start otherwise. Tokens are kept as SHA-256 and compared in
-constant time. `RUST_LOG=info` logs each report taken and deleted, by id.
+constant time. A wrong token on a token route (the intake, reading,
+changing and deleting) counts against the address it came from (§"Intake").
+`RUST_LOG=info` logs each report taken and deleted, by id.
 
 ### Intake: `POST /intake/reports`
 
@@ -398,19 +402,61 @@ but a gateway's token, `413` past the gateway's limits or a record over
 64 MiB. The report is filed under the name its token was configured with,
 whatever the gateway calls itself.
 
-**Public for now (31.10.2026).** The official gateway reaches the intake over
-loopback, under the token name `sanctuary`. The route is also public at
-`https://feedback.baylee.app/intake/reports`, so a gateway on another machine
-can file reports too: the trainer's private collector gateway, under the
-token name `collector`, sends the reports of its language-model seats
-(`docs/llm-seat.md`). It was reachable before 31.10.2026 already, through the
-site's catch-all (`scripts/server/feedback.caddy`); since then it has a route
-of its own in `scripts/server/feedback-direct.caddy`. The service checks a
-gateway's token before it reads the body, so a request without one costs
-only its headers (`401`). With a token, the service's own bound
-(`MAX_INTAKE_BYTES`, about 88 MiB) is the one that acts; the proxy's
-512 MiB (the owner's figure) is a ceiling above it. The owner accepts this as
-a temporary gap and wants it closed again later (#408).
+**Public, and guarded (owner, 25.11.2026).** The official gateway reaches the
+intake over loopback, under the token name `sanctuary`. The route is also
+public at `https://feedback.baylee.app/intake/reports`, so a gateway on
+another machine can file reports too: the trainer's private collector
+gateway, under the token name `collector`, sends the reports of its
+language-model seats (`docs/llm-seat.md`). It was reachable before
+31.10.2026 already, through the site's catch-all
+(`scripts/server/feedback.caddy`); since then it has a route of its own in
+`scripts/server/feedback-direct.caddy`. It was opened as a temporary gap to
+be closed again (#408); the owner decided on 25.11.2026 that it stays open,
+because it is needed, and is guarded instead (`guard.rs`). Every bound is
+in the service's memory only: a restart forgets the counts, and no address
+is written down or logged.
+
+- **The token first.** The service checks a gateway's token before it reads
+  the body, so a request without one costs only its headers (`401`).
+- **Wrong credentials shut their address.** A wrong token on any token
+  route (this one, the reads and the admin token's changes) counts against
+  the address it came from, an IPv6 address by its /64. An address that
+  sent 20 in the last 15 minutes is answered `429` before its credential is
+  looked at, a right one too, until the oldest is 15 minutes old
+  (`guard::FAILURES_PER_ADDRESS`, `FAILURE_WINDOW`). A process on this
+  machine that comes without the proxy's `X-Forwarded-For` (the official
+  gateway over loopback) is neither counted nor refused, so nobody on the
+  internet can shut it out with wrong tokens; the proxy always sets the
+  header, so a request from outside never passes for one. The service
+  must believe the proxy (`FEEDBACK_TRUSTED_PROXIES=127.0.0.1`), or every
+  outside request counts under the proxy's address and one guesser shuts
+  out every remote gateway.
+- **A budget per gateway.** Each gateway's token files at most
+  `FEEDBACK_INTAKE_PER_HOUR` reports (2000) and `FEEDBACK_INTAKE_MIB_PER_HOUR`
+  MiB of bodies (1024) in any hour; past either, `429` until the hour
+  frees one, logged as a warning that names the gateway. A token that leaks
+  can fill no more than that, and the operator sees it. The language-model
+  collector files at most 25 reports a game, so 2000 is room for 80 of its
+  games an hour; a gateway that needs more gets a higher number. Every
+  request the token let in counts, one refused for what it says too; one
+  past the body's bound counts as `MAX_INTAKE_BYTES`. The bytes are added
+  once a body is read, so a gateway at its edge goes over by at most the
+  bodies it has in its slots.
+- **Slots.** At most 4 intake bodies are read and stored at once, 2 of one
+  gateway (`guard::SLOTS`, `SLOTS_PER_GATEWAY`): each may hold about three
+  times its size in memory while it is decoded and stored (the body, the
+  decoded record, the statement's parameter), about 250 MiB at the bound.
+  A report waits at most 5 seconds for one (a gateway gives the whole
+  request 20) and is then answered `503`; the gateway answers its player
+  `502`; the report still counts against the budget.
+- **A time to arrive in.** Once it has its slot, a body has 120 seconds to
+  arrive (`guard::INTAKE_READ_TIME`), else `408`: a token cannot hold its
+  slots with a body it never finishes. A gateway on this machine sends one
+  within its 20 seconds; the rest is room for a large record over a slow
+  line from a remote one.
+- **Bounds.** With a token, the service's own bound (`MAX_INTAKE_BYTES`,
+  about 88 MiB) is the one that acts; the proxy's 512 MiB (the owner's
+  figure) is a ceiling above it.
 
 `record_origin` (`"gateway"` when absent) says who wrote the record. A
 client's (`"client"`) is held to a client's bounds and checked for the

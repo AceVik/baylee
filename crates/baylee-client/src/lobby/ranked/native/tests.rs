@@ -208,8 +208,8 @@ fn inline_play_presses_freeze_the_chosen_deck_once_and_cancel_the_joined_ticket(
         press(app, Press::Ranked(action));
         settle(app);
     };
-    tap(&mut app, Action::ToggleQueue);
-    tap(&mut app, Action::QueueFormat(Format::Highlander));
+    tap(&mut app, Action::Open);
+    tap(&mut app, Action::Format(Format::Highlander));
     tap(&mut app, Action::ToggleDecks);
     tap(&mut app, Action::Deck(wanted));
     tap(&mut app, Action::Join);
@@ -237,8 +237,8 @@ fn inline_play_presses_freeze_the_chosen_deck_once_and_cancel_the_joined_ticket(
         panic!("expected the Highlander queue request for the frozen deck");
     };
     assert_eq!(deck, [1; 32]);
-    tap(&mut app, Action::ToggleQueue);
-    tap(&mut app, Action::ToggleQueue);
+    tap(&mut app, Action::Back);
+    tap(&mut app, Action::Open);
     {
         let mut state = app.world_mut().resource_mut::<LobbyState>();
         let worker = &mut state.ranked_net;
@@ -262,8 +262,8 @@ fn inline_play_presses_freeze_the_chosen_deck_once_and_cancel_the_joined_ticket(
     }
     settle(&mut app);
     tap(&mut app, Action::Cancel);
-    tap(&mut app, Action::ToggleQueue);
-    tap(&mut app, Action::ToggleQueue);
+    tap(&mut app, Action::Back);
+    tap(&mut app, Action::Open);
     let worker = &app.world().resource::<LobbyState>().ranked_net;
     assert_eq!(worker.intent, Some(Request::Cancel { key }));
     assert!(worker.selecting.is_none());

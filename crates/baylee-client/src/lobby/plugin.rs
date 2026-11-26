@@ -139,6 +139,8 @@ impl Plugin for LobbyPlugin {
                     // pose lands on the panels the rebuild just stood up.
                     (
                         source::keep_the_code,
+                        front::donate::read,
+                        front::donate::keep_the_codes,
                         front::move_front,
                         front::progress::tick_auth_progress,
                         front::show_scene.before(crate::vista::paint),
@@ -152,6 +154,7 @@ impl Plugin for LobbyPlugin {
                         // as the round says on its first frame.
                         front::door::beckon,
                         front::door::animate_front_logo,
+                        front::donate::beat,
                         front::links::animate_hyperlinks,
                         front::progress::paint_auth_progress,
                     )

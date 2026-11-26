@@ -42,6 +42,22 @@ pub(crate) fn attach(
     track
 }
 
+/// [`attach`] with a bar that shows only while `list` runs past its view and
+/// keeps its gutter while hidden: an empty or short list draws no bar, and a
+/// list that grows past its view never moves its rows sideways.
+pub(crate) fn attach_stable(
+    commands: &mut Commands,
+    parent: Entity,
+    list: Entity,
+    metrics: Metrics,
+) -> Entity {
+    let bar = attach(commands, parent, list, metrics);
+    commands
+        .entity(bar)
+        .insert((OnlyWhenNeeded, StableGutter, Visibility::Hidden));
+    bar
+}
+
 /// Puts `list` and an [`OnlyWhenNeeded`] scrollbar side by side in `parent`;
 /// hidden (`Display::None`) while `list` fits so the content keeps 100% width.
 pub(crate) fn attach_when_needed(

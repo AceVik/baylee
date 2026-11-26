@@ -125,20 +125,15 @@ fn rank_marker(
 ) {
     let rank = standing.rank;
     let position = rank.champion_place.map_or(ordinal, usize::from);
-    let order = parts::line(
+    // The place as every ranking draws it: a medal before the first three.
+    let order = parts::place_cell(
         commands,
         kit,
-        &format!("#{position}"),
+        position,
+        kit.m.px(52.0),
         kit.m.small,
-        tokens::GOLD,
+        tokens::MUTED,
     );
-    commands
-        .entity(order)
-        .entry::<Node>()
-        .and_modify(move |mut n| {
-            n.width = kit.m.px(44.0);
-            n.flex_shrink = 0.0;
-        });
     commands.entity(band).add_child(order);
     let art = commands
         .spawn((
