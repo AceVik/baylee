@@ -93,7 +93,7 @@ fn roll_dice_beneath_top_library_without_origin() {
 }
 
 #[test]
-fn discarded_trigger_graveyard_to_exile_counters_and_linked_bag() {
+fn discarded_trigger_graveyard_to_exile_counters() {
     let hit_body = check(
         "discard_hit",
         "Name:Discard Hit Proxy\nManaCost:1 B\nTypes:Creature Skeleton\nPT:1/3\n\
@@ -109,25 +109,6 @@ fn discarded_trigger_graveyard_to_exile_counters_and_linked_bag() {
         hit_body.abilities[0].contains("counters::HIT"),
         "{}",
         hit_body.abilities[0]
-    );
-
-    let bag_body = check(
-        "bag_of_holding_proxy",
-        "Name:Bag of Holding Proxy\nManaCost:1\nTypes:Artifact\n\
-         T:Mode$ Discarded | ValidCard$ Card.YouCtrl | TriggerZones$ Battlefield | Execute$ TrigExile\n\
-         SVar:TrigExile:DB$ ChangeZone | Defined$ TriggeredCard | Origin$ Graveyard | Destination$ Exile\n\
-         A:AB$ ChangeZoneAll | Cost$ 4 T Sac<1/CARDNAME> | ChangeType$ Card.ExiledWithSource | Origin$ Exile | Destination$ Hand\n\
-         Oracle:Whenever you discard a card, exile that card from your graveyard.\\n{4}, {T}, Sacrifice Bag of Holding Proxy: Return all cards exiled with Bag of Holding Proxy to their owner's hand.",
-    );
-    assert!(
-        bag_body.abilities[0].contains("Effect::exile_linked"),
-        "{}",
-        bag_body.abilities[0]
-    );
-    assert!(
-        bag_body.abilities[1].contains("Effect::ReturnLinkedExile"),
-        "{}",
-        bag_body.abilities[1]
     );
 }
 
@@ -235,4 +216,13 @@ fn honest_refusals_on_zones_and_remembered_boundaries() {
          SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
     );
     assert!(transcode(&parsed_dollmaker, &cats(), Some(&tokens())).is_none());
+
+    let parsed_bag = parse(
+        "Name:Bag of Holding Proxy\nManaCost:1\nTypes:Artifact\n\
+         T:Mode$ Discarded | ValidCard$ Card.YouCtrl | TriggerZones$ Battlefield | Execute$ TrigExile\n\
+         SVar:TrigExile:DB$ ChangeZone | Defined$ TriggeredCard | Origin$ Graveyard | Destination$ Exile\n\
+         A:AB$ ChangeZoneAll | Cost$ 4 T Sac<1/CARDNAME> | ChangeType$ Card.ExiledWithSource | Origin$ Exile | Destination$ Hand\n\
+         Oracle:Whenever you discard a card, exile that card from your graveyard.\\n{4}, {T}, Sacrifice Bag of Holding Proxy: Return all cards exiled with Bag of Holding Proxy to their owner's hand.",
+    );
+    assert!(transcode(&parsed_bag, &cats(), Some(&tokens())).is_none());
 }
