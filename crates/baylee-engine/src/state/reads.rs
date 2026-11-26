@@ -1822,6 +1822,7 @@ fn trigger_reads_cast_origin_zone(trigger: &baylee_cards_dsl::Trigger) -> bool {
         Trigger::EntersBattlefield(f)
         | Trigger::EntersBattlefieldFromGraveyardOrCast(f)
         | Trigger::LeavesBattlefield(f)
+        | Trigger::LeavesGraveyard(f)
         | Trigger::Dies(f)
         | Trigger::DiesNotSacrificed(f)
         | Trigger::SpellCast(f)

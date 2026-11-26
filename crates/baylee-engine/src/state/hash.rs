@@ -1769,6 +1769,9 @@ fn hash_rider_situation(
                 h.u32(position(reference.object));
                 hash_damage_source(h, state, reference.object, reference.version);
             }
+            crate::object::Rider::DelvedCard(reference) => {
+                hash_delved_card(h, state, *reference, position);
+            }
             crate::object::Rider::EventManaValue(value) => {
                 h.u8(76);
                 value.hash(h);
@@ -1841,6 +1844,18 @@ fn hash_rider_situation(
             _ => hash_acquired_rider(h, rider),
         }
     }
+}
+
+fn hash_delved_card(
+    h: &mut Hasher,
+    state: &GameState,
+    reference: baylee_core::ids::DamageSourceRef,
+    position: &impl Fn(ObjectId) -> u32,
+) {
+    h.u8(255);
+    h.u16(517);
+    h.u32(position(reference.object));
+    hash_damage_source(h, state, reference.object, reference.version);
 }
 
 fn hash_event_found_object(
@@ -2817,6 +2832,11 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             Rider::Buyback => h.u8(92),
             Rider::GrantedSource(reference) => {
                 h.u8(94);
+                reference.hash(h);
+            }
+            Rider::DelvedCard(reference) => {
+                h.u8(255);
+                h.u16(517);
                 reference.hash(h);
             }
             Rider::KickedMask(mask) => {

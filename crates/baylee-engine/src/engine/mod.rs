@@ -2570,6 +2570,8 @@ mod damage_history_tests;
 #[cfg(test)]
 mod day_night_tests;
 #[cfg(test)]
+mod delve_link_tests;
+#[cfg(test)]
 mod departed_control_tests;
 #[cfg(test)]
 mod dies_flow_tests;

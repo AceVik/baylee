@@ -1361,6 +1361,9 @@ pub enum Rider {
     ChosenMode(u8),
     /// Player `PlayerId` chose entry mode `u8` as this permanent entered (`EnterModifier::EachPlayerChooseMode`).
     PlayerChosenMode(PlayerId, u8),
+    /// Card exiled to pay for this spell via delve, until the spell leaves
+    /// the stack (CR 607.2q). Appended to preserve replay identities.
+    DelvedCard(baylee_core::ids::DamageSourceRef),
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -1430,6 +1433,7 @@ impl Rider {
             Self::DelayedReturnObject(_)
             | Self::EventFoundObject(_)
             | Self::GrantedSource(_)
+            | Self::DelvedCard(_)
             | Self::PhasedOutUntilHostLeaves { .. }
             | Self::CreatedBy(_)
             | Self::RevealedInHandCantPlayUntilTurn

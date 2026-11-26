@@ -8,6 +8,7 @@ mod blocks_and_conditions;
 mod costs_and_refusals;
 mod creature_type;
 mod cycling;
+mod delve;
 mod dig;
 mod divided_damage;
 mod dredge;
