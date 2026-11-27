@@ -110,6 +110,10 @@ enum Command {
     /// one of the account's decks, and play each match with the house
     /// (`docs/llm-seat.md` §"The ranked runner").
     Ranked(Box<ranked_cli::RankedArgs>),
+    /// An AI's own decks: the host's legality facts, a deck lent without a
+    /// model, or built and improved by one, every version kept
+    /// (`docs/llm-seat.md` §"Deck building").
+    Deck(Box<deckbuild_cli::DeckArgs>),
 }
 
 #[derive(clap::Args)]
@@ -968,6 +972,13 @@ async fn run() -> anyhow::Result<()> {
             }
             done
         }
+        // Stopped, the work is dropped where it stands, and its reservations
+        // settle with what they spent (`spend::Booked`).
+        Command::Deck(deck) => tokio::select! {
+            biased;
+            by = stoppers.stopped() => Err(anyhow::anyhow!("stopped by {by}")),
+            done = deckbuild_cli::run(&deck, &env, &*keys) => done,
+        },
     }
 }
 
@@ -1191,6 +1202,7 @@ async fn leave_unstarted(unstarted: &Unstarted) {
     }
 }
 
+mod deckbuild_cli;
 mod host_chair;
 mod ranked_cli;
 mod tether;
