@@ -184,6 +184,8 @@ impl Plugin for LobbyPlugin {
                             crate::buildui::focus::light_the_cursor,
                             crate::buildui::focus::scroll_to_the_cursor,
                             crate::buildui::focus::place_menus,
+                            crate::buildui::focus::place_set_popup,
+                            crate::buildui::focus::elide_cells,
                         ),
                         (
                             thumbnails::load,
@@ -354,6 +356,10 @@ impl Plugin for LobbyPlugin {
                         crate::buildui::focus::place_menus
                             .after(bevy::ui::UiSystems::Layout)
                             .before(bevy::ui::UiSystems::PostLayout),
+                        crate::buildui::focus::place_set_popup
+                            .after(bevy::ui::UiSystems::Layout)
+                            .before(bevy::ui::UiSystems::PostLayout),
+                        crate::buildui::focus::elide_cells.after(bevy::ui::UiSystems::Layout),
                         crate::buildui::sample_hand::reveal.after(bevy::ui::UiSystems::Layout),
                         memorial::return_focus
                             .after(focusing::follow_focus)

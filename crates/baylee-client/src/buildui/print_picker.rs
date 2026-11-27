@@ -529,6 +529,10 @@ pub(crate) fn printing_picker(
     let hint = note(commands, fonts, metrics, Phrase::PickerHint.text(lang));
     commands.entity(panel).add_child(hint);
 
+    if let Some(popup) = set_popup(commands, fonts, metrics, lang, picker, None) {
+        commands.entity(shade).add_child(popup);
+    }
+
     shade
 }
 
@@ -857,7 +861,15 @@ fn icon_button(
     root
 }
 
-#[allow(clippy::too_many_lines)] // search box and its anchored set dropdown
+/// Marks the Set search field so the floating set dropdown anchors to it.
+#[derive(Component, Clone, Copy, Debug)]
+pub(crate) struct PickerSetAnchor;
+
+/// Marks the floating Set dropdown mounted on the modal scrim so neither the
+/// scrolling body nor the clipped sheet cuts it off behind the footer.
+#[derive(Component, Clone, Copy, Debug)]
+pub(crate) struct PickerSetPopup;
+
 pub(super) fn set_search(
     commands: &mut Commands,
     fonts: &UiFonts,
@@ -889,24 +901,46 @@ pub(super) fn set_search(
             tail: None,
         },
     );
+    commands.entity(root).insert(PickerSetAnchor);
+    root
+}
+
+/// The Set dropdown popup for the open picker, spawned hidden for
+/// `buildui::focus::place_set_popup` to position outside clipped ancestors and
+/// above the sheet footer.
+#[allow(clippy::too_many_lines)] // popup frame, scroll band and set chips
+pub(super) fn set_popup(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    lang: Lang,
+    picker: &Picker,
+    initial_width: Option<f32>,
+) -> Option<Entity> {
     if !picker.set_open() {
-        return root;
+        return None;
     }
+    let sets = picker.sets();
     let popup_box = commands
         .spawn((
+            PickerSetPopup,
+            Visibility::Hidden,
+            Pickable::default(),
             Node {
                 position_type: PositionType::Absolute,
-                top: percent(100),
-                width: percent(100),
+                left: px_fixed(0.0),
+                top: px_fixed(0.0),
+                width: initial_width.map_or(Val::Auto, px_fixed),
                 padding: UiRect::all(px(4)),
                 border: UiRect::all(px(1)),
                 border_radius: BorderRadius::all(px_fixed(crate::shellkit::tokens::RADIUS_CONTROL)),
                 ..default()
             },
-            BackgroundColor(palette::PANEL),
-            BorderColor::all(palette::ACCENT),
+            BackgroundColor(Color::NONE),
+            crate::shellkit::glass::ground(crate::shellkit::glass::Density::Solid),
+            crate::shellkit::glass::rim(),
             crate::shellkit::surfaces::elevation_popover(),
-            GlobalZIndex(80),
+            GlobalZIndex(crate::shellkit::tokens::z::SHEET + 5),
             Press::Shared(SharedPress::PickerNothing),
         ))
         .id();
@@ -944,6 +978,14 @@ pub(super) fn set_search(
         Press::Build(BuildPress::PickerSet(None)),
         picker.set().is_none(),
     );
+    commands.entity(all).insert(Node {
+        width: percent(100),
+        min_height: px(34),
+        flex_shrink: 0.0,
+        padding: UiRect::axes(px(10), px(6)),
+        align_items: AlignItems::Center,
+        ..default()
+    });
     commands.entity(popup).add_child(all);
     for (cursor, i) in picker.matching_sets().into_iter().enumerate() {
         let (code, name) = sets[i];
@@ -966,8 +1008,7 @@ pub(super) fn set_search(
         });
         commands.entity(popup).add_child(item);
     }
-    commands.entity(root).add_child(popup_box);
-    root
+    Some(popup_box)
 }
 
 #[cfg(test)]
