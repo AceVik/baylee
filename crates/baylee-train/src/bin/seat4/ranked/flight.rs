@@ -24,8 +24,7 @@ use tokio::time::Instant;
 use tokio_tungstenite::tungstenite::Message;
 
 /// Why a flight over a socket that closed or failed cannot go on.
-pub const SOCKET_LOST: &str =
-    "the seat's socket closed mid-game; the net's recurrent memory cannot be rebuilt from a snapshot";
+pub const SOCKET_LOST: &str = "the seat's socket closed mid-game; the net's recurrent memory cannot be rebuilt from a snapshot";
 
 /// How the seat paces itself.
 #[derive(Clone, Copy, Debug)]

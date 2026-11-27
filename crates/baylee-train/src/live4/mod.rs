@@ -50,8 +50,18 @@ pub struct LiveReport4 {
     pub neural_answers: u64,
     /// Forced answers returned by the runtime.
     pub forced_answers: u64,
-    /// Explicit house/runtime fallback answers.
+    /// Answers of House provenance: in tactical mode every answer the
+    /// policy chose under the tactical layer (a tactical record, never a
+    /// neural one), the live draw rule's, and the runtime's own fallbacks;
+    /// the next two fields tell the first and the last apart.
     pub fallback_answers: u64,
+    /// Of those, answers the net's policy chose under the tactical layer:
+    /// no runtime fallback and no draw rule.
+    pub tactical_answers: u64,
+    /// Of those, the runtime's own fallbacks, by reason (an unsupported
+    /// choice, a forced answer that would not decode, a view seen too often,
+    /// an inference that failed).
+    pub runtime_fallbacks: std::collections::BTreeMap<String, u64>,
     /// Search-selected answers (distinct from neural and house fallbacks).
     pub search_answers: u64,
     /// Draw offers answered by the explicit live rule over the neural critic.
@@ -79,6 +89,10 @@ struct Question {
 }
 
 /// One live game and one seat. No socket, wake filter, wall clock or secret.
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "Independent states of one seat: ready, curtain, done, held to the opening, paced"
+)]
 pub struct LiveSeat4<B = NetPlayer4> {
     brain: B,
     deck: DeckList,
@@ -285,7 +299,7 @@ impl<B: Brain4> LiveSeat4<B> {
                             .is_some_and(|winner| winner.includes(self.seat, None)),
                     );
                     self.report.drawn = Some(result.winner.is_none());
-                    self.result = Some(result.clone());
+                    self.result = Some(*result);
                     self.done = true;
                     return Ok(outgoing);
                 }
@@ -418,35 +432,7 @@ impl<B: Brain4> LiveSeat4<B> {
             audit::extend(&mut self.history, b"question", &pending_json);
             audit::extend(&mut self.history, b"action", &action_json);
             self.last_decision = Some(decision);
-            self.report.answers += 1;
-            for (group, fired) in self.brain.take_rules_fired() {
-                *self
-                    .report
-                    .tactic_rules_fired
-                    .entry(group.to_owned())
-                    .or_default() += fired;
-            }
-            self.paced = answer.provenance.source != SourceKind4::Forced
-                && !matches!(
-                    answer.action,
-                    PlayerAction::PassPriority
-                        | PlayerAction::ChooseManaAbility { .. }
-                        | PlayerAction::ActivateManaAbility { .. }
-                        | PlayerAction::PayWindow { .. }
-                );
-            if let Some(draw) = answer.draw {
-                self.report.draw_offer_answers += 1;
-                self.report.last_draw_decision = Some(draw);
-            }
-            match answer.provenance.source {
-                SourceKind4::Net => self.report.neural_answers += 1,
-                SourceKind4::Forced => self.report.forced_answers += 1,
-                SourceKind4::House => self.report.fallback_answers += 1,
-                SourceKind4::Search => self.report.search_answers += 1,
-                SourceKind4::External => {
-                    anyhow::bail!("external actions cannot be attributed to a live neural brain")
-                }
-            }
+            self.tally(&answer)?;
             outgoing.push(Envelope {
                 msg: Some(v1::envelope::Msg::PlayerAction(v1::PlayerActionMsg {
                     game_id: self.game_id.clone().unwrap_or_default(),
@@ -457,6 +443,54 @@ impl<B: Brain4> LiveSeat4<B> {
             self.last_answered = Some((question.seq, question.raw));
         }
         Ok(outgoing)
+    }
+
+    /// Counts the answer just generated, by who made it, and says whether
+    /// it is paced ([`Self::paced`]).
+    fn tally(&mut self, answer: &LiveAnswer4) -> anyhow::Result<()> {
+        self.report.answers += 1;
+        for (group, fired) in self.brain.take_rules_fired() {
+            *self
+                .report
+                .tactic_rules_fired
+                .entry(group.to_owned())
+                .or_default() += fired;
+        }
+        self.paced = answer.provenance.source != SourceKind4::Forced
+            && !matches!(
+                answer.action,
+                PlayerAction::PassPriority
+                    | PlayerAction::ChooseManaAbility { .. }
+                    | PlayerAction::ActivateManaAbility { .. }
+                    | PlayerAction::PayWindow { .. }
+            );
+        if let Some(draw) = &answer.draw {
+            self.report.draw_offer_answers += 1;
+            self.report.last_draw_decision = Some(draw.clone());
+        }
+        match answer.provenance.source {
+            SourceKind4::Net => self.report.neural_answers += 1,
+            SourceKind4::Forced => self.report.forced_answers += 1,
+            SourceKind4::House => {
+                self.report.fallback_answers += 1;
+                match self.brain.fallback_reason() {
+                    Some(reason) => {
+                        *self
+                            .report
+                            .runtime_fallbacks
+                            .entry(reason.to_owned())
+                            .or_default() += 1;
+                    }
+                    None if answer.draw.is_none() => self.report.tactical_answers += 1,
+                    None => {}
+                }
+            }
+            SourceKind4::Search => self.report.search_answers += 1,
+            SourceKind4::External => {
+                anyhow::bail!("external actions cannot be attributed to a live neural brain")
+            }
+        }
+        Ok(())
     }
 
     fn observe_latest(&mut self) -> anyhow::Result<()> {

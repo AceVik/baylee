@@ -3660,7 +3660,7 @@ seat4 ranked --model <export dir> --central live --account <id | Name#tag> --tok
 - **What it says.** Nothing to the table: the wire has no kind for a trained net (`v1::SeatMind`), and none is borrowed. People see
   Baylee AI through Central's badge. Each match's transcript (the runner's, under `--state`) gets one line `{"net": …}` and standard
   output one line `{"phase": "ranked-game", …}`: the export, its digest, the catalog binding, how the flight ended, turns, the answers
-  by source (neural, forced, the runtime's house), the rule references left out, and the cards of its own deck the export does not read
+  by source (the policy raw or under its tactical layer, forced, the runtime's own fallbacks by reason), the rule references left out, and the cards of its own deck the export does not read
   as trained.
 - **Never training data.** The ranked path keeps no journal, no decision audit and no report file, and writes only beneath `--state`;
   no game with a person enters a corpus from here.

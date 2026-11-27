@@ -142,7 +142,7 @@ struct Args {
 /// How the net plays: what [`load_brain`] sets on a loaded model.
 #[derive(Clone, Debug, PartialEq)]
 struct Policy {
-    raw_policy: bool,
+    raw: bool,
     temperature: f32,
     thinking_steps: u8,
     think_adaptive: Option<String>,
@@ -159,7 +159,7 @@ impl Policy {
     /// with the bundle, depth K, the exact catalog, nothing else.
     fn measured() -> Self {
         Self {
-            raw_policy: false,
+            raw: false,
             temperature: 0.0,
             thinking_steps: baylee_train_ops::measured::THINKING_STEPS,
             think_adaptive: None,
@@ -175,7 +175,7 @@ impl Policy {
 impl Args {
     fn policy(&self) -> Policy {
         Policy {
-            raw_policy: self.raw_policy,
+            raw: self.raw_policy,
             temperature: self.temperature,
             thinking_steps: self.thinking_steps,
             think_adaptive: self.think_adaptive.clone(),
@@ -193,7 +193,10 @@ impl Args {
 }
 
 fn main() -> anyhow::Result<()> {
-    if std::env::args_os().nth(1).is_some_and(|first| first == "ranked") {
+    if std::env::args_os()
+        .nth(1)
+        .is_some_and(|first| first == "ranked")
+    {
         return ranked::main();
     }
     room()
@@ -590,7 +593,7 @@ fn load_brain(policy: &Policy, model: &std::path::Path) -> anyhow::Result<NetPla
         "Encoders 8 and 9 require versioned context on the wire; use offline eval4"
     );
     let mut brain = NetPlayer4::load_with(model, policy.catalog)?
-        .with_policy_mode(if policy.raw_policy {
+        .with_policy_mode(if policy.raw {
             PolicyMode4::Raw
         } else {
             PolicyMode4::Tactical
