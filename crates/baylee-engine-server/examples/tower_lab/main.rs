@@ -158,6 +158,7 @@ fn main() -> Result<()> {
                 &content,
                 &cohort,
                 &sets,
+                trims,
                 seeds,
                 field,
                 cli.seed,
