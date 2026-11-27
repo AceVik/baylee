@@ -146,18 +146,43 @@ impl Identity {
                 .all(|s| label(s, 96))
     }
 
+    /// Whether an agent and a gateway of this build may still run a game on
+    /// this artifact: well formed, and of this build's protocol or an older
+    /// one. A game goes on on the build that started it after an update
+    /// (`docs/proposals/games-survive-restarts.md`), so the agent installs
+    /// older builds beside the current one and the gateway takes them; it
+    /// orders them only for a game an older build played ([`Self::valid`] is
+    /// what a new game, a ranked duel, a challenge and Tower ask). A newer
+    /// protocol is refused: nothing here can know what it says.
+    #[must_use]
+    pub fn hostable(&self) -> bool {
+        (1..=crate::PROTOCOL_VERSION).contains(&self.protocol) && self.well_formed()
+    }
+
     /// Reads one bounded metadata document. Extra fields and trailing documents fail.
     #[must_use]
     pub fn from_metadata(bytes: &[u8]) -> Option<Self> {
+        Self::read_metadata(bytes).filter(Self::valid)
+    }
+
+    /// [`Self::from_metadata`] for an artifact of this build or an older one
+    /// ([`Self::hostable`]).
+    #[must_use]
+    pub fn from_hostable_metadata(bytes: &[u8]) -> Option<Self> {
+        Self::read_metadata(bytes).filter(Self::hostable)
+    }
+
+    fn read_metadata(bytes: &[u8]) -> Option<Self> {
         if bytes.len() > MAX_METADATA_BYTES {
             return None;
         }
-        let value: Self = serde_json::from_slice(bytes).ok()?;
-        value.valid().then_some(value)
+        serde_json::from_slice(bytes).ok()
     }
 }
 
 /// Reads a bounded list from an agent's opening frame, refusing partial lists.
+/// Older builds an agent keeps installed are in it ([`Identity::hostable`]);
+/// whoever orders an engine picks what it needs.
 #[must_use]
 pub fn capabilities_from_metadata(values: &[Vec<u8>]) -> Option<Vec<Identity>> {
     if values.is_empty() || values.len() > MAX_CAPABILITIES {
@@ -165,17 +190,28 @@ pub fn capabilities_from_metadata(values: &[Vec<u8>]) -> Option<Vec<Identity>> {
     }
     let identities: Vec<_> = values
         .iter()
-        .map(|v| Identity::from_metadata(v))
+        .map(|v| Identity::from_hostable_metadata(v))
         .collect::<Option<_>>()?;
-    valid_capabilities(&identities).then_some(identities)
+    hostable_capabilities(&identities).then_some(identities)
 }
 
-/// A bounded capability set with no duplicate identities.
+/// A bounded capability set of this build's protocol, with no duplicate
+/// identities.
 #[must_use]
 pub fn valid_capabilities(values: &[Identity]) -> bool {
+    bounded_and_distinct(values) && values.iter().all(Identity::valid)
+}
+
+/// [`valid_capabilities`] for a set that may hold older builds
+/// ([`Identity::hostable`]).
+#[must_use]
+pub fn hostable_capabilities(values: &[Identity]) -> bool {
+    bounded_and_distinct(values) && values.iter().all(Identity::hostable)
+}
+
+fn bounded_and_distinct(values: &[Identity]) -> bool {
     !values.is_empty()
         && values.len() <= MAX_CAPABILITIES
-        && values.iter().all(Identity::valid)
         && values
             .iter()
             .enumerate()
@@ -289,5 +325,38 @@ mod tests {
         let mut other_schema = identity();
         other_schema.schema += 1;
         assert!(!other_schema.well_formed());
+    }
+
+    /// An older build an agent keeps is taken beside the current one and read
+    /// from its metadata; a newer one, one that names no protocol and a
+    /// malformed one are not.
+    #[test]
+    fn an_older_build_is_hostable_and_a_newer_one_is_not() {
+        let current = identity();
+        let mut older = identity();
+        older.protocol -= 1;
+        older.build = "older-build".into();
+        assert!(current.hostable() && older.hostable());
+        assert!(!older.valid());
+        assert_eq!(
+            Identity::from_hostable_metadata(&older.to_metadata()),
+            Some(older.clone())
+        );
+        assert_eq!(Identity::from_metadata(&older.to_metadata()), None);
+        let both = [current.clone(), older.clone()];
+        assert!(hostable_capabilities(&both));
+        assert!(!valid_capabilities(&both));
+        assert_eq!(
+            capabilities_from_metadata(&both.iter().map(Identity::to_metadata).collect::<Vec<_>>()),
+            Some(both.to_vec())
+        );
+        for protocol in [0, crate::PROTOCOL_VERSION + 1] {
+            let mut other = current.clone();
+            other.protocol = protocol;
+            assert!(!other.hostable(), "{protocol}");
+            assert_eq!(Identity::from_hostable_metadata(&other.to_metadata()), None);
+        }
+        older.features.push('a');
+        assert!(!older.hostable());
     }
 }

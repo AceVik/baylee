@@ -51,6 +51,7 @@ async fn run_typed<D: baylee_engine::engine::LoopDetection>(
                 protocol_version: baylee_protocol::PROTOCOL_VERSION,
                 pid: 0,
                 build: baylee_build::short().to_owned(),
+                link: baylee_protocol::ENGINE_LINK,
             })),
         },
     )

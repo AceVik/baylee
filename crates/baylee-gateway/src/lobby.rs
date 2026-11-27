@@ -348,6 +348,11 @@ pub struct LobbyGame {
     /// Where the game stands with the copy this gateway keeps across its
     /// restart (`keep`, `docs/proposals/games-survive-restarts.md`).
     pub(crate) kept: Kept,
+    /// A restored game's preset as its record's header holds it, written by
+    /// the engine build that plays it: what that engine is sent again, byte
+    /// for byte, since this build's `GamePreset` may write fields an older
+    /// one refuses. Let go once the engine has it.
+    pub(crate) resume_preset: Option<Box<serde_json::value::RawValue>>,
     /// Game id (`UUIDv7`).
     pub id: String,
     /// State.
@@ -472,6 +477,18 @@ impl LobbyGame {
     /// ([`Kept::Restored`]).
     pub(crate) fn restored(&self) -> bool {
         self.kept == Kept::Restored
+    }
+
+    /// The protocol this table speaks to its seats and spectators: that of the
+    /// engine build it was given, which after an update may be older than this
+    /// gateway's (`baylee_protocol::table_refusal`); this build's before an
+    /// engine is ordered.
+    pub(crate) fn protocol(&self) -> u32 {
+        self.execution
+            .as_ref()
+            .map_or(baylee_protocol::PROTOCOL_VERSION, |identity| {
+                identity.protocol
+            })
     }
 
     /// A chair whose capability may be exercised. Replicated seats are
@@ -672,6 +689,7 @@ impl LobbyGame {
             execution: None,
             record_finalizing: false,
             kept: Kept::Whole,
+            resume_preset: None,
             state: LobbyState::Waiting,
             host: None,
             name: String::new(),

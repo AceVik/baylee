@@ -1,17 +1,18 @@
-//! The gateway holds every peer to the protocol it speaks itself (#271): an
-//! agent, an engine or a seat socket of another protocol is refused, and told
-//! both numbers.
+//! The gateway holds every peer to a protocol (#271): an agent to its own, an
+//! engine and a seat socket to their table's, which is the gateway's own for
+//! every game this build began. A peer of another protocol is refused, and
+//! told both numbers.
 //!
-//! Nothing compares a client to an engine directly. Each is compared to the
-//! gateway, and a peer that got past it speaks the gateway's protocol, so two
-//! that did speak each other's.
+//! A client is compared to its table, and the table to the engine it was
+//! given, so a client let in speaks what that engine speaks; a game an older
+//! build began is held to that build's protocol (`e2e_restart`).
 
 #![allow(clippy::missing_docs_in_private_items)]
 
 use crate::common;
 
 use baylee_protocol::v1::{self, Envelope};
-use baylee_protocol::{PROTOCOL_VERSION, version_refusal};
+use baylee_protocol::{PROTOCOL_VERSION, table_refusal, version_refusal};
 use common::{Gateway, Socket, http, json_field, login, next_msg, send, spawn_gateway};
 
 /// Another protocol than this build's.
@@ -108,13 +109,14 @@ async fn an_engine_of_another_protocol_ends_its_game() {
             protocol_version: OTHER,
             pid: 0,
             build: String::new(),
+            link: baylee_protocol::ENGINE_LINK,
         })),
     };
     send(&mut engine, &hello).await;
     match next(&mut engine, "the refusal").await {
         Some(v1::envelope::Msg::Error(error)) => assert_eq!(
             Some(error.message),
-            version_refusal("This engine", OTHER),
+            table_refusal("This engine", OTHER, PROTOCOL_VERSION),
             "the engine is told both numbers"
         ),
         other => panic!("an engine of another protocol was not refused: {other:?}"),
@@ -157,10 +159,10 @@ async fn a_seat_socket_of_another_protocol_is_told_both_numbers_and_nothing_else
         match next(&mut ws, "the refusal").await {
             Some(v1::envelope::Msg::HelloAck(ack)) => {
                 assert!(!ack.compatible, "{ack:?}");
-                assert_eq!(ack.protocol_version, PROTOCOL_VERSION, "the gateway's own");
+                assert_eq!(ack.protocol_version, PROTOCOL_VERSION, "the table's own");
                 assert_eq!(
                     Some(ack.message),
-                    version_refusal("This client", theirs),
+                    table_refusal("This client", theirs, PROTOCOL_VERSION),
                     "the client is told both numbers"
                 );
             }

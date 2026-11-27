@@ -6,7 +6,7 @@
 //! engine: a spectator has nothing to say to a game. The gateway's count of
 //! open watch sockets is the number the listing and the seats are told.
 
-use super::seat_socket::{MAX_SEAT_FRAME, engine_ready, refuse_seat};
+use super::seat_socket::{MAX_SEAT_FRAME, engine_ready, refuse_seat, table_protocol};
 use crate::{
     ErrorBody, Json, LobbyState, Message, Path, Query, RecvError, Shared, State, StatusCode,
     TICKET_REFUSED, WebSocket, WebSocketUpgrade, WsParams, err, lobby, spend_ticket, v1, wsticket,
@@ -47,8 +47,8 @@ pub(crate) fn may_watch(game: &lobby::LobbyGame) -> Result<(), (StatusCode, Json
 /// no spectators (any more) and `409` when it is not being played; with
 /// `403` and `ban` or `terms_required` when the account is banned or must
 /// accept new terms, `401` when it must choose a new password, and `503`
-/// when the account store cannot be asked. A client of
-/// another protocol is let in, sent one `HelloAck` and closed. Otherwise
+/// when the account store cannot be asked. A client of another protocol
+/// than the table's (as at a seat) is let in, sent one `HelloAck` and closed. Otherwise
 /// the socket waits up to 30 seconds for the game's engine (and closes if
 /// none attaches), the engine is told the spectator count, and every
 /// spectator is sent a whole snapshot (`GameStaticMsg`, `StateDelta` with
@@ -62,11 +62,11 @@ pub(crate) fn may_watch(game: &lobby::LobbyGame) -> Result<(), (StatusCode, Json
 /// §"Refusals"), and with a close frame without a code when the game ends.
 /// Baylee Central being away ends nothing.
 /// @ws-query ticket: String required "A single-use ticket bought for watching this game with `POST /ws-ticket` and the session"
-/// @ws-query protocol: u32 required "The protocol the client speaks (`PROTOCOL_VERSION`, as `GET /info` answers it); another, or none, is answered with a `HelloAck` that is not compatible"
+/// @ws-query protocol: u32 required "The protocol the client speaks (`PROTOCOL_VERSION`); another than the table's, or none, is answered with a `HelloAck` that is not compatible. The table's is the gateway's (`GET /info`), or an older one for a game an older engine build began"
 /// parameters:
 ///   id:
 ///     description: The game's id, as the lobby lists it.
-/// @send `HelloAck`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `hello_ack`, from the gateway itself: the client's protocol is not the gateway's. `compatible` is false, `protocol_version` is the gateway's and `message` is a sentence naming both. The only frame; the socket closes after it."
+/// @send `HelloAck`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `hello_ack`, from the gateway itself: the client's protocol is not the table's. `compatible` is false, `protocol_version` is the table's, `refusal` is `update_required` when the client's is older, and `message` is a sentence naming both. The only frame; the socket closes after it."
 /// @send `GameStaticMsg`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `game_static`: the public opening payload, first in every snapshot and sent again before a view that shows a printing for the first time. `statics` is a `GameStatic` as `baylee_core::wire` writes it, whose print table holds only what was shown in public, never a decklist; `your_seat` is seat 0, the side the table is drawn from."
 /// @send `StateDelta`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `state_delta`: the public table. `view_frame` is a `ViewFrame` of the public view drawn from seat 0 (no private hand, question, looked-at card, clock or policy, and a face-down card is a blank), whole on arrival and when a socket falls behind, then what changed; `log` is a `LogTail` as `baylee_core::wire` writes it, the game log as nobody in particular may know it, appended by its `from`."
 /// @send `ChoiceRequest`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `choice_request`, only at the end: `pending` is a `Pending` of `GameOver` as `baylee_core::wire` writes it."
@@ -103,8 +103,9 @@ pub(crate) async fn watch_ws(
         // spectators since the ticket was bought.
         may_watch(game)?;
     }
-    if let Some(why) = baylee_protocol::version_refusal("This client", params.protocol) {
-        return Ok(ws.on_upgrade(move |socket| refuse_seat(socket, why, params.protocol)));
+    let table = table_protocol(&state, &id);
+    if let Some(why) = baylee_protocol::table_refusal("This client", params.protocol, table) {
+        return Ok(ws.on_upgrade(move |socket| refuse_seat(socket, why, params.protocol, table)));
     }
     // Whose socket it is, for the friends list's "watching" (`social/`):
     // the session that bought the ticket, if it still stands.

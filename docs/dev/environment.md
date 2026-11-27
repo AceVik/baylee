@@ -255,6 +255,10 @@ Registered hosts only; keys write-only over the unix socket; tests use in-proces
   is canonicalized and probed with `--metadata` before registration. Configure at
   most sixteen including `BAYLEE_ENGINE_BIN`; duplicate identities/paths and failed
   probes stop startup. The gateway selects exact metadata; paths stay local.
+  An executable of an older build than the agent's, with an older protocol, is
+  taken too: the gateway orders it only for a game that build began and that
+  goes on after an update (`docs/protocol.md` §"Which side checks the
+  protocol"); one of a newer protocol stops startup.
   Setting this variable, including to an empty value, overrides sibling
   discovery. An explicit `BAYLEE_ENGINE_BIN` also disables sibling discovery
   unless additional binaries are explicitly listed.

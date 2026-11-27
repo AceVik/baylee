@@ -297,7 +297,9 @@ pub fn order(envelope: Envelope) -> Order {
             game_id: start.game_id,
             engine_token: start.engine_token,
             gateway_url: start.gateway_url,
-            execution: baylee_protocol::execution::Identity::from_metadata(&start.execution),
+            execution: baylee_protocol::execution::Identity::from_hostable_metadata(
+                &start.execution,
+            ),
         },
         Some(v1::envelope::Msg::StopEngine(stop)) => Order::Stop {
             game_id: stop.game_id,

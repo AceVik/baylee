@@ -105,9 +105,12 @@ identity. The gateway obtains the required identity from Central before claiming
 an attempt and selects only an authenticated matching agent. Missing capacity
 leaves the attempt reserved with no start counted. The attached engine is checked
 again before receiving the private preset. No player selects a binary or path.
-Ordinary games use current-build or legacy agents, never retained builds.
+A new ordinary game uses the current build, never a retained one; a running
+game resumed after an update goes on on the build that began it, which an agent
+may keep for that alone (`docs/protocol.md` §"Which side checks the protocol").
 This supports retained executors with the same wire and preset schema; a protocol
-upgrade needs a compatible retained execution host before those tasks can run.
+upgrade needs a compatible retained execution host before those tasks can run:
+a challenge's executor is still held to this build's protocol.
 
 ## Official execution and delivery
 

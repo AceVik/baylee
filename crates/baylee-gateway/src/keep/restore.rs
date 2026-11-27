@@ -29,7 +29,8 @@ const MAX_HEADER_BYTES: u64 = 64 << 20;
 #[derive(serde::Deserialize)]
 pub(super) struct Header {
     kind: String,
-    pub(super) preset: GamePreset,
+    /// As the engine that plays the game wrote it ([`LobbyGame::resume_preset`]).
+    pub(super) preset: Box<serde_json::value::RawValue>,
     #[serde(default)]
     pub(super) execution: Option<Identity>,
 }
@@ -117,16 +118,19 @@ async fn one(
     let header = tokio::task::spawn_blocking(move || header_of(&piece))
         .await
         .map_err(|_| "its record could not be read")??;
+    // A build older than this one goes on with the game it began: its agent
+    // keeps it installed (`Identity::hostable`).
     let execution = header
         .execution
-        .filter(Identity::valid)
-        .ok_or("its record names no engine")?;
+        .filter(Identity::hostable)
+        .ok_or("its record names no engine this gateway can run")?;
     if execution.variant == Variant::Tower {
         return Err("it is a Tower run");
     }
-    let game = row
-        .clone()
-        .game(kept.game_id.clone(), header.preset, execution);
+    let preset: GamePreset =
+        serde_json::from_str(header.preset.get()).map_err(|_| "its preset does not read")?;
+    let mut game = row.clone().game(kept.game_id.clone(), preset, execution);
+    game.resume_preset = Some(header.preset);
     Ok((row, game))
 }
 

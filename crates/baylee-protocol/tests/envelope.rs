@@ -49,6 +49,7 @@ fn an_engine_hello_keeps_its_game_token_and_version() {
         protocol_version: PROTOCOL_VERSION,
         pid: 4242,
         build: "0.8.0+build.1 (abc)".into(),
+        link: baylee_protocol::ENGINE_LINK,
     };
     assert_eq!(
         trip(Msg::EngineHello(hello.clone())),
@@ -72,6 +73,7 @@ fn a_hello_from_before_the_version_field_reads_as_version_zero() {
         protocol_version: 0,
         pid: 0,
         build: String::new(),
+        link: 0,
     };
     let wire = old.encode_to_vec();
     let back = v1::EngineHello::decode(&wire[..]).unwrap();

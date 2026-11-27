@@ -116,6 +116,26 @@ pub mod tape;
 /// (`e2e_central::ranked::`).
 pub const PROTOCOL_VERSION: u32 = 70;
 
+/// The revision of the engine link this build speaks (`EngineHello.link`):
+/// what an engine and a gateway say to each other, as distinct from
+/// [`PROTOCOL_VERSION`], which is what a table says to its seats.
+///
+/// A gateway keeps playing a game on the engine build that started it, after
+/// that build is no longer the newest (`docs/proposals/games-survive-restarts.md`),
+/// so the link only ever gains: a field, a message, a case, never a change of
+/// one there is. The revision goes up by one when the link gains something a
+/// gateway has to know an engine can do before it asks; what it has gained
+/// stands in `tests/engine_link.rs`, which refuses any other change.
+///
+/// - 0: an engine from before the revision was said.
+/// - 1: picks a game up from its stored record (`GameSetup.resume_record`)
+///   and holds a game a stop asked for (`FlushRecord.hold`).
+pub const ENGINE_LINK: u32 = 1;
+
+/// The engine link revision from which an engine resumes a game from its
+/// stored record: one from before would start the game anew instead.
+pub const RESUMING_LINK: u32 = 1;
+
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
 
@@ -133,13 +153,25 @@ pub const TABLE_ENTRANCE_LEAD_MS: u64 = 1_500;
 /// from one that sent 0, and which says so rather than claim a version.
 #[must_use]
 pub fn version_refusal(who: &str, theirs: u32) -> Option<String> {
-    (theirs != PROTOCOL_VERSION).then(|| {
+    refusal_against(who, theirs, "this gateway", PROTOCOL_VERSION)
+}
+
+/// [`version_refusal`] at one table, which speaks `table`: the protocol of
+/// the engine build that plays it, which after an update may be older than
+/// this gateway's own. A seat, a spectator and the table's engine are held
+/// to it, so a client that has not updated yet goes on with the game it is
+/// in, and one that has is told the table is older.
+#[must_use]
+pub fn table_refusal(who: &str, theirs: u32, table: u32) -> Option<String> {
+    refusal_against(who, theirs, "this table", table)
+}
+
+fn refusal_against(who: &str, theirs: u32, side: &str, speaks: u32) -> Option<String> {
+    (theirs != speaks).then(|| {
         if theirs == 0 {
-            format!(
-                "{who} does not say which protocol it speaks; this gateway speaks {PROTOCOL_VERSION}."
-            )
+            format!("{who} does not say which protocol it speaks; {side} speaks {speaks}.")
         } else {
-            format!("{who} speaks protocol {theirs}; this gateway speaks {PROTOCOL_VERSION}.")
+            format!("{who} speaks protocol {theirs}; {side} speaks {speaks}.")
         }
     })
 }
@@ -319,6 +351,24 @@ mod tests {
         assert_eq!(
             super::version_refusal("This client", PROTOCOL_VERSION),
             None
+        );
+    }
+
+    /// At a table an older build plays, its own number is the one that is
+    /// let in and named, not this gateway's.
+    #[test]
+    fn a_table_names_its_own_protocol() {
+        let table = PROTOCOL_VERSION - 1;
+        assert_eq!(super::table_refusal("This client", table, table), None);
+        let said = super::table_refusal("This client", PROTOCOL_VERSION, table).expect("refused");
+        assert_eq!(
+            said,
+            format!("This client speaks protocol {PROTOCOL_VERSION}; this table speaks {table}.")
+        );
+        let silent = super::table_refusal("This engine", 0, table).expect("refused");
+        assert!(
+            silent.ends_with(&format!("this table speaks {table}.")),
+            "{silent}"
         );
     }
 

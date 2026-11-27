@@ -477,14 +477,16 @@ is no account yet:
   it again before showing it, because a gateway built elsewhere made no such
   promise.
 - The build fields are `/source`'s and `/health`'s.
-- `protocol_version` is the envelope a seat socket speaks (`baylee_protocol`),
-  and the one this gateway holds every peer to (§"Which side checks the
-  protocol (#271)").
+- `protocol_version` is the envelope a seat socket speaks (`baylee_protocol`)
+  at every table this build began, and the one this gateway holds an agent
+  and the social socket to; a game an older build began and goes on with
+  after an update speaks that build's (§"Which side checks the protocol
+  (#271)").
 - `view_version` is the view shape **this gateway's build** was compiled
   with. The gateway never decodes a view, and an engine says only its
-  protocol when it attaches, so the number describes the engines only because
-  one deployment runs one build. It is the early warning; the check that decides
-  is still the client's own, on a game's first `GameStatic`.
+  protocol when it attaches, so the number describes the engines of new games
+  only because they run this build. It is the early warning; the check that
+  decides is still the client's own, on a game's first `GameStatic`.
 - `source` is where this gateway's source can be had: the AGPL's §13 offer
   (#270), the same address `/source` names. It is `BAYLEE_SOURCE_URL`, for a
   fork that publishes elsewhere, else the repository the build came from. An
@@ -3140,21 +3142,26 @@ destination; the updater's source and the terms sheet are built in.
 
 ## Which side checks the protocol (#271)
 
-The gateway checks, and only against itself. Every peer says which protocol
-it speaks when it connects, and the gateway compares that number with its
-own `PROTOCOL_VERSION`. Nothing compares a client with an engine directly:
-each was compared with the gateway, so two that both got in speak each
-other's protocol.
+The gateway checks. Every peer says which protocol it speaks when it
+connects, and the gateway compares that number with the one it is held to:
+an agent and the social socket with the gateway's own `PROTOCOL_VERSION`, an
+engine, a seat socket and a spectator with their **table's**. A table speaks
+the protocol of the engine build it was given (`LobbyGame::protocol`, the
+`protocol` of its execution identity), which is the gateway's own for every
+game this build began. Nothing compares a client with an engine directly:
+each was compared with the table, so two that both got in speak each other's
+protocol.
 
-| peer | where it says it | checked after | what a refused peer is sent | then |
-| --- | --- | --- | --- | --- |
-| agent | `AgentHello.protocol_version` | the agent token | `Error{code: 1, message}`, and the socket closes | not registered; it logs the sentence at error level and dials again on its back-off |
-| engine | `EngineHello.protocol_version` | the game's engine token | `Error{code: 1, message}`, and the socket closes | the game ends: it leaves the listing and its agent is sent `StopEngine`. The process exits with the sentence |
-| seat socket | `&protocol=` in the socket's query | the ticket (or, until 2026-10-31, the seat token), and before the engine hears of the socket | `HelloAck{protocol_version: <the gateway's>, compatible: false, message}`, the only frame, and the socket closes | the client stops for good (below) |
-| social socket | `&protocol=` and `&social=` in the socket's query | the ticket, and the session it was bought with still standing | `{"t":"refused","why":"protocol","message":…}`, the only frame, and the socket closes | the client stops dialling the social socket (§"Friends and chat") |
+| peer | where it says it | held to | checked after | what a refused peer is sent | then |
+| --- | --- | --- | --- | --- | --- |
+| agent | `AgentHello.protocol_version` | the gateway's | the agent token | `Error{code: 1, message}`, and the socket closes | not registered; it logs the sentence at error level and dials again on its back-off |
+| engine | `EngineHello.protocol_version` | the table's | the game's engine token | `Error{code: 1, message}`, and the socket closes | the game ends: it leaves the listing and its agent is sent `StopEngine`. The process exits with the sentence |
+| seat socket, spectator | `&protocol=` in the socket's query | the table's | the ticket (or, until 2026-10-31, the seat token), and before the engine hears of the socket | `HelloAck{protocol_version: <the table's>, compatible: false, message}`, with `refusal: update_required` when the client's is older, the only frame, and the socket closes | the client stops for good (below) |
+| social socket | `&protocol=` and `&social=` in the socket's query | the gateway's | the ticket, and the session it was bought with still standing | `{"t":"refused","why":"protocol","message":…}`, the only frame, and the socket closes | the client stops dialling the social socket (§"Friends and chat"); a game it is in goes on |
 
-- **One sentence for all three**, `baylee_protocol::version_refusal`, and it
-  names both numbers: a mismatch is fixed by knowing which side is behind.
+- **One sentence for all of them**: `baylee_protocol::version_refusal`
+  ("this gateway speaks …") and `table_refusal` ("this table speaks …"), and
+  it names both numbers: a mismatch is fixed by knowing which side is behind.
 - **0 means "says none".** Proto3 cannot tell a peer that sent 0 from one
   built before the field existed, so 0 is refused with a sentence of its own
   ("does not say which protocol it speaks") rather than as a version.
@@ -3179,9 +3186,31 @@ protocol is newer, and "This table runs an older version than your client."
 when it is older. The gateway's sentence, with both numbers, goes to the
 client's log.
 
-**One deployment runs one build.** Gateway, agent and engine-server share
-one `PROTOCOL_VERSION`; a gateway updated without its agents ends every game
-it orders at the engine's attach, and says why. A client from before #271
+**A game goes on on the build that began it** (`docs/proposals/games-survive-restarts.md`).
+Gateway, agent and the newest engine-server share one `PROTOCOL_VERSION`,
+and every new game is put on that engine. An agent may keep older engine
+builds installed beside it (`BAYLEE_ENGINE_BINS`, `docs/dev/environment.md`):
+it advertises them (`Identity::hostable`: well formed, of its protocol or an
+older one, never a newer one), and the gateway orders one only for a game
+its record says that build played, resumed after a restart. Its table then
+speaks that build's protocol, so a client that has not updated yet goes on
+with it, and one that has is told the table is older. Ranked duels,
+challenges, Tower runs and replay jobs are held to this build's protocol, as
+before. A seat bridge or a hosted model chair speaks its own build's
+protocol, so one newer than its table is refused like a client.
+
+**The engine link only gains.** What an engine and a gateway say to each
+other (`EngineHello` to `GameClosed`, the agent's orders, and the arguments,
+variables and `--metadata` probe an engine is started with) may gain a
+field, a message or a case, and never change one it has: an older engine
+must read what this gateway sends it, and this gateway what it sends.
+`crates/baylee-protocol/tests/engine_link.rs` holds every field of
+`transport.proto` to `engine_link.txt` beside it, and the agent's tests hold
+how an engine is started. `EngineHello.link` says which revision an engine
+speaks (`ENGINE_LINK`): from 1 it resumes a game from its record, and a
+restored game is not given to an engine below that (it would start the game
+anew), which ends the game with "this engine cannot pick a game up from its
+record". A client from before #271
 says no protocol and is refused. It does not know `HelloAck`, so it sees a
 socket that closed, dials again on its schedule and gives up as unreachable.
 A client that is already shipped cannot be taught more than that.

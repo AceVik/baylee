@@ -179,7 +179,14 @@ fn the_header_is_read_from_the_first_piece() {
     let mut record = serde_json::to_vec(&line).unwrap();
     record.extend_from_slice(b"\n{\"kind\":\"input\"}\n");
     let header = header_of(&gzip(&record)).unwrap();
-    assert_eq!(header.preset.seed, 7);
+    let preset: baylee_core::preset::GamePreset =
+        serde_json::from_str(header.preset.get()).unwrap();
+    assert_eq!(preset.seed, 7);
+    assert_eq!(
+        header.preset.get(),
+        serde_json::to_string(&line["preset"]).unwrap(),
+        "the preset is kept as the engine wrote it, to be sent back to it unchanged"
+    );
     assert_eq!(header.execution, Some(execution));
 
     let cut = serde_json::to_vec(&line).unwrap();

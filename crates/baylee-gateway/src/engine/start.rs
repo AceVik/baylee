@@ -51,6 +51,11 @@ fn start(state: &Shared, game_id: &str, replica_job: Option<&str>) -> Result<(),
             if game.ranked.is_some() && required.variant != variant {
                 return Err("incompatible ranked rules");
             }
+            // An older build an agent keeps is for the games it began and
+            // goes on with, nothing else (`Identity::hostable`).
+            if !required.valid() && !game.restored() {
+                return Err("only a resumed game runs on an older engine build");
+            }
             agents.pick_exact(required)
         } else {
             agents.pick_variant(variant, game.challenge_executor.as_deref())

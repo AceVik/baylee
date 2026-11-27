@@ -77,12 +77,19 @@ pub(super) async fn run_engine_socket(
         // would start the same binary again, so the game ends here with the
         // reason said and logged, rather than waiting on an engine that
         // never comes (#271). After the token, so only the engine this game
-        // ordered can end it.
-        if let Some(why) = baylee_protocol::version_refusal("This engine", hello.protocol_version) {
+        // ordered can end it. Held to the table's protocol, not this
+        // gateway's: a game an older build began goes on on that build.
+        let resuming = !resume_record.is_empty();
+        if let Some(why) =
+            baylee_protocol::table_refusal("This engine", hello.protocol_version, game.protocol())
+        {
             tracing::error!(game_id, why, "engine refused");
             Err(why)
         } else if !execution::matches(game.execution.as_ref(), &hello) {
             Err("engine does not match the reserved execution identity".to_owned())
+        } else if resuming && hello.link < baylee_protocol::RESUMING_LINK {
+            // It would read past the record and start the game anew.
+            Err("this engine cannot pick a game up from its record".to_owned())
         } else if game
             .challenge_executor
             .as_ref()
@@ -90,10 +97,16 @@ pub(super) async fn run_engine_socket(
         {
             Err("challenge engine build does not match its certificate".to_owned())
         } else {
+            // A resumed game's engine is sent the preset it wrote itself.
+            let kept_preset = game.resume_preset.take().filter(|_| resuming);
             let Some(preset) = game.preset.as_ref() else {
                 return;
             };
-            let Ok(preset_json) = serde_json::to_vec(preset) else {
+            let written = kept_preset.map_or_else(
+                || serde_json::to_vec(preset),
+                |kept| Ok(kept.get().as_bytes().to_vec()),
+            );
+            let Ok(preset_json) = written else {
                 return;
             };
             game.engine = Some(tx);

@@ -187,6 +187,7 @@ async fn a_game_ordered_from_an_agent_on_the_unix_socket_is_a_local_one() {
             protocol_version: baylee_protocol::PROTOCOL_VERSION,
             pid: 0,
             build: baylee_build::short().into(),
+            link: baylee_protocol::ENGINE_LINK,
         }),
     )
     .await;
