@@ -70,6 +70,19 @@ struct Server {
     /// The deploy keeps games (`BAYLEE_DEPLOY_KEEP_GAMES=1`, an agent unit
     /// that reads its list of engines), and what `/health` says of them.
     keep: Option<Keeping>,
+    /// A Tower here (`deploy/tower.rs`): its unit is installed, and how it fares.
+    tower: Option<TowerCase>,
+}
+
+/// How the Tower authority fares in a deploy (`deploy/tower.rs`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum TowerCase {
+    /// Its documents are in place and the new build answers `ready`.
+    Ready,
+    /// Neither the new build nor the previous one answers `ready`.
+    Unhealthy,
+    /// The schema owner's documents are missing.
+    NoDocuments,
 }
 
 /// What `/health` says of the running games to a deploy that keeps them.
@@ -100,6 +113,7 @@ impl Server {
             wasm_target: false,
             game_running: true,
             keep: None,
+            tower: None,
         }
     }
 
@@ -112,6 +126,7 @@ impl Server {
             wasm_target: true,
             game_running,
             keep: None,
+            tower: None,
         }
     }
 }
@@ -123,16 +138,18 @@ fn stage(feedback_installed: bool, npm: Npm) -> (PathBuf, String) {
     (root, ran)
 }
 
-/// The stand-ins that say what the machine is: whether the feedback unit is
-/// installed (asked with `systemctl cat`) and whether a game runs (with one
-/// running `finish` waits and the gateway is left alone).
-fn machine_stubs(stubs: &Path, feedback_installed: bool) {
+/// The stand-ins that say what the machine is: whether the feedback and
+/// Tower units are installed (asked with `systemctl cat`) and whether a game
+/// runs (with one running `finish` waits and the gateway is left alone).
+fn machine_stubs(stubs: &Path, feedback_installed: bool, tower: bool) {
     stub(
         stubs,
         "systemctl",
         &format!(
             r#"[ "$1 $2" = "show baylee-agent" ] && echo "${{AGENT_ENV_FILES:-}}" && exit 0
+[ "$1 $2" = "cat baylee-tower" ] && exit {}
 [ "$1 $2" = "cat baylee-feedback" ] && exit {}; exit 0"#,
+            u8::from(!tower),
             u8::from(!feedback_installed)
         ),
     );
@@ -217,6 +234,8 @@ fn stage_files(root: &Path) {
         "baylee-deploy",
         "baylee-invite",
         "baylee-reboot",
+        "baylee-tower-service",
+        "baylee-tower-provision",
     ] {
         std::fs::write(root.join("src/target/release").join(binary), b"").unwrap();
     }
@@ -251,6 +270,7 @@ fn stage_run(
         wasm_target,
         game_running,
         keep,
+        tower,
     } = server;
     let scratch = std::env::temp_dir().join(format!(
         "baylee-deploy-test-{}-{}-{feedback_installed}-{npm:?}-{trunk:?}",
@@ -262,6 +282,15 @@ fn stage_run(
     stage_files(&root);
     if keep.is_some() {
         std::fs::write(root.join("state/deployed"), format!("{DEPLOYED}\n")).unwrap();
+    }
+    // The Tower's root-only documents (`deploy/tower.rs`), which only sudo's
+    // `test` reads here.
+    if tower.is_some_and(|case| case != TowerCase::NoDocuments) {
+        let documents = root.join("tower/etc");
+        std::fs::create_dir_all(&documents).unwrap();
+        for name in ["service.json", "migrate.json", "grants.json"] {
+            std::fs::write(documents.join(name), b"{}").unwrap();
+        }
     }
     std::fs::create_dir_all(&stubs).unwrap();
     let calls: PathBuf = scratch.join("calls");
@@ -286,7 +315,7 @@ fn stage_run(
     sudo_stub(&stubs, true);
     stub(&stubs, "logger", "exit 0");
     stub(&stubs, "flock", "exit 0");
-    machine_stubs(&stubs, feedback_installed);
+    machine_stubs(&stubs, feedback_installed, tower.is_some());
     browser_stubs(&stubs, trunk, wasm_target);
 
     let npm_path = if npm == Npm::Absent {
@@ -318,6 +347,21 @@ fn stage_run(
     );
     if profile_fails {
         command.env("PROFILE_FAILS", "1");
+    }
+    if let Some(case) = tower {
+        command.env(
+            "BAYLEE_DEPLOY_TOWER_HEALTH",
+            "http://127.0.0.1:9/tower-health",
+        );
+        command.env("BAYLEE_DEPLOY_INFO_TRIES", "2");
+        command.env(
+            "OPS_FAKE_TOWER",
+            if case == TowerCase::Unhealthy {
+                "starting"
+            } else {
+                "ready"
+            },
+        );
     }
     let out = command
         .args(["stage", "0123456789abcdef0123"])
@@ -545,6 +589,7 @@ fn a_failed_profile_stops_the_deploy_before_anything_is_staged() {
         wasm_target: false,
         game_running: false,
         keep: None,
+        tower: None,
     };
     let (out, _, ran) = stage_run(server, None, "", true);
     assert!(!out.status.success(), "stage went on:\n{ran}");
@@ -921,4 +966,91 @@ fn a_keeping_deploy_names_the_tower_cohorts_pinned_engine() {
         !list.contains(&format!("{}/baylee-engine-tower", bin.display())),
         "the deployed Tower engine is not named beside the pin: {list}"
     );
+}
+
+/// A server that runs the Tower authority (`deploy/tower.rs`), with no game
+/// running, so `finish` swaps.
+fn tower_server(case: TowerCase) -> Server {
+    Server {
+        tower: Some(case),
+        ..Server::with_trunk(Trunk::Absent, false)
+    }
+}
+
+/// The Tower is built with the release and switched right after the gateway
+/// it serves and before the agent starts again: the new build checks the
+/// service's configuration beside the running one, then the service stops,
+/// the schema owner's documents migrate and renew the grants, the new build
+/// takes the names and starts.
+#[test]
+fn a_tower_here_is_built_and_switched_right_after_the_gateway() {
+    let (_, ran, said) = stage_on(tower_server(TowerCase::Ready));
+    let lines: Vec<&str> = ran.lines().collect();
+    let at = |wanted: &str| {
+        lines
+            .iter()
+            .position(|line| line.contains(wanted))
+            .unwrap_or_else(|| panic!("never ran {wanted}:\n{ran}"))
+    };
+    assert!(
+        lines.iter().any(|line| line.starts_with("cargo build")
+            && line.contains("-p baylee-tower-service -p baylee-tower-provision")),
+        "{ran}"
+    );
+    let order = [
+        at("systemctl restart baylee-gateway"),
+        at("baylee-tower-service.next --check"),
+        at("systemctl stop baylee-tower"),
+        at("baylee-tower-service.next --migrate"),
+        at("baylee-tower-service.next --admin"),
+        at("mv -f"),
+        at("systemctl start baylee-tower"),
+        at("systemctl start baylee-agent"),
+    ];
+    assert!(order.windows(2).all(|pair| pair[0] < pair[1]), "{ran}");
+    assert!(
+        ran.contains("StandardInput=file:") && ran.contains("User=baylee-tower"),
+        "the documents are read by systemd-run as the service's user: {ran}"
+    );
+    assert!(
+        said.contains("Tower service") && said.contains("installed"),
+        "{said}"
+    );
+}
+
+#[test]
+fn without_a_tower_unit_nothing_of_it_is_built_or_touched() {
+    let (_, ran, _) = stage_on(Server::with_trunk(Trunk::Absent, false));
+    assert!(!ran.contains("baylee-tower"), "{ran}");
+}
+
+/// A Tower that cannot switch says why and leaves the deploy to go on: the
+/// gateway and the games do not wait for it.
+#[test]
+fn a_tower_without_its_documents_or_that_never_answers_does_not_stop_the_deploy() {
+    for (case, why) in [
+        (TowerCase::NoDocuments, "is missing"),
+        (TowerCase::Unhealthy, "did not answer ready"),
+    ] {
+        let (_, ran, said) = stage_on(tower_server(case));
+        assert!(
+            said.contains("the Tower service was not switched") && said.contains(why),
+            "{case:?}: {said}"
+        );
+        assert!(
+            ran.contains("systemctl start baylee-agent"),
+            "{case:?}: {ran}"
+        );
+        match case {
+            TowerCase::NoDocuments => {
+                assert!(!ran.contains("systemctl stop baylee-tower"), "{ran}");
+            }
+            TowerCase::Unhealthy => {
+                assert!(ran.contains("baylee-tower-service.prev"), "{ran}");
+                assert!(ran.contains("systemctl restart baylee-tower"), "{ran}");
+                assert!(said.contains("does not answer either"), "{said}");
+            }
+            TowerCase::Ready => unreachable!(),
+        }
+    }
 }

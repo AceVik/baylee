@@ -67,6 +67,7 @@ use std::{
 mod engine;
 mod keep;
 mod maintenance;
+mod tower;
 
 const TAG: &str = "baylee-deploy";
 const REPO: &str = "https://github.com/AceVik/baylee.git";
@@ -116,6 +117,11 @@ struct Paths {
     /// agent's list in place of the deployed one, as the agent's
     /// `tower-engine.conf` names it while no deploy keeps games.
     tower_engine: Option<PathBuf>,
+    /// The Tower Echoes authority (`tower.rs`): its binaries, its root-only
+    /// documents and where it answers `/health`.
+    tower_bin: PathBuf,
+    tower_etc: PathBuf,
+    tower_health: String,
 }
 
 impl Paths {
@@ -184,6 +190,19 @@ impl Paths {
             engines: root.join("engines"),
             agent_engines_env,
             tower_engine,
+            tower_bin: if testing {
+                root.join("tower/bin")
+            } else {
+                PathBuf::from("/opt/baylee-tower/bin")
+            },
+            tower_etc: if testing {
+                root.join("tower/etc")
+            } else {
+                PathBuf::from("/etc/baylee-tower")
+            },
+            tower_health: var("BAYLEE_DEPLOY_TOWER_HEALTH")
+                .filter(|_| testing)
+                .unwrap_or_else(|| "http://127.0.0.1:28796/health".into()),
         }
     }
 
@@ -398,6 +417,12 @@ impl Deploy {
         ] {
             build.args(["-p", package]);
         }
+        // The Tower authority where this server runs one (`tower.rs`).
+        if Self::tower_here() {
+            for package in tower::BINARIES {
+                build.args(["-p", package]);
+            }
+        }
         run_build(&mut build)?;
         let rev = out(&mut self.in_src(&["git", "rev-parse", "HEAD"]))
             .unwrap_or_default()
@@ -450,6 +475,13 @@ impl Deploy {
         copy.extend(engine::BINARIES);
         if release.join("baylee-seat").is_file() {
             copy.extend(["baylee-seat", "baylee-seathost"]);
+        }
+        if Self::tower_here()
+            && tower::BINARIES
+                .iter()
+                .all(|name| release.join(name).is_file())
+        {
+            copy.extend(tower::BINARIES);
         }
         for name in copy {
             fs::copy(release.join(name), staged.join(name)).map_err(|_| Stop(1))?;
@@ -913,6 +945,9 @@ impl Deploy {
                 short(&rev)
             )));
         }
+        // The Tower serves this gateway: switched with it, before any game
+        // starts. A resumed transaction switches it again, which it bears.
+        self.switch_tower(&rev);
         txn.phase = "switched".into();
         self.txn_save(&txn)?;
 
@@ -1414,6 +1449,7 @@ impl Deploy {
             }
             std::thread::sleep(std::time::Duration::from_secs(1));
         }
+        self.switch_tower(&rev);
         must(&mut self.sudo(&["systemctl", "start", "baylee-agent"]))?;
         // Under the same wait as the gateway (no local game running): a seat
         // agent's restart lets go of every bridge it runs.
