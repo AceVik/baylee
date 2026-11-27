@@ -1641,8 +1641,9 @@ its deck directory (the person plays its newest Standard deck too; default
 sixty Forests). The person searches accepting any AI for a model and the
 local ones otherwise, and plays the house. The test checks the person's
 receipt against the table, reads the AI seat's transcript, and prints one
-line: turns, how the game ended, questions that expired, and the model's
-think time per answer (median and most). A failing runner, or one that
+line (also kept as `<target>/tmp/ai-players-runners/summary.txt`):
+turns, how the game ended, questions that expired, and the model's think
+time per answer (median and most). A failing runner, or one that
 does not stop after its game, fails the test, and the process is killed
 either way.
 

@@ -971,7 +971,7 @@ impl External {
             person_won, central,
             "the table and Central agree on the result"
         );
-        println!(
+        let line = format!(
             "ai-players e2e: {} played {} turns, {}, {} questions expired, think time median {} ms, \
              max {} ms over {} answers",
             def.profile,
@@ -982,6 +982,13 @@ impl External {
             seen.max_ms,
             seen.answers
         );
+        // Past the test harness's capture, which keeps a passing test's
+        // prints, and kept beside the transcripts.
+        {
+            use std::io::Write as _;
+            let _ = writeln!(std::io::stdout(), "{line}");
+        }
+        std::fs::write(transcripts.join("summary.txt"), format!("{line}\n")).unwrap();
         assert!(
             seen.ended.contains("GameResult"),
             "the AI seat saw the game's end"
