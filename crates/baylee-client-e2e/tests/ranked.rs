@@ -89,6 +89,18 @@ fn respond(mut stream: TcpStream) -> std::io::Result<()> {
         let award = json!({"kind":"peak","format":"standard","track":"player","season":current["id"],"rank":player["standing"]["rank"]});
         json!({"profile":{"season":current,"account":player["account"],"name":player["name"],
             "tag":player["tag"],"formats":[player["standing"],commander["standing"],deck["standing"]],"awards":[award]}})
+    } else if let Some(handle) = request
+        .pointer("/request/profile/target/handle")
+        .and_then(Value::as_str)
+        .filter(|handle| handle.starts_with("KI-Spieler-"))
+    {
+        // An AI player's public profile wears its badge (protocol 3).
+        let n: u8 = handle.get(11..13).and_then(|n| n.parse().ok()).unwrap_or(4);
+        let query =
+            json!({"format":"standard","track":"player","league":"champion","division":null});
+        let player = standing(&query, n);
+        json!({"profile":{"season":current,"account":player["account"],"name":player["name"],
+            "tag":player["tag"],"formats":[player["standing"]],"awards":[],"ai":player["ai"]}})
     } else if let Some(query) = request.pointer("/request/board") {
         let first = query["after"].is_null();
         let limit = if query["format"] == "highlander" && query["league"] == "champion" {
@@ -271,7 +283,7 @@ fn capture(client: &mut Client, name: &str) -> Result<()> {
 fn ai_players_on_the_ladder(client: &mut Client, ladder: Rect) -> Result<()> {
     client.click(press("Ranked(Players(Ai))"))?;
     let ai = client.wait_until("only AI players on the ladder", |s| {
-        s.shows("Haus-KI · Expert") && !s.shows("Mistral-01")
+        s.shows("Haus-KI · Expert") && !s.shows("Reed-01")
     })?;
     anyhow::ensure!(
         ai.locate(&press("Ranked(Refresh)"))? == ladder,
@@ -279,7 +291,7 @@ fn ai_players_on_the_ladder(client: &mut Client, ladder: Rect) -> Result<()> {
     );
     capture(client, "ranked-board-ai")?;
     client.click(press("Ranked(Players(Everyone))"))?;
-    client.wait_until("everyone again", |s| s.shows("Mistral-01"))?;
+    client.wait_until("everyone again", |s| s.shows("Reed-01"))?;
     Ok(())
 }
 
@@ -310,7 +322,7 @@ fn first_search_asks_counts_down_and_goes_to_people(
     })?;
     client.click(press("Shared(ConfirmDestructive)"))?;
     let waiting = client.wait_until("the waiting queue beside the ladder", |s| {
-        s.shows("Gegner für Highlander wird gesucht") && s.shows("Mistral-01")
+        s.shows("Gegner für Highlander wird gesucht") && s.shows("Reed-01")
     })?;
     anyhow::ensure!(
         waiting.locate(&press("Ranked(Refresh)"))? == ladder,
@@ -508,6 +520,142 @@ fn ranked_page_searches_and_cancels_beside_the_public_ladder() {
         client.wait_until("Play again, the tile saying the result", |s| {
             s.shows("Abendrunde") && s.control("Ranked(Open)").is_some()
         })?;
+        Ok(())
+    });
+}
+
+/// Records `duration_ms` of real frames while `act` runs, waits for the
+/// recording to finish and returns its directory, for `baylee-tools
+/// recording encode --diff` to compare neighbouring frames.
+fn recorded(
+    client: &mut Client,
+    duration_ms: u32,
+    fps: u32,
+    act: impl FnOnce(&mut Client) -> Result<()>,
+) -> Result<String> {
+    client.devctl().post(
+        "recording/start",
+        &json!({"duration_ms": duration_ms, "fps": fps}),
+    )?;
+    act(client)?;
+    let deadline =
+        std::time::Instant::now() + Duration::from_millis(u64::from(duration_ms) + 20_000);
+    loop {
+        let status = client
+            .devctl()
+            .get("recording/status", Duration::from_secs(5))?;
+        let summary = status.get("recording").unwrap_or(&status);
+        match summary["phase"].as_str() {
+            Some("complete") => {
+                return Ok(summary["directory"].as_str().unwrap_or_default().to_owned());
+            }
+            Some("failed" | "cancelled") => anyhow::bail!("recording ended: {status}"),
+            _ if std::time::Instant::now() > deadline => {
+                anyhow::bail!("recording did not finish: {status}")
+            }
+            _ => std::thread::sleep(Duration::from_millis(200)),
+        }
+    }
+}
+
+/// The first text node that reads `words`, and whether a scroll hides it.
+fn first_text(screen: &Screen, words: &str) -> Option<(Rect, bool)> {
+    screen
+        .nodes()
+        .iter()
+        .enumerate()
+        .find(|(_, node)| !node.hidden && node.text.as_deref() == Some(words))
+        .map(|(index, node)| (node.rect, screen.scrolled_away(index)))
+}
+
+/// The AI players' pieces, held still and photographed: the ladder filtered
+/// to AIs from deep in a long list, an AI's profile, the countdown fading in,
+/// the one click to people only, and the match found when the fixture seats
+/// an AI. The recordings' directories are written beside the screenshots.
+#[test]
+#[ignore = "opens a passive client window: cargo dev e2e"]
+fn ranked_ai_players_hold_still_on_the_page() {
+    let fixture = PublicLadder::new();
+    let launch = Launch::new()
+        .viewport(Viewport::LAPTOP)
+        .lang("de")
+        .env("BAYLEE_CENTRAL_DEV_ENDPOINT", &fixture.origin)
+        .env("BAYLEE_E2E_RANKED_FIXTURE", "1");
+    e2e::run_with(launch, |client| {
+        let seeded = client
+            .devctl()
+            .post("shell", &json!({ "ranked_lobby": true }))?;
+        anyhow::ensure!(seeded["ranked_lobby"] == true, "fixture scene was refused");
+        client.wait_until("the lobby at rest", |s| {
+            s.control("Ranked(Open)").is_some()
+                && s.at_rest()
+                && !s.flag("/account/entrance_active")
+                && !s.flag("/account/journey_active")
+        })?;
+        client.click(press("Ranked(Open)"))?;
+        client.wait_until("the Standard ladder", |s| {
+            s.shows("Mistral-01") && s.control("Ranked(Join)").is_some()
+        })?;
+        let mut notes = Vec::new();
+        // Deep in the long list, then the short list of AIs: its rows show.
+        client.scroll(text("Mistral-01#0001"), 24.0)?;
+        client.wait_until("the first player scrolled away", |s| {
+            first_text(s, "Mistral-01#0001").is_some_and(|(_, away)| away)
+        })?;
+        let filter = recorded(client, 2500, 12, |client| {
+            client.click(press("Ranked(Players(Ai))"))?;
+            client.wait_until("only AIs, in view", |s| {
+                !s.shows("Mistral-02")
+                    && first_text(s, "Haus-KI · Expert").is_some_and(|(_, away)| !away)
+            })?;
+            Ok(())
+        })?;
+        notes.push(format!("filter: {filter}"));
+        capture(client, "ranked-board-ai-from-deep")?;
+        // An AI's profile says what it is.
+        let screen = client.screen()?;
+        let (row, _) = first_text(&screen, "Haus-KI · Expert").expect("an AI row");
+        let (x, y) = row.centre();
+        client.click(at(x, y))?;
+        client.wait_until("the AI's profile", |s| {
+            s.shows("Ein KI-Spieler. Er spielt aus seiner eigenen Sicht")
+        })?;
+        capture(client, "ranked-profile-ai")?;
+        client.press(Key::named("Escape"))?;
+        client.wait_until("back on the ladder", |s| !s.shows("Ein KI-Spieler."))?;
+        // The first search: the sheet, then the countdown fading in.
+        client.click(press("Ranked(Join)"))?;
+        client.wait_until("the sheet", |s| s.shows("Wer darf gegen dich spielen?"))?;
+        client.click(press("Ranked(PickOpponents(Local))"))?;
+        client.wait_until("Search answers", |s| {
+            s.control("Shared(ConfirmDestructive)").is_some()
+        })?;
+        capture(client, "ranked-opponents-sheet-picked")?;
+        let fade = recorded(client, 6000, 12, |client| {
+            client.click(press("Shared(ConfirmDestructive)"))?;
+            client.wait_for("the countdown", Duration::from_secs(10), |s| {
+                s.shows("KI-Gegner in")
+            })?;
+            Ok(())
+        })?;
+        notes.push(format!("fade-in: {fade}"));
+        capture(client, "ranked-countdown")?;
+        let people = recorded(client, 2000, 12, |client| {
+            client.click(press("Ranked(PeopleOnly)"))?;
+            client.wait_until("people only", |s| !s.shows("KI-Gegner in"))?;
+            Ok(())
+        })?;
+        notes.push(format!("people-only: {people}"));
+        capture(client, "ranked-people-only")?;
+        // Back to the local AIs: the fixture seats the house after the
+        // countdown, and the match found names it with its badge.
+        client.click(press("Ranked(Opponents(Local))"))?;
+        client.wait_for("the match found", Duration::from_secs(30), |s| {
+            s.shows("Gegner für Standard gefunden") && s.shows("Haus-KI · Expert")
+        })?;
+        capture(client, "ranked-match-found")?;
+        let dir = client.dir().join("recordings.txt");
+        std::fs::write(&dir, notes.join("\n"))?;
         Ok(())
     });
 }

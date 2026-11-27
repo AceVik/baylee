@@ -29,8 +29,59 @@ fn fixture_session(state: &LobbyState) -> bool {
 
 pub(super) fn install(app: &mut App) {
     if enabled() {
-        app.add_systems(PostUpdate, challenges);
+        app.add_systems(PostUpdate, challenges)
+            .add_systems(Update, seat_an_ai);
     }
+}
+
+/// A second after the fill-in time, the fixture seats an AI as Central would:
+/// the house for a search taking the local AIs, a language model for one
+/// taking every AI. The desk then shows the match found with its badge.
+fn seat_an_ai(mut state: ResMut<LobbyState>) {
+    if !fixture_session(&state) {
+        return;
+    }
+    let QueueState::Waiting {
+        key,
+        format,
+        ai_fill_in_at: Some(at),
+        ..
+    } = state.ranked_net.queue
+    else {
+        return;
+    };
+    if time::OffsetDateTime::now_utc().unix_timestamp() < at + 1 {
+        return;
+    }
+    let opponent = match state.ranked.opponents {
+        Some(Opponents::Any) => api::ai::AiBadge {
+            kind: api::ai::AiKind::Model,
+            label: "Claude Haiku · Hoch".into(),
+        },
+        _ => house(),
+    };
+    let assigned = QueueState::Assigned {
+        key,
+        assignment: api::Assignment {
+            match_id: *Uuid::now_v7().as_bytes(),
+            host_id: *Uuid::now_v7().as_bytes(),
+            origin: "https://host.invalid".into(),
+            format,
+            account: [0; 16],
+            seat: 0,
+            deck: [0; 32],
+            game: None,
+            opponent_ai: Some(opponent),
+        },
+    };
+    let ai = state
+        .ranked
+        .opponents
+        .map_or(AiOpponents::None, Opponents::wire);
+    state
+        .bypass_change_detection()
+        .ranked_net
+        .show_for_fixture(assigned, ai);
 }
 
 pub(crate) fn populate(state: &mut LobbyState) -> bool {
@@ -176,14 +227,15 @@ pub(super) fn reply(state: &mut LobbyState, action: Action) -> bool {
 }
 
 /// A waiting search, as Central would answer it: an AI may be seated in
-/// twelve seconds when the search accepts one, so the countdown runs at once.
+/// eighteen seconds when the search accepts one, so the countdown fades in
+/// three seconds after the search began.
 fn searching(format: Format, ai: AiOpponents) -> QueueState {
     let now = time::OffsetDateTime::now_utc().unix_timestamp();
     QueueState::Waiting {
         key: *Uuid::now_v7().as_bytes(),
         format,
         queued_at: now,
-        ai_fill_in_at: (!ai.is_none()).then_some(now + 12),
+        ai_fill_in_at: (!ai.is_none()).then_some(now + 18),
     }
 }
 

@@ -214,6 +214,11 @@ fn identity(commands: &mut Commands, band: Entity, kit: Kit, row: &api::Row, i: 
     // portrait does. The row is the control, so the pill takes no pointer.
     if let Some(badge) = &row.ai {
         let pill = crate::aibadge::pill(commands, kit, badge, kit.m.text * 0.92, false);
+        // As wide as its words, where a name would end, not the row.
+        commands
+            .entity(pill)
+            .entry::<Node>()
+            .and_modify(|mut n| n.align_self = AlignSelf::FlexStart);
         commands.entity(who).add_child(pill);
     } else {
         label(commands, who, kit, name, kit.m.text, tokens::INK);

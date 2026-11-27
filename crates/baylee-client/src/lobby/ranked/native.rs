@@ -270,6 +270,7 @@ impl Worker {
     /// worker minted to accept `ai` (`visual_fixture`).
     #[cfg(feature = "dev-control")]
     pub(super) fn show_for_fixture(&mut self, queue: QueueState, ai: AiOpponents) {
+        self.ai = ai;
         if let QueueState::Waiting { key, queued_at, .. } = &queue {
             self.ticket_ai = Some((*key, ai));
             self.since.get_or_insert(*queued_at);
