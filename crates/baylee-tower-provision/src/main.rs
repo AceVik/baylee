@@ -90,6 +90,14 @@ fn run() -> Result<Value> {
     let input = read()?;
     let seed = hex32(&input.house_seed).context("the house seed")?;
     let offline = Offline::prepare(&input, &seed)?;
+    // The balance was measured on exactly one content; a registry change
+    // that moved a starter's cards makes another, which is not published.
+    let fingerprint = baylee_tower_content::fingerprint(&offline.content)
+        .context("fingerprinting the content")?;
+    ensure!(
+        fingerprint == baylee_tower_content::CALIBRATED,
+        "this build's Tower content ({fingerprint}) is not the calibrated one; measure it first (docs/tower-operations.md, Calibration)"
+    );
     online(&input, &offline)
 }
 

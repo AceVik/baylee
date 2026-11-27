@@ -233,3 +233,24 @@ pub fn run_card(index: CardIndex) -> Result<Card, Error> {
     card.run.as_mut().ok_or(Error::Metadata)?.presentation = Some(presentation::of(index)?);
     Ok(card)
 }
+
+/// The content the calibration measured (`docs/tower-operations.md`
+/// §"Calibration"): the hex [`fingerprint`] of the catalog and the fifty
+/// starters it played. The starters come from the shared builder over the
+/// whole card registry, so a registry change can change them; the house's
+/// `PICKS` and the measured balance hold only for this exact content, and the
+/// production publication refuses any other.
+pub const CALIBRATED: &str = "";
+
+/// SHA-256 over the canonical JSON of `content`'s catalog and starters.
+/// # Errors
+/// Content that does not serialize.
+pub fn fingerprint(content: &Content) -> Result<String, Error> {
+    use sha2::{Digest as _, Sha256};
+    let bytes = serde_json::to_vec(content).map_err(|_| Error::Metadata)?;
+    let digest = Sha256::new()
+        .chain_update(b"baylee/tower/calibrated-content/v1\0")
+        .chain_update(bytes)
+        .finalize();
+    Ok(digest.iter().map(|byte| format!("{byte:02x}")).collect())
+}
