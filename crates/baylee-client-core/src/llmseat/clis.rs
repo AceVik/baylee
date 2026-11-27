@@ -524,6 +524,43 @@ const JUNIE_SPECS: &[CliModelSpec] = &[
     spec("junie-lite", "Junie Lite", JUNIE_EFFORTS, Some("low")),
 ];
 
+/// Claude Code's aliases and the model each plays now (its own model table,
+/// 2.1.325): an alias follows the newest model of its family.
+const CLAUDE_ALIASES: &[(&str, &str)] = &[
+    ("opus", "claude-opus-5-5"),
+    ("sonnet", "claude-sonnet-5-5"),
+    ("fable", "claude-fable-5-2"),
+    ("haiku", "claude-haiku-5-5"),
+];
+
+/// Junie's aliases, which follow its provider's newest model; which model
+/// each plays now this build does not know.
+const JUNIE_ALIASES: &[&str] = &[
+    "sonnet",
+    "opus",
+    "gpt",
+    "gpt-codex",
+    "gemini-pro",
+    "gemini-flash",
+    "grok",
+];
+
+/// Whether `model` is one of `tool`'s aliases, which play whatever the
+/// tool calls its newest model of a family: `Some` with the model it plays
+/// now where this build knows it (`claude`'s `haiku`: `claude-haiku-5-5`),
+/// `Some(None)` where not, `None` for a model the tool names for good.
+#[must_use]
+pub fn moving_alias(tool: CliTool, model: &str) -> Option<Option<&'static str>> {
+    match tool {
+        CliTool::Claude => CLAUDE_ALIASES
+            .iter()
+            .find(|(alias, _)| *alias == model)
+            .map(|(_, pinned)| Some(*pinned)),
+        CliTool::Junie => JUNIE_ALIASES.contains(&model).then_some(None),
+        CliTool::Agy | CliTool::Codex | CliTool::Opencode => None,
+    }
+}
+
 /// What a profile may name for one tool.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CliChoices {
@@ -1221,6 +1258,40 @@ claude-sonnet-5-5-low\tClaude Sonnet 5.5 (Low)
         for spec in CLAUDE_SPECS {
             assert_eq!(spec.efforts, CLAUDE_EFFORTS, "{}", spec.id);
         }
+    }
+
+    /// Every model the panel labels an alias is a moving alias, and only
+    /// those; a Claude Code alias names the listed model it plays now,
+    /// whose label is the alias's without "(Alias)".
+    #[test]
+    fn every_alias_is_known_to_move_and_names_what_it_plays() {
+        for tool in CliTool::ALL {
+            for spec in choices(tool).model_specs {
+                let alias = spec.label.ends_with("(Alias)");
+                assert_eq!(moving_alias(tool, spec.id).is_some(), alias, "{}", spec.id);
+                if let Some(Some(pinned)) = moving_alias(tool, spec.id) {
+                    let now = choices(tool)
+                        .model_specs
+                        .iter()
+                        .find(|s| s.id == pinned)
+                        .unwrap_or_else(|| panic!("{pinned} is listed"));
+                    assert_eq!(
+                        spec.label.trim_end_matches(" (Alias)"),
+                        now.label,
+                        "{}",
+                        spec.id
+                    );
+                    assert_eq!(moving_alias(tool, pinned), None, "{pinned}");
+                }
+            }
+        }
+        assert_eq!(
+            moving_alias(CliTool::Claude, "haiku"),
+            Some(Some("claude-haiku-5-5"))
+        );
+        assert_eq!(moving_alias(CliTool::Junie, "gpt"), Some(None));
+        assert_eq!(moving_alias(CliTool::Codex, "sonnet"), None);
+        assert_eq!(moving_alias(CliTool::Agy, "gemini-4-neon-xhigh"), None);
     }
 
     #[test]
