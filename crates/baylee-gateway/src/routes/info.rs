@@ -414,6 +414,12 @@ pub(crate) async fn health(State(state): State<Shared>) -> (StatusCode, Json<Hea
     };
     online.extend(state.presence.accounts());
     let players_online = online.len();
+    // What a deploy that keeps games asks (`docs/deploy-hooks.md`).
+    let crate::keep::Restart {
+        kept: games_kept,
+        bridged: games_bridged,
+        engine_revisions,
+    } = crate::keep::Restart::of(&state.lobby.lock());
 
     let code = if database {
         StatusCode::OK
@@ -453,6 +459,9 @@ pub(crate) async fn health(State(state): State<Shared>) -> (StatusCode, Json<Hea
             players_online,
             running: games_running,
             local_running: games_local,
+            kept: games_kept,
+            bridged: games_bridged,
+            engine_revisions,
             waiting: games_waiting,
             seats_awaiting_engine,
         },
@@ -518,6 +527,16 @@ pub(crate) struct Games {
     /// @description Of those, games whose engine runs on this machine (an
     /// agent on the unix socket).
     local_running: usize,
+    /// @description Of those, games a restart of the gateway brings back:
+    /// kept in its database, and their engine attached or awaited
+    /// (`docs/proposals/games-survive-restarts.md`).
+    kept: usize,
+    /// @description Of the running games, those with a chair a seat bridge or
+    /// a hosted model sits in.
+    bridged: usize,
+    /// @description The source revisions of the engine builds the running
+    /// games play on, sorted: what a deploy keeps installed for them.
+    engine_revisions: Vec<String>,
     /// @description Rooms waiting for players.
     waiting: usize,
     /// @description Seats of running games whose engine has not dialled back

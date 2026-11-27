@@ -134,9 +134,15 @@ Each step lands on its own, through the gate:
       re-invite, not a game. An engine whose link breaks while the gateway
       runs still ends its game; resuming that is a step of its own.
 4. Protocol per game; retained engine builds; the engine-link compatibility
-   test.
+   test. Done in the gateway and the agent (§"Step 4"); the deploy that
+   keeps the old builds installed is step 5.
 5. Deploy and reboot without the drain; Caddy's retry; the client's and seat
-   bridges' sign-in after a gateway restart.
+   bridges' sign-in after a gateway restart. Written, and off until the owner
+   turns it on (§"Step 5"): the deploy keeps each release's engines in a
+   directory of their own while a game of theirs is kept, names them in
+   `BAYLEE_ENGINE_BINS`, and removes them once no game needs them; the client
+   does not take an update that changes the protocol while it is at a table.
+   Seat bridges are still waited for.
 6. An end-to-end test with real processes: two seats mid-game, gateway and
    agent killed and restarted, both seats get the same question, the game
    finishes, and the whole record replays exactly. Resume time measured on
@@ -212,6 +218,102 @@ The engine starts with every seat away and the table open.
 - The table and lobby views of the game are equal before and after.
 - Ranked, Tower and challenge games leave no row; an ended game leaves none.
 - Two restarts in a row.
+
+## Step 4: a game goes on on the build that began it
+
+So that an update can replace the gateway while a game an older engine plays
+goes on (`docs/protocol.md` §"Which side checks the protocol"):
+
+- **An agent keeps older builds.** It takes an engine of its own protocol or
+  an older one into its inventory (`Identity::hostable`) and advertises it;
+  a newer one stops its start. The gateway takes such an agent's whole list.
+  A new game, a ranked duel, a challenge and a Tower run are put on this
+  build only, as before; an older build is ordered only by `pick_exact`, for
+  a game restored from a record that build wrote.
+- **A table speaks its engine's protocol.** `LobbyGame::protocol` is the
+  protocol of the game's execution identity. The engine's hello, a seat
+  socket and a spectator are held to it, and the refusal names the table's
+  number (`table_refusal`). A client that has not updated goes on with its
+  game; one that has is told the table is older, with no
+  `update_required`. The social socket stays with the gateway's protocol,
+  and its refusal stops only the chat.
+- **The engine is sent what it wrote.** A restored game keeps the preset as
+  its record's header holds it (`LobbyGame::resume_preset`) and sends those
+  bytes back, since this build's `GamePreset` may write fields an older one
+  refuses.
+- **The link says what it can do.** `EngineHello.link` is the engine link's
+  revision (`ENGINE_LINK`, 1 from this step). A restored game is not given
+  to an engine below `RESUMING_LINK`, which would start the game anew from
+  its preset; the game ends with the reason said.
+- **The link only gains.** `tests/engine_link.rs` holds every field, enum
+  value and reservation of `transport.proto` to `engine_link.txt`; the
+  agent's tests hold the arguments, variables and probe an engine is started
+  with.
+
+**Tests.** `e2e_restart` rewrites a kept game's record as if an older build
+(protocol one lower, another build) had played it, replaces the gateway and
+attaches an agent that keeps that build: the agent is ordered exactly it,
+the engine is sent the record and the preset unchanged, a client of this
+build's protocol is refused with the table's number, one of the table's
+hears the engine's frames, and a new game goes to this build. An engine of
+link 0 is refused the game, which ends. A real previous build's binary
+against this gateway belongs to step 6.
+
+**Not yet.** The deploy does not keep old builds installed (step 5). A seat
+bridge or hosted model chair is replaced with the release, so at a table
+older than itself it is refused like a client, and its chair goes as one
+whose connection was lost (`docs/protocol.md` §"Leaving, and losing the
+connection"); until seat bridges are kept too, a deploy waits for a game
+with one. The client may still take an update that changes the
+protocol while at a table (step 5). Its lobby says "update required" once
+it reads the gateway's newer `/info` (`header.rs`, `update_required`),
+which is right there: a new game needs the update, and the game it is in
+goes on.
+
+## Step 5: a deploy and a reboot keep the games
+
+Off until the owner turns it on: `BAYLEE_DEPLOY_KEEP_GAMES=1` in
+`/etc/baylee/deploy.env`, and the agent's unit reading
+`/etc/baylee/agent-engines.env` (prepared in `baylee-infra`, branch
+`claude/project-thread-uf8pyj`, with Caddy's wait). `docs/deploy-hooks.md`
+§"Keeping games across a deploy" is the contract.
+
+- **The gateway says what a restart keeps.** `/health` counts the running
+  games a restart brings back (`games.kept`, `keep::resumable`), those with a
+  seat bridge (`games.bridged`) and the revisions of the engine builds they
+  play on (`games.engine_revisions`).
+- **The deploy keeps them** while every running game is kept and none is
+  bridged: it copies the engines a game plays on to
+  `/opt/baylee/engines/<rev>/`, stops the gateway first and then the agent,
+  installs the release, names this release's siblings and the kept builds in
+  `agent-engines.env`, starts the gateway and the agent, and removes the kept
+  builds no game plays on. With hooks, `before-switch` runs with both stopped
+  and nothing installed yet; a hook that stops the deploy has the old ones
+  start again. `baylee-reboot` stops the gateway first and reboots.
+- **The client comes back on its own.** A refused seat ticket renews the
+  session at once (`lobby/header.rs`, `renew_when_a_seat_is_refused`): after
+  a gateway restart the renewal finds the session gone and signs in again,
+  so the next dial is let in instead of one a minute or two later. The
+  "restart to update" offer at a networked table waits for the game's end
+  unless the gateway already runs that release in this client's protocol
+  (`resume::restart_keeps_a_networked_seat`). Only a Central session is
+  renewed: a local or guest one is in the gateway's database, and its chair
+  is bound to no session.
+- **Caddy waits** up to 30 s for a gateway that restarts
+  (`lb_try_duration`), and a reload leaves sockets open 10 minutes
+  (`stream_close_delay`).
+
+**Tests.** `baylee-ops` runs the deploy against stand-ins: a running game
+kept is not waited for, the gateway stops before the agent, the engines of
+the deployed build are kept and named in the agent's list before the agent
+starts; a game that would not be kept, or one with a bridge, is waited for
+and says why. `e2e_restart` reads `games.kept` and `engine_revisions`. The
+client's tests: a refused seat renews the session on the next frame; the
+offer waits at a networked table until the gateway runs that release.
+
+**Not yet.** Seat bridges and hosted model chairs are waited for (a deploy
+keeps no game with one). A real deploy with kept games has not run: the
+first is the owner's, on a release after this one.
 
 ## Privacy and the backup
 

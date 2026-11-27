@@ -8106,6 +8106,23 @@ components:
           format: int64
           minimum: 0
           description: Of those, games whose engine runs on this machine (an agent on the unix socket).
+        kept:
+          type: integer
+          format: int64
+          minimum: 0
+          description: "Of those, games a restart of the gateway brings back: kept in its database, and their engine attached or awaited (`docs/proposals/games-survive-restarts.md`)."
+        bridged:
+          type: integer
+          format: int64
+          minimum: 0
+          description: >-
+            Of the running games, those with a chair a seat bridge or a hosted model sits
+            in.
+        engine_revisions:
+          type: array
+          items:
+            type: string
+          description: "The source revisions of the engine builds the running games play on, sorted: what a deploy keeps installed for them."
         waiting:
           type: integer
           format: int64
@@ -8120,6 +8137,9 @@ components:
       - players_online
       - running
       - local_running
+      - kept
+      - bridged
+      - engine_revisions
       - waiting
       - seats_awaiting_engine
       description: "`GET /health`'s games."

@@ -1303,3 +1303,57 @@ fn the_card_stands_symmetrically_in_the_bottom_right_corner() {
         "symmetrical bottom-right corner: {card:?}"
     );
 }
+
+/// At a networked table the restart waits for the game's end unless the
+/// gateway already runs that release in this client's protocol: the table
+/// goes on on the build that began it, and a client back in another
+/// protocol would be refused at its own seat.
+#[test]
+fn at_a_networked_table_the_restart_waits_unless_the_gateway_runs_that_release() {
+    use crate::host::{DuelHost, HostMessage, LinkState};
+    use baylee_client_core::lobby::gateway_info::{GatewayInfo, Probe};
+    struct Seated;
+    impl DuelHost for Seated {
+        fn poll(&mut self) -> Vec<HostMessage> {
+            Vec::new()
+        }
+        fn submit(&mut self, _: baylee_engine::choice::PlayerAction) {}
+        fn ready(&mut self) {}
+        fn seat(&self) -> baylee_core::ids::PlayerId {
+            baylee_core::ids::PlayerId::new(0)
+        }
+        fn link(&self) -> LinkState {
+            LinkState::Up
+        }
+    }
+    let mut app = headless();
+    app.insert_resource(crate::InstalledHost(Box::new(Seated)));
+    let mut lobby = crate::LobbyState::default();
+    let gateway = lobby.gateway.clone();
+    let runs = |version: &str| {
+        Probe::Known(GatewayInfo {
+            version: version.into(),
+            protocol_version: baylee_protocol::PROTOCOL_VERSION,
+            ..GatewayInfo::default()
+        })
+    };
+    lobby
+        .probes
+        .insert(gateway.clone(), runs("0.1.0-beta.2+build.4 (0123456789)"));
+    app.insert_resource(lobby);
+    app.world_mut().resource_mut::<UpdateNotice>().shown = Some(ready());
+    phase(&mut app, DuelPhase::Playing);
+    app.update();
+    assert_eq!(
+        toasts(&mut app),
+        0,
+        "the gateway runs another release: the restart waits"
+    );
+
+    app.world_mut()
+        .resource_mut::<crate::LobbyState>()
+        .probes
+        .insert(gateway, runs("0.1.0-beta.3+build.5 (abcdef0123)"));
+    app.update();
+    assert_eq!(toasts(&mut app), 1, "it runs this one: the seat comes back");
+}

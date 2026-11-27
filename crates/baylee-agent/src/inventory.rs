@@ -1,6 +1,6 @@
 //! Locally configured executables, probed before connecting to a gateway.
 use baylee_protocol::execution::{
-    Identity, MAX_CAPABILITIES, MAX_METADATA_BYTES, valid_capabilities,
+    Identity, MAX_CAPABILITIES, MAX_METADATA_BYTES, hostable_capabilities,
 };
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
@@ -32,7 +32,7 @@ impl Inventory {
     /// Empty/duplicate/invalid identities, or nonabsolute/duplicate executable paths.
     pub fn new(entries: Vec<(Identity, PathBuf)>) -> Result<Self, &'static str> {
         let identities: Vec<_> = entries.iter().map(|(id, _)| id.clone()).collect();
-        if !valid_capabilities(&identities)
+        if !hostable_capabilities(&identities)
             || entries.iter().enumerate().any(|(at, (_, path))| {
                 !path.is_absolute() || entries[..at].iter().any(|(_, other)| other == path)
             })
@@ -92,12 +92,17 @@ impl Inventory {
     }
 }
 
+/// The one argument an engine is probed with: it prints its identity
+/// (`baylee_protocol::execution::Identity`) and exits. Part of how an engine
+/// is started, which only ever gains (`baylee_protocol::ENGINE_LINK`).
+pub const METADATA_ARG: &str = "--metadata";
+
 async fn probe(
     path: &Path,
     stop: std::pin::Pin<&mut impl std::future::Future<Output = ()>>,
 ) -> Result<Option<Identity>, &'static str> {
     let mut child = tokio::process::Command::new(path)
-        .arg("--metadata")
+        .arg(METADATA_ARG)
         .env_remove(crate::AGENT_TOKEN_VAR)
         .env_remove(crate::ENGINE_TOKEN_VAR)
         .stdin(Stdio::null())
@@ -114,7 +119,7 @@ async fn probe(
             .read_to_end(&mut bytes)
             .await
             .map_err(|_| "cannot read engine metadata")?;
-        let identity = Identity::from_metadata(&bytes).ok_or("invalid engine metadata")?;
+        let identity = Identity::from_hostable_metadata(&bytes).ok_or("invalid engine metadata")?;
         let exit = child
             .wait()
             .await

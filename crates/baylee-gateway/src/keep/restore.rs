@@ -17,9 +17,11 @@ use std::io::Read as _;
 
 /// How long a restored game waits for its engine to attach, in seconds:
 /// longer than the agent waits between dials (30 s), and an engine's start,
-/// several times over. A game still without an engine then ends, as every
-/// game did at a restart before games were kept.
-pub(crate) const RESTORE_WAIT_SECS: u64 = 180;
+/// several times over, and longer than a deploy that keeps games takes from
+/// starting the gateway to starting the agent (its `after-switch` hooks have
+/// 120 s, `docs/deploy-hooks.md`). A game still without an engine then ends,
+/// as every game did at a restart before games were kept.
+pub(crate) const RESTORE_WAIT_SECS: u64 = 300;
 
 /// The most a record's header may unpack to: a preset of four seats' decks
 /// and printings is far less.
@@ -29,7 +31,8 @@ const MAX_HEADER_BYTES: u64 = 64 << 20;
 #[derive(serde::Deserialize)]
 pub(super) struct Header {
     kind: String,
-    pub(super) preset: GamePreset,
+    /// As the engine that plays the game wrote it ([`LobbyGame::resume_preset`]).
+    pub(super) preset: Box<serde_json::value::RawValue>,
     #[serde(default)]
     pub(super) execution: Option<Identity>,
 }
@@ -117,16 +120,19 @@ async fn one(
     let header = tokio::task::spawn_blocking(move || header_of(&piece))
         .await
         .map_err(|_| "its record could not be read")??;
+    // A build older than this one goes on with the game it began: its agent
+    // keeps it installed (`Identity::hostable`).
     let execution = header
         .execution
-        .filter(Identity::valid)
-        .ok_or("its record names no engine")?;
+        .filter(Identity::hostable)
+        .ok_or("its record names no engine this gateway can run")?;
     if execution.variant == Variant::Tower {
         return Err("it is a Tower run");
     }
-    let game = row
-        .clone()
-        .game(kept.game_id.clone(), header.preset, execution);
+    let preset: GamePreset =
+        serde_json::from_str(header.preset.get()).map_err(|_| "its preset does not read")?;
+    let mut game = row.clone().game(kept.game_id.clone(), preset, execution);
+    game.resume_preset = Some(header.preset);
     Ok((row, game))
 }
 

@@ -774,7 +774,10 @@ keeps playing, and replaces the agent, engine and gateway only after no game
 of this machine is running;
 `BAYLEE_DEPLOY_HOST=user@host cargo dev deploy [--force]` does the same for a
 commit by hand (the repository names no server; the host is the operator's).
-`crates/baylee-ops/src/deploy/mod.rs` describes the two halves. A server still
+`crates/baylee-ops/src/deploy/mod.rs` describes the two halves. With
+`BAYLEE_DEPLOY_KEEP_GAMES=1` it replaces them while games run, as long as every
+one is kept across the restart, and keeps the engine builds they play on
+(`docs/deploy-hooks.md` §"Keeping games across a deploy"; off unless set). A server still
 running the shell script from before 20.10.2026 takes its next deploy by hand
 (`docs/dev-tools.md` §"Tests").
 

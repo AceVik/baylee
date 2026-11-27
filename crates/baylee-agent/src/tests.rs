@@ -157,6 +157,64 @@ fn the_engine_is_told_where_to_dial_and_what_to_play() {
     );
 }
 
+/// An engine of an older build, kept for the games it still plays
+/// (`docs/proposals/games-survive-restarts.md`), is installed beside the
+/// current one, taken in an order and started as an engine always was
+/// started. How it is started is part of the engine link
+/// (`baylee_protocol::ENGINE_LINK`): the arguments above, these variables and
+/// the probe's one argument only ever gain, or an agent could no longer start
+/// the build a game began on.
+#[test]
+fn an_older_engine_build_is_installed_ordered_and_started_as_engines_always_were() {
+    use baylee_protocol::execution::{Identity, Variant};
+    let current = Identity::native(Variant::Standard, "now", "now-revision", 19);
+    let mut older = Identity::native(Variant::Standard, "before", "before-revision", 19);
+    older.protocol -= 1;
+    let inventory = inventory::Inventory::new(vec![
+        (
+            current.clone(),
+            "/opt/baylee/now/baylee-engine-server".into(),
+        ),
+        (
+            older.clone(),
+            "/opt/baylee/before/baylee-engine-server".into(),
+        ),
+    ])
+    .expect("an older build is installed beside the current one");
+    assert_eq!(
+        inventory.executable(&older),
+        Some(std::path::Path::new(
+            "/opt/baylee/before/baylee-engine-server"
+        ))
+    );
+    let start = Envelope {
+        msg: Some(v1::envelope::Msg::StartEngine(v1::StartEngine {
+            execution: older.to_metadata(),
+            game_id: "g1".to_string(),
+            engine_token: "tok".to_string(),
+            gateway_url: "ws://gw/engine/ws".to_string(),
+        })),
+    };
+    let Order::Start { execution, .. } = order(start) else {
+        panic!("an order for an older build is an order");
+    };
+    assert_eq!(execution, Some(older));
+    let mut newer = current;
+    newer.protocol += 1;
+    assert!(
+        inventory::Inventory::new(vec![(
+            newer,
+            "/opt/baylee/next/baylee-engine-server".into()
+        )])
+        .is_err(),
+        "a build newer than this agent is not installed: nothing here knows what it says"
+    );
+    assert_eq!(ENGINE_TOKEN_VAR, "BAYLEE_ENGINE_TOKEN");
+    assert_eq!(SLOTS_VAR, "BAYLEE_FORESIGHT_SLOTS");
+    assert_eq!(baylee_worker::REPORT_ENV, "BAYLEE_WORK_REPORT");
+    assert_eq!(inventory::METADATA_ARG, "--metadata");
+}
+
 #[test]
 fn the_hello_carries_what_the_gateway_checks() {
     let Some(v1::envelope::Msg::AgentHello(hello)) = config().hello().msg else {

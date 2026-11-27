@@ -98,6 +98,7 @@ anyhow = "1"
 smallvec = "1"
 prost = "0.14"
 prost-build = "0.14"
+prost-types = "0.14"
 protoc-bin-vendored = "3"
 bytes = "1"
 # NFKC for usernames (`baylee_protocol::names`): already in the tree through

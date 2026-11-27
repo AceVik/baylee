@@ -1033,6 +1033,84 @@ fn a_bearer_renews_again_and_again_at_a_table() {
     );
 }
 
+/// A seat whose ticket the table refuses renews the session at once, not at
+/// the renewal's own time: after its gateway restarted, the chair opens only
+/// once the session is back, and the renewal is what brings it back.
+#[test]
+fn a_refused_seat_renews_the_session_at_once() {
+    use crate::host::{DuelHost, HostMessage, LinkState};
+    use std::sync::{Arc, Mutex};
+    struct Refused(Arc<Mutex<u32>>);
+    impl DuelHost for Refused {
+        fn poll(&mut self) -> Vec<HostMessage> {
+            Vec::new()
+        }
+        fn submit(&mut self, _: baylee_engine::choice::PlayerAction) {}
+        fn ready(&mut self) {}
+        fn seat(&self) -> baylee_core::ids::PlayerId {
+            baylee_core::ids::PlayerId::new(0)
+        }
+        fn link(&self) -> LinkState {
+            LinkState::Down
+        }
+        fn ticket_refusals(&self) -> u32 {
+            *self.0.lock().unwrap()
+        }
+    }
+    let mut app = headless();
+    let mailbox = app.world().resource::<Mailbox>().0.clone();
+    mailbox
+        .lock()
+        .unwrap()
+        .push(Reply::Event(LobbyEvent::LoggedIn {
+            token: "held".into(),
+            username: None,
+        }));
+    app.update();
+    app.update();
+    app.world_mut()
+        .resource_mut::<NextState<DuelPhase>>()
+        .set(DuelPhase::Playing);
+    let refusals = Arc::new(Mutex::new(0));
+    app.insert_resource(crate::InstalledHost(Box::new(Refused(Arc::clone(
+        &refusals,
+    )))));
+    let epoch = app.world().resource::<LobbyState>().gateway_epoch;
+    mailbox.lock().unwrap().push(Reply::Remote(
+        epoch,
+        Box::new(Reply::Event(LobbyEvent::BearerRenewed {
+            token: "held".into(),
+            renew_in: 600,
+        })),
+    ));
+    app.update();
+    app.update();
+    // Counts no time down: asks only whether the renewal is due now.
+    let due_now = |app: &mut App| {
+        app.world_mut()
+            .resource_mut::<LobbyState>()
+            .lobby
+            .bearer_due(0.0)
+    };
+    assert!(!due_now(&mut app), "the renewal is minutes away");
+    *refusals.lock().unwrap() = 1;
+    app.update();
+    assert!(
+        !due_now(&mut app),
+        "a local session's chair is bound to none: nothing to renew"
+    );
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .set_central_bound(true);
+    *refusals.lock().unwrap() = 2;
+    app.update();
+    assert!(
+        due_now(&mut app),
+        "a refused seat of a Central session renews on the next frame"
+    );
+}
+
 /// A socket closed for a ban says so where the player lands, and the session
 /// ends with it: "your session ended" would not tell them why, and a late `401`
 /// of the same session changes nothing.

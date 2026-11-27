@@ -255,6 +255,10 @@ Registered hosts only; keys write-only over the unix socket; tests use in-proces
   is canonicalized and probed with `--metadata` before registration. Configure at
   most sixteen including `BAYLEE_ENGINE_BIN`; duplicate identities/paths and failed
   probes stop startup. The gateway selects exact metadata; paths stay local.
+  An executable of an older build than the agent's, with an older protocol, is
+  taken too: the gateway orders it only for a game that build began and that
+  goes on after an update (`docs/protocol.md` §"Which side checks the
+  protocol"); one of a newer protocol stops startup.
   Setting this variable, including to an empty value, overrides sibling
   discovery. An explicit `BAYLEE_ENGINE_BIN` also disables sibling discovery
   unless additional binaries are explicitly listed.
@@ -274,6 +278,19 @@ resident memory every 250 ms and interrupts at 2 GiB. This is sampled resource
 containment, not an OS memory reservation or a guarantee against transient
 overshoot. Hosting capacity and OS/service memory isolation still need to fit
 the machine. Limits are technical failures, never an invented win or draw.
+
+Those pipes, `BAYLEE_ENGINE_TOKEN`, `BAYLEE_WORK_REPORT`,
+`BAYLEE_FORESIGHT_SLOTS`, the `--attach <url> --game <id>` arguments and the
+`--metadata` probe are how an agent starts an engine of any build it keeps,
+an older one too: they belong to the engine link and only ever gain
+(`docs/protocol.md` §"Which side checks the protocol").
+
+On the server a deploy that keeps games (`BAYLEE_DEPLOY_KEEP_GAMES=1` in
+`/etc/baylee/deploy.env`, `docs/deploy-hooks.md` §"Keeping games across a
+deploy") writes `BAYLEE_ENGINE_BINS` into `/etc/baylee/agent-engines.env`: this
+release's two siblings of `baylee-engine-server` and the two standard engines
+of every older build a running game still plays on, under `/opt/baylee/engines/<rev>/`. The
+agent's unit reads it with `EnvironmentFile=-/etc/baylee/agent-engines.env`.
 
 ## Feedback service (`baylee-feedback`)
 

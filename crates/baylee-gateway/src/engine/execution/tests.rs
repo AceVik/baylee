@@ -95,3 +95,40 @@ fn tower_inventory_and_assignment_never_substitute_another_build_or_full_agent()
     changed.cards = "a".repeat(40);
     assert!(agents.pick_exact(&changed).is_none());
 }
+
+/// An older build an agent keeps is taken with its list and found only when
+/// asked for exactly, as a resumed game asks: a new game, Tower's inventory
+/// and its runs never see it.
+#[test]
+fn an_older_build_is_found_only_by_the_game_that_names_it() {
+    for variant in [Variant::Standard, Variant::Tower] {
+        let current = native(variant);
+        let mut older = current.clone();
+        older.protocol -= 1;
+        older.build = "older-build".into();
+        let mut agents = Agents::default();
+        agents
+            .connected
+            .insert("keeps".into(), agent(&older, false));
+        assert!(agents.pick_variant(variant, None).is_none(), "{variant:?}");
+        assert_eq!(
+            agents.pick_exact(&older),
+            Some(("keeps".into(), older.clone())),
+            "{variant:?}"
+        );
+        if variant == Variant::Tower {
+            assert!(
+                agents.tower_inventory().unwrap().installed.is_empty(),
+                "an older Tower build is advertised to no authority"
+            );
+        }
+        agents
+            .connected
+            .insert("now".into(), agent(&current, false));
+        assert_eq!(
+            agents.pick_variant(variant, None),
+            Some(("now".into(), current.clone())),
+            "{variant:?}"
+        );
+    }
+}

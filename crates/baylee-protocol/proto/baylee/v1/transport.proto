@@ -350,6 +350,11 @@ message EngineHello {
   string build = 5;
   // This executable's compiled identity, checked before any game data is sent.
   bytes execution = 6;
+  // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+  // A gateway that keeps a game on the build that started it asks an engine
+  // only what its revision says it does: from 1 it picks a game up from its
+  // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+  uint32 link = 7;
 }
 
 // Gateway → engine: everything needed to build the game.
