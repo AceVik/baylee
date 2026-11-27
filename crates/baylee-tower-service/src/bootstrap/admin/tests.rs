@@ -226,8 +226,7 @@ fn every_listed_action_is_one_this_build_parses() {
     for action in ACTIONS {
         let error = serde_json::from_value::<Operation>(json!({ "action": action }))
             .err()
-            .map(|error| error.to_string())
-            .unwrap_or_default();
+            .map_or_else(String::new, |error| error.to_string());
         assert!(!error.contains("unknown variant"), "{action}: {error}");
     }
     let unknown = serde_json::from_value::<Operation>(json!({ "action": "erase_everything" }));
