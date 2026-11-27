@@ -25,11 +25,16 @@ pub(super) struct Desk {
 #[derive(Component)]
 pub(in crate::lobby) struct TileCaption;
 
-/// Stands the desk's slot in `parent`. The page's one format choice, in its
-/// head, serves the ladder and the queue alike ([`follow_format`]).
-pub(super) fn desk(commands: &mut Commands, parent: Entity, kit: Kit) {
-    let queue = draw::column(commands, parent, kit);
-    commands.entity(parent).insert(Desk {
+/// Stands the desk's slot in `root`, placing its queue column inside `content`.
+/// The page's one format choice, in its head, serves the ladder and the queue
+/// alike ([`follow_format`]).
+pub(super) fn desk(commands: &mut Commands, root: Entity, content: Entity, kit: Kit) {
+    let queue = draw::column(commands, content, kit);
+    commands.entity(queue).entry::<Node>().and_modify(|mut n| {
+        n.width = percent(100);
+        n.flex_shrink = 0.0;
+    });
+    commands.entity(root).insert(Desk {
         metrics: kit.m,
         queue,
     });
