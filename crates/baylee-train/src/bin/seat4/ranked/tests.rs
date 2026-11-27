@@ -22,12 +22,14 @@ use tokio_tungstenite::tungstenite::Message;
 
 const ME: PlayerId = PlayerId::new(0);
 
-/// A brain that keeps its hand, passes, names the first colour offered and
-/// fails its observation number `fail_at` (counting from one).
+/// A brain that keeps its hand, passes (as a forced answer, with
+/// `forced_passes`), names the first colour offered and fails its
+/// observation number `fail_at` (counting from one).
 #[derive(Default)]
 struct Script {
     observed: usize,
     fail_at: Option<usize>,
+    forced_passes: bool,
 }
 
 impl Brain4 for Script {
@@ -56,10 +58,15 @@ impl Brain4 for Script {
             Pending::ChooseColor { options, .. } => PlayerAction::ChooseColor(options[0]),
             other => anyhow::bail!("the script has no answer to {other:?}"),
         };
+        let forced = self.forced_passes && action == PlayerAction::PassPriority;
         Ok(LiveAnswer4 {
             action,
             provenance: StepProvenance4 {
-                source: SourceKind4::Net,
+                source: if forced {
+                    SourceKind4::Forced
+                } else {
+                    SourceKind4::Net
+                },
                 ..StepProvenance4::default()
             },
             draw: None,
@@ -360,16 +367,72 @@ async fn a_whole_game_ends_with_its_result_and_only_real_decisions_wait() {
     );
 }
 
+/// The runner's transcript of the net's seat reads as a bridge's: each
+/// question asked and its answer by the mind with its time, a forced answer
+/// as the standing orders', and the game's end with its result, which is
+/// what the ranked end-to-end test reads (`runners.rs`, `Seen::read`).
+#[tokio::test]
+async fn the_transcript_keeps_every_question_its_answer_and_the_end() {
+    let mut steps = opening();
+    steps.extend([
+        Step::Send(view(2, 1)),
+        Step::Send(ask(2, &priority())),
+        Step::Answer,
+        Step::Send(view(3, 1)),
+        Step::Send(ask(3, &colour())),
+        Step::Answer,
+        Step::Send(view(4, 2)),
+        Step::Send(ask(4, &game_over())),
+    ]);
+    let brain = Script {
+        forced_passes: true,
+        ..Script::default()
+    };
+    let (flown, _, _, _, lines) = fly_kept(steps, brain).await;
+    assert_eq!(flown, Flown::Ended);
+    let events: Vec<&str> = lines.iter().filter_map(|l| l["event"].as_str()).collect();
+    assert_eq!(
+        events,
+        ["asked", "answered", "standing", "asked", "answered", "over"],
+        "{lines:?}"
+    );
+    let asked: Vec<_> = lines.iter().filter(|l| l["event"] == "asked").collect();
+    assert_eq!(asked[0]["kind"], "Mulligan");
+    assert_eq!(asked[0]["question"], 1);
+    assert_eq!(asked[1]["question"], 3);
+    let mind: Vec<_> = lines
+        .iter()
+        .filter(|l| l["event"] == "answered" && l["by"] == "mind")
+        .collect();
+    assert_eq!(mind.len(), 2);
+    assert!(
+        mind.iter()
+            .all(|l| l["model_ms"].is_u64() && l["at_ms"].is_u64())
+    );
+    let standing = lines.iter().find(|l| l["event"] == "standing").unwrap();
+    assert_eq!(standing["action"], "PassPriority");
+    assert_eq!(standing["why"], "nothing_to_do");
+    let over = lines.last().unwrap();
+    assert_eq!(over["question"], 0);
+    assert!(
+        over["result"].as_str().unwrap().contains("GameResult"),
+        "{over}"
+    );
+}
+
 #[tokio::test]
 async fn a_cut_socket_hands_the_seat_over_without_dialling_again() {
     let mut steps = opening();
     steps.push(Step::Cut);
-    let (flown, core, heard, dials) = fly(steps, Script::default()).await;
+    let (flown, core, heard, dials, lines) = fly_kept(steps, Script::default()).await;
     assert_eq!(flown, Flown::HandOver(SOCKET_LOST.to_owned()));
     assert_eq!(dials, 1, "the net never resumes over missed views");
     assert_eq!(heard.actions.len(), 1);
     assert!(core.finished());
     assert!(core.report().failure.is_some());
+    let left = lines.last().unwrap();
+    assert_eq!(left["event"], "left", "{lines:?}");
+    assert_eq!(left["reason"], SOCKET_LOST);
 }
 
 #[tokio::test]

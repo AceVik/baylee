@@ -130,7 +130,8 @@ impl NetPilot {
             ),
         };
         format!(
-            "the net {} (net.pt {}) at depth {} with the measured rule groups, greedy; {reads}",
+            "seat4 {}: the net {} (net.pt {}) at depth {} with the measured rule groups, greedy; {reads}",
+            baylee_build::short(),
             self.label,
             &self.sha256[..12.min(self.sha256.len())],
             baylee_train_ops::measured::THINKING_STEPS,
@@ -165,6 +166,7 @@ impl NetPilot {
         flown: &str,
     ) -> serde_json::Value {
         serde_json::json!({
+            "build": baylee_build::short(),
             "model": self.label,
             "model_sha256": self.sha256,
             "profile": self.profile,

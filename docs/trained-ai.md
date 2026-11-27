@@ -3658,9 +3658,11 @@ seat4 ranked --model <export dir> --central live --account <id | Name#tag> --tok
 - **Pace.** A real decision is not answered sooner than `--min-think-ms` after the frame that completed its question, so a person can
   follow; a pass, a step of paying mana and a forced answer go at once (`LiveSeat4::paced`).
 - **What it says.** Nothing to the table: the wire has no kind for a trained net (`v1::SeatMind`), and none is borrowed. People see
-  Baylee AI through Central's badge. Each match's transcript (the runner's, under `--state`) keeps every answer as the bridge keeps
-  them (`answered`, by `mind`, `forced` or `house`, its action and the time the net took) and the end (`over`, with the result), then
-  one line `{"net": …}`, which standard output repeats as `{"phase": "ranked-game", …}`: the export, its digest, the catalog binding,
+  Baylee AI through Central's badge. Each match's transcript (the runner's, under `--state`) is written in the bridge's own notes
+  (`baylee_seat::transcript`): each question (`asked`) and its answer (`answered`, by `mind` for the policy or `house` for the
+  runtime's own fallback, with the time the net took), a forced answer as the standing orders' `nothing_to_do`, and the end (`over`
+  with the result, `closed`, or `left` with the hand-over's reason), then one line `{"net": …}`, which standard output repeats as
+  `{"phase": "ranked-game", …}`: the build, the export, its digest, the catalog binding,
   how the flight ended, turns, the answers by source (the policy raw or under its tactical layer, forced, the runtime's own fallbacks
   by reason), the rule references left out, and the cards of its own deck the export does not read as trained.
 - **Never training data.** The ranked path keeps no journal, no decision audit and no report file, and writes only beneath `--state`;

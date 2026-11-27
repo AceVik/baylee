@@ -17,9 +17,11 @@ use std::time::Duration;
 
 use baylee_engine::choice::PlayerAction;
 use baylee_protocol::v1::envelope::Msg;
-use baylee_seat::Transcript;
 use baylee_seat::link::{Socket, Table};
-use baylee_train::live4::{Brain4, LiveSeat4};
+use baylee_seat::transcript::{Event, Note};
+use baylee_seat::wake::{Standing, Why};
+use baylee_seat::{By, Transcript};
+use baylee_train::live4::{Asked4, Brain4, By4, LiveSeat4};
 use futures_util::{SinkExt as _, StreamExt as _};
 use prost::Message as _;
 use tokio::time::Instant;
@@ -62,10 +64,13 @@ pub enum Flown {
 }
 
 /// Plays `core`'s seat over `link` until the game ends or the net cannot
-/// go on, each answer and the end kept in `transcript` as the bridge keeps
-/// them (`event` `answered`, by `mind`, `forced` or `house`, with the time
-/// the net took; `over` with the result). The socket is opened here and
-/// closed before it returns.
+/// go on, kept in `transcript` in the bridge's own notes
+/// (`baylee_seat::transcript`): each question the net was asked and its
+/// answer, by the mind (the policy, raw or under its tactical layer) or the
+/// house (the runtime's own fallback), with the time the net took; a forced
+/// answer as the standing orders' "nothing to do"; and the game's end, the
+/// room's close or the seat's leaving. The socket is opened here and closed
+/// before it returns.
 ///
 /// # Errors
 /// Only when the link cannot open a socket at all; once the seat holds one,
@@ -77,47 +82,92 @@ pub async fn fly<L: Table, B: Brain4>(
     transcript: &mut Transcript,
 ) -> anyhow::Result<Flown> {
     let Some(mut socket) = link.connect().await? else {
+        transcript.write(&ended(core, Event::Closed));
+        transcript.flush();
         return Ok(Flown::Closed);
     };
-    let flown = over(&mut socket, link, core, pace, |core, line| {
-        transcript.write_value(&line.json(core));
+    let flown = over(&mut socket, link, core, pace, |note| {
+        transcript.write(&note);
     })
     .await;
     let _ = socket.close(None).await;
+    match &flown {
+        Flown::Ended => {}
+        Flown::Closed => transcript.write(&ended(core, Event::Closed)),
+        Flown::HandOver(why) => transcript.write(&ended(
+            core,
+            Event::Left {
+                reason: why.clone(),
+            },
+        )),
+    }
     transcript.flush();
     Ok(flown)
 }
 
-/// A line of the transcript.
-enum Line {
-    /// An answer sent, and how long the net took to make it.
-    Answered(Vec<u8>, Duration),
-    /// The game's end.
-    Over,
-}
-
-impl Line {
-    /// The line, which the transcript stamps with its time.
-    fn json<B: Brain4>(&self, core: &LiveSeat4<B>) -> serde_json::Value {
-        match self {
-            Self::Answered(action, took) => serde_json::json!({
-                "turn": core.turn(),
-                "event": "answered",
-                "by": core.last_by().word(),
-                "action": baylee_core::wire::decode::<PlayerAction>(action).ok(),
-                "model_ms": millis(*took),
-            }),
-            Self::Over => serde_json::json!({
-                "turn": core.turn(),
-                "event": "over",
-                "result": core.game_result().map(|result| format!("{result:?}")),
-            }),
-        }
+/// The note on the question the answer last generated was made for.
+fn asked(asked: &Asked4) -> Note {
+    Note {
+        question: asked.question,
+        seq: asked.seq,
+        turn: asked.turn,
+        event: Event::Asked {
+            kind: asked.kind,
+            // The net has no standing orders: every question is its own.
+            why: Some(Why::Question),
+            step: asked.step,
+            their_turn: asked.their_turn,
+            continuing: false,
+            retry: false,
+            // The net keeps no budget of its own; the table's clock runs.
+            budget_ms: 0,
+            log_lines: 0,
+            controlled: asked.controlled,
+        },
     }
 }
 
-fn millis(time: Duration) -> u64 {
-    u64::try_from(time.as_millis()).unwrap_or(u64::MAX)
+/// The note on the answer last generated, which took the net `took`.
+fn answered<B: Brain4>(
+    core: &LiveSeat4<B>,
+    asked: &Asked4,
+    action: PlayerAction,
+    took: Duration,
+) -> Note {
+    let event = match core.last_by() {
+        By4::Forced => Event::Standing {
+            kind: asked.kind,
+            why: Standing::NothingToDo,
+            action,
+        },
+        by => Event::Answered {
+            by: if by == By4::Runtime {
+                By::House
+            } else {
+                By::Mind
+            },
+            action,
+            model_ms: Some(u64::try_from(took.as_millis()).unwrap_or(u64::MAX)),
+            note: None,
+            thinking: None,
+        },
+    };
+    Note {
+        question: asked.question,
+        seq: asked.seq,
+        turn: asked.turn,
+        event,
+    }
+}
+
+/// The note on how the seat's game ended.
+fn ended<B: Brain4>(core: &LiveSeat4<B>, event: Event) -> Note {
+    Note {
+        question: 0,
+        seq: core.last_asked().map_or(0, |asked| asked.seq),
+        turn: core.turn(),
+        event,
+    }
 }
 
 async fn over<L: Table, B: Brain4>(
@@ -125,7 +175,7 @@ async fn over<L: Table, B: Brain4>(
     link: &mut L,
     core: &mut LiveSeat4<B>,
     pace: Pace,
-    mut note: impl FnMut(&LiveSeat4<B>, Line),
+    mut note: impl FnMut(Note),
 ) -> Flown {
     loop {
         let next = match tokio::time::timeout(pace.room_check, socket.next()).await {
@@ -142,9 +192,17 @@ async fn over<L: Table, B: Brain4>(
                 let took = heard.elapsed();
                 for envelope in outgoing {
                     let action = match &envelope.msg {
-                        Some(Msg::PlayerAction(action)) => Some(action.action.clone()),
+                        Some(Msg::PlayerAction(action)) => {
+                            baylee_core::wire::decode::<PlayerAction>(&action.action).ok()
+                        }
                         _ => None,
                     };
+                    let question = action.as_ref().and(core.last_asked().copied());
+                    if let Some(question) = &question
+                        && core.last_by() != By4::Forced
+                    {
+                        note(asked(question));
+                    }
                     if action.is_some() && core.paced() {
                         tokio::time::sleep_until(heard + pace.min_think).await;
                     }
@@ -153,12 +211,15 @@ async fn over<L: Table, B: Brain4>(
                         core.disconnected();
                         return Flown::HandOver(SOCKET_LOST.to_owned());
                     }
-                    if let Some(action) = action {
-                        note(core, Line::Answered(action, took));
+                    if let (Some(action), Some(question)) = (action, question) {
+                        note(answered(core, &question, action, took));
                     }
                 }
                 if core.finished() {
-                    note(core, Line::Over);
+                    let result = core
+                        .game_result()
+                        .map_or_else(String::new, |result| format!("{result:?}"));
+                    note(ended(core, Event::Over { result }));
                     return Flown::Ended;
                 }
             }

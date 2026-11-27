@@ -82,6 +82,41 @@ pub struct LiveReport4 {
     pub tactic_rules_fired: std::collections::BTreeMap<String, u64>,
 }
 
+/// A question this seat answered, as a seat's transcript tells it
+/// (`baylee_seat::transcript::Event::Asked`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Asked4 {
+    /// The seat's questions answered so far, this one included.
+    pub question: u64,
+    /// The table's sequence number of the question.
+    pub seq: u64,
+    /// The turn it was asked in.
+    pub turn: u32,
+    /// Its kind (`baylee_seat::scripted::kind`).
+    pub kind: &'static str,
+    /// The step it was asked in.
+    pub step: baylee_view::Step,
+    /// Whether it was asked on another seat's turn.
+    pub their_turn: bool,
+    /// The player it was decided for, when that is a player whose turn the
+    /// seat controls (Mindslaver, CR 724.5) and not the seat.
+    pub controlled: Option<PlayerId>,
+}
+
+impl Asked4 {
+    fn of(question: u64, asked: &Question, view: &PlayerView, seat: PlayerId) -> Self {
+        Self {
+            question,
+            seq: asked.seq,
+            turn: view.turn,
+            kind: baylee_seat::scripted::kind(&asked.pending),
+            step: view.step,
+            their_turn: view.active != seat,
+            controlled: asked.pending.asked().filter(|player| *player != seat),
+        }
+    }
+}
+
 /// Who made a live answer.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -140,6 +175,8 @@ pub struct LiveSeat4<B = NetPlayer4> {
     paced: bool,
     /// [`Self::last_by`].
     last_by: By4,
+    /// [`Self::last_asked`].
+    last_asked: Option<Asked4>,
     result: Option<GameResult>,
     report: LiveReport4,
 }
@@ -167,6 +204,7 @@ impl<B: Brain4> LiveSeat4<B> {
             opening: false,
             paced: false,
             last_by: By4::Policy,
+            last_asked: None,
             result: None,
             report: LiveReport4 {
                 kind: "local_neural_v4",
@@ -246,6 +284,12 @@ impl<B: Brain4> LiveSeat4<B> {
     #[must_use]
     pub const fn last_by(&self) -> By4 {
         self.last_by
+    }
+
+    /// The question the answer last generated was made for.
+    #[must_use]
+    pub const fn last_asked(&self) -> Option<&Asked4> {
+        self.last_asked.as_ref()
     }
 
     /// The brain, for what it counts of the game.
@@ -465,8 +509,10 @@ impl<B: Brain4> LiveSeat4<B> {
             }
             audit::extend(&mut self.history, b"question", &pending_json);
             audit::extend(&mut self.history, b"action", &action_json);
+            let asked = Asked4::of(decision.decision, &question, view.as_ref(), self.seat);
             self.last_decision = Some(decision);
             self.tally(&answer)?;
+            self.last_asked = Some(asked);
             outgoing.push(Envelope {
                 msg: Some(v1::envelope::Msg::PlayerAction(v1::PlayerActionMsg {
                     game_id: self.game_id.clone().unwrap_or_default(),
