@@ -32,6 +32,7 @@
 //! Which tools this build speaks, and how each is locked down, is
 //! `docs/llm-seat.md` §"A CLI as the model".
 
+use super::Brief;
 use crate::llm::{Settings, Usage};
 use baylee_client_core::llmseat::CliTool;
 use serde_json::Value;
@@ -48,25 +49,26 @@ pub(crate) trait Dialect: Send + Sync {
     /// this user alone, into the session's own `support` directory (never
     /// its working directory, which stays empty) before the process
     /// starts. A schema or instructions a flag takes only as a path.
-    fn files(&self, _settings: &Settings, _system: &str) -> Vec<(&'static str, String)> {
+    fn files(&self, _settings: &Settings, _brief: &Brief) -> Vec<(&'static str, String)> {
         Vec::new()
     }
 
     /// Configuration a tool discovers only in its working directory.
     /// Paths are fixed by the dialect, never supplied by a model or player.
-    fn workspace_files(&self, _system: &str) -> Vec<(&'static str, String)> {
+    fn workspace_files(&self, _brief: &Brief) -> Vec<(&'static str, String)> {
         Vec::new()
     }
 
     /// The arguments of a session's process, after the program: `model` is
-    /// the tool's own model id, where the profile names one, `system` the
-    /// instructions, which replace the tool's own where it can, and
-    /// `support` the directory [`Self::files`] are written to.
+    /// the tool's own model id, where the profile names one, `brief` the
+    /// instructions, which replace the tool's own where it can, and the
+    /// answer's schema, and `support` the directory [`Self::files`] are
+    /// written to.
     fn args(
         &self,
         settings: &Settings,
         model: Option<&str>,
-        system: &str,
+        brief: &Brief,
         support: &Path,
     ) -> Vec<OsString>;
 

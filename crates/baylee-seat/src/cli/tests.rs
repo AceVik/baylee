@@ -197,7 +197,12 @@ fn claude_runs_with_no_tools_no_settings_and_our_instructions() {
     let mut settings = settings();
     settings.effort = Some("low".into());
     let args: Vec<String> = Claude
-        .args(&settings, Some("opus"), "SYSTEM", Path::new("/support"))
+        .args(
+            &settings,
+            Some("opus"),
+            &crate::cli::Brief::told(&settings, "SYSTEM"),
+            Path::new("/support"),
+        )
         .into_iter()
         .map(|arg| arg.into_string().unwrap())
         .collect();
@@ -732,7 +737,12 @@ fn claude_names_a_model_and_an_effort_only_when_it_has_them() {
     let mut settings = settings();
     settings.effort = None;
     let args: Vec<String> = Claude
-        .args(&settings, None, "S", Path::new("/support"))
+        .args(
+            &settings,
+            None,
+            &crate::cli::Brief::told(&settings, "S"),
+            Path::new("/support"),
+        )
         .into_iter()
         .map(|a| a.into_string().unwrap())
         .collect();

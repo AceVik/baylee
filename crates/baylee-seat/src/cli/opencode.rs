@@ -40,6 +40,7 @@
 //! the table ([`Event::Breach`]). A reply ends at its `step_finish`, whose
 //! tokens are that step's own.
 
+use super::Brief;
 use super::dialect::{
     Dialect, Event, Outcome, Started, Wire, clipped, conversation_id, first_line_starts,
     sounds_limited,
@@ -71,7 +72,7 @@ impl Dialect for Opencode {
         CliTool::Opencode
     }
 
-    fn files(&self, _settings: &Settings, system: &str) -> Vec<(&'static str, String)> {
+    fn files(&self, _settings: &Settings, brief: &Brief) -> Vec<(&'static str, String)> {
         let config = json!({
             "$schema": "https://opencode.ai/config.json",
             "autoupdate": false,
@@ -85,7 +86,7 @@ impl Dialect for Opencode {
             "agent": {
                 AGENT: {
                     "mode": "primary",
-                    "prompt": system,
+                    "prompt": brief.system,
                     "permission": {"*": "deny"},
                 },
             },
@@ -97,7 +98,7 @@ impl Dialect for Opencode {
         &self,
         settings: &Settings,
         model: Option<&str>,
-        _system: &str,
+        _brief: &Brief,
         _support: &Path,
     ) -> Vec<OsString> {
         let mut args: Vec<OsString> = [
