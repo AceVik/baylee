@@ -1029,10 +1029,11 @@ blocks and questions, a stack of 80, the chat's tabs, a replay, a full board); m
 the counts; and builds what ships from them, without the harness. It prints where the
 binaries are. Offline the shipped client has no social session, so the friends and
 chat lines stand in the harness's own (`docs/client.md` §"Large data for a scene").
-Run it on a quiet Mac: a fresh build's first window compiles its shaders, and on
-27.11.2026, with other agents' test clients and builds holding the load near 60,
-that held the first frames past the harness's ten seconds and a scene stopped
-before it began; the next start, with the shaders cached, played.
+Before the scenes it starts the fresh build once without one and waits until it
+draws steadily (`warm_up`): a new binary's first window compiles its shaders, and
+on 27.11.2026, with other agents' test clients and builds holding the load near
+40 to 60, that held the first frames past the harness's ten seconds and the first
+scene stopped before it began. Warming took 111 s then; a quiet Mac is faster.
 `cargo tools pgo client ship <profile>` is that last step alone: it builds in
 `target/pgo-client/profiled`, emptied first, and stands the three binaries and their
 symbols in `target/<triple>/dist`, where `cargo tools package client` reads them.
