@@ -1127,6 +1127,49 @@ fn kit_button(
     button
 }
 
+/// Whether the drawer offers friend invites: in the lobby (their sheet is
+/// the lobby's), signed in at Baylee Central, whose invites they are.
+#[cfg(not(target_arch = "wasm32"))]
+fn invites_here(lobby: Option<&crate::LobbyState>, at_table: bool) -> bool {
+    !at_table && lobby.is_some_and(|lobby| lobby.central_handle().is_some())
+}
+
+#[cfg(target_arch = "wasm32")]
+fn invites_here(_: Option<&crate::LobbyState>, _: bool) -> bool {
+    false
+}
+
+/// "Invite a friend…": opens the invite sheet (`lobby::invites`), drawn
+/// as the drawer's other actions are.
+#[cfg(not(target_arch = "wasm32"))]
+fn invite_button(commands: &mut Commands, fonts: &UiFonts, lang: Lang) -> Entity {
+    let kit = super::zoom::kit(fonts);
+    let button = controls::button_compact(
+        commands,
+        kit,
+        Some(crate::hud::glyph::USER_PLUS),
+        ChatPhrase::InviteFriendButton.text(lang),
+        Weight::Secondary,
+        Live::Yes,
+        crate::lobby::invites::OpenInvites,
+    );
+    if !kit.m.touch() {
+        commands
+            .entity(button)
+            .entry::<Node>()
+            .and_modify(|mut node| {
+                node.min_width = Val::Auto;
+                node.min_height = Val::Auto;
+            });
+    }
+    button
+}
+
+#[cfg(target_arch = "wasm32")]
+fn invite_button(commands: &mut Commands, _: &UiFonts, _: Lang) -> Entity {
+    commands.spawn_empty().id()
+}
+
 fn entry_button(
     commands: &mut Commands,
     fonts: &UiFonts,
@@ -1329,6 +1372,7 @@ fn sync_drawer(
     scrolls: Query<&ScrollPosition, With<DrawerList>>,
     mut drawn: Local<Option<DrawerKey>>,
     (zoom, shell): (Res<super::zoom::Zoom>, Option<Res<super::zoom::Shell>>),
+    lobby: Option<Res<crate::LobbyState>>,
 ) {
     // A world without the chat's plugin has no kit sizes of its own: a
     // table's, as before the first window is measured.
@@ -1373,6 +1417,7 @@ fn sync_drawer(
         group_unreads,
         at_table,
         lang as u8,
+        invites_here(lobby.as_deref(), at_table),
     ));
     let key = (
         drawer_revision,
@@ -2096,7 +2141,8 @@ fn sync_drawer(
         }
     }
     if kids.len() == boxes {
-        let nothing = nothing_listed(&mut commands, &fonts, kit, lang, me.guest, &filter);
+        let invites = invites_here(lobby.as_deref(), at_table);
+        let nothing = nothing_listed(&mut commands, &fonts, kit, lang, me.guest, &filter, invites);
         kids.push(nothing);
     }
     commands.entity(list).add_children(&kids);
@@ -2175,7 +2221,14 @@ fn sync_drawer(
             ChatPhrase::NewGroupButton.text(lang),
             DrawerPress::NewGroup,
         );
-        let row = surfaces::dialog_button_row(&mut commands, kit, &[new]);
+        // Friend invites are Baylee Central's, and their sheet the lobby's:
+        // beside New group, sharing its row.
+        let row = if invites_here(lobby.as_deref(), at_table) {
+            let invite = invite_button(&mut commands, &fonts, lang);
+            surfaces::dialog_button_row(&mut commands, kit, &[new, invite])
+        } else {
+            surfaces::dialog_button_row(&mut commands, kit, &[new])
+        };
         commands.entity(foot).add_child(row);
     }
     let rim = commands
@@ -2734,7 +2787,9 @@ mod tests;
 
 /// The list with nothing in it (owner, 25.11.2026: empty states for lists):
 /// how a contact comes in, or that the search found no one, never a bare
-/// hole under the search box.
+/// hole under the search box. Where friend invites reach (`invites`), the
+/// hint names the link the foot makes; the foot carries the button, so the
+/// empty state does not repeat it.
 fn nothing_listed(
     commands: &mut Commands,
     fonts: &UiFonts,
@@ -2742,6 +2797,7 @@ fn nothing_listed(
     lang: Lang,
     guest: bool,
     filter: &str,
+    invites: bool,
 ) -> Entity {
     let (mark, said, hint) = if guest {
         (
@@ -2753,7 +2809,11 @@ fn nothing_listed(
         (
             glyph::FRIENDS,
             ChatPhrase::ContactsEmpty.text(lang).to_owned(),
-            Some(ChatPhrase::ContactsEmptyHint),
+            Some(if invites {
+                ChatPhrase::ContactsEmptyHintInvite
+            } else {
+                ChatPhrase::ContactsEmptyHint
+            }),
         )
     } else {
         (
@@ -2771,9 +2831,14 @@ fn nothing_listed(
             tokens::MUTED,
             false,
         );
-        commands.entity(words).insert(TextLayout::new(
-            Justify::Center,
-            bevy::text::LineBreak::WordBoundary,
+        commands.entity(words).insert((
+            TextLayout::new(Justify::Center, bevy::text::LineBreak::WordBoundary),
+            // The empty state's whole width: a centred column measures a
+            // sentence of its own at no width at all.
+            Node {
+                width: Val::Percent(100.0),
+                ..default()
+            },
         ));
         commands.entity(empty).add_child(words);
     }

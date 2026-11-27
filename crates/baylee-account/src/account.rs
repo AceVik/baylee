@@ -14,6 +14,7 @@ mod challenges;
 mod decks;
 mod funding;
 mod gateway_import;
+mod invites;
 mod legacy_decks;
 mod paged_decks;
 mod pairing;
@@ -23,6 +24,9 @@ mod tower;
 
 pub use funding::funding_read;
 pub use gateway_import::GatewayDeckImport;
+pub use invites::{
+    CreatedInvite, FriendInvites, MAX_INVITE_EMAIL, NewInvite, friend_invite_info, plausible_email,
+};
 pub use pairing::{PairedSession, PairingClaim};
 pub use ranked::{
     RankedConsent, RankedHost, RankedHostDocument, RankedHostDocuments, RankedPlay, ranked_read,

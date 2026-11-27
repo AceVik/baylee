@@ -37,6 +37,8 @@ impl Plugin for LobbyPlugin {
         #[cfg(not(target_arch = "wasm32"))]
         ranked_profile::install(app);
         #[cfg(not(target_arch = "wasm32"))]
+        invites::install(app);
+        #[cfg(not(target_arch = "wasm32"))]
         deck_appearance::install(app);
         challenges::install(app);
         #[cfg(not(target_arch = "wasm32"))]

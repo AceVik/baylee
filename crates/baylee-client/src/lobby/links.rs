@@ -12,7 +12,10 @@
 //! own, or playing offline, it joins this device's list. A pairing link
 //! opens Central's sign-in as `signin` does and starts the sign-in from
 //! baylee.app over it (`central::pairing`), where nobody is signed in;
-//! anywhere else it says so and is dropped.
+//! anywhere else it says so and is dropped. An invite link asks Central who
+//! made the invite and then the player, signed in at Central
+//! (`invites::link`); signed out, Central's sign-in comes first, as for a
+//! challenge's link.
 
 #[allow(clippy::wildcard_imports)] // the lobby widget vocabulary
 use super::*;
@@ -28,7 +31,12 @@ pub(super) fn follow(
     mut state: ResMut<LobbyState>,
     mut arrived: ResMut<Arrived>,
     mailbox: Res<Mailbox>,
+    host: Option<Res<crate::social::SocialHost>>,
 ) {
+    // An invite link's answers from Central: its question waits, as a
+    // link does, until nothing else is open.
+    let may_ask = at_rest(&state);
+    super::invites::link::answers(&mut state, host.as_deref(), may_ask);
     // Read through `Deref` first: a frame with nothing to do writes nothing.
     let Some(link) = arrived.link.clone() else {
         return;
@@ -83,6 +91,23 @@ pub(super) fn follow(
         Link::Pair(link) => {
             pair(&mut state, &mailbox, link);
             true
+        }
+        Link::Invite(link) => {
+            if state.central_ready() {
+                state.link_asked_central = false;
+                super::invites::link::look(&mut state, link)
+            } else if state.central_pending() {
+                false
+            } else if signed_out_at_the_door(&state) && !state.link_asked_central {
+                state.link_asked_central = true;
+                open_central(&mut state);
+                state.lobby.tell(Phrase::InviteLinkSignIn, &[]);
+                false
+            } else {
+                state.link_asked_central = false;
+                state.lobby.tell_refusal(Phrase::InviteLinkSignIn, &[]);
+                true
+            }
         }
     };
     if done {

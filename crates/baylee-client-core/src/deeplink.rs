@@ -3,7 +3,7 @@
 //!
 //! A link is the website's, or any page's: whoever wrote it, the client
 //! reads it as a stranger's words. So a link carries no text for the client
-//! to show, and it asks for one of four things only. Anything that is not
+//! to show, and it asks for one of the things below only. Anything that is not
 //! exactly one of them is no link at all, and the caller drops it without a
 //! word to the player.
 //!
@@ -13,6 +13,8 @@
 //! | `baylee://signin` | as `open`, then Baylee Central's sign-in |
 //! | `baylee://gateway/add?origin=<origin>` | to propose a gateway |
 //! | `baylee://pair?h=<handle>&s=<secret>` | to sign in from baylee.app |
+//! | `baylee://invite/<code>` | to take up a friend invite |
+//! | `baylee://challenge/<id>`, `baylee://tower/<id>` | to open a public task |
 //!
 //! The origin is percent-encoded, an `https` address of a DNS name with an
 //! optional port and nothing else. [`read`] answers it spelled as a saved
@@ -25,6 +27,13 @@
 //! written as 43 characters of URL-safe base64 without padding, in this
 //! order and spelled exactly so: no padding, no percent-encoding, no other
 //! parameter. [`PairLink`] wipes them when dropped and never prints them.
+//!
+//! The invite link carries the other secret: the single-use code of a
+//! friend invite (`docs/client.md` §"Taking up an invite from a link"),
+//! exactly 22 characters of canonical URL-safe base64 as Central writes it
+//! (`central_api::social::valid_friend_invite_code`), read as written and
+//! never percent-decoded. [`InviteLink`] wipes it when dropped and never
+//! prints it.
 
 use std::collections::VecDeque;
 use std::time::Duration;
@@ -57,6 +66,9 @@ pub enum Link {
     Challenge([u8; 16]),
     /// Open a public expedition; never reserve a duel or choose an upgrade.
     Tower([u8; 16]),
+    /// Take up a friend invite, once the player has seen who made it and
+    /// said yes; never on arrival.
+    Invite(InviteLink),
 }
 
 impl Link {
@@ -70,6 +82,7 @@ impl Link {
             Link::Pair(_) => "a pairing link",
             Link::Challenge(_) => "a challenge link",
             Link::Tower(_) => "a tower link",
+            Link::Invite(_) => "an invite link",
         }
     }
 }
@@ -117,6 +130,28 @@ impl std::fmt::Debug for PairLink {
     }
 }
 
+/// A friend invite's single-use code, as its link carries it: whoever
+/// holds it can take the invite up, so it is wiped when dropped and never
+/// printed.
+#[derive(Clone, PartialEq, Eq)]
+pub struct InviteLink {
+    code: Zeroizing<String>,
+}
+
+impl InviteLink {
+    /// The invite's code: 22 characters of canonical URL-safe base64.
+    #[must_use]
+    pub fn code(&self) -> &str {
+        &self.code
+    }
+}
+
+impl std::fmt::Debug for InviteLink {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("InviteLink([REDACTED])")
+    }
+}
+
 /// Which origins a gateway link may name.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Origins {
@@ -156,6 +191,7 @@ pub fn read(text: &str, origins: Origins) -> Option<Link> {
             gateway_origin(&value, origins).map(Link::AddGateway)
         }
         "pair" if matches!(url.path(), "" | "/") => pair(url.query()?).map(Link::Pair),
+        "invite" if url.query().is_none() => invite(url.path()).map(Link::Invite),
         "challenge" | "tower" if url.query().is_none() => {
             let id = url.path().strip_prefix('/')?;
             if id.len() != 32
@@ -176,6 +212,15 @@ pub fn read(text: &str, origins: Origins) -> Option<Link> {
         }
         _ => None,
     }
+}
+
+/// An invite link's path: `/` and the code, exactly as Central writes it,
+/// read as written and never percent-decoded.
+fn invite(path: &str) -> Option<InviteLink> {
+    let code = path.strip_prefix('/')?;
+    central_api::social::valid_friend_invite_code(code).then(|| InviteLink {
+        code: Zeroizing::new(code.to_owned()),
+    })
 }
 
 /// No path but the root, no query.

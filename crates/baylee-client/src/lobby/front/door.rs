@@ -1988,21 +1988,11 @@ pub(super) fn community_dialog(
     commands.entity(root).add_child(scrim);
 }
 
-/// A QR code in its thin dark frame (used in the About sheet).
+/// A QR code in its thin dark frame (used in the About sheet), at its
+/// modules' own size.
 pub(super) fn qr(commands: &mut Commands, code: &super::super::source::Code) -> Entity {
     let side = px_fixed(code.side as f32 * super::super::source::MODULE_PX);
-    let picture = commands
-        .spawn((
-            ImageNode::new(code.image.clone()),
-            Node {
-                width: side,
-                height: side,
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    qr_frame(commands, picture)
+    crate::shellkit::qr::framed(commands, code.image.clone(), side)
 }
 
 /// A code drawn `side` wide whatever its module count, in its frame: the
@@ -2012,36 +2002,7 @@ pub(super) fn qr_sized(
     code: &super::super::source::Code,
     side: Val,
 ) -> Entity {
-    let picture = commands
-        .spawn((
-            ImageNode::new(code.image.clone()),
-            Node {
-                width: side,
-                height: side,
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    qr_frame(commands, picture)
-}
-
-/// The thin dark frame a code stands in.
-fn qr_frame(commands: &mut Commands, picture: Entity) -> Entity {
-    commands
-        .spawn((
-            Node {
-                padding: UiRect::all(px_fixed(5.0)),
-                border: UiRect::all(px_fixed(1.0)),
-                border_radius: BorderRadius::all(px_fixed(8.0)),
-                flex_shrink: 0.0,
-                ..default()
-            },
-            BackgroundColor(Color::srgba(0.02, 0.04, 0.07, 0.96)),
-            BorderColor::all(Color::srgba(1.0, 1.0, 1.0, 0.14)),
-        ))
-        .add_child(picture)
-        .id()
+    crate::shellkit::qr::framed(commands, code.image.clone(), side)
 }
 
 /// The tagline on its airy cut-glass mist plate.

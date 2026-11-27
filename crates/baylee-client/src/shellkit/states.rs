@@ -56,7 +56,12 @@ pub fn empty(
             Pickable::IGNORE,
         ))
         .id();
+    // Centred under the plate: a sentence of two lines read ragged-left
+    // beside a centred picture (the contacts' and the invites' empty lists).
     let words = prose(commands, kit, sentence, false);
+    commands
+        .entity(words)
+        .insert(TextLayout::justify(Justify::Center));
     commands.entity(column).add_children(&[mark, words]);
     if let Some(action) = action {
         commands.entity(column).add_child(action);

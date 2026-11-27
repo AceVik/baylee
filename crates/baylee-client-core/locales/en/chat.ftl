@@ -653,6 +653,9 @@ ContactsEmpty = No contacts yet
 # Under it: how a contact comes in.
 ContactsEmptyHint = Type a Name#tag above to send a request, or click a name in the chat.
 
+# The same, where friend invites can be made (the foot's button).
+ContactsEmptyHintInvite = Type a Name#tag above, click a name in the chat, or invite someone with a link below.
+
 # Under it, for a guest.
 ContactsEmptyGuest = Contacts, groups and invitations come with a Baylee account.
 
@@ -1017,3 +1020,175 @@ CardOwnGames =
 # The same line before any game was played.
 CardNoGames = No games played yet
 PlayerProfile = Player profile
+
+## Friend invites (docs/client.md §"Inviting friends")
+
+# The drawer's button that opens the invite sheet.
+InviteFriendButton = Invite a friend…
+
+# The invite sheet's title.
+InvitesTitle = Invite friends
+
+# The sheet's lead, under its title.
+InvitesLead = One link for one person: whoever opens it and signs in becomes your friend, even while registration is closed.
+
+# The caption over the form that makes an invite.
+InviteNewCaption = New invite
+
+# The caption over the validity choice.
+InviteValidFor = Valid for
+
+# One validity choice.
+# Arguments: count
+InviteDays =
+    { $count ->
+        [one] { $count } day
+       *[other] { $count } days
+    }
+
+# The placeholder of the invite's private label.
+InviteLabelHint = For whom? Only you see this
+
+# The placeholder of the invite's greeting.
+InviteNoteHint = A greeting on the invite page
+
+# The placeholder of the address the invite is mailed to.
+InviteEmailHint = Also send by e-mail to…
+
+# Makes the invite.
+InviteCreate = Create link
+
+# While the invite is made.
+InviteCreating = Creating…
+
+# How many invites are open, of how many may be.
+# Arguments: open, limit
+InviteSlots = { $open } of { $limit } open
+
+# Every invite the account may have open is open.
+# Arguments: count
+InviteSlotsFull = All { $count } invites are open. Withdraw one to make a new one.
+
+# The caption over a just-made link.
+InviteReadyCaption = Your link
+
+# Under a just-made link: Central keeps no copy.
+InviteShownOnce = Copy it now: the link is shown only this once.
+
+# Copies the link.
+InviteCopyLink = Copy link
+
+# The same button, once it copied.
+InviteCopied = Copied
+
+# Central mailed the invite.
+# Arguments: address
+InviteMailed = Sent by e-mail to { $address }
+
+# An address was given and the mail did not go out.
+InviteMailNotSent = The e-mail did not go out; share the link yourself.
+
+# Where the address would go, while Central cannot mail.
+InviteMailUnavailable = E-mail invites are not available right now.
+
+# Under a just-made link: until when it holds.
+# Arguments: date
+InviteValidUntil = Valid until { $date } · for one person
+
+# Under the link's code.
+InviteScanHint = Scan with a phone
+
+# Closes the just-made link and shows the form again.
+InviteAnother = Make another
+
+# The caption over the account's invites.
+InvitesListCaption = Your invites
+
+# The list's filter for invites whose link still works.
+InviteFilterOpen = Open
+
+# The list's filter for invites someone took up.
+InviteFilterTaken = Accepted
+
+# The list's filter for every invite.
+InviteFilterAll = All
+
+# The list with no invite at all.
+InvitesEmpty = No invites yet. Make a link and send it to someone you want to play with.
+
+# The Open filter with nothing open.
+InvitesEmptyOpen = No open invites.
+
+# The Accepted filter with nothing accepted.
+InvitesEmptyTaken = Nobody has accepted an invite yet.
+
+# An invite without a label, by the day it was made.
+# Arguments: date
+InviteUntitled = Invite of { $date }
+
+# A date and time in the invite sheet.
+# Arguments: day, month, time
+InviteDate = { $day } { $month }, { $time }
+
+# How long an open invite still holds.
+# Arguments: count
+InviteLeftDays =
+    { $count ->
+        [one] { $count } day left
+       *[other] { $count } days left
+    }
+
+# Arguments: count
+InviteLeftHours =
+    { $count ->
+        [one] { $count } hour left
+       *[other] { $count } hours left
+    }
+
+# Arguments: count
+InviteLeftMinutes =
+    { $count ->
+        [one] { $count } minute left
+       *[other] { $count } minutes left
+    }
+
+# Who took the invite up, and when.
+# Arguments: player, date
+InviteTakenBy = Accepted by { $player } on { $date }
+
+# Who took the invite up.
+# Arguments: player
+InviteTakenByNoDate = Accepted by { $player }
+
+# An invite taken up by someone Central does not name.
+InviteTaken = Accepted
+
+# An invite past its end.
+InviteExpired = Expired
+
+# An invite the account withdrew.
+InviteRevoked = Withdrawn
+
+# Withdraws an open invite (after the question).
+InviteRevoke = Withdraw
+
+# The question before an invite is withdrawn.
+InviteRevokeQuestion = Withdraw this invite?
+
+# Under the question.
+InviteRevokeHint = Its link stops working at once: nobody can accept it any more.
+
+# The list could not be read.
+InvitesFailed = Your invites could not be loaded.
+
+# Central refused for the moment.
+InviteRefusedBusy = Too many requests at once. Wait a moment and try again.
+
+# The account has not accepted Central's terms.
+InviteRefusedTerms = Accept Baylee Central's terms first.
+
+# Central refused what was asked.
+InviteRefused = That did not work. Check what you entered and try again.
+
+# Central could not be reached.
+InviteUnreachable = Baylee Central cannot be reached right now.

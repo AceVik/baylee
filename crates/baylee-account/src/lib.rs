@@ -24,7 +24,10 @@ pub use account::TowerPlay;
 #[cfg(feature = "client")]
 pub use account::check_advent_image;
 #[cfg(feature = "client")]
-pub use account::{Account, GatewayDeckImport, PairedSession, PairingClaim, funding_read};
+pub use account::{
+    Account, CreatedInvite, FriendInvites, GatewayDeckImport, MAX_INVITE_EMAIL, NewInvite,
+    PairedSession, PairingClaim, friend_invite_info, funding_read, plausible_email,
+};
 #[cfg(feature = "client")]
 pub use account::{
     RankedConsent, RankedHost, RankedHostDocument, RankedHostDocuments, RankedPlay, ranked_read,
