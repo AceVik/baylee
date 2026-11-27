@@ -296,6 +296,13 @@ impl Player {
                 exchanges.next = Some(Instant::now() + EXCHANGE_SPACING);
                 self.sessions().push(fresh);
                 tracing::info!("rolled over to a fresh runner session");
+                // The terms are the account's, but they may have changed since
+                // the last session read them: the fresh one, which makes the
+                // next offer, accepts the ones in force first.
+                drop(exchanges);
+                if let Err(e) = self.accept_terms().await {
+                    tracing::warn!(error = %format!("{e:#}"), "the fresh session did not accept the terms; the next offer asks again");
+                }
                 Ok(true)
             }
             Err(e) => {
