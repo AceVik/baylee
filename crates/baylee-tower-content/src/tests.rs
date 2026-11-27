@@ -397,7 +397,16 @@ fn the_house_ladder_covers_every_stage_and_starter_with_legal_reachable_builds()
     let content = runic().unwrap();
     let ladder = ladder(&content, &[42; 32]).unwrap();
     check_ladder(&ladder, &content).unwrap();
-    let items = |stage: u8| -> usize {
+    // Equipment tiers rise with the gold the stages pay, also where a cell
+    // leaves relics in its bag (`PICKS`).
+    let tiers = |stage: u8| -> u32 {
+        (1..=50)
+            .flat_map(|archetype| ladder.build(stage, archetype).unwrap().active.clone())
+            .map(|item| u32::from(item.rarity.tier()))
+            .sum()
+    };
+    assert!(tiers(1) < tiers(4) && tiers(4) < tiers(12));
+    |stage: u8| -> usize {
         (1..=50)
             .map(|archetype| ladder.build(stage, archetype).unwrap().active.len())
             .sum()
