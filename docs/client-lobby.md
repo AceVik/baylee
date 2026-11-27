@@ -54,6 +54,15 @@ that it plays from its own view. At the table the plate and the players' strip
 draw the mark where a house chair wears the robot (`docs/client.md`
 §"Who is answering for a chair").
 
+A person's own profile carries "Against AIs": the record against AI players
+by kind (each with its mark), then the AIs beaten, newest first, as gold
+chips ("Conqueror of"), and the line that this device counted them. Central
+sends no such history, only each settled game's `opponent_ai`, so the client
+counts the games it entered and saw settle (`receipt::against_ai`, once per
+game however often its receipt is read; `client_core::aiplayers::Records`,
+kept per Central account in `ranked_against_ai`). The game that was the first
+win against an AI says so on its result card, under "Against".
+
 Whom a search accepts is the person's own choice, never preselected:
 People only, Local AIs (the house levels and Baylee AI, whose play stays on
 the operator's servers) or All AIs (also language models, whose provider

@@ -143,6 +143,9 @@ pub(crate) struct Ui {
     opponents_of: Option<String>,
     /// Whom the ladder lists: everyone, people or AI players.
     players: api::ai::BoardPlayers,
+    /// The settled game that was this account's first win against its AI
+    /// opponent, as this device counted it (`receipt::against_ai`).
+    first_win: Option<api::Id>,
 }
 
 impl Default for Ui {
@@ -167,6 +170,7 @@ impl Default for Ui {
             opponents: None,
             opponents_of: None,
             players: api::ai::BoardPlayers::Everyone,
+            first_win: None,
         }
     }
 }
@@ -249,6 +253,7 @@ pub(super) fn install(app: &mut App) {
     app.add_systems(
         Update,
         (
+            receipt::against_ai,
             draw::patch,
             inline::patch,
             queue::animate,

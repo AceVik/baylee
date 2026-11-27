@@ -236,6 +236,17 @@ pub struct ClientSettings {
         skip_serializing_if = "baylee_client_core::aiplayers::Remembered::is_empty"
     )]
     pub ranked_opponents: baylee_client_core::aiplayers::Remembered,
+    /// Each Central account's ranked record against AI players, as this
+    /// device saw its games settle: wins, losses and draws by kind, the AIs
+    /// it beat and the game each was first beaten in
+    /// (`client_core::aiplayers::Records`; the own profile's "Against AIs").
+    /// Central sends no such history, so it is this device's count.
+    #[serde(
+        default,
+        deserialize_with = "baylee_client_core::graphics::lenient",
+        skip_serializing_if = "baylee_client_core::aiplayers::Records::is_empty"
+    )]
+    pub ranked_against_ai: baylee_client_core::aiplayers::Records,
 }
 
 fn yes() -> bool {
@@ -270,6 +281,7 @@ impl Default for ClientSettings {
             usage_count: true,
             card_fill: baylee_client_core::cachefill::FillChoices::default(),
             ranked_opponents: baylee_client_core::aiplayers::Remembered::default(),
+            ranked_against_ai: baylee_client_core::aiplayers::Records::default(),
         }
     }
 }
@@ -891,6 +903,18 @@ mod tests {
                 remembered.keep("0193-ann", baylee_client_core::aiplayers::Opponents::Local);
                 remembered
             },
+            ranked_against_ai: {
+                let mut records = baylee_client_core::aiplayers::Records::default();
+                records.of_mut("0193-ann").count(
+                    [7; 16],
+                    &baylee_client_core::aiplayers::AiBadge {
+                        kind: baylee_client_core::aiplayers::AiKind::House,
+                        label: "Haus-KI · Expert".into(),
+                    },
+                    baylee_client_core::aiplayers::Verdict::Won,
+                );
+                records
+            },
         };
         let text = serde_json::to_string_pretty(&written).expect("serializes");
         let read: ClientSettings = serde_json::from_str(&text).expect("decodes");
@@ -907,6 +931,7 @@ mod tests {
         assert_eq!(read.chat_window, written.chat_window);
         assert_eq!(read.chat_window_at, written.chat_window_at);
         assert_eq!(read.ranked_opponents, written.ranked_opponents);
+        assert_eq!(read.ranked_against_ai, written.ranked_against_ai);
         let unknown: ClientSettings = serde_json::from_str(r#"{"ranked_opponents":[1]}"#)
             .expect("a choice it cannot read costs the choices and not the file");
         assert!(unknown.ranked_opponents.is_empty(), "and asks again");

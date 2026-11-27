@@ -54,6 +54,8 @@ pub(super) struct Look {
     preview: preview::Look,
     /// Whom the account lets fill its searches; `None` until it chooses.
     pub(super) opponents: Option<Opponents>,
+    /// Whether the settled game shown was a first win against its AI.
+    first_win: bool,
 }
 
 /// The queue as the desk draws it. The countdown and the search's clock
@@ -87,6 +89,10 @@ pub(super) fn look(state: &LobbyState, own: Option<OwnRank>) -> Look {
         played: state.ranked_net.played,
         error: state.ranked_net.error,
         opponents: super::choice::current(state),
+        first_win: matches!(
+            state.ranked_net.shown_queue(),
+            QueueState::Finished { match_id, .. } if state.ranked.first_win == Some(*match_id)
+        ),
         queue: drawn_queue(state),
         deck: selected(state).map(|(id, d)| (id, d.name.clone())),
         options: if state.ranked.show_decks {
@@ -424,6 +430,7 @@ fn show_status(commands: &mut Commands, parent: Entity, kit: Kit, look: &Look) -
                     after: *after,
                     deck: &deck_receipt,
                     opponent: opponent_ai.as_ref(),
+                    first_win: look.first_win,
                 },
             );
         }
@@ -499,6 +506,8 @@ struct Settled<'a> {
     deck: &'a str,
     /// The opponent's badge, when it was an AI player.
     opponent: Option<&'a baylee_client_core::aiplayers::AiBadge>,
+    /// Whether it was the first win against that AI.
+    first_win: bool,
 }
 
 /// A rank's small badge, as the result card shows it before and after.
@@ -606,6 +615,18 @@ fn result_card(commands: &mut Commands, parent: Entity, kit: Kit, settled: Settl
         .add_children(&[from, arrow, to, name, grow, delta]);
     if let Some(badge) = settled.opponent {
         super::aidesk::opponent_line(commands, card, kit, Phrase::RankedAgainst, badge);
+        // The first win against this AI, as this device counted it.
+        if settled.first_win {
+            let mark = parts::marked_line(
+                commands,
+                kit,
+                glyph::TROPHY,
+                Phrase::RankedFirstWin.text(lang),
+                kit.m.small,
+                tokens::GOLD,
+            );
+            commands.entity(card).add_child(mark);
+        }
     }
     label(
         commands,

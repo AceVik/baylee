@@ -842,7 +842,11 @@ hashes, which stay in the file only.
     file, possibly an e-mail), the gateway list and how often each was used,
     per gateway a kept guest's token and handle, what reports may carry
     (#309), and per Central account (its public id, at most 32) whom its
-    ranked searches accept (`ranked_opponents`; [above](#global-ranked-games-and-private-decks));
+    ranked searches accept (`ranked_opponents`; [above](#global-ranked-games-and-private-decks))
+    and its record against AI players from the games played here
+    (`ranked_against_ai`: wins, losses and draws by kind, the labels of at
+    most 64 AIs it beat with the game id each was first beaten in, and the
+    ids of the last 64 games counted; never sent anywhere);
   - `crash-report.json`, after a crash, until the next start deals with it
     (#310);
   - `records/game-<start>-<seed>.jsonl.gz`: the record of each game this
