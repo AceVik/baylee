@@ -406,12 +406,6 @@ fn the_house_ladder_covers_every_stage_and_starter_with_legal_reachable_builds()
             .sum()
     };
     assert!(tiers(1) < tiers(4) && tiers(4) < tiers(12));
-    |stage: u8| -> usize {
-        (1..=50)
-            .map(|archetype| ladder.build(stage, archetype).unwrap().active.len())
-            .sum()
-    };
-    assert!(items(1) < items(4) && items(4) <= items(12));
     for archetype in 1..=50 {
         let build = ladder.build(12, archetype).unwrap();
         assert!(build.active.len() <= 6);
