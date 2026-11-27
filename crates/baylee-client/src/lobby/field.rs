@@ -25,6 +25,10 @@ pub(crate) mod lead_glyph {
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct FieldLeadIcon;
 
+/// Horizontal scroll viewport holding a single-line field's text runs and caret.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) struct FieldTrack;
+
 /// Unfocused prefix-icon tint: muted warm brass/parchment.
 pub(crate) const LEAD_REST_INK: Color = Color::srgba(0.76, 0.70, 0.56, 0.76);
 /// Focused prefix-icon tint: warm luminous gold/ivory.
@@ -212,6 +216,7 @@ fn field_box_shadow() -> BoxShadow {
 }
 
 /// [`text_field_with`], with an optional tooltip on the trailing action button.
+#[allow(clippy::too_many_lines)]
 pub(super) fn text_field_hinted(
     commands: &mut Commands,
     fonts: &UiFonts,
@@ -301,10 +306,28 @@ pub(super) fn text_field_hinted(
         let mark = lead_mark(commands, fonts, metrics, glyph, look.focused);
         commands.entity(boxed).add_child(mark);
     }
+    let track = commands
+        .spawn((
+            FieldTrack,
+            Node {
+                flex_grow: 1.0,
+                flex_basis: px(0),
+                min_width: px(0),
+                height: percent(100),
+                align_items: AlignItems::Center,
+                padding: UiRect::horizontal(px(2)),
+                overflow: Overflow::scroll_x(),
+                ..default()
+            },
+            ScrollPosition::default(),
+            Pickable::IGNORE,
+        ))
+        .id();
     for run in field_runs(commands, fonts, metrics, look) {
-        commands.entity(boxed).add_child(run);
+        commands.entity(track).add_child(run);
     }
-    mark_runs(commands, boxed, metrics, look);
+    mark_runs(commands, track, metrics, look);
+    commands.entity(boxed).add_child(track);
     append_field_tail(commands, fonts, metrics, boxed, look, stops, tail_hint);
     commands.entity(column).add_child(boxed);
     column
@@ -322,13 +345,13 @@ fn append_field_tail(
     if look.mask.is_none() && look.tail.is_none() {
         return;
     }
-    // Pushed to the far end of the row, so a button is in the same place
-    // whatever is typed and the letters never run into it.
+    // Keeps a steady gutter between the scrolling text viewport and the tail
+    // icons, while the viewport's `flex_grow` pins the buttons to the far end.
     let gap = commands
         .spawn((
             Node {
-                flex_grow: 1.0,
-                min_width: px(metrics.gap),
+                width: px(metrics.gap * 0.65),
+                flex_shrink: 0.0,
                 ..default()
             },
             Pickable::IGNORE,
@@ -461,6 +484,7 @@ fn icon_button(
             Node {
                 min_width: px(size),
                 height: px(size),
+                flex_shrink: 0.0,
                 align_self: AlignSelf::Center,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
@@ -552,8 +576,6 @@ fn field_runs(
 pub(super) struct RunsOf {
     field: Field,
     mask: Option<Masked>,
-    /// Whether a lead glyph stands before the runs, which they go after.
-    lead: bool,
     hint: Option<String>,
     metrics: Metrics,
     /// The text's revision, the caret and the selection the runs were drawn
@@ -583,16 +605,15 @@ fn hint_ghost(commands: &mut Commands, fonts: &UiFonts, metrics: Metrics, words:
         .id()
 }
 
-/// Marks the box of the field with the caret, so its runs can be redrawn in
-/// place when only its text or caret moves ([`retrace_runs`]).
-fn mark_runs(commands: &mut Commands, boxed: Entity, metrics: Metrics, look: &FieldLook) {
+/// Marks the text track of the field with the caret, so its runs can be
+/// redrawn in place when only its text or caret moves ([`retrace_runs`]).
+fn mark_runs(commands: &mut Commands, track: Entity, metrics: Metrics, look: &FieldLook) {
     if look.focused
         && let Press::Shared(SharedPress::Focus(field)) = look.press
     {
-        commands.entity(boxed).insert(RunsOf {
+        commands.entity(track).insert(RunsOf {
             field,
             mask: look.mask,
-            lead: look.lead.is_some(),
             hint: look.hint.map(str::to_string),
             metrics,
             at: (
@@ -652,9 +673,63 @@ pub(super) fn retrace_runs(
             hint: drawn.hint.as_deref(),
         };
         let fresh = field_runs(&mut commands, &fonts, drawn.metrics, &look);
-        commands
-            .entity(entity)
-            .insert_children(usize::from(drawn.lead), &fresh);
+        commands.entity(entity).insert_children(0, &fresh);
+    }
+}
+
+/// Scrolls each focused single-line field's [`FieldTrack`] horizontally so
+/// its [`Caret`] stays visible inside the box whenever text overflows.
+///
+/// Runs after [`bevy::ui::UiSystems::Layout`] and before
+/// [`bevy::ui::UiSystems::PostLayout`], shifting descendants'
+/// [`UiGlobalTransform`] in the same frame so newly typed characters or tree
+/// rebuilds never flash un-scrolled for a frame.
+#[allow(clippy::type_complexity)]
+pub(super) fn keep_caret_in_view(
+    mut tracks: Query<(Entity, &ComputedNode, &mut ScrollPosition, &Children), With<FieldTrack>>,
+    carets: Query<(), With<Caret>>,
+    children_q: Query<&Children>,
+    mut transforms: Query<&mut UiGlobalTransform>,
+) {
+    const EDGE_PAD: f32 = 2.0;
+    for (track, computed, mut scroll, kids) in &mut tracks {
+        let inv = computed.inverse_scale_factor();
+        let view_w = computed.size().x * inv;
+        let content_w = computed.content_size().x * inv;
+        if view_w <= 0.0 {
+            continue;
+        }
+        let max_x = (content_w - view_w).max(0.0);
+        let mut target_x = scroll.x.clamp(0.0, max_x);
+        if max_x <= 0.0 {
+            target_x = 0.0;
+        } else if let Some(caret) = kids.iter().find(|&k| carets.contains(k))
+            && let (Ok(track_at), Ok(caret_at)) = (transforms.get(track), transforms.get(caret))
+        {
+            let track_left = track_at.translation.x * inv - view_w * 0.5;
+            let caret_x = caret_at.translation.x * inv;
+            let caret_content_x = (caret_x - track_left) + scroll.x;
+            if caret_content_x + EDGE_PAD > target_x + view_w {
+                target_x = (caret_content_x + EDGE_PAD - view_w).clamp(0.0, max_x);
+            } else if caret_content_x - EDGE_PAD < target_x {
+                target_x = (caret_content_x - EDGE_PAD).clamp(0.0, max_x);
+            }
+        }
+        let delta = target_x - scroll.x;
+        if delta.abs() > 0.25 {
+            scroll.x = target_x;
+            if inv > 0.0 {
+                let shift_phys = -delta / inv;
+                for desc in children_q.iter_descendants(track) {
+                    if let Ok(mut t) = transforms.get_mut(desc) {
+                        *t = UiGlobalTransform::from(bevy::math::Affine2 {
+                            matrix2: t.matrix2,
+                            translation: t.translation + Vec2::new(shift_phys, 0.0),
+                        });
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -679,7 +754,12 @@ fn spawn_run(
         FieldRun,
         Text::new(shown),
         tf(fonts, metrics.text),
+        TextLayout::no_wrap(),
         TextColor(palette::INK),
+        Node {
+            flex_shrink: 0.0,
+            ..default()
+        },
         Pickable::IGNORE,
     ));
     if mask {
@@ -711,10 +791,124 @@ fn spawn_caret(commands: &mut Commands, metrics: Metrics, caret: Caret) -> Entit
                 // and read as a fault rather than as a caret.
                 height: px(metrics.text * 1.2),
                 margin: UiRect::horizontal(px(-0.5)),
+                flex_shrink: 0.0,
                 ..default()
             },
             BackgroundColor(palette::INK),
             Pickable::IGNORE,
         ))
         .id()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn single_line_field_never_wraps_and_scrolls_to_keep_caret_visible() {
+        let measure = |sample: &str, move_to_start: bool| {
+            let (mut app, fonts) = crate::face::tests::layout_app();
+            app.add_systems(
+                PostUpdate,
+                keep_caret_in_view
+                    .after(bevy::ui::UiSystems::Layout)
+                    .before(bevy::ui::UiSystems::PostLayout),
+            );
+            let mut buffer = TextBuffer::new(sample);
+            if move_to_start {
+                buffer.place(0, None);
+            }
+            let metrics = Metrics::of(1600.0);
+            let look = FieldLook {
+                buffer: &buffer,
+                focused: true,
+                mask: None,
+                press: Press::Shared(SharedPress::Focus(Field::Username)),
+                tail: None,
+                lead: Some(lead_glyph::USER),
+                hint: None,
+            };
+            let mut commands = app.world_mut().commands();
+            let holder = commands
+                .spawn(Node {
+                    width: px(320),
+                    height: px(120),
+                    flex_direction: FlexDirection::Column,
+                    ..default()
+                })
+                .id();
+            let field = text_field(&mut commands, &fonts, metrics, "USERNAME", &look);
+            commands.entity(holder).add_child(field);
+            app.world_mut().flush();
+            for _ in 0..4 {
+                app.update();
+            }
+            let world = app.world_mut();
+            let boxed_h = world
+                .query::<(&Press, &ComputedNode)>()
+                .iter(world)
+                .find(|(p, _)| **p == Press::Shared(SharedPress::Focus(Field::Username)))
+                .map(|(_, c)| c.size().y)
+                .expect("field box");
+            let (track_rect, track_content_w, scroll_x) = world
+                .query_filtered::<(
+                    &ComputedNode,
+                    &UiGlobalTransform,
+                    &ScrollPosition,
+                ), With<FieldTrack>>()
+                .single(world)
+                .map(|(c, t, s)| {
+                    (
+                        Rect::from_center_size(t.translation, c.size()),
+                        c.content_size().x,
+                        s.x,
+                    )
+                })
+                .expect("FieldTrack");
+            let caret_x = world
+                .query_filtered::<&UiGlobalTransform, With<Caret>>()
+                .single(world)
+                .expect("Caret")
+                .translation
+                .x;
+            (boxed_h, track_rect, track_content_w, scroll_x, caret_x)
+        };
+
+        let (short_h, ..) = measure("alice", false);
+        let hyphenated = "qa-test-long-username-1234567890-abcdefghijklmno-60character-extra-overflow-check-0123456789-end";
+        let (hyph_h, hyph_rect, hyph_content_w, hyph_scroll, hyph_caret_x) =
+            measure(hyphenated, false);
+        assert!(
+            (hyph_h - short_h).abs() < 0.5,
+            "hyphenated long text must never wrap (short {short_h} vs long {hyph_h})"
+        );
+        assert!(hyph_content_w > hyph_rect.width());
+        assert!(
+            hyph_scroll > 0.0,
+            "overflowing field scrolls right to reveal the caret"
+        );
+        assert!(
+            hyph_caret_x >= hyph_rect.min.x && hyph_caret_x <= hyph_rect.max.x,
+            "caret x {hyph_caret_x} must stay inside {hyph_rect:?}"
+        );
+
+        let unbroken =
+            "qatest0123456789abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz";
+        let (unb_h, unb_rect, unb_content_w, unb_scroll, unb_caret_x) = measure(unbroken, false);
+        assert!((unb_h - short_h).abs() < 0.5);
+        assert!(unb_content_w > unb_rect.width());
+        assert!(unb_scroll > 0.0);
+        assert!(
+            unb_caret_x >= unb_rect.min.x && unb_caret_x <= unb_rect.max.x,
+            "unbroken caret x {unb_caret_x} must stay inside {unb_rect:?}"
+        );
+
+        // Moving caret back to the start keeps it visible at the left edge.
+        let (_, start_rect, _, start_scroll, start_caret_x) = measure(unbroken, true);
+        assert!(start_scroll.abs() < 0.5);
+        assert!(
+            start_caret_x >= start_rect.min.x && start_caret_x <= start_rect.max.x,
+            "start caret x {start_caret_x} must stay inside {start_rect:?}"
+        );
+    }
 }

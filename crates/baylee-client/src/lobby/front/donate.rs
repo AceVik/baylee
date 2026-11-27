@@ -151,6 +151,10 @@ pub(super) fn corner(commands: &mut Commands, state: &LobbyState, kit: Kit) -> E
     let lang = state.lobby.lang();
     let holder = commands
         .spawn((
+            super::door::CornerTile {
+                corner: super::door::Corner::Left,
+                press: FrontPress::Donate,
+            },
             Node {
                 position_type: PositionType::Absolute,
                 top: px_fixed(14.0),
@@ -308,11 +312,19 @@ pub(in crate::lobby) fn beat(
 
 /// The donation sheet: the goal and how much is covered, what it pays for,
 /// the three places with their codes, and what a gift is and is not.
-pub(super) fn sheet(commands: &mut Commands, root: Entity, state: &LobbyState, kit: Kit) {
+#[allow(clippy::too_many_lines)]
+pub(super) fn sheet(
+    commands: &mut Commands,
+    root: Entity,
+    state: &LobbyState,
+    kit: Kit,
+    scrolled: &Scrolled,
+) {
     if !state.giving.open {
         return;
     }
     let lang = state.lobby.lang();
+    let phone = kit.m.frame == Frame::Phone;
     let wide = kit.m.px(900.0);
     let dialog = surfaces::dialog(
         commands,
@@ -325,17 +337,16 @@ pub(super) fn sheet(commands: &mut Commands, root: Entity, state: &LobbyState, k
         .entity(dialog)
         // The solid glass, unlike the small community card: a sheet this
         // full is read, and the sign-in form must not show through its words.
-        .insert((
-            crate::shellkit::glass::ground(crate::shellkit::glass::Density::Solid),
-            surfaces::SheetScroller,
-            ScrollPosition::default(),
+        .insert(crate::shellkit::glass::ground(
+            crate::shellkit::glass::Density::Solid,
         ))
         .entry::<Node>()
         .and_modify(move |mut node| {
-            node.padding = UiRect::all(kit.m.px(22.0));
-            node.row_gap = kit.m.px(16.0);
-            node.max_height = Val::Percent(90.0);
-            node.overflow = Overflow::scroll_y();
+            node.max_height = if phone {
+                Val::Percent(100.0)
+            } else {
+                Val::Percent(94.0)
+            };
         });
     let scrim = surfaces::scrim(
         commands,
@@ -344,6 +355,19 @@ pub(super) fn sheet(commands: &mut Commands, root: Entity, state: &LobbyState, k
         Press::Front(FrontPress::CloseDonate),
         dialog,
     );
+    let head_wrap = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                flex_shrink: 0.0,
+                padding: UiRect::axes(kit.m.px(22.0), kit.m.px(16.0)),
+                border: UiRect::bottom(px_fixed(1.0)),
+                ..default()
+            },
+            BorderColor::all(tokens::BORDER.with_alpha(0.65)),
+            Pickable::IGNORE,
+        ))
+        .id();
     let head = super::door::glass_head(
         commands,
         kit,
@@ -352,8 +376,29 @@ pub(super) fn sheet(commands: &mut Commands, root: Entity, state: &LobbyState, k
         Phrase::DonateTitle.text(lang),
         Press::Front(FrontPress::CloseDonate),
     );
+    commands.entity(head_wrap).add_child(head);
+
+    let scroller = commands
+        .spawn((
+            surfaces::SheetScroller,
+            Role::Scroll,
+            Scrollable(List::Donate),
+            ScrollPosition(Vec2::new(0.0, scrolled.get(List::Donate))),
+            Pickable::default(),
+            Node {
+                flex_direction: FlexDirection::Column,
+                flex_shrink: 1.0,
+                flex_grow: 1.0,
+                min_height: px_fixed(0.0),
+                padding: UiRect::axes(kit.m.px(22.0), kit.m.px(16.0)),
+                row_gap: kit.m.px(14.0),
+                overflow: Overflow::scroll_y(),
+                ..default()
+            },
+        ))
+        .id();
     let lead = paragraph(commands, kit, Phrase::DonateLead.text(lang), tokens::INK);
-    commands.entity(dialog).add_children(&[head, lead]);
+    commands.entity(scroller).add_child(lead);
     // The goal and what it pays for side by side, equally wide.
     let pair = commands
         .spawn((
@@ -363,15 +408,16 @@ pub(super) fn sheet(commands: &mut Commands, root: Entity, state: &LobbyState, k
                 row_gap: kit.m.px(14.0),
                 flex_wrap: FlexWrap::Wrap,
                 align_items: AlignItems::Stretch,
+                flex_shrink: 0.0,
                 ..default()
             },
             Pickable::IGNORE,
         ))
         .id();
-    commands.entity(dialog).add_child(pair);
+    commands.entity(scroller).add_child(pair);
     goal(commands, pair, state, kit);
     costs(commands, pair, kit, lang);
-    ways(commands, dialog, state, kit);
+    ways(commands, scroller, state, kit);
     let nothing = paragraph(
         commands,
         kit,
@@ -384,7 +430,11 @@ pub(super) fn sheet(commands: &mut Commands, root: Entity, state: &LobbyState, k
         Phrase::DonatePrivacy.text(lang),
         tokens::MUTED,
     );
-    commands.entity(dialog).add_children(&[nothing, privacy]);
+    commands.entity(scroller).add_children(&[nothing, privacy]);
+    let body_band = super::super::scrollbars::band_when_needed(commands, scroller, phone);
+    commands
+        .entity(dialog)
+        .add_children(&[head_wrap, body_band]);
     commands.entity(root).add_child(scrim);
 }
 
@@ -403,6 +453,7 @@ fn paragraph(commands: &mut Commands, kit: Kit, text: &str, ink: Color) -> Entit
             TextColor(ink),
             Node {
                 width: Val::Percent(100.0),
+                flex_shrink: 0.0,
                 ..default()
             },
             Pickable::IGNORE,
@@ -417,6 +468,10 @@ fn caption(commands: &mut Commands, kit: Kit, text: &str) -> Entity {
             Text::new(text.to_uppercase()),
             crate::hud::tf_bold(kit.fonts, kit.m.small),
             TextColor(tokens::MUTED),
+            Node {
+                flex_shrink: 0.0,
+                ..default()
+            },
             Pickable::IGNORE,
         ))
         .id()
@@ -593,6 +648,7 @@ fn ways(commands: &mut Commands, dialog: Entity, state: &LobbyState, kit: Kit) {
                 row_gap: kit.m.px(12.0),
                 flex_wrap: FlexWrap::Wrap,
                 align_items: AlignItems::Stretch,
+                flex_shrink: 0.0,
                 ..default()
             },
             Pickable::IGNORE,
@@ -763,4 +819,220 @@ fn legend(commands: &mut Commands, kit: Kit, lang: Lang, figures: &Funding) -> E
         commands.entity(legend).add_child(key);
     }
     legend
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::shellkit::{ShellMetrics, TextSize, Viewport};
+    use bevy::ui_widgets::Scrollbar;
+
+    fn is_descendant(world: &World, entity: Entity, ancestor: Entity) -> bool {
+        let mut current = Some(entity);
+        while let Some(e) = current {
+            if e == ancestor {
+                return true;
+            }
+            current = world.get::<ChildOf>(e).map(ChildOf::parent);
+        }
+        false
+    }
+
+    fn open_state(lang: Lang) -> LobbyState {
+        let mut state = LobbyState::default();
+        state.lobby.set_lang(lang);
+        state.giving.open = true;
+        state.giving.codes = Platform::ALL
+            .into_iter()
+            .map(|platform| {
+                (
+                    platform,
+                    source::Code {
+                        url: platform.address().to_string(),
+                        image: Handle::default(),
+                        side: 29,
+                    },
+                )
+            })
+            .collect();
+        state
+    }
+
+    #[test]
+    #[allow(clippy::too_many_lines)]
+    fn donate_sheet_pins_head_and_scrolls_body_with_bar_only_when_overflowing() {
+        for lang in [Lang::En, Lang::De] {
+            let (mut app, fonts) = crate::face::tests::layout_app();
+            app.add_systems(Update, crate::lobby::scrollbars::show_when_needed);
+            let state = open_state(lang);
+            let kit = Kit {
+                fonts: &fonts,
+                m: ShellMetrics::of(Viewport::desktop(1280.0, 720.0), TextSize::M),
+                german: lang == Lang::De,
+            };
+            let scrolled = Scrolled::default();
+            let mut commands = app.world_mut().commands();
+            let root = commands
+                .spawn(Node {
+                    width: px_fixed(1280.0),
+                    height: px_fixed(720.0),
+                    flex_direction: FlexDirection::Column,
+                    ..default()
+                })
+                .id();
+            sheet(&mut commands, root, &state, kit, &scrolled);
+            app.world_mut().flush();
+            for _ in 0..4 {
+                app.update();
+            }
+
+            let world = app.world_mut();
+            let (scroller, scroller_size, scroller_content, scroller_inv, scroller_rect) = world
+                .query::<(
+                    Entity,
+                    &Scrollable,
+                    &ComputedNode,
+                    &bevy::ui::UiGlobalTransform,
+                )>()
+                .iter(world)
+                .find(|(_, s, ..)| s.0 == List::Donate)
+                .map(|(e, _, c, t)| {
+                    (
+                        e,
+                        c.size(),
+                        c.content_size(),
+                        c.inverse_scale_factor(),
+                        Rect::from_center_size(t.translation, c.size()),
+                    )
+                })
+                .expect("donate sheet body scroller");
+            assert!(
+                scroller_content.y > scroller_size.y + 4.0,
+                "{lang:?} at 1280x720 overflows and needs scrolling (content {} vs view {})",
+                scroller_content.y,
+                scroller_size.y
+            );
+
+            let (track_display, is_only_when_needed) = world
+                .query::<(
+                    &Scrollbar,
+                    &Node,
+                    Has<crate::lobby::scrollbars::OnlyWhenNeeded>,
+                )>()
+                .iter(world)
+                .find(|(bar, ..)| bar.target == scroller)
+                .map(|(_, node, own)| (node.display, own))
+                .expect("donate sheet scrollbar track");
+            assert!(is_only_when_needed);
+            assert_eq!(
+                track_display,
+                Display::Flex,
+                "{lang:?} at 1280x720 shows scrollbar when body overflows"
+            );
+
+            let title_text = Phrase::DonateTitle.text(lang);
+            let (title_entity, title_y_before) = world
+                .query::<(Entity, &Text, &bevy::ui::UiGlobalTransform)>()
+                .iter(world)
+                .find(|(_, text, _)| text.0 == title_text)
+                .map(|(e, _, t)| (e, t.translation.y))
+                .expect("donate sheet title");
+            assert!(
+                !is_descendant(world, title_entity, scroller),
+                "header stands outside the scrolling body"
+            );
+
+            let nothing_text = Phrase::DonateNothing.text(lang);
+            let privacy_text = Phrase::DonatePrivacy.text(lang);
+            let nothing_entity = world
+                .query::<(Entity, &Text)>()
+                .iter(world)
+                .find(|(_, text)| text.0 == nothing_text)
+                .map(|(e, _)| e)
+                .expect("DonateNothing disclaimer");
+            let privacy_entity = world
+                .query::<(Entity, &Text)>()
+                .iter(world)
+                .find(|(_, text)| text.0 == privacy_text)
+                .map(|(e, _)| e)
+                .expect("DonatePrivacy disclaimer");
+            assert!(is_descendant(world, nothing_entity, scroller));
+            assert!(is_descendant(world, privacy_entity, scroller));
+
+            // Scroll the body all the way to the bottom: header stays pinned
+            // and both legal disclaimers are reachable inside the viewport.
+            let max_scroll = (scroller_content.y - scroller_size.y) * scroller_inv;
+            world.get_mut::<ScrollPosition>(scroller).unwrap().y = max_scroll;
+            for _ in 0..3 {
+                app.update();
+            }
+
+            let world = app.world();
+            let title_y_after = world
+                .get::<bevy::ui::UiGlobalTransform>(title_entity)
+                .unwrap()
+                .translation
+                .y;
+            assert!(
+                (title_y_after - title_y_before).abs() < 0.5,
+                "header must stay fixed when body scrolls ({title_y_before} -> {title_y_after})"
+            );
+            for (name, entity) in [
+                ("DonateNothing", nothing_entity),
+                ("DonatePrivacy", privacy_entity),
+            ] {
+                let c = world.get::<ComputedNode>(entity).unwrap();
+                let t = world.get::<bevy::ui::UiGlobalTransform>(entity).unwrap();
+                let rect = Rect::from_center_size(t.translation, c.size());
+                assert!(
+                    rect.min.y >= scroller_rect.min.y - 1.0
+                        && rect.max.y <= scroller_rect.max.y + 1.0,
+                    "{lang:?} {name} {rect:?} should be visible inside {scroller_rect:?} at bottom scroll"
+                );
+            }
+        }
+
+        // At 1920x1080 in English the whole sheet fits, so the bar stays hidden.
+        let (mut app, fonts) = crate::face::tests::layout_app();
+        app.add_systems(Update, crate::lobby::scrollbars::show_when_needed);
+        let state = open_state(Lang::En);
+        let kit = Kit {
+            fonts: &fonts,
+            m: ShellMetrics::of(Viewport::desktop(1920.0, 1080.0), TextSize::M),
+            german: false,
+        };
+        let scrolled = Scrolled::default();
+        let mut commands = app.world_mut().commands();
+        let root = commands
+            .spawn(Node {
+                width: px_fixed(1920.0),
+                height: px_fixed(1080.0),
+                flex_direction: FlexDirection::Column,
+                ..default()
+            })
+            .id();
+        sheet(&mut commands, root, &state, kit, &scrolled);
+        app.world_mut().flush();
+        for _ in 0..4 {
+            app.update();
+        }
+        let world = app.world_mut();
+        let scroller = world
+            .query::<(Entity, &Scrollable)>()
+            .iter(world)
+            .find(|(_, s)| s.0 == List::Donate)
+            .map(|(e, _)| e)
+            .expect("donate scroller at 1920x1080");
+        let track_display = world
+            .query::<(&Scrollbar, &Node)>()
+            .iter(world)
+            .find(|(bar, _)| bar.target == scroller)
+            .map(|(_, node)| node.display)
+            .expect("donate scrollbar at 1920x1080");
+        assert_eq!(
+            track_display,
+            Display::None,
+            "scrollbar stays hidden when donate sheet fits at 1920x1080"
+        );
+    }
 }

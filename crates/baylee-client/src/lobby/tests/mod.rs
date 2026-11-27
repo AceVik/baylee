@@ -457,10 +457,21 @@ fn aimed<E: crate::test_pointer::Aim>(entity: Entity, event: E) -> E::Event {
 /// is drawn on screen.
 fn drawn_field(app: &mut App, field: Field) -> Vec<String> {
     let mut boxes = app.world_mut().query::<(&Press, &Children)>();
-    let kids: Vec<Entity> = boxes
+    let box_kids: Vec<Entity> = boxes
         .iter(app.world())
         .find(|(press, _)| **press == Press::Shared(SharedPress::Focus(field)))
         .map_or_default(|(_, children)| children.iter().collect());
+    // Runs live inside the box's `FieldTrack` viewport.
+    let kids: Vec<Entity> = box_kids
+        .iter()
+        .copied()
+        .find(|&kid| app.world().get::<super::field::FieldTrack>(kid).is_some())
+        .and_then(|track| {
+            app.world()
+                .get::<Children>(track)
+                .map(|children| children.iter().collect())
+        })
+        .unwrap_or(box_kids);
     kids.into_iter()
         .filter_map(|kid| {
             if app.world().get::<Caret>(kid).is_some() {
