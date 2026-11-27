@@ -1074,7 +1074,7 @@ impl Seen {
                 (Some("standing"), _) => seen.instant += 1,
                 (Some("answered"), _) if handed_over => seen.house += 1,
                 (Some("answered"), Some("mind")) => {
-                    seen.decided.push(value["model_ms"].as_u64().unwrap_or(0))
+                    seen.decided.push(value["model_ms"].as_u64().unwrap_or(0));
                 }
                 (Some("answered"), Some(_)) => seen.fallback += 1,
                 _ => {}
