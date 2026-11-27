@@ -74,11 +74,10 @@ pub fn cohort(catalog: &Catalog) -> anyhow::Result<Cohort> {
 }
 
 /// Play `first` (human chair) against `second` (house chair) at `stage`.
-/// `foresight` turns the house chair's bounded search on, as a hosting
-/// engine started by an agent does; off, both chairs answer by heuristics.
+/// The Tower Expert has no foresight tier (`AIProfile::TOWER_EXPERT`), so the
+/// house chair answers by its heuristics here exactly as at a hosting engine.
 /// # Errors
 /// A build the executor refuses: never a duel outcome.
-#[allow(clippy::too_many_arguments)] // one duel's complete, explicit inputs
 pub fn play(
     catalog: &Catalog,
     cohort: &Cohort,
@@ -86,7 +85,6 @@ pub fn play(
     first: &Build,
     second: &Build,
     seed: u64,
-    foresight: bool,
     bounds: Bounds,
 ) -> anyhow::Result<Played> {
     let identity = variant::identity();
@@ -107,7 +105,6 @@ pub fn play(
         .map_err(|error| anyhow::anyhow!("the executor refuses the package: {error:?}"))?;
     let mut game = HostedSession::recorded_for_execution(&preset, &identity)
         .ok_or_else(|| anyhow::anyhow!("the compiled executor does not admit this preset"))?;
-    game.set_foresight(foresight);
     let profile = generation::contract(cohort.generator)
         .map_err(|error| anyhow::anyhow!("unknown generation: {error:?}"))?
         .expert();

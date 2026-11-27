@@ -3,12 +3,14 @@
 //! progress goes to stderr. See `docs/tower-operations.md` §"Calibration".
 #![forbid(unsafe_code)]
 
-use anyhow::Result;
+use anyhow::{Context as _, Result, bail};
 use baylee_cards_pool as _;
 use clap::{Parser, Subcommand};
+use std::io::Read as _;
 
 mod duel;
 mod jobs;
+mod ladder;
 mod starters;
 mod tally;
 
@@ -18,9 +20,6 @@ struct Cli {
     /// Worker threads; each plays one duel at a time.
     #[arg(long, default_value_t = default_threads())]
     threads: usize,
-    /// The house chair searches as at a hosting engine (much slower).
-    #[arg(long)]
-    foresight: bool,
     /// Base of every duel seed; a report names it, so it can be repeated.
     #[arg(long, default_value_t = 0x7477_6c61_6200_0001)]
     seed: u64,
@@ -38,6 +37,19 @@ enum Command {
         /// Only pairs touching these one-based starters (repeatable).
         #[arg(long)]
         only: Vec<usize>,
+    },
+    /// Build the house ladder from the private seed on stdin (64 hex digits)
+    /// and measure it. The report holds no build.
+    Ladder {
+        /// Independent deals per ordered pair within a stage.
+        #[arg(long, default_value_t = 1)]
+        seeds: u32,
+        /// Opponents from the stage below per build (each in both chairs).
+        #[arg(long, default_value_t = 4)]
+        rise: usize,
+        /// Only these stages (repeatable).
+        #[arg(long)]
+        stage: Vec<u8>,
     },
 }
 
@@ -59,11 +71,46 @@ fn main() -> Result<()> {
                 seeds,
                 cli.seed,
                 cli.threads,
-                cli.foresight,
                 &only,
+            )
+        }
+        Command::Ladder { seeds, rise, stage } => {
+            let seed = private_seed()?;
+            let started = std::time::Instant::now();
+            let ladder = baylee_tower_content::ladder(&content, &seed)?;
+            baylee_tower_content::check_ladder(&ladder, &content)?;
+            eprintln!("ladder built in {:.1} s", started.elapsed().as_secs_f64());
+            ladder::measure(
+                &content,
+                &cohort,
+                &ladder,
+                seeds,
+                rise,
+                cli.seed,
+                cli.threads,
+                &stage,
             )
         }
     };
     println!("{}", serde_json::to_string_pretty(&report)?);
     Ok(())
+}
+
+/// 32 bytes as 64 hex digits on stdin, nothing else but whitespace.
+fn private_seed() -> Result<[u8; 32]> {
+    let mut text = String::new();
+    std::io::stdin()
+        .take(130)
+        .read_to_string(&mut text)
+        .context("reading the house seed")?;
+    let text = text.trim();
+    if text.len() != 64 {
+        bail!("the house seed on stdin must be 64 hex digits");
+    }
+    let mut seed = [0_u8; 32];
+    for (index, byte) in seed.iter_mut().enumerate() {
+        *byte = u8::from_str_radix(&text[index * 2..index * 2 + 2], 16)
+            .context("the house seed must be hex")?;
+    }
+    Ok(seed)
 }

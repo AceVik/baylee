@@ -2491,6 +2491,7 @@ dependencies = [
  "baylee-tower",
  "serde",
  "serde_json",
+ "sha2 0.11.2",
  "thiserror 2.0.21",
 ]
 

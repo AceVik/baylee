@@ -12,7 +12,7 @@ mod house;
 mod presentation;
 mod starters;
 pub use expeditions::expeditions;
-pub use house::development_house;
+pub use house::{Ladder, PATH as HOUSE_PATH, check as check_ladder, development_house, ladder};
 pub use presentation::runic;
 
 #[cfg(test)]
@@ -45,6 +45,12 @@ pub enum Error {
     /// The shared curve/synergy/mana-base builder could not make a starter.
     #[error("starter deck generation failed: {0}")]
     Generation(#[from] baylee_cards::deckgen::DeckGenError),
+    /// The house ladder could not be built: a defect, never a balance result.
+    #[error("house ladder: {0}")]
+    House(&'static str),
+    /// The run machine refused a scripted house step.
+    #[error("house ladder step refused: {0}")]
+    Refused(String),
 }
 
 /// Build the five opening archetypes. No random deck changes occur at enrollment.

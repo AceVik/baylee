@@ -26,6 +26,7 @@ baylee-protocol.workspace = true
 baylee-cards-pool = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]

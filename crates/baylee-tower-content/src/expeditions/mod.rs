@@ -92,39 +92,89 @@ const EXCLUDED: &[&str] = &[
     "Thassa's Oracle",
 ];
 
-/// Prepare fifty 40-card build-arounds with singleton spells, reviewed utility
-/// lands and a colour-correct mana base. This is an offline publication operation;
-/// it never runs per socket, per frame or during an engine turn.
-/// # Errors
-/// Missing native support, invalid generated deck or publication capacity.
-pub fn expeditions() -> Result<Content, Error> {
+/// The whole admitted pool, with the reviewed utility lands only.
+pub(crate) fn prepared_pool() -> Pool {
     let excluded: BTreeSet<_> = EXCLUDED
         .iter()
         .filter_map(|name| baylee_cards::decks::by_name(name))
         .collect();
     let mut pool = Pool::all_implemented(&excluded);
     lands::prepare(&mut pool);
+    pool
+}
+
+/// How one starter is built; a run rebuilds its deck the same way.
+pub(crate) struct Recipe {
+    /// The starter's commander.
+    pub(crate) commander: CardIndex,
+    /// The builder's archetype for it.
+    pub(crate) archetype: Archetype,
+    /// Its explicit, append-only seed.
+    pub(crate) seed: u64,
+    /// Its mandatory on-theme spells.
+    pub(crate) core: Vec<CardIndex>,
+}
+
+impl Recipe {
+    /// The 39 library cards the shared builder makes from `pool`: the whole
+    /// admitted pool for a starter, a run's owned cards for a refit.
+    pub(crate) fn build(&self, pool: &Pool) -> Result<Vec<CardIndex>, Error> {
+        let mut generated = build_commander_run_with_core(
+            pool,
+            self.commander,
+            self.archetype,
+            self.seed,
+            &self.core,
+        )?;
+        lands::retain_fetch_targets(
+            &mut generated.main,
+            baylee_cards::by_index(self.commander)
+                .ok_or(Error::Metadata)?
+                .color_identity,
+        )?;
+        Ok(generated.main)
+    }
+}
+
+/// Every starter's recipe, in publication order.
+pub(crate) fn recipes(pool: &Pool) -> Result<Vec<Recipe>, Error> {
+    LEADERS
+        .iter()
+        .enumerate()
+        .map(|(index, &(name, archetype))| {
+            let commander = named(name)?.card;
+            let seed =
+                0x746f_7765_7200_0000 | u64::try_from(index).map_err(|_| Error::Formation)?;
+            let core = theme::core(pool, commander, name, seed)?;
+            Ok(Recipe {
+                commander,
+                archetype,
+                seed,
+                core,
+            })
+        })
+        .collect()
+}
+
+/// Prepare fifty 40-card build-arounds with singleton spells, reviewed utility
+/// lands and a colour-correct mana base. This is an offline publication operation;
+/// it never runs per socket, per frame or during an engine turn.
+/// # Errors
+/// Missing native support, invalid generated deck or publication capacity.
+pub fn expeditions() -> Result<Content, Error> {
+    let pool = prepared_pool();
     let mut cards = BTreeMap::<CardIndex, Card>::new();
     for name in ["Plains", "Island", "Swamp", "Mountain", "Forest"] {
         let card = named(name)?;
         cards.insert(card.card, card);
     }
     let mut starters = Vec::with_capacity(LEADERS.len());
-    for (index, &(name, archetype)) in LEADERS.iter().enumerate() {
-        let commander = named(name)?.card;
-        let seed = 0x746f_7765_7200_0000 | u64::try_from(index).map_err(|_| Error::Formation)?;
-        let core = theme::core(&pool, commander, name, seed)?;
-        let mut generated =
-            build_commander_run_with_core(&pool, commander, archetype, seed, &core)?;
-        lands::retain_fetch_targets(
-            &mut generated.main,
-            baylee_cards::by_index(commander)
-                .ok_or(Error::Metadata)?
-                .color_identity,
-        )?;
+    for recipe in recipes(&pool)? {
+        let commander = recipe.commander;
+        let main = recipe.build(&pool)?;
         let mut counts = BTreeMap::<CardIndex, u8>::new();
         let mut owned = Vec::new();
-        for index in std::iter::once(commander).chain(generated.main.iter().copied()) {
+        for index in std::iter::once(commander).chain(main.iter().copied()) {
             let card = metadata(index).ok_or(Error::Metadata)?;
             cards.insert(index, card);
             if !card.basic_land {
@@ -134,7 +184,7 @@ pub fn expeditions() -> Result<Content, Error> {
                 });
             }
         }
-        for index in generated.main {
+        for index in main {
             *counts.entry(index).or_default() += 1;
         }
         owned.sort_by_key(|row| row.card);

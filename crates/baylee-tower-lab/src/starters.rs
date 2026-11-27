@@ -41,7 +41,6 @@ pub fn measure(
     seeds: u32,
     base: u64,
     threads: usize,
-    foresight: bool,
     only: &[usize],
 ) -> serde_json::Value {
     let builds: Vec<_> = starters.iter().map(bare).collect();
@@ -73,7 +72,6 @@ pub fn measure(
                 &builds[first],
                 &builds[second],
                 seed,
-                foresight,
                 Bounds::default(),
             )
         },
@@ -109,7 +107,6 @@ pub fn measure(
     serde_json::json!({
         "kind": "starters",
         "seeds": seeds,
-        "foresight": foresight,
         "duels": matches.len(),
         "first_chair": overall.report(),
         "starters": rows,
