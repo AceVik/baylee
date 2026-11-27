@@ -26,19 +26,28 @@
 //! servers, hooks, profiles or notify command (`--ignore-user-config`, and
 //! `mcp_servers={}`, `notify=[]` for good measure), no exec-policy rules
 //! (`--ignore-rules`), no shell, no exec, no image, web, plugin, app, skill,
-//! hook, memory or sub-agent tools (`--disable <feature>`,
-//! `web_search="disabled"`), a read-only sandbox, no prompt history
+//! hook, memory or sub-agent tools (`-c features.<name>=false`,
+//! `web_search="disabled"`, and for the multi-agent tools the catalog's
+//! models bring along, [`QUIET`]), no question to a user, no skills list, a
+//! read-only sandbox, no prompt history
 //! (`history.persistence="none"`; the thread's rollout is kept, which a
 //! resume reads), no analytics, feedback,
 //! telemetry or update check, and the answer's schema
 //! (`--output-schema`). Nothing is approved for it: `exec` asks nobody,
 //! and the read-only sandbox refuses what a tool would write.
 //!
+//! What stays (0.166 and 0.172, `codex debug prompt-input`): a code-mode
+//! model (every gpt-6.x) keeps the `exec` and `wait` of code mode, a
+//! JavaScript isolate with no file system, no network and no nested tool
+//! left; GPT-6.2 Astra and Sol also keep `send_message_to_user_async`,
+//! which their catalog entry adds and no setting removes.
+//!
 //! Codex names no tools at its start: its `thread.started` line is the
 //! start, and the proof the lockdown held is read off every line after
 //! it, so an item of any kind but the answer's own message, the model's
 //! reasoning or a warning (a command run, a file changed, an MCP or web
-//! call, a plan) takes the mind off the table ([`Event::Breach`]).
+//! call, a plan, a sub-agent, a dynamic tool) takes the mind off the table
+//! ([`Event::Breach`]).
 //! `$CODEX_HOME/AGENTS.md` is still read: Codex has no switch for it, and
 //! the bridge warns where one is there ([`Dialect::home_warning`]).
 
@@ -62,9 +71,14 @@ const INSTRUCTIONS: &str = "instructions.md";
 const SCHEMA: &str = "schema.json";
 
 /// Codex's features that put a tool before the model or reach beyond the
-/// answer, each turned off (`--disable`). Codex ignores a name it does not
-/// know.
-pub(crate) const DISABLED_FEATURES: [&str; 18] = [
+/// answer, each turned off as `-c features.<name>=false`. That is what
+/// `--disable <name>` sets, but Codex ignores a name it does not know there,
+/// where `--disable` refuses the run ("Unknown feature flag", 0.166 and
+/// 0.172), so a name one version drops never fails a game. A live 0.166
+/// run (27.11.2026) warned of two old keys, now dropped: `web_search_request`
+/// is deprecated (`web_search="disabled"` holds) and `tools.view_image` is
+/// ignored (`view_image` here holds).
+pub(crate) const DISABLED_FEATURES: [&str; 21] = [
     "shell_tool",
     "unified_exec",
     "view_image",
@@ -78,11 +92,31 @@ pub(crate) const DISABLED_FEATURES: [&str; 18] = [
     "image_generation",
     "goals",
     "browser_use",
+    "browser_use_external",
     "computer_use",
     "in_app_browser",
     "tool_suggest",
     "memories",
-    "web_search_request",
+    "standalone_web_search",
+    "send_message_to_user_async",
+    "request_permissions_tool",
+];
+
+/// What Codex adds to the model's prompt beside our instructions, each
+/// taken out (`-c`; 0.166 and 0.172, read off `codex debug prompt-input`,
+/// which calls no model). Every gpt-6.x of its catalog is `code_mode_only`
+/// with multi-agent `v2`, which no `--disable` turns off: without these the
+/// model is offered `spawn_agent`, `send_message`, `followup_task`,
+/// `wait_agent`, `interrupt_agent` and `list_agents`, `request_user_input`,
+/// a collaboration-mode and two multi-agent texts, and the list of the
+/// user's own skills with their paths.
+const QUIET: [&str; 6] = [
+    "include_collaboration_mode_instructions=false",
+    "skills.include_instructions=false",
+    "tools.experimental_request_user_input.enabled=false",
+    "features.multi_agent_v2.disable_native_tools=true",
+    "features.multi_agent_v2.root_agent_usage_hint_text=\"\"",
+    "features.multi_agent_v2.multi_agent_mode_hint_text=\"\"",
 ];
 
 /// The item types a locked-down turn may hold: the answer, the model's
@@ -142,7 +176,6 @@ impl Dialect for Codex {
             "mcp_servers={}".into(),
             "notify=[]".into(),
             "web_search=\"disabled\"".into(),
-            "tools.view_image=false".into(),
             "history.persistence=\"none\"".into(),
             "analytics.enabled=false".into(),
             "feedback.enabled=false".into(),
@@ -153,16 +186,18 @@ impl Dialect for Codex {
             "include_apps_instructions=false".into(),
             "model_reasoning_summary=\"none\"".into(),
         ];
+        config.extend(QUIET.iter().map(|value| (*value).to_string()));
         if let Some(effort) = &settings.effort {
             config.push(format!("model_reasoning_effort={}", toml_string(effort)));
         }
+        config.extend(
+            DISABLED_FEATURES
+                .iter()
+                .map(|feature| format!("features.{feature}=false")),
+        );
         for value in config {
             args.push("-c".into());
             args.push(value.into());
-        }
-        for feature in DISABLED_FEATURES {
-            args.push("--disable".into());
-            args.push(feature.into());
         }
         if let Some(model) = model {
             args.push("--model".into());

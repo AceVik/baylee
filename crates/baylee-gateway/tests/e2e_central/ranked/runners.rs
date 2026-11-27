@@ -672,6 +672,7 @@ pub(in super::super) fn run(
         facts_file: None,
         min_think_ms: 0,
         no_carousel: false,
+        reports_to: None,
     };
     let (report, person) = rt.block_on(async {
         let pilot: Arc<dyn Pilot> = Arc::new(CuttingHouse {
@@ -1199,6 +1200,7 @@ pub(in super::super) fn carousel(
             facts_file: None,
             min_think_ms: 0,
             no_carousel: false,
+            reports_to: None,
         }
     });
     let reports = rt.block_on(async {

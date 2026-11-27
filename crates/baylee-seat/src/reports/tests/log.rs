@@ -391,3 +391,58 @@ fn a_report_s_tail_is_of_the_whole_log() {
         in_bundle[1]["record_tail"]
     );
 }
+
+/// A ranked AI seat's direct report (`POST /client/reports` on the
+/// official gateway) is the game's one bundle in that route's body and no
+/// other field: no `game_id` beside `client` (the route refuses one, and
+/// `client` names the game), `client` within the route's 1 MiB with the
+/// oldest log lines left out, the hash of the whole log, and what the
+/// runner adds beside the seat's own fields, which it never replaces.
+#[test]
+fn a_direct_report_is_the_bundle_in_the_route_s_body_within_its_bound() {
+    use baylee_client_core::bugreport::{Build, MAX_DIRECT_CLIENT_BYTES};
+    let log = too_large();
+    let reports = early_and_late(5, ROWS - 3);
+    let Value::Object(about) = json!({
+        "ai": {"account": "TEST-account", "name": "KI#0001", "kind": "house",
+               "profile": "house:expert"},
+        "match_id": "TEST-match",
+        "host": "https://host.example",
+        "seat": 9,
+    }) else {
+        unreachable!("an object")
+    };
+    let build = Build {
+        version: "0.2.1-beta.o1".into(),
+        commit: Some("3f9a1c7e21".into()),
+    };
+    let device = "0123456789abcdef0123456789abcdef";
+    let body = direct(&reports, Some(&log), &about, device, &build).unwrap();
+    assert_eq!(keys(&body), ["build", "client", "device", "kind", "text"]);
+    assert_eq!(body["kind"], "bug");
+    assert_eq!(body["device"], device);
+    assert_eq!(
+        body["build"],
+        json!({"version": "0.2.1-beta.o1", "commit": "3f9a1c7e21"})
+    );
+    let client = &body["client"];
+    let weight = serde_json::to_vec(client).unwrap().len();
+    assert!(weight <= MAX_DIRECT_CLIENT_BYTES, "{weight}");
+    assert!(
+        client["log_omitted"].as_u64().unwrap() > 0,
+        "the oldest went"
+    );
+    assert_eq!(client["ai"]["profile"], "house:expert");
+    assert_eq!(client["match_id"], "TEST-match");
+    assert_eq!(client["host"], "https://host.example");
+    assert_eq!(
+        client["seat"], reports[0].seat,
+        "the seat's own field stands"
+    );
+    assert_eq!(client["game_id"], json!(reports[0].game_id));
+    let bundled = bundle(&reports, Some(&log)).unwrap();
+    assert_eq!(client["record_sha256"], bundled["client"]["record_sha256"]);
+    assert_eq!(client["reports"].as_array().map(Vec::len), Some(2));
+    assert!(body["text"].as_str().unwrap().chars().count() <= TEXT_CHARS);
+    assert_eq!(direct(&[], None, &about, device, &build), None);
+}

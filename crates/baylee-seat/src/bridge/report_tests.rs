@@ -466,3 +466,82 @@ async fn a_report_holding_a_token_is_not_sent() {
     assert_eq!(sent.len(), 1);
     assert_eq!(sent[0].2["client"]["report"]["observed"], "No trigger.");
 }
+
+/// A ranked seat whose runner sends its reports straight (`--reports-to`):
+/// the game's reports go in one direct report, in the route's body,
+/// sealed and written to the runner's outbox for its sender; the bridge
+/// waits for no gateway, and the transcript says where it goes. Told not
+/// to send, it queues nothing; a report that holds the seat's ticket is
+/// not queued, and the reason names it.
+#[tokio::test]
+async fn a_ranked_seat_queues_its_game_s_reports_for_the_direct_route() {
+    use crate::ranked::{DirectFiling, DirectReports};
+    let state = std::env::temp_dir().join(format!(
+        "baylee-seat-bridge-direct-{}",
+        uuid::Uuid::now_v7().simple()
+    ));
+    std::fs::create_dir_all(&state).unwrap();
+    let reports = Arc::new(DirectReports::open("https://gateway.example", &state).unwrap());
+    let Value::Object(about) = json!({
+        "ai": {"profile": "house:expert"},
+        "match_id": "TEST-match",
+        "host": "https://host.example",
+    }) else {
+        unreachable!("an object")
+    };
+    let filing = DirectFiling::without_account(Arc::clone(&reports), about);
+    let memory = crate::reports::tests::log::told(crate::reports::tests::log::game());
+    let log = crate::reports::game_log(&memory);
+    let mut seat = bridge(&THREE, true);
+    seat.gather();
+    let filed = seat.queue_direct(&filing, "TEST-seat-token", log.as_ref());
+    assert_eq!(
+        filed,
+        Filing {
+            count: 2,
+            bug_reports: 1,
+            sent: false,
+            report_id: None,
+            report_ids: Vec::new(),
+            why: Some(
+                "queued: the runner sends it to https://gateway.example/client/reports".into()
+            ),
+            route: "direct",
+        }
+    );
+    let pending = reports.pending();
+    assert_eq!(pending.len(), 1, "one report a game");
+    let body: Value = serde_json::from_slice(&std::fs::read(&pending[0]).unwrap()).unwrap();
+    assert_eq!(
+        crate::reports::tests::keys(&body),
+        ["build", "client", "device", "kind", "text"]
+    );
+    let client = &body["client"];
+    assert_eq!(client["reports"].as_array().map(Vec::len), Some(2));
+    assert_eq!(client["game_id"], "TEST-game");
+    assert_eq!(client["match_id"], "TEST-match");
+    assert_eq!(client["ai"]["profile"], "house:expert");
+    assert_eq!(
+        client["log"]["lines"].as_array().unwrap().len(),
+        memory.log().len()
+    );
+    assert!(!body.to_string().contains("TEST-seat-token"));
+
+    let mut quiet = bridge(&THREE, false);
+    quiet.gather();
+    let filed = quiet.queue_direct(&filing, "TEST-seat-token", log.as_ref());
+    assert_eq!(
+        filed.why.as_deref(),
+        Some("not sent: the bridge was told not to")
+    );
+    let mut leaky = bridge(&[("The table showed TEST-seat-token.", "120.3")], true);
+    leaky.gather();
+    let filed = leaky.queue_direct(&filing, "TEST-seat-token", log.as_ref());
+    let why = filed.why.unwrap();
+    assert!(
+        why.starts_with("not sent") && why.contains("seat token"),
+        "{why}"
+    );
+    assert_eq!(reports.pending().len(), 1, "neither was queued");
+    let _ = std::fs::remove_dir_all(state);
+}

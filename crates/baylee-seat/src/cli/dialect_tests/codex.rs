@@ -36,7 +36,6 @@ fn codex_runs_exec_with_our_instructions_and_no_tools() {
         "mcp_servers={}",
         "notify=[]",
         "web_search=\"disabled\"",
-        "tools.view_image=false",
         "history.persistence=\"none\"",
         "analytics.enabled=false",
         "feedback.enabled=false",
@@ -46,23 +45,37 @@ fn codex_runs_exec_with_our_instructions_and_no_tools() {
         "include_permissions_instructions=false",
         "include_apps_instructions=false",
         "model_reasoning_summary=\"none\"",
+        // What 0.166 and 0.172 add for a code-mode, multi-agent v2 model.
+        "include_collaboration_mode_instructions=false",
+        "skills.include_instructions=false",
+        "tools.experimental_request_user_input.enabled=false",
+        "features.multi_agent_v2.disable_native_tools=true",
+        "features.multi_agent_v2.root_agent_usage_hint_text=\"\"",
+        "features.multi_agent_v2.multi_agent_mode_hint_text=\"\"",
         "model_reasoning_effort=\"low\"",
     ] {
         expected.push("-c".into());
         expected.push(config.into());
     }
+    // As `-c`, never `--disable`: Codex refuses a `--disable` name it does
+    // not know ("Unknown feature flag", 0.166 and 0.172) and ignores the
+    // same name in `-c`.
     for feature in DISABLED_FEATURES {
-        expected.push("--disable".into());
-        expected.push(feature.into());
+        expected.push("-c".into());
+        expected.push(format!("features.{feature}=false"));
     }
     expected.extend(["--model", "gpt-6.1-sol", "-"].map(str::to_string));
     assert_eq!(args, expected);
+    assert!(!args.iter().any(|a| a == "--disable" || a == "--enable"));
     for feature in [
         "shell_tool",
         "unified_exec",
         "plugins",
         "hooks",
         "multi_agent",
+        "browser_use_external",
+        "send_message_to_user_async",
+        "request_permissions_tool",
     ] {
         assert!(DISABLED_FEATURES.contains(&feature), "{feature}");
     }
@@ -131,6 +144,53 @@ fn codex_reads_its_answer_and_usage_off_the_turn() {
     assert_eq!(Codex.lockdown_fault(&Started::default()), None);
 }
 
+/// One live Codex 0.166 turn (27.11.2026) under the seat's flags, on
+/// GPT-6.2 Astra at low, asked to run JavaScript with `exec` and to call
+/// `send_message_to_user_async` before answering. Its rollout shows both
+/// ran: `exec` with `text(17*23)` (output 391) and the async message
+/// `{"message":"computing"}`. Its `--json`, below as recorded, shows
+/// neither as a tool: code mode's `exec` leaves no item, and the async
+/// message is an `agent_message` like the answer (one warning shortened).
+/// So the seat sees no
+/// breach in either (neither reaches beyond the process: a JavaScript
+/// isolate with no file system, network or nested tool, and a line on
+/// the seat's own stdout), and the answer is the turn's last message.
+/// The three warnings are Codex's own about its flags of that day.
+#[test]
+fn codex_0_166_code_mode_and_async_message_leave_no_tool_item() {
+    let events = read_all(
+        &Codex,
+        &[
+            r#"{"type":"thread.started","thread_id":"01a21cde-bf27-7f73-b313-1db59563abdb"}"#,
+            r#"{"type":"item.completed","item":{"id":"item_0","type":"error","message":"Codex is ignoring 1 unrecognized configuration setting. Check for typos or deprecated settings.\n  session-flags: `tools.view_image` is ignored."}}"#,
+            r#"{"type":"item.completed","item":{"id":"item_1","type":"error","message":"`[features].web_search_request` is deprecated because web search is enabled by default."}}"#,
+            r#"{"type":"item.completed","item":{"id":"item_2","type":"error","message":"Codex is ignoring 1 unrecognized configuration setting. Check for typos or deprecated settings.\n  session-flags: `tools.view_image` is ignored."}}"#,
+            r#"{"type":"turn.started"}"#,
+            r#"{"type":"item.completed","item":{"id":"item_3","type":"agent_message","text":"computing"}}"#,
+            r#"{"type":"item.completed","item":{"id":"item_4","type":"agent_message","text":"{\"answer\":\"391\"}"}}"#,
+            r#"{"type":"turn.completed","usage":{"input_tokens":7540,"cached_input_tokens":4864,"cache_write_input_tokens":0,"output_tokens":53,"reasoning_output_tokens":0}}"#,
+        ],
+    );
+    assert_eq!(events[0], Event::Started(Started::default()));
+    assert!(
+        events.iter().all(|e| !matches!(e, Event::Breach(_))),
+        "{events:?}"
+    );
+    let Some(Event::Reply(Outcome::Answer { value, text, usage })) = events.last() else {
+        panic!("{events:?}");
+    };
+    assert_eq!(value.as_ref().unwrap()["answer"], "391");
+    assert_eq!(
+        text, "{\"answer\":\"391\"}",
+        "the async message is not the answer"
+    );
+    let usage = usage.unwrap();
+    assert_eq!(
+        (usage.input, usage.cache_read, usage.output),
+        (2676, 4864, 53)
+    );
+}
+
 /// Any item but the answer, the reasoning and a warning is a tool used:
 /// the lockdown is broken, whether it began or finished.
 #[test]
@@ -141,6 +201,17 @@ fn codex_takes_a_tool_item_as_a_breach() {
         "mcp_tool_call",
         "web_search",
         "todo_list",
+        // Types a sub-agent, a dynamic tool or an image could arrive as:
+        // `collab_agent_tool_call`, `dynamic_tool_call` and `image_view` are
+        // item names in Codex 0.166's binary (its rollout's), the other two
+        // are guesses. Whether `exec --json` reports code mode's `exec` or
+        // the async message GPT-6.2 keeps as an item at all is unproven;
+        // this shows only that no type but the answer's is taken.
+        "collab_tool_call",
+        "collab_agent_tool_call",
+        "dynamic_tool_call",
+        "send_message_to_user_async",
+        "image_view",
     ] {
         for event in ["item.started", "item.completed"] {
             let line = json!({"type": event, "item": {"id": "i", "type": kind}}).to_string();

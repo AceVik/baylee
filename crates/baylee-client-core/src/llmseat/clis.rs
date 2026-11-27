@@ -4,10 +4,10 @@
 //! a program or asks one what it knows.
 //!
 //! The lists are what each tool's own help or documentation named when
-//! they were written (2026-10), not what a player's installation offers:
-//! a tool adds models, and a subscription may not reach every one. A model
-//! or an effort not listed is still played (the tool refuses one it does
-//! not know); the list is a suggestion, never a check.
+//! they were last checked (2026-11-27), not what a player's installation
+//! offers: a tool adds models, and a subscription may not reach every one.
+//! A model or an effort not listed is still played (the tool refuses one it
+//! does not know); the list is a suggestion, never a check.
 
 use super::{CliTool, DEFAULT_AGY_MODEL};
 
@@ -25,6 +25,18 @@ const AGY_TIER_EFFORTS: &[&str] = &["low", "medium", "high"];
 
 /// The single effort `agy`'s `gpt-oss-120b-medium` accepts.
 const AGY_MEDIUM_EFFORTS: &[&str] = &["medium"];
+
+/// The efforts `agy`'s orchestrators take on `--effort`: none (agy 1.5.18:
+/// "--effort is not supported for model").
+const AGY_ORCHESTRATOR_EFFORTS: &[&str] = &[];
+
+/// Whether `id` is one of `agy`'s orchestrators (`gemini-pro-orchestrator`,
+/// `gemini-pro-orchestrator-neon`, …): a planner and an executor in one
+/// model id, their efforts agy's own setting, never `--effort`.
+#[must_use]
+pub fn agy_is_orchestrator(id: &str) -> bool {
+    id.split(['-', '.', '_']).any(|word| word == "orchestrator")
+}
 
 /// The efforts Codex models up to `ultra` accept (`gpt-6.2-astra`, `gpt-6.2-sol`, `gpt-6-astra`,
 /// `gpt-6.1-sol`, `gpt-6.1-terra`, `gpt-6-sol`).
@@ -71,8 +83,10 @@ const CLAUDE_MODELS: &[&str] = &[
     "opus",
     "sonnet",
     "fable",
+    "haiku",
     "claude-opus-5-5",
     "claude-sonnet-5-5",
+    "claude-fable-5-2",
     "claude-fable-5-1",
     "claude-haiku-5-5",
     "claude-opus-5",
@@ -96,9 +110,15 @@ const CLAUDE_SPECS: &[CliModelSpec] = &[
     ),
     spec(
         "fable",
-        "Claude Fable 5.1 (Alias)",
+        "Claude Fable 5.2 (Alias)",
         CLAUDE_EFFORTS,
-        Some("high"),
+        Some("medium"),
+    ),
+    spec(
+        "haiku",
+        "Claude Haiku 5.5 (Alias)",
+        CLAUDE_EFFORTS,
+        Some("medium"),
     ),
     spec(
         "claude-opus-5-5",
@@ -109,6 +129,12 @@ const CLAUDE_SPECS: &[CliModelSpec] = &[
     spec(
         "claude-sonnet-5-5",
         "Claude Sonnet 5.5",
+        CLAUDE_EFFORTS,
+        Some("medium"),
+    ),
+    spec(
+        "claude-fable-5-2",
+        "Claude Fable 5.2",
         CLAUDE_EFFORTS,
         Some("medium"),
     ),
@@ -168,6 +194,9 @@ const AGY_MODELS: &[&str] = &[
     "gemini-4-carbon-high",
     "gemini-4-carbon-medium",
     "gemini-4-carbon-low",
+    "gemini-pro-orchestrator-neon",
+    "gemini-pro-orchestrator",
+    "gemini-pro-orchestrator-argon",
     "claude-opus-5-5-high",
     "claude-opus-5-5-medium",
     "claude-opus-5-5-low",
@@ -280,6 +309,27 @@ const AGY_SPECS: &[CliModelSpec] = &[
         AGY_TIER_EFFORTS,
         Some("low"),
     ),
+    // agy refuses `--effort` for its orchestrators: their planner's and
+    // executor's efforts are agy's own `orchestrator` setting (high unless
+    // its owner chose otherwise), so none is offered here.
+    spec(
+        "gemini-pro-orchestrator-neon",
+        "Orchestrator (Neon)",
+        AGY_ORCHESTRATOR_EFFORTS,
+        None,
+    ),
+    spec(
+        "gemini-pro-orchestrator",
+        "Orchestrator (Carbon)",
+        AGY_ORCHESTRATOR_EFFORTS,
+        None,
+    ),
+    spec(
+        "gemini-pro-orchestrator-argon",
+        "Orchestrator (Argon)",
+        AGY_ORCHESTRATOR_EFFORTS,
+        None,
+    ),
     spec(
         "claude-opus-5-5-high",
         "Claude Opus 5.5 (High)",
@@ -343,7 +393,7 @@ const CODEX_SPECS: &[CliModelSpec] = &[
         "gpt-6.2-astra",
         "GPT-6.2 Astra",
         CODEX_ULTRA_EFFORTS,
-        Some("medium"),
+        Some("low"),
     ),
     spec(
         "gpt-6.2-sol",
@@ -474,6 +524,43 @@ const JUNIE_SPECS: &[CliModelSpec] = &[
     spec("junie-lite", "Junie Lite", JUNIE_EFFORTS, Some("low")),
 ];
 
+/// Claude Code's aliases and the model each plays now (its own model table,
+/// 2.1.325): an alias follows the newest model of its family.
+const CLAUDE_ALIASES: &[(&str, &str)] = &[
+    ("opus", "claude-opus-5-5"),
+    ("sonnet", "claude-sonnet-5-5"),
+    ("fable", "claude-fable-5-2"),
+    ("haiku", "claude-haiku-5-5"),
+];
+
+/// Junie's aliases, which follow its provider's newest model; which model
+/// each plays now this build does not know.
+const JUNIE_ALIASES: &[&str] = &[
+    "sonnet",
+    "opus",
+    "gpt",
+    "gpt-codex",
+    "gemini-pro",
+    "gemini-flash",
+    "grok",
+];
+
+/// Whether `model` is one of `tool`'s aliases, which play whatever the
+/// tool calls its newest model of a family: `Some` with the model it plays
+/// now where this build knows it (`claude`'s `haiku`: `claude-haiku-5-5`),
+/// `Some(None)` where not, `None` for a model the tool names for good.
+#[must_use]
+pub fn moving_alias(tool: CliTool, model: &str) -> Option<Option<&'static str>> {
+    match tool {
+        CliTool::Claude => CLAUDE_ALIASES
+            .iter()
+            .find(|(alias, _)| *alias == model)
+            .map(|(_, pinned)| Some(*pinned)),
+        CliTool::Junie => JUNIE_ALIASES.contains(&model).then_some(None),
+        CliTool::Agy | CliTool::Codex | CliTool::Opencode => None,
+    }
+}
+
 /// What a profile may name for one tool.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CliChoices {
@@ -504,20 +591,21 @@ pub struct CliChoices {
 #[must_use]
 pub const fn choices(tool: CliTool) -> CliChoices {
     match tool {
-        // `claude --help` (2.1.299): "an alias for the latest model (e.g.
+        // `claude --help` (2.1.325): "an alias for the latest model (e.g.
         // 'fable', 'opus', or 'sonnet') or a model's full name"; `--effort`
-        // "(low, medium, high, xhigh, max)".
+        // "(low, medium, high, xhigh, max)". Its own model table: `haiku`
+        // too; `fable` plays Fable 5.2; every current model takes all five.
         CliTool::Claude => CliChoices {
             tool,
             models: CLAUDE_MODELS,
             model_specs: CLAUDE_SPECS,
-            model_hint: "an alias (opus, sonnet, fable) or a model's full name",
+            model_hint: "an alias (opus, sonnet, fable, haiku) or a model's full name",
             default_model: None,
             efforts: CLAUDE_EFFORTS,
             keeps_conversation: true,
         },
-        // `agy --help` (1.4.0): `--effort` "(low|medium|high|xhigh|max)";
-        // its models are listed by `agy models`.
+        // `agy --help` (1.5.18): `--effort` "(low|medium|high|xhigh|max)";
+        // its models are listed by `agy models` (orchestrators included).
         CliTool::Agy => CliChoices {
             tool,
             models: AGY_MODELS,
@@ -527,7 +615,7 @@ pub const fn choices(tool: CliTool) -> CliChoices {
             efforts: AGY_EFFORTS,
             keeps_conversation: true,
         },
-        // Codex's models cache (0.163.0): Astra, Sol, Terra, Luna, Reserve;
+        // Codex's models cache (0.166.0, 27.11.2026): Astra, Sol, Terra, Luna, Reserve;
         // `model_reasoning_effort` up to `ultra` (Luna and Reserve up to `max`).
         CliTool::Codex => CliChoices {
             tool,
@@ -725,6 +813,9 @@ fn agy_id_stem(id: &str) -> Option<&str> {
 }
 
 fn agy_listed_efforts<'a>(id: &str, rows: &[(&str, String)]) -> Vec<&'a str> {
+    if agy_is_orchestrator(id) {
+        return AGY_ORCHESTRATOR_EFFORTS.to_vec();
+    }
     if let Some(stem) = agy_id_stem(id) {
         let siblings: Vec<&'static str> = AGY_EFFORTS
             .iter()
@@ -1099,6 +1190,108 @@ mod tests {
             "typo in agy output is normalized: {}",
             agy[6]
         );
+    }
+
+    /// `agy models` of 1.5.18 (27.11.2026): Neon's four tiers and the
+    /// three orchestrators, which take no `--effort` and are offered none.
+    #[test]
+    fn agy_1_5_18_lists_neon_tiers_and_orchestrators_without_efforts() {
+        let agy_out = "\r⠋ Fetching available models...\rgemini-4-neon-high\tGemini 4 Neon (High)
+gemini-4-neon-xhigh\tGemini 4 Neon (XHigh)
+gemini-4-neon-medium\tGemini 4 Neon (Medium)
+gemini-4-neon-low\tGemini 4 Neon (Low)
+gemini-pro-orchestrator-neon\tOrchestrator (Neon)
+gemini-pro-orchestrator\tOrchestrator (Carbon)
+gemini-pro-orchestrator-argon\tOrchestrator (Argon)
+gemini-pro-orchestrator-krypton\tOrchestrator (Krypton)
+claude-sonnet-5-5-low\tClaude Sonnet 5.5 (Low)
+";
+        let agy = parse_agy_models(agy_out);
+        assert_eq!(
+            agy[1],
+            "agy:gemini-4-neon-xhigh\tGemini 4 Neon (XHigh)\tlow,medium,high,xhigh\txhigh"
+        );
+        assert_eq!(
+            agy[4],
+            "agy:gemini-pro-orchestrator-neon\tOrchestrator (Neon)\t\t"
+        );
+        assert_eq!(
+            agy[5],
+            "agy:gemini-pro-orchestrator\tOrchestrator (Carbon)\t\t"
+        );
+        // One this build does not know yet is an orchestrator by its word.
+        assert_eq!(
+            agy[7],
+            "agy:gemini-pro-orchestrator-krypton\tOrchestrator (Krypton)\t\t"
+        );
+        assert!(agy[8].starts_with("agy:claude-sonnet-5-5-low\tClaude Sonnet 5.5 (Low)\t"));
+        for id in [
+            "gemini-pro-orchestrator",
+            "gemini-pro-orchestrator-neon",
+            "gemini-pro-orchestrator-argon",
+        ] {
+            assert!(agy_is_orchestrator(id), "{id}");
+            let spec = AGY_SPECS.iter().find(|s| s.id == id).expect(id);
+            assert!(
+                spec.efforts.is_empty() && spec.default_effort.is_none(),
+                "{id}"
+            );
+        }
+        assert!(!agy_is_orchestrator("gemini-4-neon-xhigh"));
+        // Neon takes xhigh, as Hydrogen does.
+        let neon = AGY_SPECS
+            .iter()
+            .find(|s| s.id == "gemini-4-neon-xhigh")
+            .unwrap();
+        assert!(neon.efforts.contains(&"xhigh"));
+    }
+
+    /// Claude Code 2.1.325's own model table: `fable` plays Fable 5.2 and
+    /// `haiku` is an alias; every model keeps the five efforts.
+    #[test]
+    fn claude_2_1_325_aliases_and_fable_5_2() {
+        let find = |id: &str| CLAUDE_SPECS.iter().find(|s| s.id == id).copied();
+        assert_eq!(find("fable").unwrap().label, "Claude Fable 5.2 (Alias)");
+        assert_eq!(find("fable").unwrap().default_effort, Some("medium"));
+        assert_eq!(find("haiku").unwrap().label, "Claude Haiku 5.5 (Alias)");
+        assert_eq!(find("claude-fable-5-2").unwrap().label, "Claude Fable 5.2");
+        for spec in CLAUDE_SPECS {
+            assert_eq!(spec.efforts, CLAUDE_EFFORTS, "{}", spec.id);
+        }
+    }
+
+    /// Every model the panel labels an alias is a moving alias, and only
+    /// those; a Claude Code alias names the listed model it plays now,
+    /// whose label is the alias's without "(Alias)".
+    #[test]
+    fn every_alias_is_known_to_move_and_names_what_it_plays() {
+        for tool in CliTool::ALL {
+            for spec in choices(tool).model_specs {
+                let alias = spec.label.ends_with("(Alias)");
+                assert_eq!(moving_alias(tool, spec.id).is_some(), alias, "{}", spec.id);
+                if let Some(Some(pinned)) = moving_alias(tool, spec.id) {
+                    let now = choices(tool)
+                        .model_specs
+                        .iter()
+                        .find(|s| s.id == pinned)
+                        .unwrap_or_else(|| panic!("{pinned} is listed"));
+                    assert_eq!(
+                        spec.label.trim_end_matches(" (Alias)"),
+                        now.label,
+                        "{}",
+                        spec.id
+                    );
+                    assert_eq!(moving_alias(tool, pinned), None, "{pinned}");
+                }
+            }
+        }
+        assert_eq!(
+            moving_alias(CliTool::Claude, "haiku"),
+            Some(Some("claude-haiku-5-5"))
+        );
+        assert_eq!(moving_alias(CliTool::Junie, "gpt"), Some(None));
+        assert_eq!(moving_alias(CliTool::Codex, "sonnet"), None);
+        assert_eq!(moving_alias(CliTool::Agy, "gemini-4-neon-xhigh"), None);
     }
 
     #[test]

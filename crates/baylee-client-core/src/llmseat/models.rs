@@ -626,7 +626,7 @@ mod tests {
     }
 
     /// Only the efforts a model takes are offered: no `xhigh` on the 4.6
-    /// generation, none on Haiku, none on a model this build does not know.
+    /// generation, none on Haiku 4.5, none on a model this build does not know.
     #[test]
     fn only_the_efforts_a_model_takes_are_offered() {
         let sonnet46 = resolve(anthropic(), "claude-sonnet-4-6", &[]);
@@ -635,7 +635,23 @@ mod tests {
         assert!(opus.takes("xhigh"));
         assert_eq!(opus.efforts, CLAUDE_EFFORTS);
         let cli = Endpoint::cli("claude:opus");
-        assert!(resolve(cli, "claude:haiku", &[]).efforts.is_empty());
+        // Claude Code's `haiku` plays Haiku 5.5 (2.1.325), which takes all
+        // five; Haiku 4.5, which takes none, is a model this build does not
+        // offer.
+        assert_eq!(resolve(cli, "claude:haiku", &[]).efforts, CLAUDE_EFFORTS);
+        assert!(
+            resolve(cli, "claude:claude-haiku-4-5", &[])
+                .efforts
+                .is_empty()
+        );
+        // agy's orchestrators take no `--effort`: none is offered, so a
+        // ranked AI on one plays at its Standard.
+        let agy_cli = Endpoint::cli("agy");
+        assert!(
+            resolve(agy_cli, "agy:gemini-pro-orchestrator-neon", &[])
+                .efforts
+                .is_empty()
+        );
         assert!(resolve(cli, "claude:opus", &[]).takes("max"));
         // A Claude Code full id reads as Anthropic's model.
         let full = resolve(cli, "claude:claude-sonnet-4-6", &[]);

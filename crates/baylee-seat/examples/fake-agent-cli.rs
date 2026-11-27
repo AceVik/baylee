@@ -58,8 +58,8 @@
 //! session a process, every step a prompt's turn (`fake-agent-cli/junie.rs`).
 //!
 //! Each tool's login check answers as its tool's does (`login status` on
-//! stderr, `auth list`, `--version`), signed in unless `logged_in` is
-//! false.
+//! stderr, `auth list`, `--version`, agy's `-p /quota`), signed in unless
+//! `logged_in` is false.
 //!
 //! It appends to `fake-cli.log`, one JSON object a line, what it was
 //! started with (its arguments, its whole environment, its working
@@ -98,6 +98,7 @@ enum Probe {
     Codex,
     Opencode,
     Junie,
+    Agy,
 }
 
 /// The one-shot tool `args` start, and the tool whose login check they are.
@@ -111,6 +112,7 @@ fn one_shot_of(args: &[String]) -> (Option<OneShot>, Option<Probe>) {
         Some([a, b]) if a == "login" && b == "status" => Some(Probe::Codex),
         Some([a, b]) if a == "auth" && b == "list" => Some(Probe::Opencode),
         Some([a]) if a == "--version" => Some(Probe::Junie),
+        Some([a, b, ..]) if a == "-p" && b == "/quota" => Some(Probe::Agy),
         _ => None,
     };
     (one_shot, probe)
@@ -317,6 +319,19 @@ fn answer_probe(tool: Probe, logged_in: bool) {
         }
         (Probe::Opencode, false) => println!("0 credentials"),
         (Probe::Junie, _) => println!("Junie version: 26.10.27 (fake)"),
+        (Probe::Agy, true) => println!(
+            "{}",
+            json!({"status": "SUCCESS", "response": "Gemini Models\tWeekly Limit Remaining\t70%\n",
+                   "command": {"name": "usage", "data": {"groups": [{"name": "Gemini Models",
+                   "buckets": [{"id": "gemini-weekly", "remaining_fraction": 0.7}]}]}}})
+        ),
+        (Probe::Agy, false) => {
+            println!(
+                "{}",
+                json!({"status": "ERROR", "error": "not signed in", "command": null})
+            );
+            std::process::exit(1);
+        }
     }
 }
 

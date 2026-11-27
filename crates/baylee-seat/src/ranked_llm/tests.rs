@@ -41,8 +41,9 @@ fn claim(kind: seat_mind::Kind, tool: &str, model: &str, named: Option<&str>) ->
 #[test]
 fn every_dialect_s_id_for_one_model_at_one_effort_is_the_same_claim() {
     use seat_mind::Kind::{LlmApi, LlmCli};
-    // Sonnet 5.5 at low: Claude Code's alias, agy's tiered id, the API's id.
-    let claude = claim(LlmCli, "claude", "sonnet", Some("low"));
+    // Sonnet 5.5 at low: Claude Code's pinned id, agy's tiered id, the
+    // API's id.
+    let claude = claim(LlmCli, "claude", "claude-sonnet-5-5", Some("low"));
     let agy = claim(LlmCli, "agy", "claude-sonnet-5-5-low", None);
     let api = claim(LlmApi, "anthropic", "claude-sonnet-5-5", Some("low"));
     assert_eq!(agy.model, "claude-sonnet-5-5", "agy's tier is its effort");
@@ -130,7 +131,7 @@ fn settings(dir: &std::path::Path) -> PathBuf {
     let file = serde_json::json!({
         "profiles": {
             "sonnet-low": {
-                "provider": "cli", "model": "claude:sonnet", "effort": "low",
+                "provider": "cli", "model": "claude:claude-sonnet-5-5", "effort": "low",
                 "command": program, "fallback": ["sonnet-agy", "sonnet-api"]
             },
             "sonnet-agy": {
@@ -141,7 +142,7 @@ fn settings(dir: &std::path::Path) -> PathBuf {
                 "key_env": "TEST_RANKED_KEY"
             },
             "crossing": {
-                "provider": "cli", "model": "claude:sonnet", "effort": "low",
+                "provider": "cli", "model": "claude:claude-sonnet-5-5", "effort": "low",
                 "command": program, "fallback": ["opus-api"]
             },
             "opus-api": {
@@ -149,7 +150,7 @@ fn settings(dir: &std::path::Path) -> PathBuf {
                 "key_env": "TEST_RANKED_KEY"
             },
             "tiers": {
-                "provider": "cli", "model": "claude:sonnet", "effort": "low",
+                "provider": "cli", "model": "claude:claude-sonnet-5-5", "effort": "low",
                 "command": program, "fallback": ["agy-high"]
             },
             "agy-high": {
@@ -166,6 +167,10 @@ fn settings(dir: &std::path::Path) -> PathBuf {
                 "key_env": "TEST_RANKED_KEY"
             },
             "Upper": {
+                "provider": "cli", "model": "claude:claude-sonnet-5-5", "effort": "low",
+                "command": program
+            },
+            "alias": {
                 "provider": "cli", "model": "claude:sonnet", "effort": "low",
                 "command": program
             }
@@ -208,7 +213,7 @@ fn a_model_account_flies_its_chain_and_refuses_one_that_crosses_models() {
     assert_eq!(pilot.profile(), "model:sonnet-low");
     let names: Vec<&str> = pilot.paths.iter().map(|p| p.profile.as_str()).collect();
     assert_eq!(names, ["sonnet-low", "sonnet-agy", "sonnet-api"]);
-    assert_eq!(pilot.declared().model, "sonnet");
+    assert_eq!(pilot.declared().model, "claude-sonnet-5-5");
     assert_eq!(pilot.declared().effort, "low");
     // No per-game budget named: none held, by the owner's decision.
     for path in &pilot.paths {
@@ -219,6 +224,8 @@ fn a_model_account_flies_its_chain_and_refuses_one_that_crosses_models() {
         ("crossing", "another model"),
         ("tiers", "effort «high» is not «low»"),
         ("Upper", "model:<profile>"),
+        // A moving alias: the pinned id to name instead.
+        ("alias", "`claude:claude-sonnet-5-5`"),
     ] {
         let refused = format!(
             "{:#}",

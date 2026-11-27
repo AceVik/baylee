@@ -6,16 +6,21 @@
 //!
 //! The agent is discovered under `.agents/agents` in the private working
 //! directory. An empty tools list inherits tools, so it must explicitly
-//! contain `finish`. Its `init` must confirm the selected agent; agy 1.4.7
-//! still reports its global tool inventory there, not the agent's filtered
-//! capabilities. Every external tool event remains a breach. Slash commands
-//! are disabled, no approval flag is passed, and no MCP server may connect.
+//! contain `finish`; `excludeDefaultComponents` drops agy's own prompt
+//! sections and built-in tools (agy 1.5.18: a first model step read 470
+//! input tokens where it read 11,029 without). Its `init` must confirm the
+//! selected agent; agy still reports its global tool inventory there, not
+//! the agent's filtered capabilities. agy offers every agent `manage_task`
+//! beside `finish` (1.5.18); a step that uses it, or any tool but `finish`,
+//! is a breach. Slash commands are disabled, no approval flag is passed, and
+//! no MCP server may connect.
 //! User rules under `~/.gemini` and the tool's own session storage remain
 //! the CLI's (`docs/llm-seat.md` §"A CLI as the model").
 
 use super::Brief;
 use super::dialect::{Dialect, Event, Outcome, Started, Wire, clipped, listed, names};
 use crate::llm::{Settings, Usage, json_object};
+use baylee_client_core::llmseat::clis::agy_is_orchestrator;
 use baylee_client_core::llmseat::{CliTool, DEFAULT_AGY_MODEL};
 use serde_json::{Value, json};
 use std::ffi::OsString;
@@ -39,7 +44,8 @@ impl Dialect for Agy {
             format!(
                 "---\nname: {AGENT}\ndescription: Answer {task} in JSON.\n\
              tools: [finish]\nmainAgent: true\nsubagent: false\n\
-             commandExecutionPolicy: off\nmcpServers: []\nskills: []\nplugins: []\n---\n\
+             commandExecutionPolicy: off\nmcpServers: []\nskills: []\nplugins: []\n\
+             excludeDefaultComponents: true\n---\n\
              {system}\n\n\
              Answer directly with {answer}. No commands, files, browser, MCP, \
              skills or other agents are needed or permitted.\n",
@@ -130,9 +136,11 @@ impl Dialect for Agy {
             Some("step_update") => {
                 let step = value.get("step_update").unwrap_or(&Value::Null);
                 let kind = step.get("step_type").and_then(Value::as_str);
+                // 1.5.18 names the tool at the step's top too (`tool_name`).
                 let tool = step
                     .get("tool_info")
                     .and_then(|info| info.get("name"))
+                    .or_else(|| step.get("tool_name"))
                     .and_then(Value::as_str);
                 if kind == Some("tool") || tool.is_some() {
                     // `finish` only returns the answer; it has no external effect.
@@ -176,11 +184,27 @@ impl Dialect for Agy {
     }
 
     fn probe_args(&self) -> Option<Vec<OsString>> {
-        Some(["--version"].map(OsString::from).into())
+        // agy's read-only `/quota` in print mode (since 1.1.11): it asks the
+        // signed-in account for its quota and calls no model.
+        Some(
+            ["-p", "/quota", "--output-format", "json"]
+                .map(OsString::from)
+                .into(),
+        )
     }
 
     fn probe_ok(&self, stdout: &[u8], _stderr: &[u8]) -> bool {
-        !stdout.is_empty()
+        // Signed in where the account's quota came back: a `SUCCESS` that
+        // names at least one group of models. Output it cannot read is no
+        // login.
+        let Ok(said) = serde_json::from_slice::<Value>(stdout) else {
+            return false;
+        };
+        said.get("status").and_then(Value::as_str) == Some("SUCCESS")
+            && said
+                .pointer("/command/data/groups")
+                .and_then(Value::as_array)
+                .is_some_and(|groups| !groups.is_empty())
     }
 }
 
@@ -205,7 +229,14 @@ fn outcome(result: &Value, trouble: Option<&str>) -> Outcome {
         .and_then(Value::as_str)
         .unwrap_or_default();
     let error_msg = result.get("error").and_then(Value::as_str);
-    let failed = status == "ERROR" || error_msg.is_some() || trouble.is_some();
+    // Why a turn ended early (agy 1.4.11): `print_timeout`, `interrupted`
+    // or `error`; absent or null for a turn that completed. A cut-off
+    // response is never an answer.
+    let cut_off = result
+        .get("finished_reason")
+        .and_then(Value::as_str)
+        .filter(|reason| !reason.is_empty());
+    let failed = status == "ERROR" || error_msg.is_some() || trouble.is_some() || cut_off.is_some();
     let said = result
         .get("response")
         .and_then(Value::as_str)
@@ -225,11 +256,16 @@ fn outcome(result: &Value, trouble: Option<&str>) -> Outcome {
         };
     }
 
-    let words: String = error_msg.unwrap_or(&said).chars().take(200).collect();
+    // A cut-off reply's partial response is not why it failed.
+    let shown = error_msg.or(cut_off.is_none().then_some(said.as_str()));
+    let words: String = shown.unwrap_or_default().chars().take(200).collect();
     let why = match (trouble, words.is_empty()) {
         (Some(kind), true) => kind.to_string(),
         (Some(kind), false) => format!("{kind}: {words}"),
-        (None, true) => format!("the reply failed ({status})"),
+        (None, true) => match cut_off {
+            Some(reason) => format!("the reply ended early ({reason})"),
+            None => format!("the reply failed ({status})"),
+        },
         (None, false) => words,
     };
     let lower = why.to_lowercase();
@@ -262,24 +298,32 @@ fn usage(usage: &Value) -> Usage {
     }
 }
 
+/// The model families whose ids go up to an `-xhigh` tier (`agy models`,
+/// 1.5.18); the others stop at `-high`.
+const XHIGH_STEMS: [&str; 2] = ["gemini-4-hydrogen", "gemini-4-neon"];
+
 /// Reconciles `agy`'s tier-suffixed model ids with `--effort` so `agy` never
 /// rejects a conflicting `--model <stem>-<tier> --effort <other>` pair or
-/// silently downgrades Gemini 4 Hydrogen's `xhigh` tier to `high`.
+/// silently downgrades Gemini 4 Hydrogen's or Neon's `xhigh` tier to `high`.
+/// An orchestrator takes no `--effort` at all (agy 1.5.18 refuses the game:
+/// "--effort is not supported for model"): it plays the efforts agy's own
+/// `orchestrator` setting names, and a profile's effort is not passed.
 fn reconcile_agy_model_and_effort<'a>(
     raw_model: &str,
     effort: Option<&'a str>,
 ) -> (String, Option<&'a str>) {
+    if agy_is_orchestrator(raw_model) {
+        return (raw_model.to_string(), None);
+    }
     let Some(stem) = agy_tier_stem(raw_model) else {
         return (raw_model.to_string(), effort);
     };
+    let xhigh = XHIGH_STEMS.contains(&stem);
     match (stem, effort) {
         (_, None) => (raw_model.to_string(), None),
         ("gpt-oss-120b", Some(_)) => ("gpt-oss-120b-medium".to_string(), Some("medium")),
-        ("gemini-4-hydrogen", Some(e @ ("low" | "medium" | "high" | "xhigh"))) => {
-            (format!("{stem}-{e}"), Some(e))
-        }
-        ("gemini-4-hydrogen", Some("max")) => (format!("{stem}-xhigh"), Some("xhigh")),
         (_, Some(e @ ("low" | "medium" | "high"))) => (format!("{stem}-{e}"), Some(e)),
+        (_, Some("xhigh" | "max")) if xhigh => (format!("{stem}-xhigh"), Some("xhigh")),
         (_, Some("xhigh" | "max")) => (format!("{stem}-high"), Some("high")),
         (_, other) => (raw_model.to_string(), other),
     }
@@ -298,6 +342,7 @@ fn agy_tier_stem(model: &str) -> Option<&str> {
             matches!(
                 model,
                 "gemini-4-hydrogen"
+                    | "gemini-4-neon"
                     | "gemini-4-argon"
                     | "gemini-4-carbon"
                     | "gemini-3.8-flash"

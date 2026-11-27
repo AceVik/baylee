@@ -2375,6 +2375,7 @@ dependencies = [
  "axum",
  "baylee-account",
  "baylee-ai",
+ "baylee-build",
  "baylee-cards",
  "baylee-cards-dsl",
  "baylee-cards-index",

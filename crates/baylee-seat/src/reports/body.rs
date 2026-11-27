@@ -1,14 +1,15 @@
 //! The bug reports a game's reports make, as the gateway takes them
 //! (`docs/feedback.md` §"The gateway: `POST /reports`"): one a report
 //! ([`submissions`]), or all of them in one where a route takes one a game
-//! ([`bundle`]).
+//! ([`bundle`]), or that one as a client signed in nowhere sends it
+//! straight to the official gateway ([`direct`]).
 
 use super::checks::{ANSWER_CHARS, ID_CHARS, cut, hex};
 use super::read::Kind;
 use super::{CLIENT_BYTES, Filed, LOG_RESERVE, MOST, TEXT_CHARS};
 use baylee_client_core::bugreport::refs::{self, Candidates, CardRef};
-use baylee_client_core::bugreport::{LogRow, SeatLog};
-use serde_json::{Value, json};
+use baylee_client_core::bugreport::{Build, LogRow, MAX_DIRECT_CLIENT_BYTES, SeatLog};
+use serde_json::{Map, Value, json};
 use sha2::{Digest as _, Sha256};
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
@@ -19,6 +20,23 @@ pub const RECORD_TAIL_LINES: usize = 20;
 
 /// The longest a line of `record_tail` is kept, in characters.
 pub const RECORD_TAIL_CHARS: usize = 300;
+
+/// How a route bounds a bug report's `client`, and what it adds there.
+#[derive(Clone, Copy)]
+struct Shape<'a> {
+    /// The most `client` may weigh, serialised.
+    bytes: usize,
+    /// Fields the route adds to `client` beside the seat's own, which they
+    /// never replace.
+    about: Option<&'a Map<String, Value>>,
+}
+
+/// A gateway's `POST /reports` and a chair's route: [`CLIENT_BYTES`],
+/// nothing added.
+const GATEWAY: Shape<'static> = Shape {
+    bytes: CLIENT_BYTES,
+    about: None,
+};
 
 /// One bug report a report, as `POST /reports` takes it, in the order
 /// filed: each dedupe key once and at most [`MOST`]
@@ -44,11 +62,44 @@ pub fn submissions(filed: &[Filed], log: Option<&SeatLog>) -> Vec<Value> {
         .map(|f| {
             let tail = record.as_ref().map(|record| record.tail(f));
             let sha = record.as_ref().map(|record| record.sha256.as_str());
-            fitted(log.cloned(), |attached| {
-                single(f, attached, sha, tail.as_ref())
+            fitted(log.cloned(), GATEWAY.bytes, |attached| {
+                single(f, attached, sha, tail.as_ref(), GATEWAY)
             })
         })
         .collect()
+}
+
+/// A game's reports as one direct report (`POST /client/reports` on the
+/// official gateway, `docs/feedback.md` §"Straight from a client"), the
+/// way a ranked AI seat, which has no session at its host, sends them:
+/// [`bundle`]'s report in the body that route takes and no other field,
+/// `{kind, text, build, device, client}`. `client` holds what
+/// [`bundle`]'s does, the game's id among it, and `about` beside it (the
+/// AI account, its profile, the match, the host), all within the route's
+/// smaller bound ([`MAX_DIRECT_CLIENT_BYTES`]): the oldest lines of the
+/// log go first, then the last reports, as in [`bundle`]. There is no
+/// `game_id` beside `client` (the route takes none) and no record (the
+/// seat has none). `None` for no reports.
+#[must_use]
+pub fn direct(
+    filed: &[Filed],
+    log: Option<&SeatLog>,
+    about: &Map<String, Value>,
+    device: &str,
+    build: &Build,
+) -> Option<Value> {
+    let shape = Shape {
+        bytes: MAX_DIRECT_CLIENT_BYTES,
+        about: Some(about),
+    };
+    let mut body = bundled(filed, log, shape)?;
+    Some(json!({
+        "kind": body["kind"].take(),
+        "text": body["text"].take(),
+        "build": build,
+        "device": device,
+        "client": body["client"].take(),
+    }))
 }
 
 /// A game's reports in one bug report, for a route that takes one a game
@@ -61,27 +112,36 @@ pub fn submissions(filed: &[Filed], log: Option<&SeatLog>) -> Vec<Value> {
 /// all.
 #[must_use]
 pub fn bundle(filed: &[Filed], log: Option<&SeatLog>) -> Option<Value> {
+    bundled(filed, log, GATEWAY)
+}
+
+/// [`bundle`] for a route of `shape`.
+fn bundled(filed: &[Filed], log: Option<&SeatLog>, shape: Shape<'_>) -> Option<Value> {
     let kept = kept(filed);
-    if kept.len() <= 1 {
-        return submissions(filed, log).pop();
-    }
     let record = log.map(Record::of);
+    let sha = record.as_ref().map(|record| record.sha256.as_str());
+    if kept.len() <= 1 {
+        let f = kept.first()?;
+        let tail = record.as_ref().map(|record| record.tail(f));
+        return Some(fitted(log.cloned(), shape.bytes, |attached| {
+            single(f, attached, sha, tail.as_ref(), shape)
+        }));
+    }
     let tails: Vec<Option<Value>> = kept
         .iter()
         .map(|f| record.as_ref().map(|record| record.tail(f)))
         .collect();
-    let sha = record.as_ref().map(|record| record.sha256.as_str());
     // As many reports as leave room for the log's place in `client`.
     let mut sent = kept.len();
     while sent > 1
-        && weight(&many(&kept[..sent], kept.len() - sent, None, sha, &tails)["client"])
-            > CLIENT_BYTES.saturating_sub(LOG_RESERVE)
+        && weight(&many(&kept[..sent], kept.len() - sent, None, sha, &tails, shape)["client"])
+            > shape.bytes.saturating_sub(LOG_RESERVE)
     {
         sent -= 1;
     }
     let left = kept.len() - sent;
-    Some(fitted(log.cloned(), |attached| {
-        many(&kept[..sent], left, attached, sha, &tails)
+    Some(fitted(log.cloned(), shape.bytes, |attached| {
+        many(&kept[..sent], left, attached, sha, &tails, shape)
     }))
 }
 
@@ -104,14 +164,18 @@ fn kept(filed: &[Filed]) -> Vec<&Filed> {
 }
 
 /// The body `build` makes, with as much of `log` as keeps `client` within
-/// [`CLIENT_BYTES`]: the whole log, else its newest lines, else none of
-/// its lines.
-fn fitted(log: Option<SeatLog>, build: impl Fn(Option<&Attached<'_>>) -> Value) -> Value {
+/// `bytes` ([`CLIENT_BYTES`] at a gateway's `POST /reports`): the whole
+/// log, else its newest lines, else none of its lines.
+fn fitted(
+    log: Option<SeatLog>,
+    bytes: usize,
+    build: impl Fn(Option<&Attached<'_>>) -> Value,
+) -> Value {
     let Some(mut log) = log else {
         return build(None);
     };
     let whole = build(Some(&Attached::new(&log, 0)));
-    if weight(&whole["client"]) <= CLIENT_BYTES {
+    if weight(&whole["client"]) <= bytes {
         return whole;
     }
     // The room the rest leaves, less what a shorter log may change in it.
@@ -119,11 +183,11 @@ fn fitted(log: Option<SeatLog>, build: impl Fn(Option<&Attached<'_>>) -> Value) 
     if let Some(client) = rest["client"].as_object_mut() {
         client.remove("log");
     }
-    let room = CLIENT_BYTES.saturating_sub(weight(&rest["client"]).saturating_add(LOG_RESERVE));
+    let room = bytes.saturating_sub(weight(&rest["client"]).saturating_add(LOG_RESERVE));
     let lines = log.lines.len();
     let omitted = log.fit(room);
     let fitted = build(Some(&Attached::new(&log, omitted)));
-    if weight(&fitted["client"]) <= CLIENT_BYTES {
+    if weight(&fitted["client"]) <= bytes {
         return fitted;
     }
     // Never for reports held to their bounds; were it so, the reports go
@@ -238,9 +302,14 @@ fn weight(value: &Value) -> usize {
 }
 
 /// What every bug report of `first`'s game says in `client` of where its
-/// reports come from, with the log as `attached` and the hash of the whole
-/// log, `sha`.
-fn client(first: &Filed, attached: Option<&Attached<'_>>, sha: Option<&str>) -> Value {
+/// reports come from, with the log as `attached`, the hash of the whole
+/// log, `sha`, and what the route of `shape` adds.
+fn client(
+    first: &Filed,
+    attached: Option<&Attached<'_>>,
+    sha: Option<&str>,
+    shape: Shape<'_>,
+) -> Value {
     let mut client = json!({
         "source": first.source.as_str(),
         "untrusted": first.source.untrusted(),
@@ -256,6 +325,11 @@ fn client(first: &Filed, attached: Option<&Attached<'_>>, sha: Option<&str>) -> 
         client["log"] = json!(attached.log);
         client["log_omitted"] = json!(attached.omitted);
     }
+    if let (Some(about), Some(fields)) = (shape.about, client.as_object_mut()) {
+        for (name, value) in about {
+            fields.entry(name.clone()).or_insert_with(|| value.clone());
+        }
+    }
     client
 }
 
@@ -266,9 +340,10 @@ fn single(
     attached: Option<&Attached<'_>>,
     sha: Option<&str>,
     tail: Option<&Value>,
+    shape: Shape<'_>,
 ) -> Value {
     let text = summary(&[f], attached);
-    let mut client = client(f, attached, sha);
+    let mut client = client(f, attached, sha, shape);
     client["report"] = f.value(attached.and_then(|a| a.line_of(f)));
     if let Some(tail) = tail {
         client["record_tail"] = tail.clone();
@@ -293,6 +368,7 @@ fn many(
     attached: Option<&Attached<'_>>,
     sha: Option<&str>,
     tails: &[Option<Value>],
+    shape: Shape<'_>,
 ) -> Value {
     let first = kept[0];
     let text = summary(kept, attached);
@@ -312,7 +388,7 @@ fn many(
     // `model` and `profile` are the mind that filed the first report; after
     // a fallback took over each report names its own, and the text every
     // mind in order ([`minds`]).
-    let mut client = client(first, attached, sha);
+    let mut client = client(first, attached, sha, shape);
     client["reports"] = json!(reports);
     if left > 0 {
         client["reports_omitted"] = json!(left);
