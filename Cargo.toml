@@ -39,16 +39,16 @@ unic-langid = "0.9"
 baylee-account = { path = "crates/baylee-account" }
 baylee-challenges = { path = "crates/baylee-challenges" }
 baylee-client-e2e = { path = "crates/baylee-client-e2e" }
-central-api = { git = "https://github.com/AceVik/baylee-central.git", rev = "16ed416e60916eb9e7f50e118515cc6491abbe58" }
-central-client = { git = "https://github.com/AceVik/baylee-central.git", rev = "16ed416e60916eb9e7f50e118515cc6491abbe58" }
-central-crypto = { git = "https://github.com/AceVik/baylee-central.git", rev = "16ed416e60916eb9e7f50e118515cc6491abbe58" }
+central-api = { git = "https://github.com/AceVik/baylee-central.git", rev = "eb6504e652b000f540f4f1fb85edefae6b2b63ea" }
+central-client = { git = "https://github.com/AceVik/baylee-central.git", rev = "eb6504e652b000f540f4f1fb85edefae6b2b63ea" }
+central-crypto = { git = "https://github.com/AceVik/baylee-central.git", rev = "eb6504e652b000f540f4f1fb85edefae6b2b63ea" }
 # Central's server side, for the gateway's integration tests and the local
 # stack's provisioning helper only: no shipped binary links these.
-central-http = { git = "https://github.com/AceVik/baylee-central.git", rev = "16ed416e60916eb9e7f50e118515cc6491abbe58" }
-central-identity = { git = "https://github.com/AceVik/baylee-central.git", rev = "16ed416e60916eb9e7f50e118515cc6491abbe58" }
-central-migration = { git = "https://github.com/AceVik/baylee-central.git", rev = "16ed416e60916eb9e7f50e118515cc6491abbe58" }
-central-policy = { git = "https://github.com/AceVik/baylee-central.git", rev = "16ed416e60916eb9e7f50e118515cc6491abbe58" }
-central-postgres = { git = "https://github.com/AceVik/baylee-central.git", rev = "16ed416e60916eb9e7f50e118515cc6491abbe58" }
+central-http = { git = "https://github.com/AceVik/baylee-central.git", rev = "eb6504e652b000f540f4f1fb85edefae6b2b63ea" }
+central-identity = { git = "https://github.com/AceVik/baylee-central.git", rev = "eb6504e652b000f540f4f1fb85edefae6b2b63ea" }
+central-migration = { git = "https://github.com/AceVik/baylee-central.git", rev = "eb6504e652b000f540f4f1fb85edefae6b2b63ea" }
+central-policy = { git = "https://github.com/AceVik/baylee-central.git", rev = "eb6504e652b000f540f4f1fb85edefae6b2b63ea" }
+central-postgres = { git = "https://github.com/AceVik/baylee-central.git", rev = "eb6504e652b000f540f4f1fb85edefae6b2b63ea" }
 baylee-core = { path = "crates/baylee-core" }
 baylee-cardtext = { path = "crates/baylee-cardtext" }
 baylee-deckio = { path = "crates/baylee-deckio" }

@@ -167,7 +167,7 @@ GRANT SELECT, INSERT, UPDATE (place) ON central_identity.ranked_badge_peaks TO c
 -- renews its offers; a person's consent and how a match was made are written once.
 GRANT SELECT, INSERT, DELETE, UPDATE (label, enabled, max_games, daily_games, changed_at, changed_by)
   ON central_identity.ai_players TO central_runtime;
-GRANT SELECT, UPDATE (fill_in_after, drain_minutes, global_seats, host_reserve, carousel_games,
+GRANT SELECT, UPDATE (fill_in, fill_in_after, drain_minutes, global_seats, host_reserve, carousel_games,
   carousel_daily, changed_at, changed_by) ON central_identity.ai_settings TO central_runtime;
 GRANT SELECT, INSERT, DELETE, UPDATE (session_digest, commitment, renewed_at, expires_at)
   ON central_identity.ai_offers TO central_runtime;

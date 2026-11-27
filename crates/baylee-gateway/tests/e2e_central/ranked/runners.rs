@@ -139,19 +139,33 @@ impl AiDef {
 /// wait, no host slots held back for people (the fixture's host has few),
 /// the AI created, switched on, and a runner token for it alone.
 fn set_up_ai(desk: &Desk<'_>, ai: &AiDef) -> (Id, u32, Token) {
+    ai_settings(desk, true);
+    let (account, tag) = create_ai(desk, ai);
+    (account, tag, runner_token(desk, vec![account]))
+}
+
+/// Every AI's settings: fill-in after Central's shortest wait where
+/// `fill_in`, else the carousel only (one AI match at once, ten a day); no
+/// host slots held back for people (the fixture's host has few).
+fn ai_settings(desk: &Desk<'_>, fill_in: bool) {
     assert!(matches!(
         desk.ask(AdminRequest::SetAiSettings {
             settings: AiSettings {
+                fill_in,
                 fill_in_after: 30,
                 drain_minutes: 30,
                 global_seats: 8,
                 host_reserve: 0,
-                carousel_games: 0,
-                carousel_daily: 0,
+                carousel_games: u8::from(!fill_in),
+                carousel_daily: if fill_in { 0 } else { 10 },
             },
         }),
         Answer::Done
     ));
+}
+
+/// The AI `ai`, created and switched on: its account and tag.
+fn create_ai(desk: &Desk<'_>, ai: &AiDef) -> (Id, u32) {
     let Answer::Admin {
         answer: AdminAnswer::AiPlayerCreated { account, tag },
     } = desk.ask(AdminRequest::CreateAiPlayer {
@@ -176,17 +190,22 @@ fn set_up_ai(desk: &Desk<'_>, ai: &AiDef) -> (Id, u32, Token) {
         }),
         Answer::Done
     ));
+    (account, tag)
+}
+
+/// A runner token for `accounts`.
+fn runner_token(desk: &Desk<'_>, accounts: Vec<Id>) -> Token {
     let Answer::Admin {
         answer: AdminAnswer::AiRunnerTokenCreated { token, .. },
     } = desk.ask(AdminRequest::CreateAiRunnerToken {
         name: "e2e runner".into(),
-        accounts: vec![account],
+        accounts,
         days: 1,
     })
     else {
         panic!("a runner token");
     };
-    (account, tag, token)
+    token
 }
 
 /// The deck both sides play: sixty Forests, so the game runs to a library
@@ -652,6 +671,7 @@ pub(in super::super) fn run(
         facts_from: None,
         facts_file: None,
         min_think_ms: 0,
+        no_carousel: false,
     };
     let (report, person) = rt.block_on(async {
         let pilot: Arc<dyn Pilot> = Arc::new(CuttingHouse {
@@ -697,21 +717,34 @@ pub(in super::super) fn run(
             .expect("the runner played its match to the end");
         (report, person)
     });
-    // The game is in the deck's chronicle, its result marked as inferred.
+    chronicled(&state, &report);
+    agreed(&report, &person);
+    agent.abort();
+}
+
+/// The game is in the deck's chronicle with Central's own result.
+fn chronicled(state: &std::path::Path, report: &MatchReport) {
     let games = baylee_seat::deckbuild::history::games(&state.join("decks"), Format::Standard);
     assert_eq!(games.len(), 1, "one game in the chronicle");
     assert_eq!(games[0].version, 1);
     assert_eq!(games[0].turns, Some(report.played.stats.turns));
+    let receipt = report.receipt.expect("Central settled the AI's match");
+    assert!(
+        !receipt.inferred,
+        "Central's own result, not the standing's"
+    );
+    assert_eq!(
+        (games[0].elo, games[0].delta),
+        (Some(receipt.elo), receipt.delta)
+    );
     assert!(
         games[0]
             .note
             .as_deref()
-            .is_some_and(|n| n.contains("inferred")),
+            .is_none_or(|n| !n.contains("inferred")),
         "{:?}",
         games[0].note
     );
-    agreed(&report, &person);
-    agent.abort();
 }
 
 /// Both sides saw a whole game to its end, the AI through a socket it lost
@@ -783,8 +816,17 @@ fn runner_state(
     token: &Token,
     decks: Option<&std::path::Path>,
 ) -> (std::path::PathBuf, std::path::PathBuf) {
+    state_named("ai-players-runner-state", token, decks)
+}
+
+/// [`runner_state`] under `<target>/tmp/<name>`.
+fn state_named(
+    name: &str,
+    token: &Token,
+    decks: Option<&std::path::Path>,
+) -> (std::path::PathBuf, std::path::PathBuf) {
     use std::io::Write as _;
-    let state = std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).join("ai-players-runner-state");
+    let state = std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).join(name);
     let _ = std::fs::remove_dir_all(&state);
     if let Some(decks) = decks {
         copy_dir(decks, &state.join("decks"));
@@ -971,17 +1013,7 @@ impl External {
             person_won, central,
             "the table and Central agree on the result"
         );
-        let line = format!(
-            "ai-players e2e: {} played {} turns, {}, {} questions expired, think time median {} ms, \
-             max {} ms over {} answers",
-            def.profile,
-            seen.turns,
-            seen.ended,
-            seen.expired,
-            seen.median_ms,
-            seen.max_ms,
-            seen.answers
-        );
+        let line = seen.line(&def.profile, &played, 1 - *seat);
         // Past the test harness's capture, which keeps a passing test's
         // prints, and kept beside the transcripts.
         {
@@ -996,49 +1028,99 @@ impl External {
     }
 }
 
-/// What the AI seat's transcript says of its game.
+/// What the AI seat's transcript says of its game. Its answers are told
+/// apart: those its pilot decided (a model's call, which took time), those
+/// that took none (a standing order's pass, a plan's next tap, a forced
+/// answer), and the house's (and the least answer's) where the pilot did
+/// not answer.
 struct Seen {
     turns: u64,
     ended: String,
     expired: u64,
-    answers: usize,
-    median_ms: u64,
-    max_ms: u64,
+    /// The decided answers' think times, in milliseconds, rising.
+    decided: Vec<u64>,
+    instant: usize,
+    house: usize,
 }
 
 impl Seen {
     fn read(path: &std::path::Path) -> Self {
         let text = std::fs::read_to_string(path)
             .unwrap_or_else(|e| panic!("the AI's transcript {}: {e}", path.display()));
-        let (mut turns, mut ended, mut expired, mut thought) = (0, String::new(), 0, Vec::new());
+        let mut seen = Self {
+            turns: 0,
+            ended: String::new(),
+            expired: 0,
+            decided: Vec::new(),
+            instant: 0,
+            house: 0,
+        };
         for line in text.lines() {
             let Ok(value) = serde_json::from_str::<serde_json::Value>(line) else {
                 continue;
             };
-            match value["event"].as_str() {
-                Some("over") => value["result"]
+            match (value["event"].as_str(), value["by"].as_str()) {
+                (Some("over"), _) => value["result"]
                     .as_str()
                     .unwrap_or_default()
-                    .clone_into(&mut ended),
-                Some("answered") if value["by"] == "mind" => {
-                    thought.push(value["model_ms"].as_u64().unwrap_or(0));
-                }
+                    .clone_into(&mut seen.ended),
+                (Some("answered"), Some("mind")) => match value["model_ms"].as_u64() {
+                    Some(ms) if ms > 0 => seen.decided.push(ms),
+                    _ => seen.instant += 1,
+                },
+                (Some("answered"), Some(_)) => seen.house += 1,
+                (Some("standing"), _) => seen.instant += 1,
                 _ => {}
             }
             if let Some(summary) = value.get("summary") {
-                turns = summary["turns"].as_u64().unwrap_or(turns);
-                expired = summary["fallbacks"]["expired"].as_u64().unwrap_or(expired);
+                seen.turns = summary["turns"].as_u64().unwrap_or(seen.turns);
+                seen.expired = summary["fallbacks"]["expired"]
+                    .as_u64()
+                    .unwrap_or(seen.expired);
             }
         }
-        thought.sort_unstable();
-        Self {
-            turns,
-            ended,
-            expired,
-            answers: thought.len(),
-            median_ms: thought.get(thought.len() / 2).copied().unwrap_or(0),
-            max_ms: thought.last().copied().unwrap_or(0),
+        seen.decided.sort_unstable();
+        seen
+    }
+
+    /// The summary line: from the AI's side (it plays `ai_seat`), how the
+    /// person's table `played` it ended, and how the AI answered.
+    fn line(&self, profile: &str, played: &Played, ai_seat: u8) -> String {
+        let said = match played.result.and_then(|r| r.winner) {
+            Some(Victor::Player(winner)) if winner == PlayerId::new(ai_seat) => "AI won",
+            Some(_) => "AI lost",
+            None => "draw",
+        };
+        let reason = played
+            .result
+            .map_or_else(|| "no end".to_owned(), |r| format!("{:?}", r.reason));
+        format!(
+            "ai-players e2e: {profile} {said} as seat {ai_seat} after {} turns ({reason}); {} \
+             questions expired; decided {} (median {} ms, P95 {} ms, max {} ms), instant {}, \
+             house {}",
+            self.turns,
+            self.expired,
+            self.decided.len(),
+            self.at(0.5),
+            self.at(0.95),
+            self.decided.last().copied().unwrap_or(0),
+            self.instant,
+            self.house
+        )
+    }
+
+    /// The decided think time at the share `q` of them (0.5 the median).
+    fn at(&self, q: f64) -> u64 {
+        if self.decided.is_empty() {
+            return 0;
         }
+        #[allow(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            clippy::cast_precision_loss
+        )]
+        let at = ((self.decided.len() - 1) as f64 * q).round() as usize;
+        self.decided[at.min(self.decided.len() - 1)]
     }
 }
 
@@ -1050,4 +1132,133 @@ fn fresh_transcripts() -> std::path::PathBuf {
     let _ = std::fs::remove_dir_all(&transcripts);
     std::fs::create_dir_all(&transcripts).unwrap();
     transcripts
+}
+
+#[test]
+#[ignore = "requires owned PostgreSQL 18 fixture from cargo dev central integration --ai-players-only"]
+fn two_ai_runners_meet_in_the_carousel_and_finish_a_ranked_game() {
+    super::super::integration(super::super::Scenario::Carousel);
+}
+
+/// Two house AIs, each its own runner, with fill-in off and the carousel on
+/// (calibration): the carousel pairs their standing offers in Standard,
+/// they finish the game, and Central's results for both agree with the
+/// table's.
+pub(in super::super) fn carousel(
+    rt: &Runtime,
+    served: &Served,
+    store: &AccountStore,
+    operator: &DatabaseConnection,
+) {
+    let _owner = fresh::register(
+        rt,
+        &served.service,
+        &served.endpoint,
+        "carousel_host",
+        fresh::DOCUMENT,
+    );
+    let host = registered(rt, served, store, operator, "carousel_host", true);
+    let agent = rt.block_on(common::ranked::provision(&host.gateway));
+    capacity(rt, operator, &host);
+    let desk = Desk::open(rt, served, operator, "carousel_admin");
+    ai_settings(&desk, false);
+    let names = ["KI-Haus-Eins", "KI-Haus-Zwei"];
+    let ais = names.map(|name| {
+        create_ai(
+            &desk,
+            &AiDef {
+                name,
+                ..AiDef::house()
+            },
+        )
+    });
+    let token = runner_token(&desk, ais.iter().map(|(account, _)| *account).collect());
+    let transcripts = fresh_transcripts();
+    let args = [0, 1].map(|at| {
+        let (state, token_file) = state_named(&format!("ai-players-carousel-{at}"), &token, None);
+        RankedArgs {
+            central: served.endpoint.origin().to_owned(),
+            account: format!("{}#{:04x}", names[at], ais[at].1),
+            token_file: Some(token_file),
+            token_key: None,
+            state: Some(state),
+            decks: None,
+            transcripts: Some(transcripts.clone()),
+            fallback_level: "expert".into(),
+            games: Some(1),
+            accept_hosts: vec![host.origin.clone()],
+            facts_from: None,
+            facts_file: None,
+            min_think_ms: 0,
+            no_carousel: false,
+        }
+    });
+    let reports = rt.block_on(async {
+        let fly = |args: RankedArgs| async move {
+            let mut reports = Vec::new();
+            let pilot: Arc<dyn Pilot> = Arc::new(HousePilot::new("expert").unwrap());
+            let played = cli::play(&args, pilot, |r| reports.push(r))
+                .await
+                .expect("the runner plays");
+            assert_eq!(played, 1, "each runner played one match");
+            reports
+                .pop()
+                .expect("the runner told how its match went")
+                .expect("the runner played its match to the end")
+        };
+        let [one, two] = args;
+        tokio::time::timeout(Duration::from_secs(540), async {
+            tokio::join!(fly(one), fly(two))
+        })
+        .await
+        .expect("both AIs finish their carousel game")
+    });
+    let (one, two) = reports;
+    assert_eq!(
+        one.match_id, two.match_id,
+        "the carousel paired the two AIs"
+    );
+    let receipts = [&one, &two].map(carousel_receipt);
+    assert_ne!(receipts[0].seat, receipts[1].seat);
+    assert_eq!(receipts[0].outcome, receipts[1].outcome);
+    agent.abort();
+}
+
+/// One carousel AI's whole game, Central's result for it (not inferred),
+/// and the two agreeing.
+fn carousel_receipt(report: &MatchReport) -> ranked::Receipt {
+    let receipt = report.receipt.expect("Central settled the match");
+    assert!(
+        !receipt.inferred,
+        "Central's own result, not the standing's"
+    );
+    let result = report
+        .played
+        .result
+        .expect("the seat saw the game's end on its socket");
+    let won = match result.winner {
+        Some(Victor::Player(winner)) => Some(winner == PlayerId::new(receipt.seat)),
+        Some(Victor::Team(_)) => panic!("a duel has no teams"),
+        None => None,
+    };
+    assert_eq!(
+        won,
+        receipt.won(),
+        "the table and Central agree on the result"
+    );
+    assert!(
+        report.played.stats.turns >= 100,
+        "a whole game, not a forfeit: {} turns, {result:?}",
+        report.played.stats.turns
+    );
+    assert_eq!(
+        report.played.stats.fallbacks.expired, 0,
+        "no question ran out of time"
+    );
+    assert_eq!(
+        report.opponent.as_deref(),
+        Some("Haus-KI · Expert"),
+        "each was told its opponent is an AI"
+    );
+    receipt
 }

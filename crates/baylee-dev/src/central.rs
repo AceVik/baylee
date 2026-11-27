@@ -270,24 +270,25 @@ pub enum Only {
     /// runners included.
     Ranked,
     /// The ranked runner: an AI account fills a person's search and they
-    /// play the game.
+    /// play the game, and two AIs meet in the carousel.
     AiPlayers,
 }
 
 impl Only {
     /// The tests it selects, how many must pass, and the seconds they may
-    /// take: five minutes each, and five more for the runners' game, which
-    /// plays a whole game through Central's relay.
+    /// take: five minutes each, and ten each for the runners' two games
+    /// (a person against an AI, two AIs in the carousel), which play whole
+    /// games through Central's relay.
     fn selection(self, special: bool) -> (&'static str, u64, u64) {
         match self {
-            Self::AiPlayers => ("e2e_central::ranked::runners::", 1, 600),
-            Self::Ranked => ("e2e_central::ranked::", 3, 1200),
+            Self::AiPlayers => ("e2e_central::ranked::runners::", 2, 1200),
+            Self::Ranked => ("e2e_central::ranked::", 4, 1800),
             _ if special => (
                 "e2e_central::central_login_migrates_then_restores_and_admits_without_the_legacy_password",
                 1,
                 300,
             ),
-            Self::Everything | Self::Challenges => ("e2e_central::", 4, 1500),
+            Self::Everything | Self::Challenges => ("e2e_central::", 5, 2100),
         }
     }
 }
@@ -410,6 +411,7 @@ fn bootstrap(migrator: &str, runtime: &str, legacy: &str) -> String {
         "central_ranked_test",
         "central_replica_test",
         "central_runners_test",
+        "central_carousel_test",
     ]));
     sql
 }
@@ -524,6 +526,7 @@ mod tests {
             "central_ranked_test",
             "central_replica_test",
             "central_runners_test",
+            "central_carousel_test",
         ] {
             assert!(sql.contains(&format!("CREATE DATABASE {db} OWNER central_migrator;")));
             assert!(sql.contains(&format!(

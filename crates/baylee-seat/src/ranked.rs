@@ -44,9 +44,10 @@ pub use token::RunnerToken;
 use crate::deckbuild::facts;
 use anyhow::anyhow;
 use baylee_account::Error;
+use baylee_account::ranked::Format;
 use baylee_account::ranked::Id;
 use baylee_account::ranked::ai::{self, Offer};
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::watch;
@@ -97,6 +98,11 @@ pub struct Settings {
     pub refetch_facts: Duration,
     /// How each match is played.
     pub play: MatchOptions,
+    /// Whether the account asks Central's carousel for a match against
+    /// another AI while it offers and has a free slot (`--no-carousel`).
+    pub carousel: bool,
+    /// How often it asks the carousel per format while it may.
+    pub carousel_every: Duration,
 }
 
 impl Default for Settings {
@@ -110,6 +116,8 @@ impl Default for Settings {
             facts_file: None,
             refetch_facts: Duration::from_mins(30),
             play: MatchOptions::default(),
+            carousel: true,
+            carousel_every: Duration::from_secs(30),
         }
     }
 }
@@ -175,6 +183,8 @@ pub async fn run(
         offered: None,
         reread: None,
         told: None,
+        carousel_next: BTreeMap::new(),
+        carousel_later: BTreeMap::new(),
     };
     loop {
         let stopping = *stop.borrow_and_update();
@@ -218,6 +228,10 @@ struct Rounds<'a> {
     reread: Option<Instant>,
     /// Why the account makes no offers, as last told.
     told: Option<String>,
+    /// When the carousel may be asked again, per format.
+    carousel_next: BTreeMap<Format, Instant>,
+    /// The carousel's `later` answers in a row, per format.
+    carousel_later: BTreeMap<Format, u32>,
 }
 
 impl Rounds<'_> {
@@ -241,6 +255,7 @@ impl Rounds<'_> {
             Ok(ai::Response::Work {
                 settings,
                 assignments,
+                ..
             }) => {
                 for assignment in assignments {
                     self.start(assignment);
@@ -258,6 +273,13 @@ impl Rounds<'_> {
                 });
                 if due {
                     offer(self.player, &desired, &mut self.offered).await;
+                }
+                let offering = self
+                    .offered
+                    .as_ref()
+                    .is_some_and(|(last, _)| *last == desired);
+                if self.settings.carousel && !desired.is_empty() && offering {
+                    self.carousel(&desired, settings.max_games).await;
                 }
             }
             Ok(_) => tracing::warn!("Central answered the work with something else"),
@@ -340,6 +362,83 @@ impl Rounds<'_> {
         }
     }
 
+    /// Asks Central's carousel for a match against another AI in each
+    /// offered format whose turn has come, while a slot is free under
+    /// `max_games` (baylee-central `docs/ai-players.md` §7). A seat is
+    /// played as any match; a refusal says when to ask again: `off` (the
+    /// carousel is off for the account) in ten minutes, `offer` once the
+    /// offers are renewed, `tomorrow` after the next midnight UTC, `later`
+    /// after a jittered wait from 30 s that doubles with each one in a row,
+    /// at most ten minutes. Central decides everything else.
+    async fn carousel(&mut self, offers: &[Offer], max_games: u8) {
+        for offer in offers {
+            if self.playing.len() >= usize::from(max_games) {
+                return;
+            }
+            let format = offer.format;
+            if self
+                .carousel_next
+                .get(&format)
+                .is_some_and(|at| Instant::now() < *at)
+            {
+                continue;
+            }
+            let answer = self
+                .player
+                .call(move |account| account.ai_carousel(format))
+                .await;
+            let wait = match answer {
+                Ok(Ok(assignment)) => {
+                    tracing::info!(
+                        format = format.as_str(),
+                        "the carousel seated a match against an AI"
+                    );
+                    self.carousel_later.remove(&format);
+                    self.start(assignment);
+                    self.settings.carousel_every
+                }
+                Ok(Err(reason)) => {
+                    tracing::debug!(format = format.as_str(), reason = ?reason, "the carousel seated no match");
+                    self.unseated(format, reason)
+                }
+                Err(e) => {
+                    tracing::info!(error = %e, "the carousel could not be asked");
+                    Duration::from_mins(1)
+                }
+            };
+            self.carousel_next.insert(format, Instant::now() + wait);
+        }
+    }
+
+    /// How long to wait before the carousel is asked again in `format`
+    /// after it seated no match for `reason`.
+    fn unseated(&mut self, format: Format, reason: ai::Unseated) -> Duration {
+        match reason {
+            ai::Unseated::Off => {
+                self.carousel_later.remove(&format);
+                Duration::from_mins(10)
+            }
+            ai::Unseated::Offer => {
+                // Offered anew at the next round, then asked again.
+                self.offered = None;
+                self.settings.poll
+            }
+            ai::Unseated::Tomorrow => {
+                self.carousel_later.remove(&format);
+                until_midnight_utc()
+            }
+            ai::Unseated::Later => {
+                let times = self.carousel_later.entry(format).or_insert(0);
+                *times = times.saturating_add(1);
+                jittered(
+                    Duration::from_secs(30)
+                        .saturating_mul(1 << (*times - 1).min(5))
+                        .min(Duration::from_mins(10)),
+                )
+            }
+        }
+    }
+
     /// What a finished match leaves: its game in the deck's chronicle
     /// (`<decks>/<format>/games.jsonl`, which the deck builder reads), and
     /// a deck the host would not seat offered no more.
@@ -357,7 +456,7 @@ impl Rounds<'_> {
                     None => "unrated",
                 };
                 let mut notes = Vec::new();
-                if m.receipt.is_some() {
+                if m.receipt.is_some_and(|r| r.inferred) {
                     notes.push("result inferred from the account's public standing".to_owned());
                 }
                 if let Some(why) = &m.handed_over {
@@ -467,4 +566,21 @@ fn fetch_facts(origin: String, path: std::path::PathBuf, every: Duration) -> Abo
             tokio::time::sleep(every).await;
         }
     }))
+}
+
+/// From now until a moment past the next midnight UTC.
+fn until_midnight_utc() -> Duration {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    Duration::from_secs(86_400 - now % 86_400 + 5)
+}
+
+/// `wait`, between three quarters of it and a quarter more, so that the
+/// runners of a machine do not ask in step.
+fn jittered(wait: Duration) -> Duration {
+    let spread = Uuid::now_v7().as_u128() % 501;
+    let factor = 750 + u32::try_from(spread).unwrap_or(0);
+    wait.saturating_mul(factor) / 1000
 }
