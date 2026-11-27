@@ -68,6 +68,9 @@ mod tests {
         assert!(!is_offered(&v("0.2.0-beta.o10"), &v("0.2.0-beta.o9")));
         assert!(!is_offered(&v("0.2.0-beta.1"), &v("0.2.0-beta.o1")));
         assert!(is_offered(&v("0.2.1-beta.o1"), &v("0.2.0-beta.o9")));
+        // The open beta's minor releases raise the patch and keep `o1`
+        // (27.11.2026): every installed `0.2.0-beta.o1` is offered them.
+        assert!(is_offered(&v("0.2.1-beta.o1"), &v("0.2.0-beta.o1")));
     }
 
     /// The lettered betas (8a, 8b) sort above every numbered one, so the

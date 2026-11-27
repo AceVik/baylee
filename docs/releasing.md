@@ -99,7 +99,9 @@ prereleases afterwards, raise the patch again (for example `0.1.2-beta.1`);
 `0.1.1-beta.10` would sort below this alphanumeric prerelease.
 The open betas start at `0.2.0-beta.o1` (the owner, 7 November 2026; `o` for open). An
 alphanumeric identifier compares as text, so `o10` sorts below `o9` and a plain `beta.1`
-below every one of them: after `o9` the patch rises.
+below every one of them: after `o9` the patch rises. The open beta's releases after
+its start raise the patch and keep `o1` (`0.2.1-beta.o1`, 27.11.2026), so every
+installed `0.2.0-beta.o1` is offered each of them.
 
 ## Cutting one
 
