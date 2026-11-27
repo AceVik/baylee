@@ -32,6 +32,8 @@ deck-images/
 
 # local configuration (see .env.example)
 .env
+# local client auto-login credentials (see .env.auto-login.example)
+/.env.auto-login
 
 # Claude Code: .claude/settings.json and the skills, hooks, agents and
 # commands directories are project knowledge and stay trackable; everything else in there, and the other
