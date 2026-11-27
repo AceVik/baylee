@@ -497,3 +497,34 @@ fn a_duel_with_a_verdict_leaves_its_run_settling_and_one_left_unfinished_does_no
         );
     }
 }
+
+#[test]
+fn reopening_tower_after_medals_opens_the_expedition_instead_of_stale_medals() {
+    let (handle, _jobs) = central::Handle::queued_for_test();
+    let mut state = signed_in(handle);
+    state.hub = Hub::Challenges;
+    ask(&mut state, Action::Open);
+    ask(&mut state, Action::Page(Page::Collection));
+    assert_eq!(state.echoes.page, Page::Collection);
+    ask(&mut state, Action::Back);
+    assert!(!state.echoes.opened);
+    assert_eq!(state.hub, Hub::Play);
+    ask(&mut state, Action::Open);
+    assert!(state.echoes.opened);
+    assert_eq!(
+        state.echoes.page,
+        Page::Overview,
+        "without an active run, Tower run opens on the expedition overview"
+    );
+
+    with_run(&mut state);
+    ask(&mut state, Action::Page(Page::Collection));
+    assert_eq!(state.echoes.page, Page::Collection);
+    ask(&mut state, Action::Back);
+    ask(&mut state, Action::Open);
+    assert_eq!(
+        state.echoes.page,
+        Page::Shop,
+        "with an active run, Tower run opens back on the shop"
+    );
+}

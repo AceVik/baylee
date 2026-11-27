@@ -293,7 +293,7 @@ fn door_and_drawer_use_single_layer_glass_grounds() {
     use bevy::ecs::system::RunSystemOnce;
 
     let mut app = app_with_machine();
-    app.insert_resource(State::new(crate::DuelPhase::Opening));
+    app.insert_resource(State::new(crate::DuelPhase::Closed));
     app.world_mut().resource_mut::<ChatUi>().drawer = true;
     app.world_mut().run_system_once(sync_door).unwrap();
     app.world_mut().run_system_once(sync_drawer).unwrap();
@@ -321,6 +321,40 @@ fn door_and_drawer_use_single_layer_glass_grounds() {
     assert_eq!(
         app.world().get::<BackgroundColor>(drawer).unwrap().0,
         Color::NONE
+    );
+}
+
+#[test]
+fn contacts_pill_stays_hidden_while_arrival_cover_stands() {
+    use bevy::ecs::system::RunSystemOnce;
+
+    // During DuelPhase::Opening (table loading portal), FriendsDoor must not show.
+    let mut opening = app_with_machine();
+    opening.insert_resource(State::new(crate::DuelPhase::Opening));
+    opening.world_mut().run_system_once(sync_door).unwrap();
+    assert!(
+        opening
+            .world_mut()
+            .query_filtered::<&Visibility, With<FriendsDoor>>()
+            .iter(opening.world())
+            .all(|v| *v == Visibility::Hidden),
+        "Contacts pill must stay hidden during DuelPhase::Opening"
+    );
+
+    // While Journey::active() holds the arrival cover, an existing FriendsDoor hides.
+    let mut covered = app_with_machine();
+    covered.insert_resource(State::new(crate::DuelPhase::Closed));
+    covered.world_mut().run_system_once(sync_door).unwrap();
+    covered.init_resource::<crate::arrival::Journey>();
+    crate::arrival::start_login(&mut covered);
+    covered.world_mut().run_system_once(sync_door).unwrap();
+    assert!(
+        covered
+            .world_mut()
+            .query_filtered::<&Visibility, With<FriendsDoor>>()
+            .iter(covered.world())
+            .all(|v| *v == Visibility::Hidden),
+        "Contacts pill must hide while the arrival cover is active"
     );
 }
 

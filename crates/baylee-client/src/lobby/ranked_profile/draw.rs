@@ -187,13 +187,14 @@ fn sheet_body(commands: &mut Commands, kit: Kit, handle: &str) -> (Entity, Entit
         .beside(slot)
         .subtitle(Phrase::RankedPlayerProfile.text(lang))
         .close((Action::Close, Stop::new(ORDER.name, "close")));
-    let sheet = surfaces::sheet_box_fixed(
+    let sheet = surfaces::sheet_box_headed_listed(
         commands,
         kit,
         SheetWidth::Large,
         header,
         &[body],
         &[refresh],
+        (),
     );
     let root = surfaces::scrim(
         commands,

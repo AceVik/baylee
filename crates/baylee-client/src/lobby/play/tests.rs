@@ -167,3 +167,121 @@ fn play_lane_stable_gutter_stands_inside_the_column_gap() {
         );
     }
 }
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn play_lane_fits_loading_and_loaded_tiles_without_overhang_or_scrollbar() {
+    use baylee_client_core::challenges::api;
+    use bevy::ui_widgets::Scrollbar;
+
+    for lang in [Lang::En, Lang::De] {
+        for loaded in [false, true] {
+            for (width, height) in [(1280.0, 720.0), (1600.0, 938.0), (1920.0, 1080.0)] {
+                let (mut app, fonts) = crate::face::tests::layout_app();
+                app.add_systems(Update, crate::lobby::scrollbars::show_when_needed);
+                let mut state = LobbyState::default();
+                #[cfg(not(target_arch = "wasm32"))]
+                crate::lobby::central::restored_for_test(&mut state, Vec::new());
+                state.lobby.set_lang(lang);
+                state.lobby.apply(client_core::lobby::LobbyEvent::LoggedIn {
+                    token: "local-test".into(),
+                    username: Some("Laurel".into()),
+                });
+                state.gateway_selected = true;
+                state.challenges.model.now = 1_794_182_401;
+                state.challenges.model.loaded = loaded;
+                if loaded {
+                    let daily = api::Challenge {
+                        id: [1; 16],
+                        digest: [1; 32],
+                        withdrawn: false,
+                        description: api::Description {
+                            period: api::Period::containing(
+                                api::Kind::Daily,
+                                state.challenges.model.now,
+                            )
+                            .unwrap(),
+                            title: api::Words {
+                                en: "Crossroads".into(),
+                                de: "Weggabelung".into(),
+                            },
+                            instructions: api::Words {
+                                en: "Win this game".into(),
+                                de: "Gewinne dieses Spiel".into(),
+                            },
+                            deck: "4 Lightning Bolt".into(),
+                            executor: "test".into(),
+                            target_turn: 1,
+                            expected_minutes: 10,
+                        },
+                    };
+                    let mut weekly = daily.clone();
+                    weekly.id = [2; 16];
+                    weekly.description.period =
+                        api::Period::containing(api::Kind::Weekly, state.challenges.model.now)
+                            .unwrap();
+                    weekly.description.title = api::Words {
+                        en: "Over the pass".into(),
+                        de: "Über den Pass".into(),
+                    };
+                    state.challenges.model.catalogue = vec![daily, weekly];
+                }
+                assert!(
+                    state.can_play_online() && !state.lobby.guest(),
+                    "test exercises the online activity tiles"
+                );
+                let kit = Kit {
+                    fonts: &fonts,
+                    m: ShellMetrics::of(Viewport::desktop(width, height), TextSize::M),
+                    german: lang == Lang::De,
+                };
+                let scrolled = Scrolled::default();
+                let mut commands = app.world_mut().commands();
+                let root = commands
+                    .spawn(Node {
+                        width: px_fixed(width),
+                        height: px_fixed(height - kit.m.header),
+                        flex_direction: FlexDirection::Column,
+                        ..default()
+                    })
+                    .id();
+                draw(
+                    &mut commands,
+                    root,
+                    &state,
+                    Metrics::of(width),
+                    kit,
+                    &scrolled,
+                );
+                app.world_mut().flush();
+                for _ in 0..5 {
+                    app.update();
+                }
+                let world = app.world_mut();
+                let (lane_entity, lane_computed) = world
+                    .query::<(Entity, &Scrollable, &ComputedNode)>()
+                    .iter(world)
+                    .find(|(_, scrollable, _)| scrollable.0 == List::Discovery)
+                    .map(|(e, _, computed)| (e, *computed))
+                    .expect("Play activity lane laid out");
+                assert!(
+                    lane_computed.content_size.y <= lane_computed.size.y + 0.5,
+                    "{lang:?} loaded={loaded} {width}x{height}: Play lane overhangs ({:.1} > {:.1})",
+                    lane_computed.content_size.y,
+                    lane_computed.size.y
+                );
+                let track_vis = world
+                    .query::<(&Scrollbar, &Visibility)>()
+                    .iter(world)
+                    .find(|(bar, _)| bar.target == lane_entity)
+                    .map(|(_, vis)| *vis)
+                    .expect("Play lane scrollbar track");
+                assert_eq!(
+                    track_vis,
+                    Visibility::Hidden,
+                    "{lang:?} loaded={loaded} {width}x{height}: fitting Play tiles must hide the scrollbar"
+                );
+            }
+        }
+    }
+}

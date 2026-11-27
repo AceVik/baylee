@@ -36,6 +36,7 @@ struct VisibleEntry {
 }
 
 #[derive(Resource, Default)]
+#[allow(clippy::struct_excessive_bools)] // independent switches of one drawn drawer
 struct Drawn {
     game: Option<String>,
     items: Vec<VisibleEntry>,
@@ -43,6 +44,7 @@ struct Drawn {
     ability: Option<ObjectId>,
     over: bool,
     watching: bool,
+    stack_open: bool,
     lang: Option<Lang>,
     canvas: IVec2,
     scale_bits: u32,
@@ -101,6 +103,7 @@ fn sync(
     let game = duel.statics.as_ref().map(|game| game.game_id.as_str());
     let lang = Lang::of(&settings.lang);
     let over = duel.ending().is_some();
+    let stack_open = duel.board.as_ref().is_some_and(|b| !b.stack.is_empty());
     let items = snapshot_items(&duel);
 
     if drawn.game.as_deref() == game {
@@ -125,6 +128,7 @@ fn sync(
         && drawn.scale_bits == hud_scale.to_bits()
         && drawn.over == over
         && drawn.watching == duel.watching
+        && drawn.stack_open == stack_open
         && drawn.text == Some(settings.text_size)
     {
         return;
@@ -143,6 +147,7 @@ fn sync(
         ability: duel.ability_menu,
         over,
         watching: duel.watching,
+        stack_open,
         lang: Some(lang),
         canvas: size,
         scale_bits: hud_scale.to_bits(),

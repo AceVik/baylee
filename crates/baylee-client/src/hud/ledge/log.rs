@@ -429,7 +429,19 @@ pub fn sync_log(
     };
     let window = crate::hud::scale::window_space(&windows, ui.as_deref())
         .unwrap_or(Vec2::new(1280.0, 720.0));
-    let (width, height) = log_size(log_band(window));
+    let stack_clear = crate::hud::stack::stack_clearance(&duel, window);
+    let right = if stack_clear > 0.0 && window.x - stack_clear - EDGE >= 280.0 {
+        stack_clear
+    } else {
+        EDGE
+    };
+    let (mut width, height) = log_size(log_band(window));
+    if right > EDGE {
+        width = width.min((window.x - right - EDGE).max(0.0));
+    }
+    if node.right != px(right) {
+        node.right = px(right);
+    }
     if node.width != px(width) {
         node.width = px(width);
     }

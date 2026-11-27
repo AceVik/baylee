@@ -1555,6 +1555,11 @@ impl Drawn<'_, '_, '_> {
             true,
         );
         self.tab(close);
+        for btn in [save, revert, close] {
+            self.commands
+                .entity(btn)
+                .insert(crate::shellkit::role::Role::Button);
+        }
         items.extend([save, revert, close]);
         items
     }

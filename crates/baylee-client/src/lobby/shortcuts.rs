@@ -8,8 +8,8 @@
 //! `Ctrl/Cmd+,`, `Ctrl/Cmd+R`). Each screen's package gives its screen a
 //! focus model of its own (§1.7) and with it the bare keys.
 //!
-//! The doors this module opens: `1 2 3` and `Ctrl/Cmd+,` (Play, Decks,
-//! Settings), Refresh, New deck, Search (the search box takes the caret),
+//! The doors this module opens: `1 2 3` (Play, Decks, Replays) and `Ctrl/Cmd+,`
+//! (Settings), Refresh, New deck, Search (the search box takes the caret),
 //! and `r`, the seated strip's Return.
 //! The others resolve and are logged (`/state.shell.fired`); their doors are
 //! the screens' own, built by the packages that own those screens.
@@ -255,7 +255,7 @@ pub(super) fn press_for(state: &LobbyState, action: ShellAction) -> Option<Press
         ShellAction::ImportDeck if decks => Some(Press::Decks(super::decks::DecksPress::Import)),
         ShellAction::Search if decks => Some(Press::Shared(SharedPress::Focus(Field::DeckSearch))),
         ShellAction::StartGame if in_room => super::room::start_press(state),
-        ShellAction::GoSettings | ShellAction::OpenSettings
+        ShellAction::OpenSettings
             if !state.settings.is_open()
                 && !matches!(state.lobby.screen(), Screen::Build | Screen::Seated(_)) =>
         {

@@ -69,7 +69,7 @@ Two consequences worth knowing before changing anything here:
 | Deck builder: import a deck / export this one (`docs/deck-format.md`). In the import dialog `Ctrl`/`Cmd`+`V` pastes and `Enter` imports (or closes a finished import); in the export dialog `←` `→` choose the format, `Ctrl`/`Cmd`+`C` copies, `Ctrl`/`Cmd`+`S` saves; `Esc` closes either | `Ctrl`/`Cmd`+`I` / `Ctrl`/`Cmd`+`E`, or the builder bar's buttons | implemented |
 | Deck builder, the card window (a row's body, `Space`, its picture or ⋯ › Choose printing…): `Enter` presses the focused control (from the window, Add to deck or Apply printing); `⇧Enter` adds to the other zone from any stop (the kit never takes `⇧Enter` for the focused control); `←` `→` the previous or next card of the list it came from, or the printings while the strip has the focus (`Home` `End` `PageUp` `PageDown` there too); `+` `−` the main count, with `Shift` on the keypad the sideboard's; `F` turns a two-faced printing; `C` sets or clears the commander; `Esc` closes it, never the builder | `Enter`, `⇧Enter`, `←` `→`, `+` `−`, `F`, `C`, `Esc` | implemented |
 | Automation menu for selection | `M` | planned |
-| Tower equipment: open or close the item drawer. While open, Tab walks own equipment, opponent equipment, supplies and Close; arrows choose within each group. Enter opens an available item's normal ability chooser; Escape closes the drawer without answering the game underneath. | `⇧I` (rebindable), Tab, arrows, Enter, Escape | implemented |
+| Tower equipment: open or close the item drawer. While open, Tab walks own equipment, opponent equipment, supplies and Close; arrows choose within each group. Enter opens an available item's normal ability chooser (or, if an ability is already armed, closes the drawer and activates the armed ability); Escape closes the drawer without answering the game underneath. | `⇧I` (rebindable), Tab, arrows, Enter, Escape | implemented |
 | Tower shop/overview/rankings: Tab walks the page's controls; arrows select within offer, item and leaderboard groups. Enter/Space activates the focused control. Confirmations begin on Cancel and contain Tab; Escape dismisses the confirmation first. | Tab, Shift+Tab, arrows, Enter, Space, Escape | implemented |
 | Tower item overlay (any run item's detail, hovered or focused, in the shop, the bag or at the table): hold `Shift` to compare a relic's four levels, what each changes and adds; release to return. Not a keymap action (a bare modifier, like the preview's turn); walking back with `Shift+Tab` shows each focused relic's ladder while Shift stays down. | `Shift` (held) | implemented |
 
@@ -512,8 +512,10 @@ its own resolve to nothing at a live table, and are removed in
 | Stop waiting for a tape | `Esc` | while it is being made |
 | Leave | the game menu's *Leave replay* | `Esc` keeps its live rungs and never leaves |
 
-The hub's Replays tab is `4` (`ShellAction::GoReplays`, desktop only); `/`
-focuses its search.
+The hub's Replays tab is `3` (`ShellAction::GoReplays`, desktop only); `/`
+focuses its search. Settings is `Ctrl+,` (`Cmd+,` on macOS, `ShellAction::OpenSettings`).
+On Ranked play and Tower Echoes, `Esc` dismisses any open inner drawer/popover
+first and then returns to the previous screen, matching their Back buttons.
 
 ## Rules
 

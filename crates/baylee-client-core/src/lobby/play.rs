@@ -281,26 +281,43 @@ impl TableFilter {
 /// table has to a format: the game's own is decided at the start.
 #[must_use]
 pub fn host_format(game: &GameSummary) -> Option<&str> {
-    game.seats
-        .iter()
-        .find(|s| s.host)
-        .map(|s| s.format.as_str())
-        .filter(|f| !f.is_empty())
+    let host = game.seats.iter().find(|s| s.host)?;
+    let format = host.format.as_str();
+    if format.is_empty() {
+        return None;
+    }
+    // The gateway fills a deckless chair's format with "commander" whatever
+    // the room's starting rules are; a non-40-life room whose host has not
+    // chosen a deck yet is not a Commander table.
+    if host.deck.is_empty() && format == "commander" && game.setup.starting_life != 40 {
+        return None;
+    }
+    Some(format)
 }
 
 /// The table format's word: [`MIXED`] for a mixed table, else
-/// [`host_format`]. What the list, the room's title and its rules rail say.
+/// [`host_format`], or [`DUEL`] for a twenty-life two-seat table before the
+/// host chooses a deck. What the list, the room's title and its rules rail say.
 #[must_use]
 pub fn table_format(game: &GameSummary) -> Option<&str> {
     match game.setup.format {
         TableFormat::Mixed => Some(MIXED),
-        TableFormat::Host => host_format(game),
+        TableFormat::Host => host_format(game).or_else(|| {
+            let lands = !game.setup.seats.is_empty()
+                && game.setup.seats.iter().all(|s| s.permanents.len() == 5);
+            (game.setup.starting_life == 20 && game.seats.len() == 2 && !lands).then_some(DUEL)
+        }),
     }
 }
 
 /// The word [`table_format`] says for a mixed table, which
 /// [`super::shelf::format_label`] names in the player's language.
 pub const MIXED: &str = "mixed";
+
+/// The word [`table_format`] says for a twenty-life two-seat table before
+/// the host chooses a deck, which [`super::shelf::format_label`] names in the
+/// player's language.
+pub const DUEL: &str = "duel";
 
 /// Whether a deck of format `deck` fits a table of format `table`: a mixed
 /// table takes every deck, any other the decks of its own format (the room's
@@ -376,7 +393,7 @@ pub fn matches_search(game: &GameSummary, query: &str) -> bool {
                     .as_deref()
                     .is_some_and(|p| super::shelf::fold(p).contains(word))
                     || super::shelf::fold(&s.deck).contains(word)
-                    || super::shelf::fold(&s.format).contains(word)
+                    || (!s.deck.is_empty() && super::shelf::fold(&s.format).contains(word))
             })
     })
 }
@@ -387,7 +404,7 @@ pub fn matches_search(game: &GameSummary, query: &str) -> bool {
 #[must_use]
 pub fn format_warning(lang: Lang, mine: &str, game: &GameSummary) -> Option<String> {
     let theirs = table_format(game)?;
-    if mine.is_empty() || fits(theirs, mine) || game.seated() {
+    if mine.is_empty() || theirs == DUEL || fits(theirs, mine) || game.seated() {
         return None;
     }
     Some(Phrase::PlayFormatWarning.fill(
@@ -1094,5 +1111,53 @@ mod tests {
         }
         assert_eq!(lobby.recent().len(), RECENT_KEPT);
         assert_eq!(lobby.recent()[0].game_id, "6");
+    }
+
+    #[test]
+    fn a_duel_20_table_before_a_host_deck_is_labelled_duel_not_commander() {
+        let mut draft = TableDraft::default();
+        draft.pick(Template::Duel);
+        let mut duel = table(
+            "duel20",
+            &[
+                (SeatKind::Human, true, true, "commander"),
+                (SeatKind::Human, false, false, ""),
+            ],
+            false,
+        );
+        duel.setup = draft.setup();
+        assert_eq!(host_format(&duel), None);
+        assert_eq!(table_format(&duel), Some(DUEL));
+        assert_eq!(super::super::shelf::format_label(Lang::En, DUEL), "Duel");
+        assert_eq!(super::super::shelf::format_label(Lang::De, DUEL), "Duell");
+        assert_eq!(format_warning(Lang::En, "standard", &duel), None);
+        assert!(!matches_search(&duel, "commander"));
+        assert!(matches_search(&duel, "duel"));
+
+        let mut commander_chip = TableFilter::default();
+        commander_chip.toggle(Chip::Commander);
+        assert!(!commander_chip.admits(&duel));
+        let mut duel_chip = TableFilter::default();
+        duel_chip.toggle(Chip::Duel);
+        assert!(duel_chip.admits(&duel));
+
+        // Once the host picks a real deck, its format names the table.
+        duel.seats[0].deck = "Burn".into();
+        duel.seats[0].format = "standard".into();
+        assert_eq!(table_format(&duel), Some("standard"));
+        assert!(format_warning(Lang::En, "commander", &duel).is_some());
+
+        // A five-land 20-life table without a host deck is not Commander either.
+        draft.pick(Template::FiveLand);
+        let mut lands = table(
+            "lands",
+            &[
+                (SeatKind::Human, true, true, "commander"),
+                (SeatKind::Human, false, false, ""),
+            ],
+            false,
+        );
+        lands.setup = draft.setup();
+        assert_eq!(table_format(&lands), None);
     }
 }

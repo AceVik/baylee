@@ -7021,6 +7021,9 @@ ShellAddAndUse = Add and use
 # The gold primary while the player holds a seat.
 ShellReturnToGame = Return to game
 
+# The gold primary while the player holds a chair at a waiting table.
+ShellReturnToTable = Return to table
+
 # Why a control is off while there is no gateway.
 ShellNeedsGateway = Needs the gateway
 
@@ -10857,9 +10860,17 @@ RunicEventEcho = Whenever you discard a card
 RunicEventWraith = Whenever a creature an opponent controls dies
 RunicEventStar = Whenever you cast or copy an instant or sorcery spell
 # Arguments: event, count
-RunicCharge = { $event }, put { $count } charge counters on this item.
+RunicCharge =
+    { $count ->
+        [one] { $event }, put { $count } charge counter on this item.
+       *[other] { $event }, put { $count } charge counters on this item.
+    }
 # Arguments: mana, charges, reward
-RunicActivate = { $mana }Remove { $charges } charge counters from this item: { $reward }. Activate from the command zone.
+RunicActivate =
+    { $charges ->
+        [one] { $mana }Remove { $charges } charge counter from this item: { $reward }. Activate from the command zone.
+       *[other] { $mana }Remove { $charges } charge counters from this item: { $reward }. Activate from the command zone.
+    }
 RunicOnce = Activate only once each turn.
 # Arguments: count
 RunicLimit = Activate only { $count } times each turn.
@@ -10872,10 +10883,18 @@ RunicRewardDrain = Each opponent loses { $count } life
 # Arguments: count
 RunicRewardScry = Scry { $count }
 # Arguments: count
-RunicRewardPlant = Create { $count } 1/1 green Plant creature tokens
+RunicRewardPlant =
+    { $count ->
+        [one] Create { $count } 1/1 green Plant creature token
+       *[other] Create { $count } 1/1 green Plant creature tokens
+    }
 RunicRewardDraw = Draw a card
 # Arguments: count
-RunicRewardSoldier = Create { $count } 1/1 white Soldier creature tokens
+RunicRewardSoldier =
+    { $count ->
+        [one] Create { $count } 1/1 white Soldier creature token
+       *[other] Create { $count } 1/1 white Soldier creature tokens
+    }
 RunicRewardMana = Add one mana of any color
 # Arguments: count
 RunicRewardGuard = Creatures you control get +0/+{ $count } until end of turn

@@ -2357,6 +2357,7 @@ ShellUseForNextGame = Fürs nächste Spiel
 ShellEdit = Bearbeiten
 ShellAddAndUse = Hinzufügen & nutzen
 ShellReturnToGame = Zurück zum Spiel
+ShellReturnToTable = Zurück zum Tisch
 ShellNeedsGateway = Braucht das Gateway
 ShellSeatedAt = Du sitzt an { $table }
 ShellCouldNotReach = { $gateway } ist nicht erreichbar
@@ -4111,25 +4112,49 @@ RunicEventEcho = Immer wenn du eine Karte abwirfst
 RunicEventWraith = Immer wenn eine Kreatur unter gegnerischer Kontrolle stirbt
 RunicEventStar = Immer wenn du einen Spontanzauber oder eine Hexerei wirkst oder kopierst
 # Arguments: event, count
-RunicCharge = { $event }, lege { $count } Ladungsmarken auf diesen Gegenstand.
+RunicCharge =
+    { $count ->
+        [one] { $event }, lege { $count } Ladungsmarke auf diesen Gegenstand.
+       *[other] { $event }, lege { $count } Ladungsmarken auf diesen Gegenstand.
+    }
 # Arguments: mana, charges, reward
-RunicActivate = { $mana }Entferne { $charges } Ladungsmarken von diesem Gegenstand: { $reward }. Aktiviere dies aus der Kommandozone.
+RunicActivate =
+    { $charges ->
+        [one] { $mana }Entferne { $charges } Ladungsmarke von diesem Gegenstand: { $reward }. Aktiviere dies aus der Kommandozone.
+       *[other] { $mana }Entferne { $charges } Ladungsmarken von diesem Gegenstand: { $reward }. Aktiviere dies aus der Kommandozone.
+    }
 RunicOnce = Aktiviere dies nur einmal pro Zug.
 # Arguments: count
 RunicLimit = Aktiviere dies nur { $count } Mal pro Zug.
 # Arguments: reward
 RunicLegend = Zu Beginn deines Versorgungssegments: { $reward }.
 # Arguments: count
-RunicRewardLife = Du erhältst { $count } Lebenspunkte dazu
+RunicRewardLife =
+    { $count ->
+        [one] Du erhältst { $count } Lebenspunkt dazu
+       *[other] Du erhältst { $count } Lebenspunkte dazu
+    }
 # Arguments: count
-RunicRewardDrain = Jeder Gegner verliert { $count } Lebenspunkte
+RunicRewardDrain =
+    { $count ->
+        [one] Jeder Gegner verliert { $count } Lebenspunkt
+       *[other] Jeder Gegner verliert { $count } Lebenspunkte
+    }
 # Arguments: count
 RunicRewardScry = Hellsicht { $count }
 # Arguments: count
-RunicRewardPlant = Erzeuge { $count } grüne 1/1 Pflanzen-Kreaturenspielsteine
+RunicRewardPlant =
+    { $count ->
+        [one] Erzeuge { $count } grünen 1/1 Pflanzen-Kreaturenspielstein
+       *[other] Erzeuge { $count } grüne 1/1 Pflanzen-Kreaturenspielsteine
+    }
 RunicRewardDraw = Ziehe eine Karte
 # Arguments: count
-RunicRewardSoldier = Erzeuge { $count } weiße 1/1 Soldaten-Kreaturenspielsteine
+RunicRewardSoldier =
+    { $count ->
+        [one] Erzeuge { $count } weißen 1/1 Soldaten-Kreaturenspielstein
+       *[other] Erzeuge { $count } weiße 1/1 Soldaten-Kreaturenspielsteine
+    }
 RunicRewardMana = Erzeuge ein Mana einer beliebigen Farbe
 # Arguments: count
 RunicRewardGuard = Kreaturen unter deiner Kontrolle erhalten +0/+{ $count } bis zum Ende des Zuges

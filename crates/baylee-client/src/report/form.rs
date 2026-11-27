@@ -461,7 +461,7 @@ fn scrim(commands: &mut Commands, kit: Kit, surface: Entity) -> Entity {
             bottom: px_fixed(22.0),
         }
     } else {
-        UiRect::all(px_fixed(kit.m.pad))
+        surfaces::modal_insets(kit)
     };
     let shade = commands
         .spawn((

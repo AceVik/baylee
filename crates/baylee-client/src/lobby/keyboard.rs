@@ -161,8 +161,13 @@ pub(super) fn keyboard(
             state.echoes.starter_preview = None;
         } else if state.echoes.preview.is_some() {
             state.echoes.preview = None;
+        } else if state.echoes.spare_cards_open {
+            state.echoes.spare_cards_open = false;
         } else {
             state.echoes.close();
+            state.hub = Hub::Play;
+            scrolled.set(List::Table, 0.0);
+            scrolled.set(List::EchoesInspector, 0.0);
         }
         return;
     }
@@ -180,9 +185,10 @@ pub(super) fn keyboard(
     }
     // A header popover is a menu: Esc closes it, and nothing under it
     // takes the key (`KEYBOARD.md` §2.5).
-    if state.header_menu.is_some() && codes.just_pressed(KeyCode::Escape) {
+    if (state.header_menu.is_some() || state.front_menu) && codes.just_pressed(KeyCode::Escape) {
         keys.clear();
         state.header_menu = None;
+        state.front_menu = false;
         return;
     }
     // A rebinding in progress takes every key, including the ones that mean
@@ -330,12 +336,7 @@ pub(super) fn keyboard(
         && matches!(state.lobby.screen(), Screen::Table | Screen::SignIn { .. })
     {
         keys.clear();
-        if codes.just_pressed(KeyCode::Escape)
-            && focus
-                .get()
-                .and_then(|e| stops.get(e).ok())
-                .is_some_and(|(_, s)| s.table == super::ranked::ORDER.name)
-        {
+        if codes.just_pressed(KeyCode::Escape) {
             super::ranked::escape(&mut state);
         }
         return;

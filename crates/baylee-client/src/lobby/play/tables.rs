@@ -686,7 +686,12 @@ fn table_row(
             commands,
             kit,
             None,
-            Phrase::ShellReturnToGame.text(lang),
+            if game.state == "playing" {
+                Phrase::ShellReturnToGame
+            } else {
+                Phrase::ShellReturnToTable
+            }
+            .text(lang),
             Weight::Gold,
             Live::Yes,
             Press::Play(PlayPress::Return),

@@ -241,6 +241,7 @@ fn activity_lane(
         .spawn((
             Node {
                 flex_direction: FlexDirection::Column,
+                height: if side { percent(100) } else { Val::Auto },
                 row_gap: px_fixed(kit.m.body),
                 overflow: Overflow::scroll_y(),
                 min_height: px(0),
@@ -280,11 +281,11 @@ fn activity_lane(
                 percent(100)
             };
             n.max_width = if wide { kit.m.px(560.0) } else { Val::Auto };
-            n.max_height = if phone || wide {
-                percent(100)
-            } else {
-                Val::Vh(42.0)
-            };
+            if side {
+                n.height = percent(100);
+                n.align_self = AlignSelf::Stretch;
+            }
+            n.max_height = if side { percent(100) } else { Val::Vh(42.0) };
             if fold_gap > 0.0 {
                 n.margin.right = px_fixed(-fold_gap);
             }

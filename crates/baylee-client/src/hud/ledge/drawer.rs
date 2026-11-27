@@ -215,6 +215,8 @@ pub struct DrawerRevision {
     fold_cap: Option<String>,
     /// What the name chooser draws beside its box, while a name is asked.
     naming: Option<Naming>,
+    /// Right-edge horizontal clearance while the Stack panel stands open.
+    stack_clear: i32,
 }
 
 /// The name chooser's search as the drawer draws it.
@@ -328,6 +330,10 @@ pub fn sync_drawer(
     if raw_syntax && next.naming.as_ref().is_none_or(|n| !n.syntax_open) {
         commands.insert_resource(DrawerSyntax { open: false });
     }
+    let window_space = crate::hud::scale::window_space(&windows, ui.as_deref())
+        .unwrap_or(Vec2::new(width_of(layout.window_w).max(1280.0), 720.0));
+    let stack_clear = crate::hud::stack::stack_clearance(&duel, window_space);
+    next.stack_clear = stack_clear.round() as i32;
     next.phone = windows.single().is_ok_and(|w| {
         baylee_client_core::tableview::TableFrame::of(
             crate::hud::scale::desktop_space(w, ui.as_deref()).x,
@@ -380,10 +386,19 @@ pub fn sync_drawer(
         let (padding, justify) = if folded {
             (UiRect::right(px(EDGE)), JustifyContent::FlexEnd)
         } else {
-            (
-                super::mid_padding(layout.mid_x, layout.window_w),
-                JustifyContent::Center,
-            )
+            let mut pad = super::mid_padding(layout.mid_x, layout.window_w);
+            if stack_clear > 0.0
+                && width_of(layout.window_w) > stack_clear + EDGE + 240.0
+                && layout.mid_x + MAX_W * 0.5 > width_of(layout.window_w) - stack_clear
+            {
+                pad = UiRect {
+                    left: px(EDGE),
+                    right: px(stack_clear),
+                    top: Val::ZERO,
+                    bottom: Val::ZERO,
+                };
+            }
+            (pad, JustifyContent::Center)
         };
         if node.padding != padding || node.justify_content != justify {
             node.padding = padding;
@@ -1171,6 +1186,7 @@ fn reading(
         group,
         phone: false,
         naming,
+        stack_clear: 0,
     }
 }
 
@@ -2236,6 +2252,13 @@ fn damage_paging(duel: &Duel, lang: Lang, rows: &mut Vec<crate::choices::ChoiceO
 /// so every line past the first hung out of its bottom, over the shelf's
 /// answers ("Declare attack", "No"), which the last row hid (played
 /// 30.10.2026: six attackers and one defender).
+/// A window width in logical pixels as a float, for comparing with layout
+/// sizes (a window is never wider than `f32` counts exactly).
+#[allow(clippy::cast_precision_loss)]
+fn width_of(window_w: i32) -> f32 {
+    window_w as f32
+}
+
 #[cfg(test)]
 #[test]
 fn a_chooser_that_wraps_stays_inside_its_panel() {

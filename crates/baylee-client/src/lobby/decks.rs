@@ -2895,6 +2895,7 @@ pub(in crate::lobby) fn spawn_preview_section_container(
             .spawn((
                 Node {
                     width: percent(100),
+                    flex_shrink: 0.0,
                     flex_direction: FlexDirection::Row,
                     flex_wrap: FlexWrap::Wrap,
                     column_gap: kit.m.px(8.0),
@@ -2909,6 +2910,7 @@ pub(in crate::lobby) fn spawn_preview_section_container(
                 Node {
                     display: Display::Grid,
                     width: percent(100),
+                    flex_shrink: 0.0,
                     grid_template_columns: vec![RepeatedGridTrack::flex(2, 1.0)],
                     column_gap: kit.m.px(8.0),
                     row_gap: kit.m.px(5.0),
@@ -2921,6 +2923,7 @@ pub(in crate::lobby) fn spawn_preview_section_container(
             .spawn((
                 Node {
                     width: percent(100),
+                    flex_shrink: 0.0,
                     flex_direction: FlexDirection::Column,
                     row_gap: kit.m.px(5.0),
                     ..default()

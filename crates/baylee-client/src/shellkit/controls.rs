@@ -2758,4 +2758,188 @@ mod tests {
             "tooltip owned inside the modal sheet remains active"
         );
     }
+
+    #[test]
+    fn modal_sheets_and_scrims_share_header_clearing_insets_on_desktop_and_fill_phone() {
+        use super::super::size::{InputClass, Platform, TextSize, Viewport};
+        let (mut app, fonts) = crate::shellkit::header::tests::layout_app();
+        let desktop = Kit {
+            fonts: &fonts,
+            m: ShellMetrics::of(Viewport::desktop(1280.0, 720.0), TextSize::M),
+            german: false,
+        };
+        let phone = Kit {
+            fonts: &fonts,
+            m: ShellMetrics::of(
+                Viewport {
+                    width: 844.0,
+                    height: 390.0,
+                    platform: Platform::Desktop,
+                    input: InputClass::Touch,
+                },
+                TextSize::M,
+            ),
+            german: false,
+        };
+        let (desktop_sheet_scrim, desktop_dialog_scrim, phone_sheet_scrim) = {
+            let mut commands = app.world_mut().commands();
+            let sheet_box = super::super::surfaces::sheet_box(
+                &mut commands,
+                desktop,
+                super::super::surfaces::SheetWidth::Medium,
+                "Modal",
+                &[],
+                &[],
+            );
+            let desktop_sheet_scrim = super::super::surfaces::sheet(&mut commands, sheet_box);
+            let dialog = super::super::surfaces::dialog(
+                &mut commands,
+                desktop,
+                desktop.m.px(600.0),
+                tokens::BORDER,
+                (),
+            );
+            let desktop_dialog_scrim =
+                super::super::surfaces::scrim(&mut commands, desktop, tokens::z::SHEET, (), dialog);
+            let phone_box = super::super::surfaces::sheet_box(
+                &mut commands,
+                phone,
+                super::super::surfaces::SheetWidth::Medium,
+                "Phone",
+                &[],
+                &[],
+            );
+            let phone_sheet_scrim = super::super::surfaces::sheet(&mut commands, phone_box);
+            (desktop_sheet_scrim, desktop_dialog_scrim, phone_sheet_scrim)
+        };
+        app.update();
+
+        let expected = super::super::surfaces::modal_insets(desktop);
+        assert_eq!(
+            app.world()
+                .get::<Node>(desktop_sheet_scrim)
+                .unwrap()
+                .padding,
+            expected,
+            "surfaces::sheet adopts the shared desktop modal insets"
+        );
+        assert_eq!(
+            app.world()
+                .get::<Node>(desktop_dialog_scrim)
+                .unwrap()
+                .padding,
+            expected,
+            "surfaces::scrim uses the same shared desktop modal insets"
+        );
+        assert_eq!(
+            expected.top,
+            px_fixed(desktop.m.header + desktop.m.gap),
+            "desktop top inset clears the shell header"
+        );
+        assert_eq!(
+            app.world().get::<Node>(phone_sheet_scrim).unwrap().padding,
+            UiRect::ZERO,
+            "phone sheets keep zero outer margin and fill the viewport"
+        );
+    }
+
+    #[test]
+    fn fitting_sheet_box_hides_scrollbar_for_grid_body() {
+        use super::super::size::{TextSize, Viewport};
+        use super::super::surfaces::{self, SheetScroller, SheetWidth};
+        use bevy::ui_widgets::Scrollbar;
+
+        let (mut app, fonts) = crate::face::tests::layout_app();
+        app.add_systems(Update, crate::lobby::scrollbars::show_when_needed);
+        let kit = Kit {
+            fonts: &fonts,
+            m: ShellMetrics::of(Viewport::desktop(1728.0, 1052.0), TextSize::M),
+            german: false,
+        };
+        {
+            let mut commands = app.world_mut().commands();
+            let root = commands
+                .spawn(Node {
+                    width: px_fixed(1728.0),
+                    height: px_fixed(1052.0),
+                    ..default()
+                })
+                .id();
+            let grid = commands
+                .spawn((
+                    Node {
+                        display: Display::Grid,
+                        width: Val::Percent(100.0),
+                        flex_shrink: 0.0,
+                        grid_template_columns: vec![RepeatedGridTrack::flex(2, 1.0)],
+                        column_gap: kit.m.px(8.0),
+                        row_gap: kit.m.px(5.0),
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                ))
+                .id();
+            for i in 0..24 {
+                let row = commands
+                    .spawn(Node {
+                        width: Val::Percent(100.0),
+                        min_height: kit.m.px(28.0),
+                        padding: UiRect::axes(kit.m.px(10.0), kit.m.px(3.0)),
+                        ..default()
+                    })
+                    .with_child((
+                        Text::new(format!("Card {i}")),
+                        crate::hud::tf(kit.fonts, kit.m.small),
+                    ))
+                    .id();
+                commands.entity(grid).add_child(row);
+            }
+            let close = button_compact(
+                &mut commands,
+                kit,
+                None,
+                "Close",
+                Weight::Secondary,
+                Live::Yes,
+                (),
+            );
+            let surface = surfaces::sheet_box_listed(
+                &mut commands,
+                kit,
+                SheetWidth::Large,
+                "Starter deck",
+                &[grid],
+                &[close],
+                (),
+            );
+            let scrim = surfaces::sheet(&mut commands, surface);
+            commands.entity(root).add_child(scrim);
+        }
+        app.world_mut().flush();
+        for _ in 0..5 {
+            app.update();
+        }
+        let world = app.world_mut();
+        let (scroller, computed) = world
+            .query_filtered::<(Entity, &ComputedNode), With<SheetScroller>>()
+            .single(world)
+            .expect("sheet scroller");
+        assert!(
+            computed.content_size.y <= computed.size.y + 0.5,
+            "fitting grid sheet must not overhang ({:.1} > {:.1})",
+            computed.content_size.y,
+            computed.size.y
+        );
+        let bar_display = world
+            .query_filtered::<(&Scrollbar, &Node), With<crate::lobby::scrollbars::OnlyWhenNeeded>>()
+            .iter(world)
+            .find(|(bar, _)| bar.target == scroller)
+            .map(|(_, node)| node.display)
+            .expect("sheet scrollbar");
+        assert_eq!(
+            bar_display,
+            Display::None,
+            "fitting sheet_box_listed must keep its OnlyWhenNeeded scrollbar hidden"
+        );
+    }
 }

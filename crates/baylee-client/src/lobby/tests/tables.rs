@@ -195,6 +195,70 @@ fn return_to_game_is_compact_in_both_languages_and_desktop_sizes() {
     }
 }
 
+#[test]
+fn waiting_table_says_return_to_table_while_playing_table_says_return_to_game() {
+    for (lang, expected_waiting, expected_playing) in [
+        (
+            Lang::En,
+            Phrase::ShellReturnToTable.text(Lang::En),
+            Phrase::ShellReturnToGame.text(Lang::En),
+        ),
+        (
+            Lang::De,
+            Phrase::ShellReturnToTable.text(Lang::De),
+            Phrase::ShellReturnToGame.text(Lang::De),
+        ),
+    ] {
+        for (state_name, expected, forbidden) in [
+            ("waiting", expected_waiting, expected_playing),
+            ("playing", expected_playing, expected_waiting),
+        ] {
+            let mut app = headless();
+            {
+                let mut state = app.world_mut().resource_mut::<LobbyState>();
+                state.lobby.set_lang(lang);
+                state.lobby.apply(LobbyEvent::LoggedIn {
+                    token: "tok".into(),
+                    username: None,
+                });
+                state
+                    .lobby
+                    .apply(LobbyEvent::Games(GameListing::of(vec![GameSummary {
+                        id: "table-1".into(),
+                        name: "Test table".into(),
+                        state: state_name.into(),
+                        yours: true,
+                        seats: vec![
+                            GameSeat {
+                                seat: 0,
+                                taken: true,
+                                you: true,
+                                ready: true,
+                                ..GameSeat::default()
+                            },
+                            GameSeat {
+                                seat: 1,
+                                taken: false,
+                                ..GameSeat::default()
+                            },
+                        ],
+                        ..GameSummary::default()
+                    }])));
+            }
+            settle(&mut app);
+            let words = labels(&mut app);
+            assert!(
+                words.iter().any(|w| w == expected),
+                "{lang:?} {state_name}: expected '{expected}' in {words:?}"
+            );
+            assert!(
+                !words.iter().any(|w| w == forbidden),
+                "{lang:?} {state_name}: unexpected '{forbidden}' in {words:?}"
+            );
+        }
+    }
+}
+
 /// Offline play, pressed all the way through to a table.
 ///
 /// Every decision in this sequence has a test of its own — the lobby's

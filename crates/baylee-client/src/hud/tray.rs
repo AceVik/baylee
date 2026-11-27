@@ -618,6 +618,8 @@ pub struct TrayRevision {
     window: (i32, i32),
     /// Whether the search field's `?` syntax sheet stands open.
     syntax: bool,
+    /// Whether the Stack panel stands on the right edge (shifts sheet left of it).
+    stack_open: bool,
     /// Set by whatever has just finished changing the sheet's **size**.
     ///
     /// The rectangle is deliberately not one of the fields above: a drag
@@ -701,6 +703,7 @@ pub fn sync_tray(
     };
     let raw_syntax = syntax.is_some_and(|s| s.open);
     let syntax_open = raw_syntax && browser.sheet.open() && duel.browser.builder().is_none();
+    let stack_open = duel.board.as_ref().is_some_and(|b| !b.stack.is_empty());
     if raw_syntax && !syntax_open {
         commands.insert_resource(TraySyntax { open: false });
     }
@@ -758,6 +761,7 @@ pub fn sync_tray(
         && revision.lists == lists_lent(&duel)
         && revision.window == canvas
         && revision.syntax == syntax_open
+        && revision.stack_open == stack_open
         && showing == browser.sheet.open()
         && !revision.stale
     {
@@ -790,6 +794,7 @@ pub fn sync_tray(
     revision.lists = lists_lent(&duel);
     revision.window = canvas;
     revision.syntax = syntax_open;
+    revision.stack_open = stack_open;
 
     // Sent away rather than despawned, which is `sync_drawer`'s word for the
     // same handover: [`reveal_tray`] flies the sheet into the tray and takes
@@ -851,7 +856,18 @@ pub fn sync_tray(
     // play on. A sheet a *question* opened reads no store at all and is
     // centred — `Browser::placement` carries the measurement that says why a
     // clamp was not enough.
-    let band = band_of(&windows, ui.as_deref());
+    let full_band = band_of(&windows, ui.as_deref());
+    let window =
+        super::scale::window_space(&windows, ui.as_deref()).unwrap_or(Vec2::new(1280.0, 720.0));
+    let stack_clear = super::stack::stack_clearance(&duel, window);
+    // While the Stack panel stands on the right edge, place the zone browser /
+    // Library Search / Trigger Order dialog inside the room left of it so it
+    // never overlaps the Stack panel or the Game menu below it.
+    let band = if stack_clear > 0.0 && full_band.0 - stack_clear >= Placement::MIN_W {
+        (full_band.0 - stack_clear, full_band.1)
+    } else {
+        full_band
+    };
     let place = if duel
         .browser
         .compact_targets(view, duel.interaction.as_ref())
