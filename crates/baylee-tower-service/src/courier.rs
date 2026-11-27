@@ -47,9 +47,9 @@ pub struct DeliverySummary {
 }
 
 /// When the first daily leaderboard name check runs after the courier starts.
-const LISTING_START: Duration = Duration::from_secs(600);
+const LISTING_START: Duration = Duration::from_mins(10);
 /// How often every listed account is checked against Central.
-const LISTING_PERIOD: Duration = Duration::from_secs(24 * 3600);
+const LISTING_PERIOD: Duration = Duration::from_hours(24);
 
 impl Courier {
     /// Configure only operator-owned credentials and the fixed Central endpoint.
@@ -185,11 +185,11 @@ impl Courier {
                 match self.check_listings(&mut stop).await {
                     Err(Error::Cancelled) => return summary,
                     Ok(withdrawn) => {
-                        summary.withdrawn = summary.withdrawn.saturating_add(withdrawn)
+                        summary.withdrawn = summary.withdrawn.saturating_add(withdrawn);
                     }
                     // A failed check is repeated tomorrow; delivery goes on.
                     Err(_) => {
-                        eprintln!("Tower leaderboard name check unavailable; retrying tomorrow")
+                        eprintln!("Tower leaderboard name check unavailable; retrying tomorrow");
                     }
                 }
                 listings = tokio::time::Instant::now() + LISTING_PERIOD;
