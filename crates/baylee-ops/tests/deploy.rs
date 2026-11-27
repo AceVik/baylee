@@ -293,16 +293,7 @@ fn stage_run(
     );
     stub(&stubs, "cargo", profile_stubs::CARGO);
     profile_stubs::install(&stubs, stub);
-    stub(
-        &stubs,
-        "npm",
-        match npm {
-            Npm::Fails => r#"[ "$1" = run ] && exit 1; exit 0"#,
-            _ => {
-                r#"[ "$1 $2" = "run build" ] && mkdir -p dist && echo page > dist/index.html; exit 0"#
-            }
-        },
-    );
+    npm_stub(&stubs, npm);
     sudo_stub(&stubs, true);
     stub(&stubs, "logger", "exit 0");
     stub(&stubs, "flock", "exit 0");
@@ -1064,6 +1055,20 @@ fn tower_here(command: &mut std::process::Command, root: &Path, case: TowerCase)
             "starting"
         } else {
             "ready"
+        },
+    );
+}
+
+/// npm for the feedback web UI: it builds `dist/`, or its build fails.
+fn npm_stub(stubs: &Path, npm: Npm) {
+    stub(
+        stubs,
+        "npm",
+        match npm {
+            Npm::Fails => r#"[ "$1" = run ] && exit 1; exit 0"#,
+            _ => {
+                r#"[ "$1 $2" = "run build" ] && mkdir -p dist && echo page > dist/index.html; exit 0"#
+            }
         },
     );
 }
