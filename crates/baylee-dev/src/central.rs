@@ -127,7 +127,7 @@ fn with_postgres(
     match (result, cleanup) {
         (Ok(()), Ok(())) => {
             println!(
-                "PostgreSQL fixture passed and its owned container and listener were removed."
+                "PostgreSQL fixture passed, and the PostgreSQL it owned and its listener are gone."
             );
             Ok(0)
         }
