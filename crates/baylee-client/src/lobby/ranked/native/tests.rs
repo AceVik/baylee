@@ -489,3 +489,133 @@ fn a_match_that_comes_first_is_played_only_if_the_new_choice_takes_it() {
         }
     }
 }
+
+#[test]
+fn desk_follows_the_pages_format_once_a_search_ends_or_is_left() {
+    use crate::lobby::{
+        LobbyEvent, Press,
+        ranked::Action,
+        tests::{headless, press, settle, stocked},
+    };
+    use baylee_account::ranked::{DeckResult, League, Outcome, Rank};
+    use baylee_client_core::lobby::DeckSummary;
+
+    let mut app = headless();
+    stocked(&mut app);
+    let standard = Uuid::now_v7();
+    let commander = Uuid::now_v7();
+    let highlander = Uuid::now_v7();
+    let (handle, _jobs) = central::Handle::queued_for_test();
+    let key = *Uuid::now_v7().as_bytes();
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        central::enable(&mut state);
+        state.gateway_selected = true;
+        state.central.as_mut().unwrap().handle = Some(handle.clone());
+        let decks = [
+            (standard, "Morgenrot", Format::Standard),
+            (commander, "Solstice", Format::Commander),
+            (highlander, "Sternenmeer", Format::Highlander),
+        ]
+        .into_iter()
+        .map(|(id, name, format)| DeckSummary {
+            id: id.to_string(),
+            name: name.into(),
+            format: format.as_str().into(),
+            ..Default::default()
+        })
+        .collect();
+        state.lobby.apply(LobbyEvent::Decks(decks));
+        state.ranked_net.session(Some(handle));
+        state.ranked_net.inbox = Some(Arc::default());
+        state.ranked_net.observe(waiting(key, 10, None));
+    }
+    settle(&mut app);
+    press(&mut app, Press::Ranked(Action::Open));
+    settle(&mut app);
+    press(&mut app, Press::Ranked(Action::Format(Format::Commander)));
+    settle(&mut app);
+    {
+        let state = app.world().resource::<LobbyState>();
+        assert_eq!(
+            super::super::queue::effective_format(state),
+            Format::Standard,
+            "the active search keeps its own format while waiting"
+        );
+    }
+    // Leaving the queue unlocks the desk so it follows the page's Commander format.
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        let inbox: Inbox = Arc::default();
+        *inbox.lock().unwrap() = Some(Reply::Queue(Request::Cancel { key }, Ok(QueueState::Idle)));
+        state.ranked_net.inbox = Some(inbox);
+    }
+    settle(&mut app);
+    {
+        let state = app.world().resource::<LobbyState>();
+        assert_eq!(
+            super::super::queue::effective_format(state),
+            Format::Commander
+        );
+        assert_eq!(
+            super::super::queue::selected(state).map(|(id, _)| id),
+            Some(commander)
+        );
+    }
+    // Same when a search finishes in Commander after the page moved to Highlander.
+    let key2 = *Uuid::now_v7().as_bytes();
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.ranked_net.observe(QueueState::Waiting {
+            key: key2,
+            format: Format::Commander,
+            queued_at: 20,
+            ai_fill_in_at: None,
+        });
+    }
+    settle(&mut app);
+    press(&mut app, Press::Ranked(Action::Format(Format::Highlander)));
+    settle(&mut app);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        let rank = Rank {
+            league: League::Gold,
+            division: Some(2),
+            champion_place: None,
+        };
+        let inbox: Inbox = Arc::default();
+        *inbox.lock().unwrap() = Some(Reply::Queue(
+            Request::Status,
+            Ok(QueueState::Finished {
+                key: key2,
+                match_id: *Uuid::now_v7().as_bytes(),
+                format: Format::Commander,
+                outcome: Outcome::FirstWins,
+                seat: 0,
+                elo: 1800,
+                delta: 12,
+                before: rank,
+                after: rank,
+                deck: DeckResult {
+                    before: rank,
+                    after: rank,
+                    elo: 1800,
+                    delta: 10,
+                    placement_games: 10,
+                },
+                opponent_ai: None,
+            }),
+        ));
+        state.ranked_net.inbox = Some(inbox);
+    }
+    settle(&mut app);
+    let state = app.world().resource::<LobbyState>();
+    assert_eq!(
+        super::super::queue::effective_format(state),
+        Format::Highlander
+    );
+    assert_eq!(
+        super::super::queue::selected(state).map(|(id, _)| id),
+        Some(highlander)
+    );
+}
