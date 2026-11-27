@@ -213,6 +213,22 @@ pub(crate) trait Dialect: Send + Sync {
     /// cleanly, says the tool is signed in: what it wrote to stdout, and to
     /// stderr.
     fn probe_ok(&self, stdout: &[u8], stderr: &[u8]) -> bool;
+
+    /// How long the login check may take, where longer than the ten seconds
+    /// every other tool's gets.
+    fn probe_wait(&self) -> Option<Duration> {
+        None
+    }
+
+    /// Whether a login check that did not say yes ([`Self::probe_ok`]) says
+    /// the tool is signed out. A tool whose check is a login command of
+    /// its own says so by not saying yes; one whose check asks the account
+    /// over the network (agy's `/quota`) may fail for other reasons, and
+    /// only an answer that names the login is a sign-out. Any other answer
+    /// is unknown: the check is asked again later, nothing is signed out.
+    fn probe_signed_out(&self, _stdout: &[u8], _stderr: &[u8]) -> bool {
+        true
+    }
 }
 
 /// What one process's conversation keeps between the lines it reads and

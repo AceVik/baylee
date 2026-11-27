@@ -50,6 +50,9 @@ pub struct Limits {
     /// The first cooldown after a rate limit that names no time, doubling
     /// with each to fifteen minutes [60 s].
     pub cooldown: Duration,
+    /// How long the account check may take, where not the tool's own
+    /// ([`super::dialect::Dialect::probe_wait`], else ten seconds) [none].
+    pub probe: Option<Duration>,
 }
 
 impl Default for Limits {
@@ -59,6 +62,7 @@ impl Default for Limits {
             max_sessions: 2,
             grace: Duration::from_secs(2),
             cooldown: Duration::from_secs(60),
+            probe: None,
         }
     }
 }
