@@ -271,6 +271,7 @@ async fn stand_in_engine(start: v1::StartEngine) {
                 protocol_version: baylee_protocol::PROTOCOL_VERSION,
                 pid: 0,
                 build: baylee_build::short().into(),
+                link: baylee_protocol::ENGINE_LINK,
             })),
         },
     )

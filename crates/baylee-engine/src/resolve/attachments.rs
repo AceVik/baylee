@@ -254,3 +254,512 @@ pub(super) fn attach_slot(
     attach_selected(state, &objects, host);
     None
 }
+
+/// Resolve an arbitrary [`TargetSpec`] to its live, unphased battlefield permanent(s).
+fn resolve_spec_attachments(
+    state: &GameState,
+    res: &Resolution,
+    spec: TargetSpec,
+) -> smallvec::SmallVec<[DamageSourceRef; 4]> {
+    let mut out = smallvec::SmallVec::new();
+    match spec {
+        TargetSpec::ThisObject => {
+            if let Some(r) =
+                subjects::source(state, res).filter(|r| subjects::on_battlefield(state, *r))
+            {
+                out.push(r);
+            }
+        }
+        TargetSpec::EventObject => {
+            if let Some(r) =
+                subjects::event(state, res).filter(|r| subjects::on_battlefield(state, *r))
+            {
+                out.push(r);
+            }
+        }
+        TargetSpec::Object(filter) => {
+            let you = res.controller;
+            if res.targeted {
+                for &id in &res.targets {
+                    if let Some(r) = subjects::target(state, res, id)
+                        .filter(|r| subjects::on_battlefield(state, *r))
+                        && state.object(id).is_some_and(|obj| {
+                            super::matches_in_resolution(filter, state, obj, you, res, Some(you))
+                        })
+                    {
+                        out.push(r);
+                    }
+                }
+            } else {
+                for id in state.battlefield_seen() {
+                    if let Some(obj) = state.object(id)
+                        && super::matches_in_resolution(filter, state, obj, you, res, Some(you))
+                    {
+                        out.push(DamageSourceRef {
+                            object: id,
+                            version: obj.version,
+                        });
+                    }
+                }
+            }
+        }
+        other => {
+            if let Some(id) = zones::spec_object(state, res, other)
+                && let Some(r) = subjects::target(state, res, id)
+                    .or_else(|| state.source_identity(id))
+                    .filter(|r| subjects::on_battlefield(state, *r))
+            {
+                out.push(r);
+            }
+        }
+    }
+    out
+}
+
+/// Execute [`Effect::Unattach`] (`CR 701.3d`): unattach each matching attachment
+/// from whatever permanent or player it is currently attached to.
+pub(super) fn unattach(state: &mut GameState, res: &Resolution, target: TargetSpec) {
+    let objects = resolve_spec_attachments(state, res, target);
+    let mut changed = false;
+    for reference in objects {
+        if let Some(obj) = state.object_mut(reference.object)
+            && obj.version == reference.version
+            && obj.zone == Zone::Battlefield
+            && obj.is_attached()
+        {
+            obj.attached_to = None;
+            obj.set_attached_player(None);
+            changed = true;
+        }
+    }
+    if changed {
+        state.invalidate_projections();
+    }
+}
+
+/// Execute [`Effect::AttachObject`]: attach `object` (source, event object,
+/// target(s), or filter-matched permanents) to `to`, optionally asking first.
+pub(super) fn attach_object(
+    state: &mut GameState,
+    res: &mut Resolution,
+    object: TargetSpec,
+    to: TargetSpec,
+    optional: bool,
+) -> Option<super::Pending> {
+    let host = super::wave15b::resolve_spec_host(state, res, to)?;
+    let objects: Vec<DamageSourceRef> = resolve_spec_attachments(state, res, object)
+        .into_iter()
+        .filter(|&att| can_attach_to_recipient(state, att, host))
+        .collect();
+    if objects.is_empty() {
+        return None;
+    }
+    if optional {
+        if state.has_left(res.controller) {
+            return None;
+        }
+        let source = super::resolving_ability(state, res);
+        res.awaiting = Some(super::AwaitingOp::AttachSlot { objects, host });
+        return Some(super::Pending::YesNo {
+            player: res.controller,
+            prompt: crate::choice::YesNoPrompt::MayDo,
+            source,
+        });
+    }
+    attach_selected(state, &objects, host);
+    None
+}
+
+/// Start [`Effect::MoveAllAttachments`] (Glamer Spinners): choose a permanent
+/// matching `recipient_filter` (with `reference` set to `from`) and move every
+/// matching attachment that can legally attach to it, leaving illegal ones behind.
+pub(super) fn move_all_attachments(
+    state: &mut GameState,
+    res: &mut Resolution,
+    attachments: &'static baylee_cards_dsl::Filter,
+    from: TargetSpec,
+    recipient_filter: &'static baylee_cards_dsl::Filter,
+    must_change_recipient: bool,
+    optional: bool,
+) -> Option<super::Pending> {
+    let you = res.controller;
+    if state.has_left(you) {
+        return None;
+    }
+    let from_ref = resolve_spec_attachments(state, res, from)
+        .into_iter()
+        .next()?;
+    let has_matching_attachment = state.battlefield_seen().any(|id| {
+        state.object(id).is_some_and(|o| {
+            o.attached_to == Some(from_ref.object)
+                && super::matches_in_resolution(attachments, state, o, you, res, Some(you))
+        })
+    });
+    if !has_matching_attachment {
+        return None;
+    }
+    let ctx = crate::text_changes::RuleContext {
+        reference: Some(from_ref.object),
+        ..res.rule_context()
+    };
+    let options: Vec<ObjectId> = state
+        .battlefield_seen()
+        .filter(|&id| {
+            if must_change_recipient && id == from_ref.object {
+                return false;
+            }
+            state.object(id).is_some_and(|host| {
+                crate::eval::matches_with_context(recipient_filter, state, host, you, ctx)
+            })
+        })
+        .collect();
+    if options.is_empty() {
+        return None;
+    }
+    res.awaiting = Some(super::AwaitingOp::MoveAllAttachments {
+        from: from_ref,
+        attachments,
+    });
+    Some(super::Pending::ChooseCards {
+        player: you,
+        options,
+        min: u8::from(!optional),
+        max: 1,
+        prompt: crate::choice::ChoicePrompt::Generic,
+        total: None,
+    })
+}
+
+/// Resume [`Effect::MoveAllAttachments`]: move every matching attachment from
+/// `from` that can legally attach to `chosen[0]`, leaving illegal ones behind.
+pub(super) fn resume_move_all_attachments(
+    state: &mut GameState,
+    res: &Resolution,
+    from: DamageSourceRef,
+    attachments: &'static baylee_cards_dsl::Filter,
+    chosen: &[ObjectId],
+) {
+    let Some(&new_host) = chosen.first() else {
+        return;
+    };
+    if !subjects::on_battlefield(state, from)
+        || new_host == from.object
+        || state
+            .object(new_host)
+            .is_none_or(|o| o.zone != Zone::Battlefield || o.status.contains(Status::PHASED_OUT))
+    {
+        return;
+    }
+    let you = res.controller;
+    // Evaluate attachment legality simultaneously against the unmutated board
+    // before moving any attachment (CR 701.3b, Glamer Spinners).
+    let legal: Vec<ObjectId> = state
+        .battlefield_seen()
+        .filter(|&id| {
+            state.object(id).is_some_and(|o| {
+                o.attached_to == Some(from.object)
+                    && super::matches_in_resolution(attachments, state, o, you, res, Some(you))
+            }) && can_attach_object(state, id, new_host)
+        })
+        .collect();
+    for att in legal {
+        state.attach(att, new_host);
+    }
+}
+
+/// Execute [`Effect::AttachLtbAttachments`] (Rhuk, Hexgold Nabber): attach every
+/// permanent matching `filter` that is (or last was, via `ltb_attachments`)
+/// attached to `of` onto `to`, optionally asking first.
+pub(super) fn attach_ltb_attachments(
+    state: &mut GameState,
+    res: &mut Resolution,
+    of: TargetSpec,
+    filter: &'static baylee_cards_dsl::Filter,
+    to: TargetSpec,
+    optional: bool,
+) -> Option<super::Pending> {
+    let host = super::wave15b::resolve_spec_host(state, res, to)?;
+    let of_id = match of {
+        TargetSpec::ThisObject => Some(res.source),
+        TargetSpec::EventObject => res.event_object,
+        other => zones::spec_object(state, res, other),
+    }?;
+    let of_still_on_battlefield = match of {
+        TargetSpec::ThisObject => {
+            subjects::source(state, res).is_some_and(|r| subjects::on_battlefield(state, r))
+        }
+        TargetSpec::EventObject => {
+            subjects::event(state, res).is_some_and(|r| subjects::on_battlefield(state, r))
+        }
+        TargetSpec::Object(_) if res.targeted => {
+            subjects::target(state, res, of_id).is_some_and(|r| subjects::on_battlefield(state, r))
+        }
+        _ => subjects::target(state, res, of_id)
+            .or_else(|| state.source_identity(of_id))
+            .is_some_and(|r| subjects::on_battlefield(state, r)),
+    };
+    let candidates: Vec<ObjectId> = if of_still_on_battlefield {
+        state
+            .battlefield_seen()
+            .filter(|&id| {
+                state
+                    .object(id)
+                    .is_some_and(|o| o.attached_to == Some(of_id))
+            })
+            .collect()
+    } else {
+        state
+            .ltb_attachments
+            .iter()
+            .rfind(|(h, _)| *h == of_id)
+            .map_or_else(Vec::new, |(_, worn)| worn.clone())
+    };
+    let you = res.controller;
+    let objects: Vec<DamageSourceRef> = candidates
+        .into_iter()
+        .filter_map(|id| {
+            let att_ref = state.source_identity(id)?;
+            let obj = state.object(id)?;
+            (can_attach_to_recipient(state, att_ref, host)
+                && super::matches_in_resolution(filter, state, obj, you, res, Some(you)))
+            .then_some(att_ref)
+        })
+        .collect();
+    if objects.is_empty() {
+        return None;
+    }
+    if optional {
+        if state.has_left(you) {
+            return None;
+        }
+        let source = super::resolving_ability(state, res);
+        res.awaiting = Some(super::AwaitingOp::AttachSlot { objects, host });
+        return Some(super::Pending::YesNo {
+            player: you,
+            prompt: crate::choice::YesNoPrompt::MayDo,
+            source,
+        });
+    }
+    attach_selected(state, &objects, host);
+    None
+}
+
+/// Start [`Effect::AttachChosenThen`] (Unexpected Request, Magitek Scythe):
+/// choose up to `max` matching permanents to attach to `to`; splice
+/// `then_if_attached` only if at least one actually changed host (CR 701.3b).
+pub(super) fn attach_chosen_then(
+    state: &mut GameState,
+    res: &mut Resolution,
+    filter: &'static baylee_cards_dsl::Filter,
+    to: TargetSpec,
+    max: baylee_cards_dsl::Amount,
+    optional: bool,
+    then_if_attached: &'static [Effect],
+) -> Option<super::Pending> {
+    let you = res.controller;
+    if state.has_left(you) {
+        return None;
+    }
+    let host = super::wave15b::resolve_spec_host(state, res, to)?;
+    let max_n = super::amount2(&max, state, you, res);
+    if max_n == 0 {
+        return None;
+    }
+    let options: Vec<ObjectId> = state
+        .battlefield_seen()
+        .filter(|&id| {
+            let Some(att_ref) = state.source_identity(id) else {
+                return false;
+            };
+            can_attach_to_recipient(state, att_ref, host)
+                && state.object(id).is_some_and(|obj| {
+                    super::matches_in_resolution(filter, state, obj, you, res, Some(you))
+                })
+        })
+        .collect();
+    if options.is_empty() {
+        return None;
+    }
+    let avail = u8::try_from(options.len()).unwrap_or(u8::MAX);
+    let max_clamped = u8::try_from(max_n).unwrap_or(u8::MAX).min(avail);
+    let min = if optional { 0 } else { max_clamped };
+    res.awaiting = Some(super::AwaitingOp::AttachChosenThen {
+        host,
+        then_if_attached,
+    });
+    Some(super::Pending::ChooseCards {
+        player: you,
+        options,
+        min,
+        max: max_clamped,
+        prompt: crate::choice::ChoicePrompt::Generic,
+        total: None,
+    })
+}
+
+/// Resume [`Effect::AttachChosenThen`]: attach each selected object to `host`,
+/// record actually-moved attachments in `res.event_object` / `res.subject.found`,
+/// and splice `then_if_attached` only if at least one changed host (CR 701.3b).
+pub(super) fn resume_attach_chosen_then(
+    state: &mut GameState,
+    res: &mut Resolution,
+    host: TargetRef,
+    then_if_attached: &'static [Effect],
+    chosen: &[ObjectId],
+) {
+    let mut moved: Vec<DamageSourceRef> = Vec::new();
+    for &id in chosen {
+        let Some(att_ref) = state.source_identity(id) else {
+            continue;
+        };
+        if !can_attach_to_recipient(state, att_ref, host) {
+            continue;
+        }
+        let already_there = state.object(id).is_some_and(|o| match host {
+            TargetRef::Object(h) => o.attached_to == Some(h.object),
+            TargetRef::Player(p) => o.attached_player() == Some(p),
+        });
+        if already_there {
+            continue;
+        }
+        match host {
+            TargetRef::Object(target) => state.attach(id, target.object),
+            TargetRef::Player(player) => state.attach_to_player(id, player),
+        }
+        let now_there = state.object(id).is_some_and(|o| match host {
+            TargetRef::Object(h) => o.attached_to == Some(h.object),
+            TargetRef::Player(p) => o.attached_player() == Some(p),
+        });
+        if now_there {
+            moved.push(att_ref);
+        }
+    }
+    if !moved.is_empty() {
+        let first = moved[0];
+        let power = state
+            .source_object(first)
+            .and_then(|o| o.characteristics().power)
+            .unwrap_or(0);
+        res.event_object = Some(first.object);
+        res.subject.set_event_identity(Some((first, power)));
+        res.subject.found = moved.into_iter().collect();
+        if !then_if_attached.is_empty() {
+            let next = res.pc + 1;
+            res.effects
+                .splice(next..next, super::flatten(then_if_attached));
+        }
+    }
+}
+
+/// Start [`Effect::RelocateAttachment`] (Steam Vines, Kudzu, Nettlevine Blight,
+/// Aura Graft): resolve `attachment` (including `AttachmentSource::GrantedSource`),
+/// prompt `chooser` for a legal recipient matching `recipient_filter`, and
+/// splice `then_if_moved` only when the attachment actually changes host.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn relocate_attachment(
+    state: &mut GameState,
+    res: &mut Resolution,
+    attachment: baylee_cards_dsl::AttachmentSource,
+    chooser: baylee_cards_dsl::PlayerRel,
+    recipient_filter: &'static baylee_cards_dsl::Filter,
+    must_change_recipient: bool,
+    optional: bool,
+    then_if_moved: &'static [Effect],
+) -> Option<super::Pending> {
+    let att_ref = match attachment {
+        baylee_cards_dsl::AttachmentSource::GrantedSource => {
+            super::granted_source(state, res.on_stack)
+                .filter(|r| subjects::on_battlefield(state, *r))?
+        }
+        baylee_cards_dsl::AttachmentSource::Spec(spec) => {
+            resolve_spec_attachments(state, res, spec)
+                .into_iter()
+                .next()?
+        }
+    };
+    let chooser_player = super::players_of(chooser, state, res.controller, res)
+        .into_iter()
+        .find(|&p| !state.has_left(p))?;
+    let (current_host, is_aura) = {
+        let obj = state.object(att_ref.object)?;
+        (
+            obj.attached_to,
+            obj.characteristics()
+                .subtypes
+                .contains(subtypes::enchantment::AURA),
+        )
+    };
+    let ctx = crate::text_changes::RuleContext {
+        reference: current_host,
+        ..res.rule_context()
+    };
+    let you = res.controller;
+    let options: Vec<ObjectId> = state
+        .battlefield_seen()
+        .filter(|&id| {
+            if must_change_recipient && current_host == Some(id) {
+                return false;
+            }
+            can_attach_object(state, att_ref.object, id)
+                && state.object(id).is_some_and(|host_obj| {
+                    crate::eval::matches_with_context(recipient_filter, state, host_obj, you, ctx)
+                })
+        })
+        .collect();
+    if options.is_empty() {
+        return None;
+    }
+    let prompt = if is_aura {
+        crate::choice::ChoicePrompt::NewHost {
+            aura: att_ref.object,
+        }
+    } else {
+        crate::choice::ChoicePrompt::Generic
+    };
+    res.awaiting = Some(super::AwaitingOp::RelocateAttachment {
+        attachment: att_ref,
+        then_if_moved,
+    });
+    Some(super::Pending::ChooseCards {
+        player: chooser_player,
+        options,
+        min: u8::from(!optional),
+        max: 1,
+        prompt,
+        total: None,
+    })
+}
+
+/// Resume [`Effect::RelocateAttachment`]: move `attachment` to `chosen[0]` if
+/// legal and different from its current host (CR 701.3b), then splice `then_if_moved`.
+pub(super) fn resume_relocate_attachment(
+    state: &mut GameState,
+    res: &mut Resolution,
+    attachment: DamageSourceRef,
+    then_if_moved: &'static [Effect],
+    chosen: &[ObjectId],
+) {
+    let Some(&host) = chosen.first() else {
+        return;
+    };
+    if !subjects::on_battlefield(state, attachment)
+        || state
+            .object(host)
+            .is_none_or(|o| o.zone != Zone::Battlefield || o.status.contains(Status::PHASED_OUT))
+        || !can_attach_object(state, attachment.object, host)
+    {
+        return;
+    }
+    let prev_host = state.object(attachment.object).and_then(|o| o.attached_to);
+    if prev_host == Some(host) {
+        return;
+    }
+    state.attach(attachment.object, host);
+    if state.object(attachment.object).and_then(|o| o.attached_to) == Some(host)
+        && !then_if_moved.is_empty()
+    {
+        let next = res.pc + 1;
+        res.effects
+            .splice(next..next, super::flatten(then_if_moved));
+    }
+}

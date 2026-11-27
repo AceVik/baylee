@@ -303,6 +303,7 @@ pub fn can_move_counter(
 
 /// Moving removes one counter; destination placement still applies replacements.
 #[doc(hidden)]
+#[cfg(feature = "test-support")]
 pub fn move_counter(
     state: &mut GameState,
     by: PlayerId,
@@ -310,8 +311,36 @@ pub fn move_counter(
     to: DamageSourceRef,
     kind: baylee_cards_dsl::CounterKind,
 ) {
-    if can_move_counter(state, from, to, kind) {
-        remove_counters_by(state, from.object, kind, 1, Some(by));
-        put_counters_by(state, by, to.object, kind, 1);
+    let _ = move_counters(state, by, from, to, kind, 1);
+}
+
+/// Moves up to `n` counters of `kind` from `from` onto `to` in a single
+/// CR 122.5 event, returning how many counters were actually removed and moved.
+/// Destination counter limits (`CounterMaximum`) cap the move before removal,
+/// and destination counter placement replacements apply once to the moved batch.
+#[doc(hidden)]
+pub fn move_counters(
+    state: &mut GameState,
+    by: PlayerId,
+    from: DamageSourceRef,
+    to: DamageSourceRef,
+    kind: baylee_cards_dsl::CounterKind,
+    n: u16,
+) -> u16 {
+    if n == 0 || !can_move_counter(state, from, to, kind) {
+        return 0;
     }
+    let available = state
+        .object(from.object)
+        .map_or(0, |object| object.counters.get(kind));
+    let capped = counter_limits::room(state, to.object, kind).map_or(n, |room| n.min(room));
+    let to_move = available.min(capped);
+    if to_move == 0 {
+        return 0;
+    }
+    let taken = remove_counters_by(state, from.object, kind, to_move, Some(by));
+    if taken > 0 {
+        put_counters_by(state, by, to.object, kind, taken);
+    }
+    taken
 }

@@ -19,6 +19,7 @@ mod ritual_of_subdual;
 mod storm_of_saruman;
 mod territorial_dispute;
 mod true_conviction;
+mod yawgmoth_s_bargain;
 
 /// Declares `attackers` for `seat` against `at` and stops once the
 /// declaration has been accepted.

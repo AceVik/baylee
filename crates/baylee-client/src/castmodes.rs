@@ -736,6 +736,7 @@ fn parts_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool 
         | CostPart::Saddle(_)
         | CostPart::DiscardSelf
         | CostPart::RevealSelfFromHand
+        | CostPart::RevealChosenPlayer
         | CostPart::ExileSelf
         | CostPart::ReturnSelfToHand
         | CostPart::RemoveCounterSelf { .. }

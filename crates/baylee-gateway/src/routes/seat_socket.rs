@@ -29,8 +29,11 @@ use ownership::{Connection, Ownership};
 /// `ticket expired or used` for a ticket that is unknown, spent, expired or
 /// for another socket or game, one bought by a seat token that is not the
 /// chair's any more, and a chair whose player is out of the game or whose
-/// authorization no longer holds. A client of another protocol is let in,
-/// sent one `HelloAck` and closed, and the engine never hears of it.
+/// authorization no longer holds. A client of another protocol than the
+/// table's is let in, sent one `HelloAck` and closed, and the engine never
+/// hears of it. The table's protocol is that of the engine build playing it:
+/// the gateway's own, or an older one for a game an older build began and
+/// goes on with after an update.
 /// Otherwise the socket waits up to 30 seconds for the game's engine (and
 /// closes if none attaches), and the engine is told the seat is here. Its
 /// first frames are the opening payload (`GameStaticMsg`) and the seat's
@@ -69,12 +72,12 @@ use ownership::{Connection, Ownership};
 /// engine holds its place for the reconnect window (`docs/protocol.md`,
 /// Leaving, and losing the connection).
 /// @ws-query ticket: String required "A single-use ticket bought for this seat with `POST /ws-ticket` and the seat token"
-/// @ws-query protocol: u32 required "The protocol the client speaks (`PROTOCOL_VERSION`, as `GET /info` answers it); another, or none, is answered with a `HelloAck` that is not compatible"
+/// @ws-query protocol: u32 required "The protocol the client speaks (`PROTOCOL_VERSION`); another than the table's, or none, is answered with a `HelloAck` that is not compatible. The table's is the gateway's (`GET /info`), or an older one for a game an older engine build began"
 /// @ws-query token: String deprecated "Instead of a ticket, the seat token itself, as clients from before tickets send it; accepted until 2026-10-31 (UTC) and then refused with `401`. A ticket wins when both are sent."
 /// parameters:
 ///   id:
 ///     description: The game's id, as the lobby lists it.
-/// @send `HelloAck`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `hello_ack`, from the gateway itself: the client's protocol is not the gateway's. `compatible` is false, `protocol_version` is the gateway's and `message` is a sentence naming both. The only frame; the socket closes after it."
+/// @send `HelloAck`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `hello_ack`, from the gateway itself: the client's protocol is not the table's. `compatible` is false, `protocol_version` is the table's, `refusal` is `update_required` when the client's is older, and `message` is a sentence naming both. The only frame; the socket closes after it."
 /// @send `GameStaticMsg`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `game_static`: the opening payload, always first on the socket, and sent again before a view that shows a printing the seat had not been shown. `view_version` is the view schema's version, outside the payload so a client that cannot render it can say so; `statics` is a `GameStatic` (the roster and the seat's print table) as `baylee_core::wire` writes it, and empty when `more` holds only the printings to add to the one the seat holds, see `docs/protocol.md`."
 /// @send `StateDelta`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `state_delta`: the seat's view after something changed. `seq` is what a `ResumeGame` names; `view_frame` is a `ViewFrame`, the whole view or what changed since the last one (`docs/protocol.md`, Views as patches), and empty on a frame that only carries more of a long log; `log` is a `LogTail` as `baylee_core::wire` writes it (the seat's game log lines since the last tail, appended by its `from`), empty when there is none. Several frames may share a `seq` to carry a long log, so read `log` from every frame."
 /// @send `ChoiceRequest`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `choice_request`: a question to this seat. `seq` as in `StateDelta`; `pending` is the engine's `Pending` as `baylee_core::wire` writes it, which names every answer the engine takes. A `Pending` of `GameOver` is the end of the game."
@@ -169,9 +172,10 @@ pub(crate) async fn game_ws(
     // hears of the socket: a table this client cannot read is not joined at
     // all. Said on the socket rather than as an HTTP status, because a
     // browser's `WebSocket` shows a script neither (#271).
-    if let Some(why) = baylee_protocol::version_refusal("This client", params.protocol) {
+    let table = table_protocol(&state, &id);
+    if let Some(why) = baylee_protocol::table_refusal("This client", params.protocol, table) {
         tracing::warn!(game_id = id, seat, why, "seat socket refused");
-        return Ok(ws.on_upgrade(move |socket| refuse_seat(socket, why, params.protocol)));
+        return Ok(ws.on_upgrade(move |socket| refuse_seat(socket, why, params.protocol, table)));
     }
     // By the token and not the account: a seat bridge's chair has none, and
     // a socket waiting for its engine has not replaced anything yet.
@@ -303,19 +307,31 @@ pub(crate) async fn authorize_seat_token(
         .ok_or_else(|| err(StatusCode::UNAUTHORIZED, TICKET_REFUSED))
 }
 
+/// The protocol of the table `game_id` names ([`LobbyGame::protocol`]), or
+/// this gateway's for a game that is not here, which the socket then finds.
+pub(crate) fn table_protocol(state: &Shared, game_id: &str) -> u32 {
+    state
+        .lobby
+        .lock()
+        .games
+        .get(game_id)
+        .map_or(baylee_protocol::PROTOCOL_VERSION, LobbyGame::protocol)
+}
+
 /// The one frame a seat socket of another protocol is sent before it closes
-/// (#271): a `HelloAck` that is not compatible, carrying this gateway's
-/// version and the sentence naming both. A client older than this gateway
-/// also hears that an update is what it needs; one newer than it does not,
-/// because updating it would change nothing.
-pub(crate) async fn refuse_seat(mut socket: WebSocket, why: String, theirs: u32) {
+/// (#271): a `HelloAck` that is not compatible, carrying the table's version
+/// and the sentence naming both. A client older than the table also hears
+/// that an update is what it needs; one newer than it does not, because
+/// updating it would change nothing: the table is older, and stays so until
+/// its game ends.
+pub(crate) async fn refuse_seat(mut socket: WebSocket, why: String, theirs: u32, table: u32) {
     use prost::Message as _;
     let ack = Envelope {
         msg: Some(v1::envelope::Msg::HelloAck(v1::HelloAck {
-            protocol_version: baylee_protocol::PROTOCOL_VERSION,
+            protocol_version: table,
             compatible: false,
             message: why,
-            refusal: (theirs < baylee_protocol::PROTOCOL_VERSION).then(|| v1::Refusal {
+            refusal: (theirs < table).then(|| v1::Refusal {
                 code: "update_required".into(),
                 ..v1::Refusal::default()
             }),

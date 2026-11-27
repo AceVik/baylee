@@ -81,6 +81,7 @@ impl GameState {
             resolution_chosen_color: _,
             resolution_chosen_number,
             resolution_remembered,
+            active_exiler: _,
             discovered,
             divided,
             synthetic_copies,
@@ -91,6 +92,7 @@ impl GameState {
             game_end,
             day_night,
             previous_turn,
+            last_turn_attacked_players,
             starting_player,
             ability_fires,
             modal_modes_used,
@@ -112,11 +114,13 @@ impl GameState {
             effect_text_overrides,
             copy_snapshots,
             temporary_copy_origins,
+            face_down_copied_bases,
             numeric_failure,
             constrained_payments,
             replacement_rules,
             shields,
             granted_actions,
+            endable_effect_groups,
             next_granted_action,
             next_damage_batch,
             damage_sources,
@@ -170,6 +174,11 @@ impl GameState {
         replacement_rules.hash(&mut h);
         shields.hash(&mut h);
         granted_actions.hash(&mut h);
+        if !endable_effect_groups.is_empty() {
+            h.u8(255);
+            h.u16(536);
+            endable_effect_groups.hash(&mut h);
+        }
         next_granted_action.hash(&mut h);
         next_damage_batch.hash(&mut h);
         source_memory.hash(&mut h);
@@ -185,6 +194,7 @@ impl GameState {
         turn.hash(&mut h);
         day_night.hash(&mut h);
         previous_turn.hash(&mut h);
+        last_turn_attacked_players.hash(&mut h);
         monarch.hash(&mut h);
         if let Some(initiative) = initiative {
             h.u8(251);
@@ -317,6 +327,32 @@ impl GameState {
             h.u16(362);
             modal_modes_used.hash(&mut h);
         }
+        if !face_down_copied_bases.is_empty() {
+            h.u8(255);
+            h.u16(526);
+            h.usize(face_down_copied_bases.len());
+            for (identity, base) in face_down_copied_bases {
+                identity.hash(&mut h);
+                hash_characteristics(&mut h, base);
+            }
+        }
+        if per_turn.track_last_combat_attacked.0 {
+            if !combat.declared_against_players.is_empty() {
+                h.u8(255);
+                h.u16(555);
+                h.u8(3);
+                combat.declared_against_players.hash(&mut h);
+            }
+            for p in players {
+                if !p.last_combat_attacked.is_empty() {
+                    h.u8(255);
+                    h.u16(555);
+                    h.u8(2);
+                    h.u8(p.id.get());
+                    p.last_combat_attacked.hash(&mut h);
+                }
+            }
+        }
         h.finish()
     }
 
@@ -421,24 +457,7 @@ impl GameState {
                 }
             }
         }
-        h.usize(
-            self.temporary_copy_origins
-                .iter()
-                .filter(|(identity, _)| {
-                    self.object(identity.object)
-                        .is_some_and(|object| object.version == identity.version)
-                })
-                .count(),
-        );
-        for (identity, original) in &self.temporary_copy_origins {
-            if self
-                .object(identity.object)
-                .is_some_and(|object| object.version == identity.version)
-            {
-                h.u32(position(identity.object));
-                hash_object_situation(&mut h, original, self, &position);
-            }
-        }
+        self.hash_loop_copy_overlays(&mut h, &position);
         self.hash_loop_combat(&mut h, &position);
         // What has already been used this turn, which is rules-visible: an
         // ability that prints "activate only once each turn" is *offered* in
@@ -470,6 +489,47 @@ impl GameState {
             }
         }
         h.finish()
+    }
+
+    fn hash_loop_copy_overlays(&self, h: &mut Hasher, position: &impl Fn(ObjectId) -> u32) {
+        h.usize(
+            self.temporary_copy_origins
+                .iter()
+                .filter(|(identity, _)| {
+                    self.object(identity.object)
+                        .is_some_and(|object| object.version == identity.version)
+                })
+                .count(),
+        );
+        for (identity, original) in &self.temporary_copy_origins {
+            if self
+                .object(identity.object)
+                .is_some_and(|object| object.version == identity.version)
+            {
+                h.u32(position(identity.object));
+                hash_object_situation(h, original, self, position);
+            }
+        }
+        if !self.face_down_copied_bases.is_empty() {
+            let mut live: Vec<_> = self
+                .face_down_copied_bases
+                .iter()
+                .filter(|(identity, _)| {
+                    self.object(identity.object)
+                        .is_some_and(|object| object.version == identity.version)
+                })
+                .collect();
+            if !live.is_empty() {
+                live.sort_unstable_by_key(|(identity, _)| position(identity.object));
+                h.u8(255);
+                h.u16(526);
+                h.usize(live.len());
+                for (identity, base) in live {
+                    h.u32(position(identity.object));
+                    hash_characteristics(h, base);
+                }
+            }
+        }
     }
 
     fn hash_loop_combat(&self, h: &mut Hasher, position: &impl Fn(ObjectId) -> u32) {
@@ -521,6 +581,27 @@ impl GameState {
         for b in &self.combat.blockers {
             h.u32(position(b.blocker));
             h.u32(position(b.attacker));
+        }
+        if self.per_turn.track_last_combat_attacked.0
+            && !self.combat.declared_against_players.is_empty()
+        {
+            let mut pairs: Vec<_> = self
+                .combat
+                .declared_against_players
+                .iter()
+                .filter(|(reference, _)| {
+                    self.object(reference.object)
+                        .is_some_and(|object| object.version == reference.version)
+                })
+                .map(|(reference, opp)| (position(reference.object), opp.get()))
+                .collect();
+            pairs.sort_unstable();
+            if !pairs.is_empty() {
+                h.u8(255);
+                h.u16(555);
+                h.u8(3);
+                pairs.hash(h);
+            }
         }
     }
 
@@ -617,6 +698,33 @@ impl GameState {
                     blocked.hash(h);
                 }
             }
+            if self.per_turn.track_last_combat_attacked.0 && !player.last_combat_attacked.is_empty()
+            {
+                let mut pairs: Vec<_> = player
+                    .last_combat_attacked
+                    .iter()
+                    .filter(|(reference, _)| {
+                        self.object(reference.object)
+                            .is_some_and(|object| object.version == reference.version)
+                    })
+                    .map(|(reference, opp)| (position(reference.object), opp.get()))
+                    .collect();
+                pairs.sort_unstable();
+                if !pairs.is_empty() {
+                    h.u8(255);
+                    h.u16(555);
+                    h.u8(2);
+                    pairs.hash(h);
+                }
+            }
+        }
+        if self.per_turn.attacked_players.tracked
+            && !self.per_turn.attacked_players.items.is_empty()
+        {
+            h.u8(255);
+            h.u16(555);
+            h.u8(1);
+            self.per_turn.attacked_players.items.hash(h);
         }
     }
 
@@ -857,6 +965,65 @@ impl GameState {
                 hash_object_situation(h, &record.snapshot, self, position);
             }
         }
+        if self.per_turn.extra_draw_occurred.tracked
+            && !self.per_turn.extra_draw_occurred.seats.is_empty()
+        {
+            let mut seats = self.per_turn.extra_draw_occurred.seats.clone();
+            seats.sort_unstable();
+            h.u16(581);
+            seats.hash(h);
+        }
+        if self.per_turn.energy_removed.tracked && !self.per_turn.energy_removed.items.is_empty() {
+            let records = &self.per_turn.energy_removed.items;
+            h.u16(601);
+            h.usize(records.len());
+            for record in records {
+                h.u8(record.player.get());
+                h.u32(record.amount);
+            }
+        }
+        if self.per_turn.opponents_attacked.tracked
+            && !self.per_turn.opponents_attacked.items.is_empty()
+        {
+            let records = &self.per_turn.opponents_attacked.items;
+            h.u16(602);
+            h.usize(records.len());
+            for record in records {
+                h.u8(record.attacker.get());
+                h.u8(record.defender.get());
+            }
+        }
+        if self.per_turn.activated_abilities_this_turn.tracked
+            && !self.per_turn.activated_abilities_this_turn.items.is_empty()
+        {
+            let records = &self.per_turn.activated_abilities_this_turn.items;
+            h.u16(603);
+            h.usize(records.len());
+            for record in records {
+                h.u8(record.activator.get());
+                h.u32(position(record.source.object));
+                h.u8(moves_since(
+                    self.object_or_departed(record.source.object),
+                    record.source.version,
+                ));
+                h.usize(record.target_snapshots.len());
+                for snap in &record.target_snapshots {
+                    h.u32(position(snap.id));
+                    hash_object_situation(h, snap, self, position);
+                }
+            }
+        }
+        if self.last_turn_attacked_players.tracked
+            && !self.last_turn_attacked_players.items.is_empty()
+        {
+            let records = &self.last_turn_attacked_players.items;
+            h.u16(604);
+            h.usize(records.len());
+            for record in records {
+                h.u8(record.attacker.get());
+                h.u8(record.defender.get());
+            }
+        }
     }
 
     fn hash_must_block_pairs(&self, h: &mut Hasher, position: &impl Fn(ObjectId) -> u32) {
@@ -944,6 +1111,12 @@ fn hash_shields(h: &mut Hasher, state: &GameState, position: &dyn Fn(ObjectId) -
                 h.u8(moves_since(state.object(id), version));
             }
             crate::prevention::Shielded::Everything => h.u8(2),
+            crate::prevention::Shielded::PlayerOrControlledPermanents(p) => {
+                h.u8(255);
+                h.u16(584);
+                h.u8(1);
+                h.u8(p.get());
+            }
         }
         hash_shield_kind(h, state, &shield.kind, position);
         h.u8(shield.controller.get());
@@ -1099,6 +1272,32 @@ fn hash_shield_kind(
             h.u16(351);
             hash_chosen_source(h, state, &source, position);
             filter_hash(h, gain_life_sources);
+        }
+        crate::prevention::ShieldKind::RedirectNextTo {
+            remaining,
+            to,
+            to_version,
+            source,
+        } => {
+            h.u8(255);
+            h.u16(584);
+            h.u8(2);
+            h.u32(remaining);
+            match to {
+                crate::event::DamageTarget::Player(p) => {
+                    h.u8(0);
+                    h.u8(p.get());
+                }
+                crate::event::DamageTarget::Object(id) => {
+                    h.u8(1);
+                    h.u32(position(id));
+                    h.u8(moves_since(state.object(id), to_version.unwrap_or(0)));
+                }
+            }
+            h.boolean(source.is_some());
+            if let Some(src) = source {
+                hash_chosen_source(h, state, &src, position);
+            }
         }
     }
 }
@@ -1521,8 +1720,45 @@ fn hash_granted_actions(h: &mut Hasher, state: &GameState, position: &impl Fn(Ob
                     }
                 }
             }
+            crate::choice::GrantedActionKind::EndContinuousEffects { target } => {
+                h.u8(255);
+                h.u16(535);
+                h.u32(position(target.object));
+                h.u32(target.version);
+            }
         }
     }
+    hash_endable_effect_groups(h, state, position);
+}
+
+fn hash_endable_effect_groups(
+    h: &mut Hasher,
+    state: &GameState,
+    position: &impl Fn(ObjectId) -> u32,
+) {
+    if state.endable_effect_groups.is_empty() {
+        return;
+    }
+    h.u8(255);
+    h.u16(536);
+    let mut groups: Vec<_> = state
+        .endable_effect_groups
+        .iter()
+        .map(|group| {
+            let live_effects: Vec<usize> = group
+                .effects
+                .iter()
+                .filter_map(|&eid| state.effects.as_slice().iter().position(|fx| fx.id == eid))
+                .collect();
+            (
+                position(group.target.object),
+                moves_since(state.object(group.target.object), group.target.version),
+                live_effects,
+            )
+        })
+        .collect();
+    groups.sort_unstable();
+    groups.hash(h);
 }
 
 fn moves_since(obj: Option<&GameObject>, version: u32) -> u8 {
@@ -1584,7 +1820,7 @@ fn hash_object_situation(
     obj.deck_choices.hash(h);
     hash_copy_decisions(h, obj);
     h.u8(obj.doors.bits());
-    h.u8(obj.chosen_opponent().map_or(255, PlayerId::get));
+    h.u8(obj.chosen_opponent_for_rules().map_or(255, PlayerId::get));
     h.boolean(obj.prototyped);
     match &obj.card {
         Some(c) => {
@@ -2026,6 +2262,37 @@ fn hash_cast_keyword_rider(h: &mut Hasher, rider: &crate::object::Rider) {
             h.u8(203);
             count.hash(h);
         }
+        crate::object::Rider::TreasureManaSpent => {
+            h.u8(255);
+            h.u16(551);
+            h.u8(1);
+        }
+        crate::object::Rider::SecondChosenPlayer(p) => {
+            h.u8(255);
+            h.u16(551);
+            h.u8(2);
+            h.u8(p.get());
+        }
+        crate::object::Rider::SecretChosenPlayer { player, revealed } => {
+            h.u8(255);
+            h.u16(551);
+            h.u8(3);
+            h.u8(player.get());
+            revealed.hash(h);
+        }
+        crate::object::Rider::SecretChosenNumber { number, revealed } => {
+            h.u8(255);
+            h.u16(551);
+            h.u8(4);
+            h.u8(*number);
+            revealed.hash(h);
+        }
+        crate::object::Rider::UsedChosenNumbers(mask) => {
+            h.u8(255);
+            h.u16(551);
+            h.u8(5);
+            h.u32(*mask);
+        }
         crate::object::Rider::Monstrous => h.u8(211),
         crate::object::Rider::ClassLevel(level) => {
             h.u8(255);
@@ -2132,6 +2399,37 @@ fn hash_cast_keyword_rider(h: &mut Hasher, rider: &crate::object::Rider) {
             h.u8(255);
             h.u16(490);
         }
+        crate::object::Rider::GrantedForetellReduce(reduce) => {
+            h.u8(255);
+            h.u16(567);
+            h.u32(*reduce);
+        }
+        crate::object::Rider::GrantedMadness => {
+            h.u8(255);
+            h.u16(568);
+        }
+        crate::object::Rider::ExiledBy(player) => {
+            h.u8(255);
+            h.u16(569);
+            h.u8(player.get());
+        }
+        crate::object::Rider::EvokedGrant => {
+            h.u8(255);
+            h.u16(570);
+        }
+        crate::object::Rider::GrantDeathExileAndGainLife(life) => {
+            h.u8(255);
+            h.u16(571);
+            h.u32(*life);
+        }
+        crate::object::Rider::GrantLeaveExileReplacement => {
+            h.u8(255);
+            h.u16(572);
+        }
+        crate::object::Rider::TurnedFaceDown => {
+            h.u8(255);
+            h.u16(525);
+        }
         _ => {}
     }
 }
@@ -2192,6 +2490,11 @@ pub(crate) fn provenance_digest(
     restriction.rider.hash(&mut one);
     restriction.restricts.hash(&mut one);
     restriction.until_end_of_turn.hash(&mut one);
+    if provenance.from_treasure {
+        255_u8.hash(&mut one);
+        556_u16.hash(&mut one);
+        true.hash(&mut one);
+    }
     one.finish()
 }
 
@@ -2305,6 +2608,7 @@ fn hash_player(h: &mut Hasher, player: &Player) {
         turns_to_skip,
         combats_to_skip,
         last_turn_attackers,
+        last_combat_attacked: _,
         blocked_since_upkeep,
         blocked_before_upkeep,
         // Read off the turn clock as an upkeep begins, so they follow from
@@ -2969,6 +3273,37 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u8(player.get());
                 h.u8(*mode);
             }
+            Rider::TreasureManaSpent => {
+                h.u8(255);
+                h.u16(551);
+                h.u8(1);
+            }
+            Rider::SecondChosenPlayer(p) => {
+                h.u8(255);
+                h.u16(551);
+                h.u8(2);
+                h.u8(p.get());
+            }
+            Rider::SecretChosenPlayer { player, revealed } => {
+                h.u8(255);
+                h.u16(551);
+                h.u8(3);
+                h.u8(player.get());
+                revealed.hash(h);
+            }
+            Rider::SecretChosenNumber { number, revealed } => {
+                h.u8(255);
+                h.u16(551);
+                h.u8(4);
+                h.u8(*number);
+                revealed.hash(h);
+            }
+            Rider::UsedChosenNumbers(mask) => {
+                h.u8(255);
+                h.u16(551);
+                h.u8(5);
+                h.u32(*mask);
+            }
             Rider::CraftMaterial(mat) => {
                 h.u8(192);
                 mat.hash(h);
@@ -3088,6 +3423,37 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             Rider::UnearthAbility => {
                 h.u8(255);
                 h.u16(490);
+            }
+            Rider::GrantedForetellReduce(reduce) => {
+                h.u8(255);
+                h.u16(567);
+                h.u32(*reduce);
+            }
+            Rider::GrantedMadness => {
+                h.u8(255);
+                h.u16(568);
+            }
+            Rider::ExiledBy(player) => {
+                h.u8(255);
+                h.u16(569);
+                h.u8(player.get());
+            }
+            Rider::EvokedGrant => {
+                h.u8(255);
+                h.u16(570);
+            }
+            Rider::GrantDeathExileAndGainLife(life) => {
+                h.u8(255);
+                h.u16(571);
+                h.u32(*life);
+            }
+            Rider::GrantLeaveExileReplacement => {
+                h.u8(255);
+                h.u16(572);
+            }
+            Rider::TurnedFaceDown => {
+                h.u8(255);
+                h.u16(525);
             }
         }
     }
@@ -3513,6 +3879,43 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
             h.u16(512);
             rel.hash(h);
         }
+        F::EnteredCurrentZoneThisTurn(from) => {
+            h.u8(255);
+            h.u16(565);
+            from.hash(h);
+        }
+        F::ExiledByYou => {
+            h.u8(255);
+            h.u16(566);
+        }
+        F::HasMorph => {
+            h.u8(255);
+            h.u16(520);
+        }
+        F::DoubleFaced => {
+            h.u8(255);
+            h.u16(521);
+        }
+        F::CanTransform => {
+            h.u8(255);
+            h.u16(522);
+        }
+        F::Flipped => {
+            h.u8(255);
+            h.u16(523);
+        }
+        F::HasOmen => {
+            h.u8(255);
+            h.u16(524);
+        }
+        F::CastForFlashback => {
+            h.u8(255);
+            h.u16(595);
+        }
+        F::CastForDash => {
+            h.u8(255);
+            h.u16(596);
+        }
     }
 }
 
@@ -3575,12 +3978,12 @@ fn amount_filter_depth_exceeds(amt: &baylee_cards_dsl::Amount, depth: u8) -> boo
         | A::SpellsCastMatchingThisTurn { filter: f, .. }
         | A::CreaturesAttackedThisTurn { filter: f, .. }
         | A::DistinctManaValuesInZone { filter: f, .. }
+        | A::DistinctNames { filter: f, .. }
         | A::DistinctPowersAmong(f)
         | A::HighestControlledCount { filter: f, .. }
         | A::TotalManaValueInZone { filter: f, .. }
-        | A::DistinctExactManaCostsInZone { filter: f, .. } => {
-            filter_amount_depth_exceeds(f, depth)
-        }
+        | A::DistinctExactManaCostsInZone { filter: f, .. }
+        | A::DistinctCardTypesInZone { filter: f, .. } => filter_amount_depth_exceeds(f, depth),
         A::ThisWay(tw) | A::ThisWayBy { what: tw, .. } => match tw {
             TW::Died(f)
             | TW::Destroyed(f)

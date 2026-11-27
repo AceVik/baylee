@@ -233,6 +233,10 @@ pub enum SpellForm {
     OptionalCost(ManaCost),
     /// A spell cast paying its blitz alternative cost (`CR 702.152a`).
     Blitz,
+    /// Cast for its flashback cost.
+    Flashback(ManaCost),
+    /// Cast for its dash cost.
+    Dash(ManaCost),
 }
 
 /// The spell characteristics a player may use to assess a face-down exiled
@@ -340,6 +344,16 @@ impl SpellForm {
                     object.riders.push(crate::object::Rider::Blitzed);
                 }
             }
+            Self::Flashback(_) => {
+                if !object.riders.contains(&crate::object::Rider::Flashback) {
+                    object.riders.push(crate::object::Rider::Flashback);
+                }
+            }
+            Self::Dash(_) => {
+                if !object.riders.contains(&crate::object::Rider::Dashed) {
+                    object.riders.push(crate::object::Rider::Dashed);
+                }
+            }
         }
         object
     }
@@ -349,7 +363,11 @@ impl SpellForm {
             Self::Prototype(p) => p.cost,
             Self::Disguise => const { ManaCost::parse("{3}") },
             Self::Bestow(cost) => cost.mana,
-            Self::Foretell(cost) | Self::Impending(cost) | Self::OptionalCost(cost) => cost,
+            Self::Foretell(cost)
+            | Self::Impending(cost)
+            | Self::OptionalCost(cost)
+            | Self::Flashback(cost)
+            | Self::Dash(cost) => cost,
             Self::Plot | Self::Blitz => ManaCost::ZERO,
         }
     }

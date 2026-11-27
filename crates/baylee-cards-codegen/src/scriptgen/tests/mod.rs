@@ -4,8 +4,12 @@ mod affected_defined;
 mod alternative_costs;
 mod animation_rules;
 mod archon_kismet;
+mod attachments;
 mod blocks_and_conditions;
+mod choices_players;
 mod costs_and_refusals;
+mod costs_hexproof_counters;
+mod counters;
 mod creature_type;
 mod cycling;
 mod delve;
@@ -13,8 +17,11 @@ mod dig;
 mod divided_damage;
 mod dredge;
 mod effects;
+mod flip_omen_set_state_meld;
+mod hand_and_draw;
 mod imprison;
 mod kicker;
+mod names;
 mod prevention_rules;
 mod reader_unlocks;
 mod reading;
@@ -63,6 +70,8 @@ mod wave30a;
 mod wave30b;
 mod wave30c;
 mod wave30d;
+mod zone_grants;
+mod zones_and_remembered;
 
 fn cats() -> SubtypeCatalogs {
     let mut c = SubtypeCatalogs {

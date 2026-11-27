@@ -222,7 +222,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         crate::casting::plan_mana_scoped(
             &self.state,
             *player,
-            super::cast_wizard::spend_for(wizard, face),
+            super::cast_wizard::spend_for(&self.state, wizard, face),
             &cost,
             restriction,
             self.wizard_source_allowance(wizard),

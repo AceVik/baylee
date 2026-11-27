@@ -37,15 +37,10 @@ pub(super) fn resume_inner(
             wave4_combat::finish_choose_ring_bearer(state, res, chosen);
         }
         AwaitingOp::MeldPartner => {
-            let Effect::MeldWithNamed {
-                source_name,
-                partner_name,
-                melded,
-            } = res.effects[res.pc]
-            else {
-                unreachable!("meld instruction")
-            };
-            meld::finish(state, res, chosen[0], source_name, partner_name, melded);
+            let spec = meld::MeldSpec::from_effect(res.effects[res.pc]).expect("meld instruction");
+            if let Some(pending) = meld::finish(state, res, chosen[0], spec) {
+                return next_choice(state, res, since, pending);
+            }
         }
         AwaitingOp::DungeonTax(tax) => {
             if let Some(pending) = dungeon::resume_tax(state, res, tax, chosen) {
@@ -896,6 +891,33 @@ pub(super) fn resume_inner(
         }
         AwaitingOp::AttachChosen { host } => {
             super::wave15b::resume_attach_chosen(state, host, chosen);
+        }
+        AwaitingOp::MoveAllAttachments { from, attachments } => {
+            super::attachments::resume_move_all_attachments(state, res, from, attachments, chosen);
+        }
+        AwaitingOp::AttachChosenThen {
+            host,
+            then_if_attached,
+        } => {
+            super::attachments::resume_attach_chosen_then(
+                state,
+                res,
+                host,
+                then_if_attached,
+                chosen,
+            );
+        }
+        AwaitingOp::RelocateAttachment {
+            attachment,
+            then_if_moved,
+        } => {
+            super::attachments::resume_relocate_attachment(
+                state,
+                res,
+                attachment,
+                then_if_moved,
+                chosen,
+            );
         }
         AwaitingOp::UntapPayingEach { player, each } => {
             let chosen: Vec<(ObjectId, u32)> = chosen
@@ -1909,10 +1931,19 @@ pub(super) fn resume_inner(
                 return next_choice(state, res, since, pending);
             }
         }
+        AwaitingOp::RemoveCountersChoice(plan) => {
+            if let Some(pending) =
+                counter_removal::resume_chosen_permanent(state, res, &plan, chosen)
+            {
+                return next_choice(state, res, since, pending);
+            }
+        }
         AwaitingOp::DamageShieldSource { .. }
         | AwaitingOp::ShieldFromChosenSource { .. }
         | AwaitingOp::ShieldFromChosenSourceWithLifeCondition { .. }
-        | AwaitingOp::RedirectFromChosenSource { .. } => {
+        | AwaitingOp::RedirectFromChosenSource { .. }
+        | AwaitingOp::RedirectNextToChosenSource { .. }
+        | AwaitingOp::ShieldNextWithThenFromChosenSource { .. } => {
             unreachable!("source decisions resume through resume_source")
         }
         AwaitingOp::Entry { .. }
@@ -1931,6 +1962,13 @@ pub(super) fn resume_inner(
         | AwaitingOp::GuessNamedCardInHand { .. }
         | AwaitingOp::ChooseNumber
         | AwaitingOp::ChooseNumberEx { .. }
+        | AwaitingOp::ChoosePlayerEx { .. }
+        | AwaitingOp::SecretNumbers { .. }
+        | AwaitingOp::SecretGuessPickGuesser { .. }
+        | AwaitingOp::SecretGuessChoose { .. }
+        | AwaitingOp::SecretGuessAnswer { .. }
+        | AwaitingOp::RepeatPayUntilNone { .. }
+        | AwaitingOp::ManaChoiceFor { .. }
         | AwaitingOp::RemoveCountersSelfCreateTokens { .. }
         | AwaitingOp::DungeonPlay(_)
         | AwaitingOp::Dungeon { .. }
@@ -1968,6 +2006,7 @@ pub(super) fn resume_inner(
         | AwaitingOp::ChooseBasicLandType
         | AwaitingOp::Colors { .. }
         | AwaitingOp::MoveCounter { .. }
+        | AwaitingOp::MoveCounters(_)
         | AwaitingOp::PutCounterChoice { .. }
         | AwaitingOp::AttachSlot { .. }
         | AwaitingOp::Counters { .. }
@@ -2213,6 +2252,9 @@ pub(super) fn resume_inner(
         AwaitingOp::CipherEncode => super::wave10b::resume_cipher_encode(state, res, chosen),
         AwaitingOp::ChampionExile => super::wave10b::resume_champion_exile(state, res, chosen),
         AwaitingOp::UndercityThrone => super::dungeon::resume_throne(state, res, chosen),
+        AwaitingOp::SetStateOptionalTurnFaceUp { .. } => {
+            unreachable!("SetStateOptionalTurnFaceUp is answered via resume_yes_no")
+        }
     }
     finish_choice(state, res, since)
 }
@@ -2273,6 +2315,7 @@ fn push_chosen_source_shields(
     }
 }
 
+#[allow(clippy::too_many_lines)]
 pub(super) fn resume_source_inner(
     state: &mut GameState,
     res: &mut Resolution,
@@ -2315,6 +2358,47 @@ pub(super) fn resume_source_inner(
                 crate::prevention::ShieldKind::AllFromWithLifeCondition {
                     source,
                     gain_life_sources,
+                }
+            });
+        }
+        AwaitingOp::RedirectNextToChosenSource {
+            protects,
+            sources,
+            remaining,
+            to,
+            to_version,
+        } => {
+            push_chosen_source_shields(state, res, chosen, protects, sources, |source| {
+                crate::prevention::ShieldKind::RedirectNextTo {
+                    remaining,
+                    to,
+                    to_version,
+                    source: Some(source),
+                }
+            });
+        }
+        AwaitingOp::ShieldNextWithThenFromChosenSource {
+            protects,
+            sources,
+            combat_only,
+            then,
+        } => {
+            let origin_source = res.source;
+            let origin_version =
+                source_version(state, res).or_else(|| state.object(res.source).map(|o| o.version));
+            let text = res.text;
+            let chosen_subtype = res.source_chosen_subtype(state);
+            let chosen_color = res.source_chosen_color(state);
+            push_chosen_source_shields(state, res, chosen, protects, sources, |source| {
+                crate::prevention::ShieldKind::NextWithThen {
+                    source: crate::prevention::ShieldSourceFilter::Exact(source),
+                    combat_only,
+                    then,
+                    origin_source,
+                    origin_version,
+                    text,
+                    chosen_subtype,
+                    chosen_color,
                 }
             });
         }

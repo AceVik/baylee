@@ -120,7 +120,10 @@
 // AnyPlayerMayPayManaAmount (`effects`) and AnyPlayerMayPayCost (`effects`) add two.
 // MayPayEnergyEqualToTargetCmcThen (`then`) adds one walker-tested body.
 // PlayerMayWaterbendOr (`effect`) and RememberTargetsThen (`then`) + 3 Wave 18b effects add 5 bodies.
-const NESTING_FIELDS: usize = 134;
+// PreventNextFromChosenSourceWithThen (`then: DamageRider`) adds one walker-tested body.
+// SetState (`if_cant`) adds one walker-tested body.
+// AttachChosenThen (`then_if_attached`) and RelocateAttachment (`then_if_moved`) add 2 bodies.
+const NESTING_FIELDS: usize = 144;
 
 /// How many variants contain those fields.
 ///
@@ -215,7 +218,10 @@ const NESTING_FIELDS: usize = 134;
 /// tested in `verb_tests::choose_distinct_powers_body_is_visited`.
 /// `MayPayEnergyEqualToTargetCmcThen` + `AnyPlayerMayPayManaAmount` + `AnyPlayerMayPayCost` +
 /// `PlayerMayWaterbendOr` through `RememberTargetsThen` bring total carrying variants to 118.
-const CARRYING_VARIANTS: usize = 118;
+// PreventNextFromChosenSourceWithThen brings carrying variants to 119.
+/// `SetState` (`if_cant`) brings total carrying variants to 119.
+/// `AttachChosenThen` + `RelocateAttachment` bring total carrying variants to 120.
+const CARRYING_VARIANTS: usize = 126;
 
 /// The floor under the reader itself.
 ///

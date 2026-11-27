@@ -380,14 +380,14 @@ fn wave16c_honest_refusal_guards() {
     );
 
     for bad in [
-        // As-enters random ChooseNumber (Haktos) must stay refused until random ETB number choice exists.
-        "Name:BadRandomEtbNum\nManaCost:2 W W\nTypes:Creature\nPT:6/1\n\
+        // Secretly$ True combined with Random$ True on as-enters ChooseNumber stays refused.
+        "Name:BadSecretRandomEtbNum\nManaCost:2 W W\nTypes:Creature\nPT:6/1\n\
          K:ETBReplacement:Other:ChooseNum\n\
-         SVar:ChooseNum:DB$ ChooseNumber | Min$ 2 | Max$ 4 | Defined$ You | Random$ True",
-        // Secretly$ True ChoosePlayer (Emissary of Grudges) must stay refused.
-        "Name:BadSecretEtbPlayer\nManaCost:5 R\nTypes:Creature\nPT:6/5\n\
+         SVar:ChooseNum:DB$ ChooseNumber | Min$ 2 | Max$ 4 | Defined$ You | Random$ True | Secretly$ True",
+        // Secretly$ True ChoosePlayer choosing All Players (outside opponent choice) stays refused.
+        "Name:BadSecretEtbAllPlayer\nManaCost:5 R\nTypes:Creature\nPT:6/5\n\
          K:ETBReplacement:Other:ChooseP\n\
-         SVar:ChooseP:DB$ ChoosePlayer | Defined$ You | Choices$ Opponent | Secretly$ True",
+         SVar:ChooseP:DB$ ChoosePlayer | Defined$ You | Choices$ Player | Secretly$ True",
         // Mismatched UnlessCost$ on ChooseNumber energy payment must refuse.
         "Name:BadWrongUnlessPayer\nManaCost:1 R\nTypes:Instant\n\
          A:SP$ ChooseNumber | Max$ Max | ListTitle$ amount of energy to pay | SubAbility$ DBDmg\n\

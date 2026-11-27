@@ -194,6 +194,7 @@ pub(super) fn finish_split(
 ///
 /// # Panics
 /// If no such choice is suspended.
+#[allow(clippy::too_many_lines)]
 pub fn resume_chosen_player(state: &mut GameState, res: &mut Resolution, chosen: PlayerId) -> Flow {
     match res.awaiting.take() {
         Some(AwaitingOp::ChoosePlayerFrom) => {
@@ -263,6 +264,35 @@ pub fn resume_chosen_player(state: &mut GameState, res: &mut Resolution, chosen:
         Some(AwaitingOp::DemonstrateOpponent) => {
             super::subjects::begin_resume(state, res);
             let flow = super::immediate::resume_demonstrate_opponent(state, res, chosen);
+            super::subjects::flush(state, res);
+            flow
+        }
+        Some(AwaitingOp::ChoosePlayerEx { remember, then }) => {
+            super::subjects::begin_resume(state, res);
+            let flow = super::player_number_choices::resume_choose_player_ex(
+                state, res, chosen, remember, then,
+            );
+            super::subjects::flush(state, res);
+            flow
+        }
+        Some(AwaitingOp::SecretGuessPickGuesser {
+            min,
+            max,
+            track_used_on_source,
+            on_correct,
+            on_wrong,
+        }) => {
+            super::subjects::begin_resume(state, res);
+            let flow = super::player_number_choices::resume_secret_guess_guesser(
+                state,
+                res,
+                chosen,
+                min,
+                max,
+                track_used_on_source,
+                on_correct,
+                on_wrong,
+            );
             super::subjects::flush(state, res);
             flow
         }

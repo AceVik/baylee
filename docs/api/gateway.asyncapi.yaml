@@ -387,6 +387,11 @@ channels:
               string build = 5;
               // This executable's compiled identity, checked before any game data is sent.
               bytes execution = 6;
+              // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+              // A gateway that keeps a game on the build that started it asks an engine
+              // only what its revision says it does: from 1 it picks a game up from its
+              // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+              uint32 link = 7;
             }
 
             // Gateway → engine: everything needed to build the game.
@@ -1227,6 +1232,11 @@ channels:
               string build = 5;
               // This executable's compiled identity, checked before any game data is sent.
               bytes execution = 6;
+              // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+              // A gateway that keeps a game on the build that started it asks an engine
+              // only what its revision says it does: from 1 it picks a game up from its
+              // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+              uint32 link = 7;
             }
 
             // Gateway → engine: everything needed to build the game.
@@ -2076,6 +2086,11 @@ channels:
               string build = 5;
               // This executable's compiled identity, checked before any game data is sent.
               bytes execution = 6;
+              // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+              // A gateway that keeps a game on the build that started it asks an engine
+              // only what its revision says it does: from 1 it picks a game up from its
+              // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+              uint32 link = 7;
             }
 
             // Gateway → engine: everything needed to build the game.
@@ -2867,6 +2882,11 @@ channels:
               string build = 5;
               // This executable's compiled identity, checked before any game data is sent.
               bytes execution = 6;
+              // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+              // A gateway that keeps a game on the build that started it asks an engine
+              // only what its revision says it does: from 1 it picks a game up from its
+              // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+              uint32 link = 7;
             }
 
             // Gateway → engine: everything needed to build the game.
@@ -3658,6 +3678,11 @@ channels:
               string build = 5;
               // This executable's compiled identity, checked before any game data is sent.
               bytes execution = 6;
+              // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+              // A gateway that keeps a game on the build that started it asks an engine
+              // only what its revision says it does: from 1 it picks a game up from its
+              // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+              uint32 link = 7;
             }
 
             // Gateway → engine: everything needed to build the game.
@@ -4451,6 +4476,11 @@ channels:
               string build = 5;
               // This executable's compiled identity, checked before any game data is sent.
               bytes execution = 6;
+              // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+              // A gateway that keeps a game on the build that started it asks an engine
+              // only what its revision says it does: from 1 it picks a game up from its
+              // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+              uint32 link = 7;
             }
 
             // Gateway → engine: everything needed to build the game.
@@ -5246,6 +5276,11 @@ channels:
               string build = 5;
               // This executable's compiled identity, checked before any game data is sent.
               bytes execution = 6;
+              // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+              // A gateway that keeps a game on the build that started it asks an engine
+              // only what its revision says it does: from 1 it picks a game up from its
+              // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+              uint32 link = 7;
             }
 
             // Gateway → engine: everything needed to build the game.
@@ -5713,8 +5748,9 @@ channels:
               minimum: 0
               maximum: 4294967295
               description: >-
-                The protocol the client speaks (`PROTOCOL_VERSION`, as `GET /info` answers it);
-                another, or none, is answered with a `HelloAck` that is not compatible
+                The protocol the client speaks (`PROTOCOL_VERSION`); another than the table's,
+                or none, is answered with a `HelloAck` that is not compatible. The table's is the
+                gateway's (`GET /info`), or an older one for a game an older engine build began
             token:
               type: string
               description: >-
@@ -6093,6 +6129,11 @@ channels:
               string build = 5;
               // This executable's compiled identity, checked before any game data is sent.
               bytes execution = 6;
+              // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+              // A gateway that keeps a game on the build that started it asks an engine
+              // only what its revision says it does: from 1 it picks a game up from its
+              // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+              uint32 link = 7;
             }
 
             // Gateway → engine: everything needed to build the game.
@@ -6884,6 +6925,11 @@ channels:
               string build = 5;
               // This executable's compiled identity, checked before any game data is sent.
               bytes execution = 6;
+              // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+              // A gateway that keeps a game on the build that started it asks an engine
+              // only what its revision says it does: from 1 it picks a game up from its
+              // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+              uint32 link = 7;
             }
 
             // Gateway → engine: everything needed to build the game.
@@ -7675,6 +7721,11 @@ channels:
               string build = 5;
               // This executable's compiled identity, checked before any game data is sent.
               bytes execution = 6;
+              // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+              // A gateway that keeps a game on the build that started it asks an engine
+              // only what its revision says it does: from 1 it picks a game up from its
+              // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+              uint32 link = 7;
             }
 
             // Gateway → engine: everything needed to build the game.
@@ -8468,6 +8519,11 @@ channels:
               string build = 5;
               // This executable's compiled identity, checked before any game data is sent.
               bytes execution = 6;
+              // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+              // A gateway that keeps a game on the build that started it asks an engine
+              // only what its revision says it does: from 1 it picks a game up from its
+              // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+              uint32 link = 7;
             }
 
             // Gateway → engine: everything needed to build the game.
@@ -8919,8 +8975,9 @@ channels:
               minimum: 0
               maximum: 4294967295
               description: >-
-                The protocol the client speaks (`PROTOCOL_VERSION`, as `GET /info` answers it);
-                another, or none, is answered with a `HelloAck` that is not compatible
+                The protocol the client speaks (`PROTOCOL_VERSION`); another than the table's,
+                or none, is answered with a `HelloAck` that is not compatible. The table's is the
+                gateway's (`GET /info`), or an older one for a game an older engine build began
           required:
           - ticket
           - protocol
@@ -9200,8 +9257,11 @@ operations:
       `ticket expired or used` for a ticket that is unknown, spent, expired or
       for another socket or game, one bought by a seat token that is not the
       chair's any more, and a chair whose player is out of the game or whose
-      authorization no longer holds. A client of another protocol is let in,
-      sent one `HelloAck` and closed, and the engine never hears of it.
+      authorization no longer holds. A client of another protocol than the
+      table's is let in, sent one `HelloAck` and closed, and the engine never
+      hears of it. The table's protocol is that of the engine build playing it:
+      the gateway's own, or an older one for a game an older build began and
+      goes on with after an update.
       Otherwise the socket waits up to 30 seconds for the game's engine (and
       closes if none attaches), and the engine is told the seat is here. Its
       first frames are the opening payload (`GameStaticMsg`) and the seat's
@@ -9266,8 +9326,11 @@ operations:
       `ticket expired or used` for a ticket that is unknown, spent, expired or
       for another socket or game, one bought by a seat token that is not the
       chair's any more, and a chair whose player is out of the game or whose
-      authorization no longer holds. A client of another protocol is let in,
-      sent one `HelloAck` and closed, and the engine never hears of it.
+      authorization no longer holds. A client of another protocol than the
+      table's is let in, sent one `HelloAck` and closed, and the engine never
+      hears of it. The table's protocol is that of the engine build playing it:
+      the gateway's own, or an older one for a game an older build began and
+      goes on with after an update.
       Otherwise the socket waits up to 30 seconds for the game's engine (and
       closes if none attaches), and the engine is told the seat is here. Its
       first frames are the opening payload (`GameStaticMsg`) and the seat's
@@ -9334,8 +9397,8 @@ operations:
       no spectators (any more) and `409` when it is not being played; with
       `403` and `ban` or `terms_required` when the account is banned or must
       accept new terms, `401` when it must choose a new password, and `503`
-      when the account store cannot be asked. A client of
-      another protocol is let in, sent one `HelloAck` and closed. Otherwise
+      when the account store cannot be asked. A client of another protocol
+      than the table's (as at a seat) is let in, sent one `HelloAck` and closed. Otherwise
       the socket waits up to 30 seconds for the game's engine (and closes if
       none attaches), the engine is told the spectator count, and every
       spectator is sent a whole snapshot (`GameStaticMsg`, `StateDelta` with
@@ -9864,6 +9927,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -10655,6 +10723,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -11446,6 +11519,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -12237,6 +12315,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -13028,6 +13111,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -13819,6 +13907,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -14610,6 +14703,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -15407,6 +15505,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -16198,6 +16301,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -16989,6 +17097,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -17780,6 +17893,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -18571,6 +18689,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -19362,6 +19485,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -20153,6 +20281,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -20950,6 +21083,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -21741,6 +21879,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -22172,7 +22315,7 @@ components:
             // The house's level (`steady`, …), for `KIND_HOUSE`.
             string level = 5;
           }
-      description: "Envelope case `hello_ack`, from the gateway itself: the client's protocol is not the gateway's. `compatible` is false, `protocol_version` is the gateway's and `message` is a sentence naming both. The only frame; the socket closes after it."
+      description: "Envelope case `hello_ack`, from the gateway itself: the client's protocol is not the table's. `compatible` is false, `protocol_version` is the table's, `refusal` is `update_required` when the client's is older, and `message` is a sentence naming both. The only frame; the socket closes after it."
       x-protobuf-message: baylee.v1.Envelope
     Page:
       name: Page
@@ -22538,6 +22681,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -23329,6 +23477,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -24120,6 +24273,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -24911,6 +25069,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -25702,6 +25865,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -26493,6 +26661,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -27284,6 +27457,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -28075,6 +28253,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -28866,6 +29049,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -29657,6 +29845,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -30448,6 +30641,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -31239,6 +31437,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -32030,6 +32233,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -32821,6 +33029,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -33612,6 +33825,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -34403,6 +34621,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -35194,6 +35417,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -35985,6 +36213,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -36776,6 +37009,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -37567,6 +37805,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -38358,6 +38601,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -39149,6 +39397,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -39940,6 +40193,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.
@@ -40731,6 +40989,11 @@ components:
             string build = 5;
             // This executable's compiled identity, checked before any game data is sent.
             bytes execution = 6;
+            // The engine link revision this engine speaks (`baylee_protocol::ENGINE_LINK`).
+            // A gateway that keeps a game on the build that started it asks an engine
+            // only what its revision says it does: from 1 it picks a game up from its
+            // stored record (`GameSetup.resume_record`). 0 is an engine from before it.
+            uint32 link = 7;
           }
 
           // Gateway → engine: everything needed to build the game.

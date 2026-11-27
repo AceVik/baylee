@@ -379,6 +379,11 @@ pub enum CostPart {
     /// Waterbend {X} (`CR 701.67a`, `CR 107.3`): pay `{X}` generic mana using
     /// Waterbend. Appended to preserve replay identities.
     WaterbendX,
+    /// Reveal the player secretly chosen as this permanent entered (`CR 118.3`,
+    /// `CR 701.20a`; *Guardian Archon*, *Emissary of Grudges*, *Stalking Leonin*).
+    /// Payable only while the source permanent still holds an unrevealed secret
+    /// chosen player. Appended to preserve replay identities.
+    RevealChosenPlayer,
 }
 
 /// A cost reduction printed on a card (Surgical Metamorph) or on one of its
@@ -413,6 +418,26 @@ pub enum CostReduction {
     /// colored spillover into generic) if this permanent entered the
     /// battlefield this turn. Appended to preserve replay identities.
     OwnManaCostIfEnteredThisTurn,
+    /// Reduces the activation cost by `mana` when `condition` holds
+    /// (*Flying Drone*, *Kami of Jealous Thirst*). Appended to preserve
+    /// replay identities.
+    IfMana {
+        /// Intervening condition checked at activation cost determination.
+        condition: crate::Condition,
+        /// Mana cost subtracted when `condition` holds.
+        mana: ManaCost,
+    },
+    /// Reduces an activated ability's generic cost by `amount` when at least
+    /// `min_count` chosen targets match `filter` (*Raft Security Officer*,
+    /// *Wayta, Trainer Prodigy*). Appended to preserve replay identities.
+    IfTargetsMatch {
+        /// Filter each qualifying chosen target must match.
+        filter: &'static Filter,
+        /// Minimum number of matching targets required.
+        min_count: u8,
+        /// Generic mana reduction applied when the threshold is met.
+        amount: u32,
+    },
 }
 
 /// When an alternative cost may be used.

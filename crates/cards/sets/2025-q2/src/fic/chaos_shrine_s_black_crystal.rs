@@ -34,31 +34,29 @@ card!(
                 step: StepKind::Upkeep,
                 whose: PlayerRel::You
             },
-            &[Effect::MayDo {
-                effects: &[Effect::ChooseCardEx {
-                    chooser: PlayerRel::You,
-                    zone: ChooseZone::LinkedExile,
-                    filter: &Filter::CREATURE,
-                    min: 0,
-                    max: Amount::Fixed(1),
-                    reveal_chosen: false,
-                    movement: ChooseMove::None,
-                    not_chosen_movement: ChooseMove::None,
-                    then: &[Effect::MoveAndModify {
-                        subject: MoveSubject::Target(TargetSpec::EventObject),
-                        expected_origin: Some(ZoneRef::Exile),
-                        blink: false,
-                        owner_control: false,
-                        tapped: false,
-                        face: None,
-                        counters: Some((CounterKind::Finality, Amount::Fixed(1))),
-                        modifiers: &[],
-                        duration: Duration::Indefinitely,
-                        attach_source: false,
-                        when_source_leaves: None
-                    }],
-                    for_unchosen: &[]
-                }]
+            &[Effect::ChooseCardEx {
+                chooser: PlayerRel::You,
+                zone: ChooseZone::LinkedExile,
+                filter: &Filter::CREATURE,
+                min: 0,
+                max: Amount::Fixed(1),
+                reveal_chosen: false,
+                movement: ChooseMove::None,
+                not_chosen_movement: ChooseMove::None,
+                then: &[Effect::MoveAndModify {
+                    subject: MoveSubject::Target(TargetSpec::EventObject),
+                    expected_origin: Some(ZoneRef::Exile),
+                    blink: false,
+                    owner_control: false,
+                    tapped: false,
+                    face: None,
+                    counters: Some((CounterKind::Finality, Amount::Fixed(1))),
+                    modifiers: &[],
+                    duration: Duration::Indefinitely,
+                    attach_source: false,
+                    when_source_leaves: None
+                }],
+                for_unchosen: &[]
             }]
         ),
     ],

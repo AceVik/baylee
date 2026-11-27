@@ -10,20 +10,7 @@ impl Deploy {
     /// Called only after the verified drain, or an explicit forced finish.
     /// Check the complete immutable stage before touching the live owner.
     pub(super) fn install_agent(&self, rev: &str) -> Run {
-        for name in [
-            "baylee-agent",
-            "baylee-deploy",
-            "baylee-invite",
-            "baylee-reboot",
-        ]
-        .into_iter()
-        .chain(super::engine::BINARIES)
-        {
-            if !self.p.staged(name).is_file() {
-                say("incomplete staged owner binaries; restage the release before finishing");
-                return Err(Stop(1));
-            }
-        }
+        self.owner_staged()?;
         must(&mut self.sudo(&["systemctl", "stop", "baylee-agent"]))?;
         let mut owner = vec!["baylee-agent"];
         owner.extend(super::engine::BINARIES);
@@ -40,6 +27,27 @@ impl Deploy {
             "{}: drained owner replaced; agent off until the gateway follows",
             short(rev)
         ));
+        Ok(())
+    }
+
+    /// Whether the stage holds every owner binary: asked before anything is
+    /// stopped, so a deploy that keeps games never stops the gateway for a
+    /// stage it cannot install.
+    pub(super) fn owner_staged(&self) -> Run {
+        for name in [
+            "baylee-agent",
+            "baylee-deploy",
+            "baylee-invite",
+            "baylee-reboot",
+        ]
+        .into_iter()
+        .chain(super::engine::BINARIES)
+        {
+            if !self.p.staged(name).is_file() {
+                say("incomplete staged owner binaries; restage the release before finishing");
+                return Err(Stop(1));
+            }
+        }
         Ok(())
     }
 }

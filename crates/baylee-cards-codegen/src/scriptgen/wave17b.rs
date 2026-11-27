@@ -185,7 +185,7 @@ impl Tx<'_> {
         None
     }
 
-    fn wave17b_highest_controlled_amount(
+    pub(super) fn wave17b_highest_controlled_amount(
         &mut self,
         among: &'static str,
         valid: &str,

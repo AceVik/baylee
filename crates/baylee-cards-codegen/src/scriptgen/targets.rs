@@ -99,8 +99,13 @@ impl Tx<'_> {
             };
             return Some(vec![format!(
                 "Effect::PreventFromChosenSourceWithLifeCondition {{ target: {target}, sources: &{sources}, \
-                 gain_life_sources: &{gain_life_sources} }}"
+ gain_life_sources: &{gain_life_sources} }}"
             )]);
+        }
+        if let Some(effect_expr) =
+            self.chosen_source_prevent_with_then(&replacement, &rechecks, &filter)
+        {
+            return Some(vec![effect_expr]);
         }
         let (target_you, next_only, combat_only, gain_life) =
             self.chosen_source_replacement(&replacement, &rechecks)?;
@@ -114,7 +119,7 @@ impl Tx<'_> {
         Some(vec![if target_you && next_only {
             format!(
                 "Effect::PreventNextFromChosenSource {{ sources: &{sources}, \
-                 combat_only: {combat_only}, all_but: 0, gain_life: {gain_life} }}"
+ combat_only: {combat_only}, all_but: 0, gain_life: {gain_life} }}"
             )
         } else {
             let target = if target_you {
@@ -124,8 +129,8 @@ impl Tx<'_> {
             };
             format!(
                 "Effect::PreventFromChosenSource {{ target: {target}, sources: &{sources}, \
-                 next_only: {next_only}, combat_only: {combat_only}, all_but: 0, \
-                 gain_life: {gain_life} }}"
+ next_only: {next_only}, combat_only: {combat_only}, all_but: 0, \
+ gain_life: {gain_life} }}"
             )
         }])
     }
@@ -295,7 +300,7 @@ impl Tx<'_> {
             "Effect::ChooseColor".to_string(),
             format!(
                 "{variant} {{ target: {target}, sources: &Filter::OfSourceChosenColor, \
-                 combat_only: {combat_only} }}"
+ combat_only: {combat_only} }}"
             ),
         ])
     }
@@ -349,9 +354,9 @@ impl Tx<'_> {
             return None;
         }
         Some(vec![
-            "Effect::ChooseDamageSourcePreventAllThisTurnMatching(&Filter::SharesColorWithExiledWithSource)"
-                .to_string(),
-        ])
+ "Effect::ChooseDamageSourcePreventAllThisTurnMatching(&Filter::SharesColorWithExiledWithSource)"
+ .to_string(),
+ ])
     }
 
     /// Exact repeatable prevention, all recipients and no consumption instruction.
@@ -511,6 +516,124 @@ impl Tx<'_> {
 
     /// Whether `name` is the line a used-up command-zone effect exiles
     /// itself with, and nothing more.
+    /// Chosen-source one-shot damage prevention with an immediate
+    /// `DealDamageToEventSourceOrController` (+ optional `DrawCardsFor`) rider
+    /// (*Deflecting Palm*, *New Way Forward*).
+    fn chosen_source_prevent_with_then(
+        &mut self,
+        replacement: &str,
+        rechecks: &[String],
+        source_filter: &str,
+    ) -> Option<String> {
+        let (event, mut shield) = self.svars.get(replacement).and_then(|b| Params::parse(b))?;
+        shield.drop_prose();
+        if event != "DamageDone"
+            || !matches!(
+                shield.take("ActiveZones").as_deref(),
+                None | Some("Command")
+            )
+            || !shield
+                .take("ValidSource")
+                .is_some_and(|src| rechecks.iter().any(|r| r == &src))
+            || shield.take("ValidTarget").as_deref() != Some("You")
+            || shield.take("PreventionEffect").as_deref() != Some("True")
+        {
+            return None;
+        }
+        let combat_only = match shield.take("IsCombat").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let then_name = shield.take("ReplaceWith")?;
+        if !shield.exhausted() {
+            return None;
+        }
+        let (api, mut rep) = self
+            .svars
+            .get(then_name.trim())
+            .and_then(|b| Params::parse(b))?;
+        rep.drop_prose();
+        let rider = match api.as_str() {
+            "DealDamage" => {
+                if rep.take("Defined").as_deref() != Some("ChosenCardController")
+                    || rep.take("DamageSource").as_deref() != Some("EffectSource")
+                    || !rep.take("NumDmg").is_some_and(|x| {
+                        Self::resolve_svar_str(self.svars, &x) == Some("ReplaceCount$DamageAmount")
+                    })
+                    || !rep
+                        .take("SubAbility")
+                        .is_some_and(|e| self.exiles_itself(e.trim()))
+                    || !rep.exhausted()
+                {
+                    return None;
+                }
+                "DamageRider::new(&[Effect::DealDamageToEventSourceOrController { amount: Amount::ThisWay(ThisWay::DamagePrevented), creature_source_takes_damage: false }])"
+            }
+            "ImmediateTrigger" => self.chosen_source_immediate_trigger_rider(&mut rep)?,
+            _ => return None,
+        };
+        let sources = if source_filter == "Filter::Any" {
+            "&Filter::Any".to_string()
+        } else {
+            format!("&{}", self.body.filter_static("SOURCE", source_filter))
+        };
+        Some(format!(
+            "Effect::PreventNextFromChosenSourceWithThen {{ target: TargetSpec::Player(PlayerRel::You), sources: {sources}, combat_only: {combat_only}, then: {rider} }}"
+        ))
+    }
+
+    fn chosen_source_immediate_trigger_rider(&self, rep: &mut Params) -> Option<&'static str> {
+        let exec_name = rep.take("Execute")?;
+        let rem_amt = rep.take("RememberSVarAmount")?;
+        let exile = rep.take("SubAbility")?;
+        if !rep.exhausted()
+            || Self::resolve_svar_str(self.svars, rem_amt.trim())
+                != Some("ReplaceCount$DamageAmount")
+            || !self.exiles_itself(exile.trim())
+        {
+            return None;
+        }
+        let (d_api, mut dp) = self
+            .svars
+            .get(exec_name.trim())
+            .and_then(|b| Params::parse(b))?;
+        dp.drop_prose();
+        if d_api != "DealDamage"
+            || dp.take("Defined").as_deref() != Some("ChosenCardController")
+            || !matches!(
+                dp.take("DamageSource").as_deref(),
+                None | Some("EffectSource")
+            )
+            || !dp.take("NumDmg").is_some_and(|y| {
+                Self::resolve_svar_str(self.svars, y.trim()) == Some("Count$TriggerRememberAmount")
+            })
+        {
+            return None;
+        }
+        let sub_draw = dp.take("SubAbility")?;
+        if !dp.exhausted() {
+            return None;
+        }
+        let (w_api, mut wp) = self
+            .svars
+            .get(sub_draw.trim())
+            .and_then(|b| Params::parse(b))?;
+        wp.drop_prose();
+        if w_api != "Draw"
+            || !matches!(wp.take("Defined").as_deref(), None | Some("You"))
+            || !wp.take("NumCards").is_some_and(|y| {
+                Self::resolve_svar_str(self.svars, y.trim()) == Some("Count$TriggerRememberAmount")
+            })
+            || !wp.exhausted()
+        {
+            return None;
+        }
+        Some(
+            "DamageRider::sequence(&[Effect::DealDamageToEventSourceOrController { amount: Amount::ThisWay(ThisWay::DamagePrevented), creature_source_takes_damage: false }, Effect::DrawCardsFor { who: PlayerRel::You, amount: Amount::ThisWay(ThisWay::DamagePrevented) }])",
+        )
+    }
+
     pub(super) fn exiles_itself(&self, name: &str) -> bool {
         self.svars
             .get(name)
@@ -541,8 +664,8 @@ impl Tx<'_> {
             "Permanent" if !card_zone => {}
             "Permanent" => clauses.push(
                 "Filter::HasType(TypeSet::ARTIFACT.union(TypeSet::BATTLE)\
-                 .union(TypeSet::CREATURE).union(TypeSet::ENCHANTMENT)\
-                 .union(TypeSet::LAND).union(TypeSet::PLANESWALKER))"
+ .union(TypeSet::CREATURE).union(TypeSet::ENCHANTMENT)\
+ .union(TypeSet::LAND).union(TypeSet::PLANESWALKER))"
                     .to_string(),
             ),
             "Creature" => clauses.push("Filter::CREATURE".to_string()),
@@ -1124,6 +1247,16 @@ impl Tx<'_> {
             "!AdventureCard" | "nonAdventureCard" => {
                 "Filter::Not(&Filter::HasAdventure)".to_string()
             }
+            "OmenCard" => "Filter::HasOmen".to_string(),
+            "!OmenCard" | "nonOmenCard" => "Filter::Not(&Filter::HasOmen)".to_string(),
+            "withMorph" | "withMegamorph" => "Filter::HasMorph".to_string(),
+            "!withMorph" | "!withMegamorph" => "Filter::Not(&Filter::HasMorph)".to_string(),
+            "DoubleFaced" => "Filter::DoubleFaced".to_string(),
+            "!DoubleFaced" => "Filter::Not(&Filter::DoubleFaced)".to_string(),
+            "CanTransform" => "Filter::CanTransform".to_string(),
+            "!CanTransform" => "Filter::Not(&Filter::CanTransform)".to_string(),
+            "flipped" => "Filter::Flipped".to_string(),
+            "!flipped" => "Filter::Not(&Filter::Flipped)".to_string(),
             "IsSingleTarget" => "Filter::WithSingleTarget".to_string(),
             "!IsSingleTarget" => "Filter::Not(&Filter::WithSingleTarget)".to_string(),
             "withCumulative upkeep" => "Filter::HasCumulativeUpkeep".to_string(),
@@ -1132,8 +1265,8 @@ impl Tx<'_> {
             }
             "Permanent" if !card_zone => return AtomParse::Matched,
             "Permanent" => "Filter::HasType(TypeSet::ARTIFACT.union(TypeSet::BATTLE)\
-                 .union(TypeSet::CREATURE).union(TypeSet::ENCHANTMENT)\
-                 .union(TypeSet::LAND).union(TypeSet::PLANESWALKER))"
+ .union(TypeSet::CREATURE).union(TypeSet::ENCHANTMENT)\
+ .union(TypeSet::LAND).union(TypeSet::PLANESWALKER))"
                 .to_string(),
             "nonPermanent" | "!Permanent" => {
                 "Filter::HasType(TypeSet::INSTANT.union(TypeSet::SORCERY))".to_string()
@@ -1143,6 +1276,8 @@ impl Tx<'_> {
                 "Filter::OwnedByYou".to_string()
             }
             "YouDontOwn" => "Filter::Not(&Filter::OwnedByYou)".to_string(),
+            "OppOwn" => "Filter::OwnedBy(PlayerRel::EachOpponent)".to_string(),
+            "ExiledByYou" if card_zone => "Filter::ExiledByYou".to_string(),
             "Other" | "StrictlyOther" => "Filter::Another".to_string(),
             "Self" | "StrictlySelf" => "Filter::This".to_string(),
             "attacking" => "Filter::Attacking".to_string(),
@@ -1257,7 +1392,7 @@ impl Tx<'_> {
             "MonoColor" => "Filter::Monocolored".to_string(),
             "!MonoColor" | "nonMonoColor" => "Filter::Not(&Filter::Monocolored)".to_string(),
             "MultiColor" => "Filter::And(&[Filter::Not(&Filter::IsColorless), \
-                 Filter::Not(&Filter::Monocolored)])"
+ Filter::Not(&Filter::Monocolored)])"
                 .to_string(),
             "nonMultiColor" | "!MultiColor" => {
                 "Filter::Or(&[Filter::IsColorless, Filter::Monocolored])".to_string()
@@ -1275,6 +1410,9 @@ impl Tx<'_> {
             }
             "ChosenType" if self.has_chosen_card_type() => {
                 "Filter::OfSourceChosenCardType".to_string()
+            }
+            "NotedType" if self.has_chosen_creature_type() => {
+                "Filter::MatchesChosenTypeOfSource".to_string()
             }
             "IsNotChosenType" | "!ChosenType" | "nonChosenType"
                 if self.has_chosen_creature_type()
@@ -1300,6 +1438,15 @@ impl Tx<'_> {
             "!withRampage" => "Filter::Not(&Filter::HasRampage)".to_string(),
             "ThisTurnEntered" if !card_zone => "Filter::EnteredThisTurn".to_string(),
             "!ThisTurnEntered" if !card_zone => "Filter::Not(&Filter::EnteredThisTurn)".to_string(),
+            "ThisTurnEntered" if card_zone => {
+                "Filter::EnteredCurrentZoneThisTurn(None)".to_string()
+            }
+            "!ThisTurnEntered" if card_zone => {
+                "Filter::Not(&Filter::EnteredCurrentZoneThisTurn(None))".to_string()
+            }
+            atom if entered_current_zone_from_filter(atom).is_some() => {
+                entered_current_zone_from_filter(atom).expect("checked")
+            }
             "PutIntoGraveyardThisTurn" if card_zone => {
                 "Filter::PutIntoGraveyardThisTurn".to_string()
             }
@@ -1361,7 +1508,7 @@ impl Tx<'_> {
             "!SharesCMCWith" | "!SharesCMCWith Self" | "cmcNESelf" | "!SameCMCAsSelf" => {
                 "Filter::Not(&Filter::SameManaValueAsSource)".to_string()
             }
-            "cmcEQChosen" | "cmcEQChosenNumber"
+            "cmcEQChosen" | "cmcEQChosenNumber" | "cmcEQCount$ChosenNumber"
                 if self.has_chosen_source_number()
                     && !self
                         .svars
@@ -1934,9 +2081,9 @@ impl Tx<'_> {
             return None;
         }
         let mut clauses = vec![
-            "Filter::HasType(TypeSet::CREATURE.union(TypeSet::PLANESWALKER).union(TypeSet::BATTLE))"
-                .to_string(),
-        ];
+ "Filter::HasType(TypeSet::CREATURE.union(TypeSet::PLANESWALKER).union(TypeSet::BATTLE))"
+ .to_string(),
+ ];
         let mut saw_any = false;
         for atom in rest
             .split(['+', '.'])
@@ -1997,7 +2144,7 @@ impl Tx<'_> {
     }
 
     fn mixed_player_object_target(&mut self, valid: &str, api: &str) -> Option<String> {
-        if !matches!(api, "DealDamage" | "PreventDamage") || !valid.contains(',') {
+        if !matches!(api, "DealDamage" | "PreventDamage" | "Attach") || !valid.contains(',') {
             return None;
         }
         let alts: Vec<&str> = valid
@@ -2385,6 +2532,7 @@ impl Tx<'_> {
             "TriggeredCardController" | "TriggeredCardOwner" if trigger == Some("Drawn") => {
                 "PlayerRel::EventPlayer"
             }
+            "TriggeredCardController" if trigger == Some("LandPlayed") => "PlayerRel::EventPlayer",
             // The player a damage trigger's damage was dealt to: the
             // `DamageDone` rule reads only triggers whose target is a
             // player, so `TriggeredTarget` is one.
@@ -2437,6 +2585,9 @@ impl Tx<'_> {
             "TriggeredCardOwner" | "TriggeredCardController" if trigger == Some("Discarded") => {
                 "PlayerRel::EventPlayer"
             }
+            "TriggeredCauseController" if trigger == Some("Discarded") && self.trigger_is_self => {
+                "PlayerRel::EventPlayer"
+            }
             "TriggeredDefendingPlayer" | "DefendingPlayer"
                 if matches!(
                     trigger,
@@ -2446,6 +2597,10 @@ impl Tx<'_> {
                 "PlayerRel::DefendingPlayer"
             }
             "NextPlayerToYourRight" => "PlayerRel::PlayerToYourRight",
+            "RememberedPlayer" if self.in_secret_guesser_ctx => "PlayerRel::Chosen",
+            "Remembered" | "Player.IsRemembered" if self.in_repeat_player => {
+                "PlayerRel::EventPlayer"
+            }
             "TriggeredAttackingPlayer"
                 if matches!(
                     trigger,
@@ -2948,4 +3103,28 @@ fn oracle_scopes_combat_target_to_you(lower_oracle: &str, phrase: &str) -> bool 
         .matches(&format!("{phrase} you control"))
         .count();
     total > 0 && total == yours
+}
+
+fn entered_current_zone_from_filter(atom: &str) -> Option<String> {
+    let (negated, rest) = if let Some(r) = atom.strip_prefix('!') {
+        (true, r)
+    } else {
+        (false, atom)
+    };
+    let zone = match rest.strip_prefix("ThisTurnEnteredFrom_")? {
+        "Battlefield" => "ZoneRef::Battlefield",
+        "Graveyard" => "ZoneRef::Graveyard",
+        "Library" => "ZoneRef::Library",
+        "Exile" => "ZoneRef::Exile",
+        "Hand" => "ZoneRef::Hand",
+        "Stack" => "ZoneRef::Stack",
+        "Command" => "ZoneRef::Command",
+        _ => return None,
+    };
+    let inner = format!("Filter::EnteredCurrentZoneThisTurn(Some({zone}))");
+    Some(if negated {
+        format!("Filter::Not(&{inner})")
+    } else {
+        inner
+    })
 }

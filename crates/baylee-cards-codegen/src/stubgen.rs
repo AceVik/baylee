@@ -647,6 +647,14 @@ fn doc_lines(out: &mut String, prefix: &str, text: &str) {
 /// written out; the rest come from the struct-update tail. A stub therefore
 /// says exactly what is printed on the face and nothing else, and a new
 /// `FaceDef` field does not have to be back-filled into every card file.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum BackFaceKind {
+    Plain,
+    Adventure,
+    Flip,
+    Omen,
+}
+
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 fn render_face(
     card_name: &str,
@@ -654,7 +662,7 @@ fn render_face(
     cats: &SubtypeCatalogs,
     body: Option<&CardBody>,
     emit_face_rules: bool,
-    adventure: bool,
+    back_kind: BackFaceKind,
     is_back: bool,
     layout: Option<&str>,
 ) -> Result<String, CodegenError> {
@@ -856,8 +864,14 @@ fn render_face(
             fields.push(list);
         }
     }
-    if adventure {
-        fields.push("adventure = true".to_string());
+    match back_kind {
+        BackFaceKind::Plain => {}
+        BackFaceKind::Adventure => fields.push("adventure = true".to_string()),
+        BackFaceKind::Flip => fields.push("flip = true".to_string()),
+        BackFaceKind::Omen => fields.push("omen = true".to_string()),
+    }
+    if let Some(partner) = body.and_then(|b| b.meld_partner.as_deref()) {
+        fields.push(format!("meld_partner = Some({partner:?})"));
     }
     // CR 712.2 vs. 712.4a: an MDFC's back is castable or playable from hand,
     // a nonmodal (transforming) one's back is not — in hand the card has
@@ -879,7 +893,7 @@ fn render_face(
     // Both tests are kept: the layout is the rule, and the cost is what
     // still catches a meld back or any other layout whose back prints no
     // cost and is no land.
-    let transforming = matches!(layout, Some("transform" | "meld"));
+    let transforming = matches!(layout, Some("transform" | "meld" | "flip"));
     let aftermath = body.is_some_and(|b| b.aftermath);
     if is_back
         && (transforming
@@ -1150,6 +1164,8 @@ fn transcode_faces(
             (script.alternate_mode.as_deref(), card.layout.as_deref()),
             (Some("Split"), Some("split"))
                 | (Some("Adventure"), Some("adventure"))
+                | (Some("Omen"), Some("adventure" | "omen"))
+                | (Some("Flip"), Some("flip"))
                 | (Some("Modal"), Some("modal_dfc"))
                 | (Some("DoubleFaced"), Some("transform"))
                 | (Some("Prepare"), Some("prepare"))
@@ -3270,5 +3286,204 @@ mod tests {
         )
         .expect("mismatched room renders as stub");
         assert!(stub_out.contains(STUB_MARKER), "{stub_out}");
+    }
+
+    fn flip_omen_meld_test_cats() -> SubtypeCatalogs {
+        let mut cats = SubtypeCatalogs {
+            creature: vec!["Goblin".into(), "Dragon".into()],
+            spell: vec!["Omen".into()],
+            planeswalker: vec!["Urza".into()],
+            ..SubtypeCatalogs::default()
+        };
+        cats.normalize();
+        cats
+    }
+
+    fn test_face(
+        name: &str,
+        mana_cost: &str,
+        type_line: &str,
+        oracle: &str,
+        pt: Option<(&str, &str)>,
+    ) -> ScryfallFace {
+        ScryfallFace {
+            name: name.into(),
+            mana_cost: Some(mana_cost.into()),
+            type_line: Some(type_line.into()),
+            oracle_text: Some(oracle.into()),
+            power: pt.map(|(p, _)| p.into()),
+            toughness: pt.map(|(_, t)| t.into()),
+            loyalty: None,
+            defense: None,
+            colors: None,
+            image_uris: None,
+            watermark: None,
+        }
+    }
+
+    #[test]
+    fn flip_stub_render_emits_dsl_fields() {
+        let cats = flip_omen_meld_test_cats();
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("akki.txt"),
+            "Name:Akki Proxy\nManaCost:3 R\nTypes:Creature Goblin\nPT:1/1\nK:Haste\n\
+             T:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Opponent | Execute$ TrigFlip\n\
+             SVar:TrigFlip:DB$ SetState | Defined$ Self | Mode$ Flip\n\
+             AlternateMode:Flip\nALTERNATE\n\
+             Name:Tok-Tok Proxy\nManaCost:3 R\nTypes:Legendary Creature Goblin\nPT:2/2\nK:Haste\n",
+        )
+        .unwrap();
+        let scripts = crate::scriptgen::ScriptLookup::new(
+            dir.path().to_path_buf(),
+            BTreeMap::from([("Akki Proxy // Tok-Tok Proxy".into(), "akki.txt".into())]),
+        );
+        let flip_card = ScryfallCard {
+            layout: Some("flip".into()),
+            color_identity: Some(vec!["R".into()]),
+            card_faces: Some(vec![
+                test_face(
+                    "Akki Proxy",
+                    "{3}{R}",
+                    "Creature — Goblin",
+                    "Haste",
+                    Some(("1", "1")),
+                ),
+                test_face(
+                    "Tok-Tok Proxy",
+                    "",
+                    "Legendary Creature — Goblin",
+                    "Haste",
+                    Some(("2", "2")),
+                ),
+            ]),
+            ..bare_card(
+                "Akki Proxy // Tok-Tok Proxy",
+                "Creature — Goblin // Legendary Creature — Goblin",
+            )
+        };
+        let (_, flip_out) = render_stub(
+            &flip_card,
+            &row(50, "AKKI_PROXY"),
+            &IndexLedger::default(),
+            &cats,
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .unwrap();
+        assert!(flip_out.contains(OWNED_MARKER), "{flip_out}");
+        assert!(flip_out.contains("flip = true"), "{flip_out}");
+        assert!(
+            flip_out.contains("castable_from_hand = false"),
+            "{flip_out}"
+        );
+    }
+
+    #[test]
+    fn omen_stub_render_emits_dsl_fields() {
+        let cats = flip_omen_meld_test_cats();
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("storm.txt"),
+            "Name:Storm Dragon\nManaCost:3 G G\nTypes:Creature Dragon\nPT:4/5\nK:Flying\n\
+             AlternateMode:Omen\nALTERNATE\n\
+             Name:Roiling Omen\nManaCost:1 G\nTypes:Sorcery Omen\n\
+             A:SP$ Draw | Defined$ You | NumCards$ 1\n",
+        )
+        .unwrap();
+        let scripts = crate::scriptgen::ScriptLookup::new(
+            dir.path().to_path_buf(),
+            BTreeMap::from([("Storm Dragon // Roiling Omen".into(), "storm.txt".into())]),
+        );
+        let omen_card = ScryfallCard {
+            layout: Some("adventure".into()),
+            color_identity: Some(vec!["G".into()]),
+            card_faces: Some(vec![
+                test_face(
+                    "Storm Dragon",
+                    "{3}{G}{G}",
+                    "Creature — Dragon",
+                    "Flying",
+                    Some(("4", "5")),
+                ),
+                test_face(
+                    "Roiling Omen",
+                    "{1}{G}",
+                    "Sorcery — Omen",
+                    "Draw a card.",
+                    None,
+                ),
+            ]),
+            ..bare_card(
+                "Storm Dragon // Roiling Omen",
+                "Creature — Dragon // Sorcery — Omen",
+            )
+        };
+        let (_, omen_out) = render_stub(
+            &omen_card,
+            &row(51, "STORM_DRAGON"),
+            &IndexLedger::default(),
+            &cats,
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .unwrap();
+        assert!(omen_out.contains(OWNED_MARKER), "{omen_out}");
+        assert!(omen_out.contains("omen = true"), "{omen_out}");
+        assert!(
+            !omen_out.contains("castable_from_hand = false"),
+            "{omen_out}"
+        );
+    }
+
+    #[test]
+    fn meld_stub_render_emits_partner_and_melded_face() {
+        let cats = flip_omen_meld_test_cats();
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("urza.txt"),
+            "Name:Urza Proxy\nManaCost:1 W U\nTypes:Legendary Creature Goblin\nPT:2/4\n\
+             A:AB$ Meld | Cost$ 7 | ConditionPresent$ Card.Self+YouCtrl+YouOwn | ConditionCheckSVar$ X | \
+             Name$ Urza Melded | Primary$ Urza Proxy | Secondary$ Stone Proxy | SecondaryType$ Artifact | SorcerySpeed$ True\n\
+             SVar:X:Count$Valid Artifact.YouCtrl+YouOwn+namedStone Proxy\n\
+             MeldPair:Stone Proxy\nAlternateMode:Meld\nALTERNATE\n\
+             Name:Urza Melded\nManaCost:no cost\nTypes:Legendary Planeswalker Urza\nLoyalty:7\n\
+             A:AB$ Draw | Cost$ AddCounter<1/LOYALTY> | Planeswalker$ True | NumCards$ 2\n",
+        )
+        .unwrap();
+        let scripts = crate::scriptgen::ScriptLookup::new(
+            dir.path().to_path_buf(),
+            BTreeMap::from([("Urza Proxy".into(), "urza.txt".into())]),
+        );
+        let meld_card = ScryfallCard {
+            mana_cost: Some("{1}{W}{U}".into()),
+            oracle_text: Some("{7}: Meld.".into()),
+            power: Some("2".into()),
+            toughness: Some("4".into()),
+            color_identity: Some(vec!["W".into(), "U".into()]),
+            layout: Some("meld".into()),
+            ..bare_card("Urza Proxy", "Legendary Creature — Goblin")
+        };
+        let (_, meld_out) = render_stub(
+            &meld_card,
+            &row(52, "URZA_PROXY"),
+            &IndexLedger::default(),
+            &cats,
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .unwrap();
+        assert!(meld_out.contains(OWNED_MARKER), "{meld_out}");
+        assert!(
+            meld_out.contains("meld_partner = Some(\"Stone Proxy\")"),
+            "{meld_out}"
+        );
+        assert!(
+            meld_out.contains("static MELDED_FACE: TokenDef = TokenDef {"),
+            "{meld_out}"
+        );
     }
 }

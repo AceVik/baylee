@@ -7,7 +7,7 @@
 #![forbid(unsafe_code)]
 
 mod central;
-mod postgres;
+pub(crate) mod postgres;
 mod provision;
 mod services;
 mod stock;

@@ -115,10 +115,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             // spell may spend it, and a rider applies for each entry that
             // actually paid. A failed payment has touched nothing.
             let allowance = self.wizard_source_allowance(wizard);
+            let spend = spend_for(&self.state, wizard, face);
             let Some((spent, x_paid)) = casting::pay_mana_scoped_recording_x(
                 &mut self.state,
                 player,
-                spend_for(wizard, face),
+                spend,
                 &payment_cost,
                 restriction,
                 allowance,
@@ -166,12 +167,14 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
         let mut delved: SmallVec<[ObjectId; 8]> = SmallVec::new();
         for &card in &wizard.delve_exiles {
-            delved.push(self.state.move_object(
-                card,
-                ZoneLocation::Exile(player),
-                ZonePosition::Top,
-                Cause::Cost,
-            )?);
+            delved.push(self.state.with_exiler(player, |state| {
+                state.move_object(
+                    card,
+                    ZoneLocation::Exile(player),
+                    ZonePosition::Top,
+                    Cause::Cost,
+                )
+            })?);
         }
         let convoked_count = if crate::casting::has_convoke(
             &self.state,
@@ -410,6 +413,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::TapSelf
                 | CostPart::UntapSelf
                 | CostPart::ExertSelf
+                | CostPart::RevealChosenPlayer
                 | CostPart::SacrificeSelf
                 | CostPart::ExilePermanent(_)
                 | CostPart::Discard(_)
@@ -819,6 +823,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::TapSelf
                 | CostPart::UntapSelf
                 | CostPart::ExertSelf
+                | CostPart::RevealChosenPlayer
                 | CostPart::SacrificeSelf
                 | CostPart::PayCommanderColors
                 | CostPart::Crew(_)
@@ -1363,6 +1368,23 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .expect("cast spell")
                 .riders
                 .push(crate::object::Rider::ExileInsteadOfGraveyard);
+        }
+        if let Some(route) = wizard.selected_alt_grant() {
+            let obj = self.state.object_mut(card).expect("cast spell");
+            if route.entry_finality && !obj.riders.contains(&crate::object::Rider::EntryFinality) {
+                obj.riders.push(crate::object::Rider::EntryFinality);
+            }
+            if route.evoke_sacrifice {
+                obj.riders.push(crate::object::Rider::EvokedGrant);
+            }
+            if let Some(life) = route.grant_death_exile_gain_life {
+                obj.riders
+                    .push(crate::object::Rider::GrantDeathExileAndGainLife(life));
+            }
+            if route.grant_leave_exile {
+                obj.riders
+                    .push(crate::object::Rider::GrantLeaveExileReplacement);
+            }
         }
         self.state
             .object_mut(card)

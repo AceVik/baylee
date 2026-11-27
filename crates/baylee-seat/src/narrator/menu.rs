@@ -1930,6 +1930,7 @@ fn spell_ending_label(ending: baylee_engine::choice::SpellEnding) -> &'static st
         SpellEnding::Adventure => {
             "Adventure: exile it, and you may cast the creature from exile later at its price"
         }
+        SpellEnding::Omen => "Omen: shuffle it into its owner's library",
         SpellEnding::Exile => "Exile it, and nothing more comes of it",
     }
 }

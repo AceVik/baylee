@@ -105,6 +105,7 @@ impl GameState {
             resolution_chosen_color: _,
             resolution_chosen_number: _,
             resolution_remembered: _,
+            active_exiler: _,
             discovered,
             divided: _,
             synthetic_copies: _,
@@ -116,6 +117,7 @@ impl GameState {
             game_end: _,
             day_night: _,
             previous_turn: _,
+            last_turn_attacked_players: _,
             starting_player: _,
             // Rewritten: entries naming a dealt card's old id are dropped.
             ability_fires: _,
@@ -141,12 +143,14 @@ impl GameState {
             effect_text_overrides: _,
             copy_snapshots: _,
             temporary_copy_origins: _,
+            face_down_copied_bases: _,
             numeric_failure,
             constrained_payments,
             // Sources on the battlefield, re-synced by the settle.
             replacement_rules: _,
             shields: _,
             granted_actions: _,
+            endable_effect_groups: _,
             next_granted_action: _,
             next_damage_batch: _,
             // Rewritten: copies taken in a hidden zone are dropped.

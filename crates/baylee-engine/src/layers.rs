@@ -815,7 +815,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::NameOriginallyPrintedIn(_)
         | Filter::SameNameAsLinkedExile
         | Filter::SharesNameWithRemembered => {
-            matches!(modifier, Modifier::BecomeCopyOf(_))
+            matches!(modifier, Modifier::BecomeCopyOf(_) | Modifier::SetName(_))
         }
         Filter::LowestManaValueOnBattlefield(f) => {
             could_change_match(modifier, f, layer) || matches!(modifier, Modifier::BecomeCopyOf(_))
@@ -978,6 +978,11 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::Saddled
         | Filter::IsCommander
         | Filter::HasAdventure
+        | Filter::HasOmen
+        | Filter::HasMorph
+        | Filter::DoubleFaced
+        | Filter::CanTransform
+        | Filter::Flipped
         | Filter::This
         | Filter::Another
         | Filter::IsToken
@@ -998,6 +1003,8 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::EnteredThisTurn
         | Filter::PutIntoGraveyardThisTurn
         | Filter::SurveilledByYouThisTurn
+        | Filter::EnteredCurrentZoneThisTurn(_)
+        | Filter::ExiledByYou
         | Filter::AttackedThisTurn
         | Filter::CountersAtLeast(_, _)
         | Filter::AnyCountersAtLeast(_)
@@ -1052,6 +1059,8 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::CouldHaveAttackedThisTurn
         | Filter::ControllerControls(_)
         | Filter::TappedToPayForSourceThisTurn
+        | Filter::CastForFlashback
+        | Filter::CastForDash
         | Filter::UnCard => false,
     }
 }
@@ -1391,8 +1400,18 @@ fn apply(
             c.keywords = KeywordSet::EMPTY;
             c.abilities_lost = Some(Characteristics::lost_at(fx.timestamp));
         }
-        // Handled by SBAs/legality checks, not by characteristics.
-        Modifier::SpellsCostLess(_)
+        Modifier::SetName(name) => {
+            if let Some(interned) = state.names.find(name) {
+                c.name = interned;
+            }
+        }
+        // Read by aura bindings, ability offers/activation, entry counters, or
+        // handled by SBAs/legality checks rather than projected characteristics.
+        Modifier::GrantEnchant(_)
+        | Modifier::LoseAbility(_)
+        | Modifier::GrantBloodthirst(_)
+        | Modifier::GrantSunburst
+        | Modifier::SpellsCostLess(_)
         | Modifier::SpellsCostLessMana { .. }
         | Modifier::SpellsCostLessManaByAmount { .. }
         | Modifier::SpellsCostLessByAmount(_)
@@ -1405,8 +1424,20 @@ fn apply(
         | Modifier::AdjustLoyaltyCost { .. }
         | Modifier::EquipCostsLessIfTargets { .. }
         | Modifier::ForetellActionCostsLess { .. }
+        | Modifier::PlotActionCostsLess { .. }
+        | Modifier::MorphTurnFaceUpCostsMore { .. }
         | Modifier::MayForetellAnyTurn { .. }
         | Modifier::UnlockCostsLess { .. }
+        | Modifier::ActivatedAbilitiesCostAdditional { .. }
+        | Modifier::SpellsCostLessPerSharedCardTypeWithExiled { .. }
+        | Modifier::FirstSpellEachTurnCostAdjustByAmount { .. }
+        | Modifier::FirstActivatedAbilityEachTurnCostLess { .. }
+        | Modifier::ActivatedAbilitiesWithKeywordCostLess { .. }
+        | Modifier::EquipCostsLessByTargetAmount { .. }
+        | Modifier::CommanderTaxReplacedWithLife { .. }
+        | Modifier::RaiseCostIfTargetsYouOrPermanent { .. }
+        | Modifier::AdjustSpellCostBeyondFirstTarget { .. }
+        | Modifier::ReduceCostIfTargetsCheck { .. }
         | Modifier::MayCastFromGraveyardUsingAlt(_)
         | Modifier::GrantsUnearth(_)
         | Modifier::GrantsScavengeManaCost
@@ -1420,6 +1451,13 @@ fn apply(
         | Modifier::GrantBlitzCardManaCost
         | Modifier::GrantProwl(_)
         | Modifier::GrantFreerunning(_)
+        | Modifier::GrantMiracle(_)
+        | Modifier::GrantForetell { .. }
+        | Modifier::GrantWarp(_)
+        | Modifier::GrantEvoke(_)
+        | Modifier::GrantMadnessManaCost
+        | Modifier::GrantsMayhemManaCost
+        | Modifier::GrantsBeamMeUpManaCost { .. }
         | Modifier::LoseAllBandsWithOther
         | Modifier::BandsWithOther(_)
         | Modifier::SpellsCostMore(_)
@@ -1445,6 +1483,7 @@ fn apply(
         | Modifier::RevealAllLibraryTops
         | Modifier::RevealAllHands
         | Modifier::RevealYourHand
+        | Modifier::RevealOpponentsHands
         | Modifier::RevealLibraryTop
         | Modifier::ExtraLandDrops(_)
         | Modifier::CantActivateArtifacts
@@ -1544,6 +1583,11 @@ fn apply(
         | Modifier::BlockableWithoutLandwalk(_)
         | Modifier::BlockableWithoutAnyLandwalk
         | Modifier::IgnoreOpponentsHexproof
+        | Modifier::IgnoreOpponentsHexproofMatching { .. }
+        | Modifier::HexproofFrom(_)
+        | Modifier::HexproofFromOwnColors
+        | Modifier::HexproofFromAbilities
+        | Modifier::PlayerHexproofFrom { .. }
         | Modifier::WardDoesntTrigger
         | Modifier::CanBeTargetedAsThoughNoHexproof
         | Modifier::CounterMaximum { .. }
@@ -1570,6 +1614,7 @@ fn apply(
         | Modifier::GrantActivatedFromLinkedExile(_)
         | Modifier::GainActivatedAbilitiesOf { .. }
         | Modifier::MayCastWithAltCost { .. }
+        | Modifier::ZonePlayGrant(_)
         | Modifier::AdjustSpellCostByCast { .. }
         | Modifier::MayLookAtTopOfLibrary { .. }
         | Modifier::GrantFlash { .. }
@@ -1617,6 +1662,13 @@ fn apply(
         | Modifier::CantBlockUnlessPayManaPerCounter(_)
         | Modifier::CantBlockMatchingUnlessPayMana { .. }
         | Modifier::CantAttackUnlessYouSacrifice { .. }
+        | Modifier::UntapDuringUntapStep { .. }
+        | Modifier::AttackManaTax { .. }
+        | Modifier::AttackPhyrexianTax { .. }
+        | Modifier::CantAttackUnlessYouReturn { .. }
+        | Modifier::CantAttackUnlessYouTap { .. }
+        | Modifier::BlockManaTax { .. }
+        | Modifier::CantBlockUnlessYouTap { .. }
         | Modifier::DamageToItCantBePreventedOrRedirected
         | Modifier::CantEnterBattlefield(_)
         | Modifier::SpellsCostMoreMana(_)
@@ -1626,7 +1678,22 @@ fn apply(
         // A replacement, read where a card would reach a graveyard
         // (`replacement::graveyard_destination`).
         | Modifier::ExileInsteadOfYourGraveyard
-        | Modifier::ExileInsteadOfLeavingBattlefield => {}
+        | Modifier::ExileInsteadOfLeavingBattlefield
+        | Modifier::NextDrawReplace(_)
+        | Modifier::ReplaceNextGameLoss { .. }
+        | Modifier::EnterUnderYourControl(_)
+        | Modifier::ReplaceBattlefieldEntry { .. }
+        | Modifier::ExileMatchingInsteadOfGraveyard { .. }
+        | Modifier::PermanentsEnterTapped(_)
+        | Modifier::MultiplyTokensCreated { .. }
+        | Modifier::StealOpponentTokens
+        | Modifier::AddDamageDynamic { .. }
+        | Modifier::PreventDamageRemovingOneCounter { .. }
+        | Modifier::RedirectDamageToAffected { .. }
+        | Modifier::RedirectDamageToAffectedController
+        | Modifier::PreventAllButOneDamage { .. }
+        | Modifier::ReplaceOrPreventDamageScopedWithThen { .. }
+        | Modifier::HealOtherDamageWhenDealtDamage => {}
         Modifier::HoneEquipment => {
             *read_board = true;
             if let Some(equipment) = fx.source.and_then(|id| state.object(id))
@@ -1777,6 +1844,19 @@ fn prohibited_keywords(modifier: &Modifier) -> KeywordSet {
         Modifier::CantHaveKeywords(bits) => *bits,
         _ => KeywordSet::EMPTY,
     }
+}
+
+/// Whether a Layer 6 continuous effect has removed printed ability `index`
+/// from `obj` (e.g. a Licid losing its transformation ability while an Aura).
+#[must_use]
+pub(crate) fn ability_is_lost(state: &GameState, obj: &GameObject, index: u32) -> bool {
+    if !state.effects.may_lose_specific_ability() {
+        return false;
+    }
+    state.effects.iter().any(|fx| {
+        matches!(fx.modifier, Modifier::LoseAbility(lost) if lost == index)
+            && crate::effects::applies_to(state, fx, obj)
+    })
 }
 
 #[cfg(test)]

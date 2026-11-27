@@ -27,6 +27,7 @@ mod equinox;
 mod essence_flare;
 mod eternal_warrior;
 mod evil_presence;
+mod fatal_mutation;
 mod firebreathing;
 mod flickering_ward;
 mod flight;

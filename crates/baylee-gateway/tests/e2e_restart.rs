@@ -384,6 +384,18 @@ async fn a_game_that_ends_is_let_go() {
     let (game, _, mut ws, _) = a_game(gw.port, &token).await;
     kept_soon(&gw, &game).await;
     assert!(probe.hash.borrow().is_some());
+    let health = |gw: &Gateway| -> serde_json::Value {
+        let (status, body) = http(gw.port, "GET", "/health", None, "");
+        assert_eq!(status, 200, "{body}");
+        serde_json::from_str(&body).unwrap()
+    };
+    let games = &health(&gw)["games"];
+    assert_eq!(games["kept"], 1, "a restart brings it back: {games}");
+    assert_eq!(
+        games["engine_revisions"],
+        serde_json::json!([baylee_build::COMMIT]),
+        "and it plays on this build: {games}"
+    );
     say(&mut ws, &PlayerAction::Concede).await;
     for _ in 0..common::WAIT_TRIES {
         if kept(&gw, &game) == 0 {
@@ -392,6 +404,7 @@ async fn a_game_that_ends_is_let_go() {
         tokio::time::sleep(common::WAIT_STEP).await;
     }
     assert_eq!(kept(&gw, &game), 0, "a game that ended is let go");
+    assert_eq!(health(&gw)["games"]["kept"], 0);
     assert_eq!(
         gw.scalar("SELECT count(*) FROM running_game"),
         0,
@@ -446,5 +459,335 @@ async fn a_chair_whose_account_went_meanwhile_is_emptied() {
         !row(&gw).contains(&account),
         "the kept row forgets the account"
     );
+    agent.abort();
+}
+
+/// An engine build older than this gateway, as an agent keeps one installed
+/// for the games it still plays: this build's identity with the protocol
+/// before this one and a build of its own.
+fn older_build() -> baylee_protocol::execution::Identity {
+    let mut older = common::standard_execution();
+    older.protocol -= 1;
+    older.build = "older-build".into();
+    older
+}
+
+/// One stored piece of a record, packed.
+fn piece(gw: &Gateway, game: &str, seq: i64) -> Vec<u8> {
+    let hex = gw.text(&format!(
+        "SELECT encode(data, 'hex') FROM game_record_chunk WHERE game_id = '{game}' AND seq = {seq}"
+    ));
+    (0..hex.len())
+        .step_by(2)
+        .map(|at| u8::from_str_radix(&hex[at..at + 2], 16).unwrap())
+        .collect()
+}
+
+/// Rewrites the record's header as `older` would have written it, and
+/// returns the preset as it stands there.
+fn as_if_older_played(
+    gw: &Gateway,
+    game: &str,
+    older: &baylee_protocol::execution::Identity,
+) -> String {
+    use std::io::Write as _;
+    let mut first = Vec::new();
+    flate2::read::GzDecoder::new(&piece(gw, game, 0)[..])
+        .read_to_end(&mut first)
+        .expect("the first piece unpacks");
+    let end = first
+        .iter()
+        .position(|b| *b == b'\n')
+        .expect("a header line");
+    let mut header: serde_json::Value = serde_json::from_slice(&first[..end]).unwrap();
+    assert_eq!(header["kind"], "header");
+    header["execution"] = serde_json::to_value(older).unwrap();
+    header["build"] = older.build.clone().into();
+    // A field this build's preset does not know: written back as this build
+    // writes a preset, it would be gone.
+    header["preset"]["written_by_the_older_build"] = true.into();
+    let mut line = serde_json::to_vec(&header).unwrap();
+    line.extend_from_slice(&first[end..]);
+    let mut packed = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+    packed.write_all(&line).unwrap();
+    let hex = packed
+        .finish()
+        .unwrap()
+        .iter()
+        .fold(String::new(), |mut hex, b| {
+            use std::fmt::Write as _;
+            write!(hex, "{b:02x}").unwrap();
+            hex
+        });
+    gw.sql(&format!(
+        "UPDATE game_record_chunk SET data = decode('{hex}', 'hex') WHERE game_id = '{game}' AND seq = 0"
+    ));
+    serde_json::to_string(&header["preset"]).unwrap()
+}
+
+/// A game kept, its gateway stopped, and its record rewritten as if `older`
+/// had played it: the game, the seat token, the preset as the record holds
+/// it, and how many pieces are stored.
+async fn a_game_an_older_build_played(
+    label: &str,
+    older: &baylee_protocol::execution::Identity,
+) -> (Gateway, String, String, String, String, i64) {
+    let gw = spawn_gateway_with(label, &[]);
+    let (agent, probe) = common::attach_agent_recording(&gw).await;
+    let token = login(gw.port, &label.replace('-', ""), "OlderBuild");
+    let (game, seat_token, _ws, _) = a_game(gw.port, &token).await;
+    kept_soon(&gw, &game).await;
+    let hash = probe.hash.borrow().expect("the game is built");
+    stored_at(&gw, &game, hash).await;
+    let gw = stopped(gw).await;
+    agent.abort();
+    let preset = as_if_older_played(&gw, &game, older);
+    let pieces = gw.scalar(&format!(
+        "SELECT count(*) FROM game_record_chunk WHERE game_id = '{game}'"
+    ));
+    (gw, token, game, seat_token, preset, pieces)
+}
+
+/// An agent that keeps `older` installed beside this build's engine, and the
+/// orders it is sent.
+async fn an_agent_keeping(
+    gw: &Gateway,
+    older: &baylee_protocol::execution::Identity,
+) -> (
+    tokio::task::JoinHandle<()>,
+    tokio::sync::mpsc::UnboundedReceiver<v1::StartEngine>,
+) {
+    let mut ws = common::dial(&format!("ws://127.0.0.1:{}/agent/ws", gw.port))
+        .await
+        .expect("agent socket");
+    common::send(
+        &mut ws,
+        &Envelope {
+            msg: Some(v1::envelope::Msg::AgentHello(v1::AgentHello {
+                engines: vec![
+                    older.to_metadata(),
+                    common::standard_execution().to_metadata(),
+                ],
+                token: gw.agent_token.clone(),
+                name: "keeping-agent".into(),
+                capacity: 0,
+                executor: String::new(),
+                protocol_version: baylee_protocol::PROTOCOL_VERSION,
+            })),
+        },
+    )
+    .await;
+    assert!(
+        matches!(
+            common::next_msg(&mut ws).await,
+            Some(v1::envelope::Msg::AgentWelcome(_))
+        ),
+        "an agent that keeps an older build is welcome"
+    );
+    let (orders, rx) = tokio::sync::mpsc::unbounded_channel();
+    let agent = tokio::spawn(async move {
+        while let Some(msg) = common::next_msg(&mut ws).await {
+            if let v1::envelope::Msg::StartEngine(start) = msg {
+                let _ = orders.send(start);
+            }
+        }
+    });
+    (agent, rx)
+}
+
+async fn ordered(
+    orders: &mut tokio::sync::mpsc::UnboundedReceiver<v1::StartEngine>,
+) -> v1::StartEngine {
+    tokio::time::timeout(common::WAIT_BUDGET, orders.recv())
+        .await
+        .expect("an engine is ordered")
+        .expect("the agent is still there")
+}
+
+/// The engine `start` orders, of the older build, said hello with `link`.
+async fn older_engine_attached(
+    start: &v1::StartEngine,
+    older: &baylee_protocol::execution::Identity,
+    link: u32,
+) -> Socket {
+    let mut engine = common::dial(&start.gateway_url)
+        .await
+        .expect("engine socket");
+    common::send(
+        &mut engine,
+        &Envelope {
+            msg: Some(v1::envelope::Msg::EngineHello(v1::EngineHello {
+                game_id: start.game_id.clone(),
+                token: start.engine_token.clone(),
+                protocol_version: older.protocol,
+                pid: 0,
+                build: older.build.clone(),
+                execution: older.to_metadata(),
+                link,
+            })),
+        },
+    )
+    .await;
+    engine
+}
+
+/// A seat socket of `game` opened by a client speaking `protocol`.
+async fn seat_speaking(port: u16, game: &str, seat_token: &str, protocol: u32) -> Socket {
+    let ticket = common::seat_ticket(port, game, seat_token);
+    common::dial(&format!(
+        "ws://127.0.0.1:{port}/games/{game}/ws?ticket={ticket}&protocol={protocol}"
+    ))
+    .await
+    .expect("the upgrade is not the check")
+}
+
+/// A game an older engine build played goes on on that build after the
+/// gateway is replaced by a newer one (`docs/proposals/games-survive-restarts.md`
+/// §"Step 4"): the agent that keeps it is ordered exactly it, its engine is
+/// sent the record and the preset as that build wrote it, and the table
+/// speaks that build's protocol. A client of this gateway's protocol is told
+/// the table is older; one of the table's is let in and hears the engine.
+/// A new game meanwhile is put on this build.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[allow(clippy::too_many_lines)] // one game across a replacement, top to bottom
+async fn a_game_an_older_build_played_goes_on_there() {
+    use prost::Message as _;
+    let older = older_build();
+    let (mut gw, token, game, seat_token, preset, pieces) =
+        a_game_an_older_build_played("older", &older).await;
+    gw.restart();
+    let _ = common::lobby_ticket(gw.port, &token);
+    let (agent, mut orders) = an_agent_keeping(&gw, &older).await;
+
+    let start = ordered(&mut orders).await;
+    assert_eq!(start.game_id, game);
+    assert_eq!(
+        baylee_protocol::execution::Identity::from_hostable_metadata(&start.execution),
+        Some(older.clone()),
+        "the build that played it, exactly"
+    );
+    let mut engine = older_engine_attached(&start, &older, baylee_protocol::ENGINE_LINK).await;
+    let setup = match tokio::time::timeout(common::WAIT_BUDGET, common::next_msg(&mut engine)).await
+    {
+        Ok(Some(v1::envelope::Msg::GameSetup(setup))) => setup,
+        other => panic!("the older engine was not set up: {other:?}"),
+    };
+    assert!(!setup.resume_record.is_empty(), "it is sent the record");
+    assert_eq!(i64::from(setup.resume_pieces), pieces);
+    assert_eq!(
+        String::from_utf8(setup.preset_json).unwrap(),
+        preset,
+        "and the preset as that build wrote it, unchanged"
+    );
+    assert_eq!(setup.execution, older.to_metadata());
+
+    let mut newer = seat_speaking(
+        gw.port,
+        &game,
+        &seat_token,
+        baylee_protocol::PROTOCOL_VERSION,
+    )
+    .await;
+    match common::next_msg(&mut newer).await {
+        Some(v1::envelope::Msg::HelloAck(ack)) => {
+            assert!(!ack.compatible);
+            assert_eq!(ack.protocol_version, older.protocol, "the table's own");
+            assert_eq!(
+                Some(ack.message),
+                baylee_protocol::table_refusal(
+                    "This client",
+                    baylee_protocol::PROTOCOL_VERSION,
+                    older.protocol
+                )
+            );
+            assert!(ack.refusal.is_none(), "an update would change nothing");
+        }
+        other => panic!("a client newer than its table was let in: {other:?}"),
+    }
+
+    let mut seat = seat_speaking(gw.port, &game, &seat_token, older.protocol).await;
+    let attached = tokio::time::timeout(common::WAIT_BUDGET, async {
+        loop {
+            match common::next_msg(&mut engine).await {
+                Some(v1::envelope::Msg::SeatAttached(attached)) => return attached,
+                Some(_) => {}
+                None => panic!("the engine link closed"),
+            }
+        }
+    })
+    .await
+    .expect("the seat of the table's protocol reaches the engine");
+    assert_eq!(attached.seat, 0);
+    let asked = Envelope {
+        msg: Some(v1::envelope::Msg::ChoiceRequest(v1::ChoiceRequest {
+            game_id: game.clone(),
+            seq: 9,
+            pending: b"as the older build says it".to_vec(),
+            context: Vec::new(),
+        })),
+    };
+    common::send(
+        &mut engine,
+        &Envelope {
+            msg: Some(v1::envelope::Msg::SeatFrame(v1::SeatFrame {
+                seat: 0,
+                envelope: asked.encode_to_vec().into(),
+            })),
+        },
+    )
+    .await;
+    let heard = tokio::time::timeout(common::WAIT_BUDGET, async {
+        loop {
+            match common::next_msg(&mut seat).await {
+                Some(v1::envelope::Msg::ChoiceRequest(asked)) => return asked.pending,
+                Some(_) => {}
+                None => panic!("the seat's socket closed"),
+            }
+        }
+    })
+    .await
+    .expect("the seat hears its engine");
+    assert_eq!(heard, b"as the older build says it");
+
+    // Another player's: this one is in a game already.
+    let other = login(gw.port, "nina", "NinaNew");
+    let deck_id = deck(gw.port, &other);
+    let create = format!("{{\"deck_id\":\"{deck_id}\",\"mode\":\"ai\"}}");
+    let (status, body) = http(gw.port, "POST", "/lobby/games", Some(&other), &create);
+    assert_eq!(status, 200, "a new game: {body}");
+    let start = ordered(&mut orders).await;
+    assert_eq!(
+        baylee_protocol::execution::Identity::from_metadata(&start.execution),
+        Some(common::standard_execution()),
+        "a new game is put on this build, never on the one kept"
+    );
+    agent.abort();
+}
+
+/// An engine from before the link said it resumes would start the game anew
+/// from its preset: it is refused, and the game ends with the reason said.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn an_engine_that_cannot_resume_is_not_given_the_game() {
+    let older = older_build();
+    let (mut gw, token, game, _, _, _) = a_game_an_older_build_played("older-link", &older).await;
+    gw.restart();
+    let _ = common::lobby_ticket(gw.port, &token);
+    let (agent, mut orders) = an_agent_keeping(&gw, &older).await;
+    let start = ordered(&mut orders).await;
+    let mut engine = older_engine_attached(&start, &older, 0).await;
+    match tokio::time::timeout(common::WAIT_BUDGET, common::next_msg(&mut engine)).await {
+        Ok(Some(v1::envelope::Msg::Error(error))) => assert_eq!(
+            error.message,
+            "this engine cannot pick a game up from its record"
+        ),
+        other => panic!("an engine that cannot resume was set up: {other:?}"),
+    }
+    for _ in 0..common::WAIT_TRIES {
+        if kept(&gw, &game) == 0 {
+            break;
+        }
+        tokio::time::sleep(common::WAIT_STEP).await;
+    }
+    assert_eq!(kept(&gw, &game), 0, "the game is over, and not kept");
     agent.abort();
 }

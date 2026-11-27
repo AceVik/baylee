@@ -98,6 +98,31 @@ fn a_face_without_buyback_or_multikicker_keeps_the_tree_it_had() {
     assert_eq!(children(&f, mayhem), children(&f, plain) + 1);
 }
 
+#[test]
+fn flip_omen_and_meld_partner_appear_only_when_set() {
+    use baylee_cards_dsl::FaceDef;
+    let mut f = Forest::new();
+    let plain = FaceDef::DEFAULT.tree(&mut f);
+    let children = |f: &Forest, id: u32| f.nodes[id as usize].children.len();
+    for face in [
+        FaceDef {
+            flip: true,
+            ..FaceDef::DEFAULT
+        },
+        FaceDef {
+            omen: true,
+            ..FaceDef::DEFAULT
+        },
+        FaceDef {
+            meld_partner: Some("Partner"),
+            ..FaceDef::DEFAULT
+        },
+    ] {
+        let id = face.tree(&mut f);
+        assert_eq!(children(&f, id), children(&f, plain) + 1);
+    }
+}
+
 /// A face that prints none of the later optional fields has the 41 children
 /// every face had when B-refresh was exported (`v6w-newengine`, catalog
 /// 2989…). A field written for every face changes every card in the pool:

@@ -218,6 +218,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 }
             )
         });
+        let active_seat = usize::from(self.state.turn.active.get());
+        self.state.players[active_seat].last_combat_attacked =
+            std::mem::take(&mut self.state.combat.declared_against_players);
         self.state.combat = crate::combat::CombatState::default();
         self.state
             .per_turn
@@ -473,12 +476,22 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         });
         // Every prevention shield says "this turn" (`crate::prevention`).
         self.state.shields.clear();
-        self.state.granted_actions.retain(|grant| {
-            matches!(
-                grant.offer.effect,
-                crate::choice::GrantedActionKind::CancelDelayedLifeLoss { .. }
-            )
-        });
+        let arena = &self.state.arena;
+        let groups = &self.state.endable_effect_groups;
+        self.state
+            .granted_actions
+            .retain(|grant| match grant.offer.effect {
+                crate::choice::GrantedActionKind::CancelDelayedLifeLoss { .. } => true,
+                crate::choice::GrantedActionKind::EndContinuousEffects { target } => {
+                    groups
+                        .iter()
+                        .any(|g| g.action == grant.offer.id && g.target == target)
+                        && arena.get(target.object).is_some_and(|o| {
+                            o.version == target.version && o.zone == Zone::Battlefield
+                        })
+                }
+                _ => false,
+            });
         self.state.prune_damage_sources();
         for player in &mut self.state.players {
             player.mana_pool.expire_turn_retention();

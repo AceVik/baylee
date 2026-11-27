@@ -122,9 +122,16 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
         self.activation_target_references = crate::sources::TargetReferences::default();
         self.record_activation_division(id, &[]);
+        let loyalty_source = self.state.source_identity(source).expect("loyalty source");
+        self.record_activated_ability_this_turn(
+            player,
+            loyalty_source.object,
+            loyalty_source.version,
+            Some(id),
+        );
         self.state.journal.record(GameEvent::AbilityActivated {
             ability: self.state.source_identity(id),
-            source: self.state.source_identity(source).expect("loyalty source"),
+            source: loyalty_source,
             player,
             tap_cost: false,
             mana_ability: false,

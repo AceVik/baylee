@@ -16,7 +16,7 @@ cargo dev gate rules                          # while working: fmt, lint-rules, 
 cargo dev gate touched [<rev>]                # fmt + clippy on changed files only; not a gate
 DATABASE_URL=… cargo dev gate features        # non-default desktop and server features
 cargo dev gate shipped-features               # release graphs: verification hooks, workspace feature unification, Central server licence and advisory scope
-cargo dev central gate                        # same full gate with an owned synthetic PostgreSQL 18 fixture
+cargo dev central gate                        # same full gate with an owned synthetic PostgreSQL 18 fixture (Docker, else native: BAYLEE_FIXTURE_POSTGRES)
 cargo dev central gate --features             # same feature gate with an owned synthetic PostgreSQL 18 fixture
 cargo dev stack gate [--features] [--workspace] # full/feature gate with an owned native PostgreSQL 18 (no Docker)
 cargo dev central integration --challenges-only # only the real Daily/Weekly pipeline and recovery regressions

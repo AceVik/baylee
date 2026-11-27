@@ -34,6 +34,45 @@ pub(super) fn finish(state: &mut GameState, entry: Attempt) {
         return;
     }
     let owner = object.owner;
+    if let Some(dest) = entry.instead_destination {
+        state.restore_tapped(entry.object, false);
+        state
+            .effects
+            .remove_where(|effect| entry.preview_effects.contains(&effect.id));
+        state
+            .copy_snapshots
+            .retain(|(id, _)| !entry.preview_effects.contains(id));
+        let already_exiled = state
+            .object(entry.object)
+            .is_some_and(|o| o.zone == Zone::Exile);
+        let is_card = state
+            .object(entry.object)
+            .is_some_and(crate::object::GameObject::is_card);
+        if let Some(object) = state.object_mut(entry.object) {
+            if is_card {
+                object.kind = crate::object::ObjectKind::Card;
+            }
+            if let Some(base) = object.original_base.take() {
+                object.base = base;
+            }
+            object.drop_own_abilities();
+            object.own_abilities_until_eot = false;
+        }
+        if already_exiled && dest == baylee_cards_dsl::EntryInsteadZone::Exile {
+            return;
+        }
+        let alt = match dest {
+            baylee_cards_dsl::EntryInsteadZone::Exile => ZoneLocation::Exile(owner),
+            baylee_cards_dsl::EntryInsteadZone::ShuffleIntoOwnersLibrary => {
+                ZoneLocation::Library(owner)
+            }
+        };
+        let _ = state.move_object(entry.object, alt, ZonePosition::Top, entry.cause);
+        if dest == baylee_cards_dsl::EntryInsteadZone::ShuffleIntoOwnersLibrary {
+            state.shuffle_library(owner);
+        }
+        return;
+    }
     if entry.sacrifices_after > 0 {
         state.entries.after.push_back(AfterEntry {
             player: entry.putter,
@@ -80,6 +119,31 @@ pub(super) fn finish(state: &mut GameState, entry: Attempt) {
         }
     }
     if entry.refusal.is_none() {
+        if let Some(ctrl) = entry.controller_override
+            && let Some(obj) = state.object_mut(entry.object)
+        {
+            obj.set_controller(ctrl);
+        }
+        if !entry.entry_type_pt.is_empty()
+            && let Some(obj) = state.object_mut(entry.object)
+        {
+            if obj.original_base.is_none() {
+                obj.original_base = Some(obj.base.clone());
+            }
+            let mut chars = (*obj.base).clone();
+            for &(add_types, add_subtypes, power, toughness) in &entry.entry_type_pt {
+                chars.types = chars.types.union(add_types);
+                for &st in add_subtypes {
+                    chars.subtypes.insert(st);
+                }
+                chars.power = Some(power);
+                chars.toughness = Some(toughness);
+            }
+            obj.base = std::sync::Arc::new(chars);
+            if !obj.riders.contains(&crate::object::Rider::EntryCopyApplied) {
+                obj.riders.push(crate::object::Rider::EntryCopyApplied);
+            }
+        }
         state.restore_tapped(entry.object, entry.tapped);
         if entry.kw_choices.riot_haste {
             state
@@ -96,6 +160,11 @@ pub(super) fn finish(state: &mut GameState, entry: Attempt) {
         .object(entry.object)
         .is_some_and(|o| o.zone == Zone::Battlefield)
     {
+        if entry.zone_play_rider != baylee_cards_dsl::ZonePlayCastRider::None
+            && let Some(object) = state.object_mut(entry.object)
+        {
+            super::attach_zone_play_rider(object, entry.zone_play_rider);
+        }
         if let Some(player) = entry.battle_protector
             && let Some(reference) = state.source_identity(entry.object)
         {
@@ -195,6 +264,27 @@ fn apply_entry_designations(state: &mut GameState, entry: &Attempt) -> bool {
             .object_mut(entry.object)
             .expect("entered object")
             .set_chosen_opponent(Some(chosen));
+        designated = true;
+    }
+    if let Some(second) = entry.second_chosen_player {
+        state
+            .object_mut(entry.object)
+            .expect("entered object")
+            .set_second_chosen_player(Some(second));
+        designated = true;
+    }
+    if let Some(secret) = entry.secret_chosen_player {
+        state
+            .object_mut(entry.object)
+            .expect("entered object")
+            .set_secret_chosen_player(secret);
+        designated = true;
+    }
+    if let Some(number) = entry.secret_chosen_number {
+        state
+            .object_mut(entry.object)
+            .expect("entered object")
+            .set_secret_chosen_number(number);
         designated = true;
     }
     designated

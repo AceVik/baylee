@@ -157,8 +157,28 @@ pub struct SubjectContext {
     /// Damage prevented or replaced by an enclosing prevention/replacement-with-rider
     /// shield or static modifier (`ThisWay::DamagePrevented`, CR 615.5).
     pub(crate) damage_prevented: u32,
+    /// Permanent that would have been dealt damage during an enclosing damage rider.
+    pub(crate) damaged_object: Option<ObjectId>,
+    /// Incarnation version of the event damage source for CR 608.2h LKI inside damage riders.
+    pub(crate) event_source_version: Option<u32>,
+    /// Counters moved during this resolution (`ThisWay::CountersMoved`, CR 122.5).
+    pub(crate) counters_moved: u32,
     /// Stashed opponent copy target during `Effect::Demonstrate` (`CR 702.148a`).
     pub(crate) demonstrate_opp: Option<(DamageSourceRef, baylee_core::ids::PlayerId)>,
+    /// Running sum accumulated by `Effect::AccumulateChosenNumber` (Join forces).
+    pub(super) accumulated_number: u32,
+    /// Players remembered during this resolution (`ChoosePlayerEx`, `SecretChooseNumbers`).
+    pub(super) remembered_players: smallvec::SmallVec<[baylee_core::ids::PlayerId; 4]>,
+    /// Queued `(player, chosen_number, effects)` steps for multi-player numeric choices.
+    pub(super) queued_player_number_steps: std::collections::VecDeque<(
+        baylee_core::ids::PlayerId,
+        u32,
+        &'static [baylee_cards_dsl::Effect],
+    )>,
+    /// Outer `(event_player, chosen_number)` saved before splicing queued
+    /// multi-player numeric choice steps, restored once the last step finishes.
+    pub(super) queued_player_number_saved:
+        Option<(Option<baylee_core::ids::PlayerId>, Option<u32>)>,
 }
 impl SubjectContext {
     /// Preserve the independent player targets of the second target instance.
@@ -322,7 +342,14 @@ impl SubjectContext {
             remembered_objects: None,
             capture_frames: Vec::new(),
             damage_prevented: 0,
+            damaged_object: None,
+            event_source_version: None,
+            counters_moved: 0,
             demonstrate_opp: None,
+            accumulated_number: 0,
+            remembered_players: smallvec::SmallVec::new(),
+            queued_player_number_steps: std::collections::VecDeque::new(),
+            queued_player_number_saved: None,
         }
     }
 
@@ -468,6 +495,7 @@ impl SubjectContext {
         h.wrapping_mul(31).wrapping_add(links)
     }
 
+    #[allow(clippy::too_many_lines)]
     fn fingerprint_tail(&self, mut h: u64) -> u64 {
         if let Some(inspected) = &self.inspected_library {
             let digest = crate::state::structural_fingerprint(&("inspected-library", inspected));
@@ -521,6 +549,29 @@ impl SubjectContext {
                     255_u8,
                     351_u16,
                     self.damage_prevented,
+                )));
+        }
+        if let Some(obj) = self.damaged_object {
+            h = h
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    255_u8, 585_u16, obj,
+                )));
+        }
+        if let Some(ver) = self.event_source_version {
+            h = h
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    255_u8, 585_u16, 1_u8, ver,
+                )));
+        }
+        if self.counters_moved > 0 {
+            h = h
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    255_u8,
+                    598_u16,
+                    self.counters_moved,
                 )));
         }
         if let Some(vq) = &self.vote_queue {
@@ -591,6 +642,43 @@ impl SubjectContext {
                 .wrapping_mul(31)
                 .wrapping_add(crate::state::structural_fingerprint(&(
                     500_u16, original, opponent,
+                )));
+        }
+        if self.accumulated_number > 0 {
+            h = h
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    255_u8,
+                    553_u16,
+                    1_u8,
+                    self.accumulated_number,
+                )));
+        }
+        if !self.remembered_players.is_empty() {
+            h = h
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    255_u8,
+                    553_u16,
+                    2_u8,
+                    &self.remembered_players,
+                )));
+        }
+        if !self.queued_player_number_steps.is_empty() {
+            h = h
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    255_u8,
+                    553_u16,
+                    3_u8,
+                    &self.queued_player_number_steps,
+                )));
+        }
+        if let Some(saved) = self.queued_player_number_saved {
+            h = h
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    255_u8, 553_u16, 4_u8, saved,
                 )));
         }
         h

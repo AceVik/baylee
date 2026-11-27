@@ -41,7 +41,7 @@ fn prospective(state: &GameState, id: ObjectId) -> Option<GameObject> {
 }
 
 pub(super) fn question(state: &GameState, entry: &mut Attempt) -> Option<(Question, Pending)> {
-    if entry.refusal.is_some() {
+    if entry.is_cancelled() {
         return None;
     }
     if !needs_entry(state, entry.object) {

@@ -125,6 +125,7 @@ fn engine_hello(attach: &Attach) -> Envelope {
             pid: std::process::id(),
             build: baylee_build::short().to_owned(),
             execution: baylee_engine_server::variant::identity().to_metadata(),
+            link: baylee_protocol::ENGINE_LINK,
         })),
     }
 }

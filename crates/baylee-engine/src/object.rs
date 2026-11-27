@@ -632,9 +632,23 @@ impl Characteristics {
         // CR 702.114a: the CDA supplies the colorless base in every zone;
         // later color-changing effects still apply in layer 5.
         let devoid = def.keywords_for_face(face).contains(KeywordSet::DEVOID);
+        // CR 710.2: flipping a Kamigawa flip permanent replaces only its name,
+        // text box, type line, power and toughness — mana cost and color stay
+        // the unflipped face's, and copies of a flipped permanent copy those
+        // values too (CR 707.2).
+        let mana_cost = if face > 0 && f.flip && f.mana_cost == ManaCost::ZERO {
+            def.faces[0].mana_cost
+        } else {
+            f.mana_cost
+        };
+        let color_indicator = if face > 0 && f.flip {
+            def.faces[0].color_indicator.union(f.color_indicator)
+        } else {
+            f.color_indicator
+        };
         Self {
             name,
-            mana_cost: f.mana_cost,
+            mana_cost,
             // CR 202.2e: a face with no mana cost takes its color from the
             // indicator printed on it. The union rather than an either/or,
             // because the two never coexist on a printed face and a card
@@ -642,7 +656,7 @@ impl Characteristics {
             colors: if devoid {
                 ColorSet::EMPTY
             } else {
-                f.mana_cost.colors().union(f.color_indicator)
+                mana_cost.colors().union(color_indicator)
             },
             types: f.types,
             supertypes: f.supertypes,
@@ -667,7 +681,7 @@ impl Characteristics {
             // its mana value is the front face's (CR 202.3b). A modal back,
             // an adventure and a split half (including aftermath, CR 709.3b)
             // are cast for their own cost and keep it.
-            front_mana_value: (face > 0 && !f.castable_from_hand && !f.aftermath)
+            front_mana_value: (face > 0 && !f.castable_from_hand && !f.aftermath && !f.flip)
                 .then(|| u8::try_from(def.faces[0].mana_cost.cmc()).unwrap_or(u8::MAX)),
             x_on_stack: 0,
         }
@@ -1364,6 +1378,42 @@ pub enum Rider {
     /// Card exiled to pay for this spell via delve, until the spell leaves
     /// the stack (CR 607.2q). Appended to preserve replay identities.
     DelvedCard(baylee_core::ids::DamageSourceRef),
+    /// Foretold via a static grant (`Modifier::GrantForetell`); stores the generic
+    /// mana reduction off the card's printed mana cost (`CR 702.143a`).
+    GrantedForetellReduce(u32),
+    /// Discarded into exile via a static madness grant (`Modifier::GrantMadnessManaCost`, `CR 702.35a`).
+    GrantedMadness,
+    /// Player who exiled this exact exile incarnation (`Filter::ExiledByYou`).
+    ExiledBy(PlayerId),
+    /// Cast via a static evoke grant (`Modifier::GrantEvoke`, `CR 702.74a`).
+    EvokedGrant,
+    /// Played via `ZonePlayCastRider::GrantDeathExileAndGainLife` (*Serra Paragon*).
+    GrantDeathExileAndGainLife(u32),
+    /// Played via `ZonePlayCastRider::GrantLeaveExileReplacement` (exile instead of leaving BF).
+    GrantLeaveExileReplacement,
+    /// Permanent was turned face down by an effect (`CR 708.2`) rather than
+    /// cast with disguise or cloaked, so it does not receive Disguise Ward {2}.
+    TurnedFaceDown,
+    /// Mana produced by a Treasure was spent to cast this spell (`Condition::TreasureManaWasSpent`).
+    TreasureManaSpent,
+    /// Second player chosen as this permanent entered (`EnterModifier::ChooseTwoPlayers`, *Bitter Feud*, *Sower of Discord*).
+    SecondChosenPlayer(PlayerId),
+    /// Player secretly chosen as this permanent entered (`EnterModifier::SecretlyChooseOpponent`, *Guardian Archon*, *Stalking Leonin*).
+    SecretChosenPlayer {
+        /// The secretly chosen player.
+        player: PlayerId,
+        /// Whether the choice has been revealed (`CostPart::RevealChosenPlayer`).
+        revealed: bool,
+    },
+    /// Number secretly chosen as this permanent entered (`EnterModifier::SecretlyChooseNumber`, *Ominous Lockbox*).
+    SecretChosenNumber {
+        /// The secretly chosen number.
+        number: u8,
+        /// Whether the number has been revealed.
+        revealed: bool,
+    },
+    /// Bitmask of numbers (`0..32`) already chosen on this permanent incarnation (*The Toymaker's Trap*).
+    UsedChosenNumbers(u32),
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -1428,7 +1478,10 @@ impl Rider {
             | Self::CipherEncodedOn { .. }
             | Self::ChampionedBy { .. }
             | Self::NotedCounter(_, _)
-            | Self::ActivationManaNote { .. } => true,
+            | Self::ActivationManaNote { .. }
+            | Self::GrantedForetellReduce(_)
+            | Self::GrantedMadness
+            | Self::ExiledBy(_) => true,
             // About the stack or the battlefield, not exile.
             Self::DelayedReturnObject(_)
             | Self::EventFoundObject(_)
@@ -1538,7 +1591,16 @@ impl Rider {
             | Self::EncoreAbility
             | Self::CastOriginZone(_)
             | Self::MayhemPaid
-            | Self::UnearthAbility => false,
+            | Self::UnearthAbility
+            | Self::EvokedGrant
+            | Self::GrantDeathExileAndGainLife(_)
+            | Self::GrantLeaveExileReplacement
+            | Self::TurnedFaceDown
+            | Self::TreasureManaSpent
+            | Self::SecondChosenPlayer(_)
+            | Self::SecretChosenPlayer { .. }
+            | Self::SecretChosenNumber { .. }
+            | Self::UsedChosenNumbers(_) => false,
         }
     }
 }
@@ -2167,13 +2229,135 @@ impl GameObject {
         }
     }
 
-    /// Opponent chosen as this permanent entered, if any.
+    /// Publicly visible opponent or player chosen as this permanent entered, if any.
+    ///
+    /// Unrevealed [`Rider::SecretChosenPlayer`] choices return `None` so public
+    /// board views (`PublicObject`) never leak hidden choices; rules-internal
+    /// evaluation uses [`Self::chosen_opponent_for_rules`].
     #[must_use]
     pub fn chosen_opponent(&self) -> Option<PlayerId> {
         self.riders.iter().find_map(|rider| match rider {
-            Rider::ChosenOpponent(player) => Some(*player),
+            Rider::ChosenOpponent(player)
+            | Rider::SecretChosenPlayer {
+                player,
+                revealed: true,
+            } => Some(*player),
             _ => None,
         })
+    }
+
+    /// Opponent or player chosen as this permanent entered for rules evaluation,
+    /// including unrevealed [`Rider::SecretChosenPlayer`] choices.
+    #[must_use]
+    pub fn chosen_opponent_for_rules(&self) -> Option<PlayerId> {
+        self.riders.iter().find_map(|rider| match rider {
+            Rider::ChosenOpponent(player) | Rider::SecretChosenPlayer { player, .. } => {
+                Some(*player)
+            }
+            _ => None,
+        })
+    }
+
+    /// Second player chosen as this permanent entered (`EnterModifier::ChooseTwoPlayers`).
+    #[must_use]
+    pub fn second_chosen_player(&self) -> Option<PlayerId> {
+        self.riders.iter().find_map(|rider| match rider {
+            Rider::SecondChosenPlayer(player) => Some(*player),
+            _ => None,
+        })
+    }
+
+    /// Replaces or clears the second chosen player.
+    pub fn set_second_chosen_player(&mut self, player: Option<PlayerId>) {
+        self.riders
+            .retain(|rider| !matches!(rider, Rider::SecondChosenPlayer(_)));
+        if let Some(p) = player {
+            self.riders.push(Rider::SecondChosenPlayer(p));
+        }
+    }
+
+    /// Records a secret chosen player (`revealed = false`).
+    pub fn set_secret_chosen_player(&mut self, player: PlayerId) {
+        self.riders.retain(|rider| {
+            !matches!(
+                rider,
+                Rider::ChosenOpponent(_) | Rider::SecretChosenPlayer { .. }
+            )
+        });
+        self.riders.push(Rider::SecretChosenPlayer {
+            player,
+            revealed: false,
+        });
+    }
+
+    /// Whether this permanent currently has an unrevealed secret chosen player.
+    #[must_use]
+    pub fn has_unrevealed_secret_chosen_player(&self) -> bool {
+        self.riders.iter().any(|rider| {
+            matches!(
+                rider,
+                Rider::SecretChosenPlayer {
+                    revealed: false,
+                    ..
+                }
+            )
+        })
+    }
+
+    /// Reveals the secret chosen player if still unrevealed, returning who it was.
+    pub fn reveal_secret_chosen_player(&mut self) -> Option<PlayerId> {
+        for rider in &mut self.riders {
+            if let Rider::SecretChosenPlayer { player, revealed } = rider
+                && !*revealed
+            {
+                *revealed = true;
+                return Some(*player);
+            }
+        }
+        None
+    }
+
+    /// Records a secret chosen number (`revealed = false`).
+    pub fn set_secret_chosen_number(&mut self, number: u8) {
+        self.riders
+            .retain(|rider| !matches!(rider, Rider::SecretChosenNumber { .. }));
+        self.riders.push(Rider::SecretChosenNumber {
+            number,
+            revealed: false,
+        });
+    }
+
+    /// Bitmask of numbers already chosen on this permanent (*The Toymaker's Trap*).
+    #[must_use]
+    pub fn used_chosen_numbers(&self) -> u32 {
+        self.riders
+            .iter()
+            .find_map(|rider| match *rider {
+                Rider::UsedChosenNumbers(mask) => Some(mask),
+                _ => None,
+            })
+            .unwrap_or(0)
+    }
+
+    /// Marks `n` (`< 32`) as used on this permanent incarnation.
+    pub fn mark_used_chosen_number(&mut self, n: u8) {
+        if n >= 32 {
+            return;
+        }
+        let bit = 1_u32 << n;
+        for rider in &mut self.riders {
+            if let Rider::UsedChosenNumbers(mask) = rider {
+                *mask |= bit;
+                return;
+            }
+        }
+        self.riders.push(Rider::UsedChosenNumbers(bit));
+    }
+
+    /// Whether mana from a Treasure was spent to cast this spell/permanent.
+    #[must_use]
+    pub fn treasure_mana_spent(&self) -> bool {
+        self.riders.contains(&Rider::TreasureManaSpent)
     }
 
     /// Packed per-mode multiplicities (`4` bits per mode `0..8`) for a modal
@@ -2216,8 +2400,12 @@ impl GameObject {
 
     /// Replaces the entry choice, or clears it when the permanent leaves.
     pub fn set_chosen_opponent(&mut self, opponent: Option<PlayerId>) {
-        self.riders
-            .retain(|rider| !matches!(rider, Rider::ChosenOpponent(_)));
+        self.riders.retain(|rider| {
+            !matches!(
+                rider,
+                Rider::ChosenOpponent(_) | Rider::SecretChosenPlayer { .. }
+            )
+        });
         if let Some(player) = opponent {
             self.riders.push(Rider::ChosenOpponent(player));
         }
@@ -2706,6 +2894,7 @@ impl GameObject {
             return if self.zone == Zone::Exile
                 || self.riders.contains(&Rider::Masked)
                 || self.riders.contains(&Rider::Manifested)
+                || self.riders.contains(&Rider::TurnedFaceDown)
                 || is_morph
             {
                 AbilityDefs::EMPTY
@@ -2850,8 +3039,13 @@ impl GameObject {
         })
     }
 
-    /// The bounded integer last chosen for this permanent's active rules
-    /// acquisition ([`Rider::ChosenNumber`]), if it holds one.
+    /// Publicly visible bounded integer last chosen for this permanent's active
+    /// rules acquisition ([`Rider::ChosenNumber`] or a revealed
+    /// [`Rider::SecretChosenNumber`]).
+    ///
+    /// Unrevealed secret choices return `None` so public board views
+    /// (`PublicObject`) never leak hidden choices; rules-internal evaluation
+    /// uses [`Self::chosen_number_for_rules`].
     #[must_use]
     pub fn chosen_number(&self) -> Option<u8> {
         let acquisition = self.rules_acquisition();
@@ -2860,6 +3054,25 @@ impl GameObject {
                 acquisition: linked,
                 number,
             } if *linked == acquisition => Some(*number),
+            Rider::SecretChosenNumber {
+                number,
+                revealed: true,
+            } => Some(*number),
+            _ => None,
+        })
+    }
+
+    /// The bounded integer chosen for this permanent for rules evaluation,
+    /// including unrevealed [`Rider::SecretChosenNumber`] choices.
+    #[must_use]
+    pub fn chosen_number_for_rules(&self) -> Option<u8> {
+        let acquisition = self.rules_acquisition();
+        self.riders.iter().find_map(|rider| match rider {
+            Rider::ChosenNumber {
+                acquisition: linked,
+                number,
+            } if *linked == acquisition => Some(*number),
+            Rider::SecretChosenNumber { number, .. } => Some(*number),
             _ => None,
         })
     }

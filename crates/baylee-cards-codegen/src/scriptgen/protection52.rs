@@ -2,6 +2,7 @@
 //! extensions, retaining strict unknown-key refusal.
 
 use super::saga_ward_convoke::ExtraOutcome;
+use super::statics::StaticEffectZone;
 use super::{Chain, Params, Tx, card_type_const};
 
 impl Tx<'_> {
@@ -235,12 +236,10 @@ impl Tx<'_> {
     /// `OpponentsCantSearch`, and `SearchTakeover`.
     pub(super) fn continuous_player_rule(&mut self, mut p: Params) -> Option<()> {
         p.drop_prose();
-        if !matches!(p.take("EffectZone").as_deref(), None | Some("Battlefield"))
-            || p.has("AffectedZone")
-            || !matches!(p.take("Secondary").as_deref(), None | Some("True"))
-        {
+        if p.has("AffectedZone") || !matches!(p.take("Secondary").as_deref(), None | Some("True")) {
             return self.deny("player-targeted `Continuous` outside battlefield".into());
         }
+        let zone = self.take_static_effect_zone(&mut p, "Continuous")?;
         let Some(affected) = p.take("Affected") else {
             return self.deny("a continuous static with no `Affected$`".into());
         };
@@ -250,7 +249,7 @@ impl Tx<'_> {
             .filter(|s| !s.is_empty())
             .collect();
         if parts.len() > 1 {
-            return self.continuous_mixed_you_and_permanents(&parts, p);
+            return self.continuous_mixed_you_and_permanents(&parts, zone, p);
         }
         let mut mods: Vec<(&str, String)> = Vec::new();
         if let Some(max_hand) = p.take("SetMaxHandSize") {
@@ -302,7 +301,9 @@ impl Tx<'_> {
             return self.deny("unsupported player-targeted `Continuous` static".into());
         }
         for (filter, modifier) in mods {
-            self.push_static_with_cond(filter, &modifier, &cond);
+            self.body
+                .abilities
+                .push(Self::format_static_expr(filter, &modifier, zone, &cond));
         }
         Some(())
     }
@@ -366,7 +367,12 @@ impl Tx<'_> {
         self.deny(format!("player static keyword `{kw}`"))
     }
 
-    fn continuous_mixed_you_and_permanents(&mut self, parts: &[&str], mut p: Params) -> Option<()> {
+    fn continuous_mixed_you_and_permanents(
+        &mut self,
+        parts: &[&str],
+        zone: StaticEffectZone,
+        mut p: Params,
+    ) -> Option<()> {
         let mut saw_you = false;
         let mut perm_parts = Vec::new();
         for &part in parts {
@@ -393,31 +399,35 @@ impl Tx<'_> {
         }
         let perm_filter = self.filter_expr(&perm_parts.join(","))?;
         if kw == "Hexproof" {
-            self.push_static_with_cond(
+            self.body.abilities.push(Self::format_static_expr(
                 "Filter::Any",
                 "Modifier::PlayerHexproof { who: PlayerRel::You }",
+                zone,
                 &cond,
-            );
-            self.push_static_with_cond(
+            ));
+            self.body.abilities.push(Self::format_static_expr(
                 &perm_filter,
                 "Modifier::AddKeyword(KeywordSet::HEXPROOF)",
+                zone,
                 &cond,
-            );
+            ));
             return Some(());
         }
         if let Some(from_ref) = self.resolve_player_protection_filter(&kw) {
-            self.push_static_with_cond(
+            self.body.abilities.push(Self::format_static_expr(
                 "Filter::This",
                 &format!(
                     "Modifier::PlayerProtectionFrom {{ who: PlayerRel::You, from: &{from_ref} }}"
                 ),
+                zone,
                 &cond,
-            );
-            self.push_static_with_cond(
+            ));
+            self.body.abilities.push(Self::format_static_expr(
                 &perm_filter,
                 &format!("Modifier::ProtectionFrom(&{from_ref})"),
+                zone,
                 &cond,
-            );
+            ));
             return Some(());
         }
         self.deny(format!("player static keyword `{kw}`"))
@@ -723,12 +733,31 @@ impl Tx<'_> {
         let Some(kw) = p.take("AddKeyword") else {
             return self.deny("static ability reaching `AffectedZone$ Graveyard`".into());
         };
-        let Some((modifier, needs_graveyard_zone)) =
+        let Some((mut modifier, needs_graveyard_zone)) =
             Self::wave16b_graveyard_grant_modifier(&kw, true)
         else {
             return self.deny("static ability reaching `AffectedZone$ Graveyard`".into());
         };
-        let cond = self.condition_any(&mut p)?;
+        if modifier == "Modifier::GrantsBeamMeUpManaCost { cant_return_source: false }"
+            && self.has_cant_be_beamed_up_for_current_rule()
+        {
+            modifier = "Modifier::GrantsBeamMeUpManaCost { cant_return_source: true }".to_string();
+        }
+        let Ok(phase_cond) = super::zone_grants::has_phases_cond(&mut p) else {
+            return self.deny("static ability reaching `AffectedZone$ Graveyard`".into());
+        };
+        let mut cond = self.condition_any(&mut p)?;
+        if let Some(pc) = phase_cond {
+            cond = match cond
+                .strip_prefix(", condition = Some(")
+                .and_then(|s| s.strip_suffix(')'))
+            {
+                Some(existing) => {
+                    format!(", condition = Some(Condition::All(&[{pc}, {existing}]))")
+                }
+                None => format!(", condition = Some({pc})"),
+            };
+        }
         if !p.exhausted() {
             return self.deny("static ability reaching `AffectedZone$ Graveyard`".into());
         }
@@ -864,6 +893,12 @@ impl Tx<'_> {
                 return self.deny(format!("control of a static given to `{ctrl}`"));
             }
             out.push(Self::static_expr(filter, "Modifier::GainControl"));
+        }
+        if let Some(raw_name) = p.take("SetName") {
+            let Some(modifier) = Self::set_name_modifier(&raw_name) else {
+                return self.deny(format!("`Continuous.SetName$ {raw_name}`"));
+            };
+            out.push(Self::static_expr(filter, &modifier));
         }
         if remove_all_abilities {
             out.push(Self::static_expr(filter, "Modifier::LoseAllAbilities"));
@@ -1137,8 +1172,11 @@ impl Tx<'_> {
         Some(())
     }
 
-    /// `S: Mode$ IgnoreHexproof | ValidEntity$ <permanent_filter>` (all-player
-    /// permanent-scoped `Modifier::CanBeTargetedAsThoughNoHexproof`).
+    /// `S: Mode$ IgnoreHexproof | ValidEntity$ ...`:
+    /// - Without `Activator$`, all-player permanent-scoped
+    ///   `Modifier::CanBeTargetedAsThoughNoHexproof` (*Nowhere to Run*).
+    /// - With `Activator$ You`, `Modifier::IgnoreOpponentsHexproofMatching`
+    ///   (*Glaring Spotlight*, *Kaya, Bane of the Dead*).
     pub(super) fn ignore_hexproof_static(&mut self, mut p: Params) -> Option<()> {
         p.drop_prose();
         if !matches!(p.take("Secondary").as_deref(), None | Some("True"))
@@ -1146,16 +1184,77 @@ impl Tx<'_> {
         {
             return self.deny("static ability `S: Mode$ IgnoreHexproof`".into());
         }
+        let activator = p.take("Activator");
         let Some(entity) = p.take("ValidEntity") else {
             return self.deny("static ability `S: Mode$ IgnoreHexproof`".into());
         };
         let cond = self.condition_any(&mut p)?;
-        if !p.exhausted() || entity.contains("Opponent") || entity.contains("Player") {
+        if !p.exhausted() {
             return self.deny("static ability `S: Mode$ IgnoreHexproof`".into());
         }
-        let filter = self.filter_expr(&entity)?;
-        self.push_static_with_cond(&filter, "Modifier::CanBeTargetedAsThoughNoHexproof", &cond);
-        Some(())
+        match activator.as_deref() {
+            None => {
+                if entity.contains("Opponent") || entity.contains("Player") {
+                    return self.deny("static ability `S: Mode$ IgnoreHexproof`".into());
+                }
+                let filter = self.filter_expr(&entity)?;
+                self.push_static_with_cond(
+                    &filter,
+                    "Modifier::CanBeTargetedAsThoughNoHexproof",
+                    &cond,
+                );
+                Some(())
+            }
+            Some("You") => {
+                let mut players = false;
+                let mut perm_parts = Vec::new();
+                for part in entity.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+                    if part == "Opponent" {
+                        if players {
+                            return self.deny("static ability `S: Mode$ IgnoreHexproof`".into());
+                        }
+                        players = true;
+                        continue;
+                    }
+                    if part.contains("Player") || part.contains("Opponent") {
+                        return self.deny("static ability `S: Mode$ IgnoreHexproof`".into());
+                    }
+                    let stripped = part
+                        .strip_suffix(".OppCtrl")
+                        .map(str::to_string)
+                        .or_else(|| part.strip_suffix("+OppCtrl").map(str::to_string))
+                        .or_else(|| {
+                            part.contains(".OppCtrl+")
+                                .then(|| part.replacen(".OppCtrl+", ".", 1))
+                        });
+                    let Some(perm_spec) = stripped else {
+                        return self.deny("static ability `S: Mode$ IgnoreHexproof`".into());
+                    };
+                    perm_parts.push(perm_spec);
+                }
+                if perm_parts.is_empty() {
+                    return self.deny("static ability `S: Mode$ IgnoreHexproof`".into());
+                }
+                let joined = perm_parts.join(",");
+                let perm_expr = self.filter_expr(&joined)?;
+                let perm_ref = if perm_expr == "Filter::Any" {
+                    "&Filter::Any".to_string()
+                } else if perm_expr == "Filter::CREATURE" {
+                    "&Filter::CREATURE".to_string()
+                } else {
+                    format!("&{}", self.body.filter_static("IGNORE_HEX", &perm_expr))
+                };
+                self.push_static_with_cond(
+                    "Filter::Any",
+                    &format!(
+                        "Modifier::IgnoreOpponentsHexproofMatching {{ permanent_filter: {perm_ref}, players: {players} }}"
+                    ),
+                    &cond,
+                );
+                Some(())
+            }
+            Some(_) => self.deny("static ability `S: Mode$ IgnoreHexproof`".into()),
+        }
     }
 
     /// `S: Mode$ ManaConvert` (`ManaIsAnyColor`, `SpendManaAs`,
@@ -1687,146 +1786,10 @@ impl Tx<'_> {
         {
             return ExtraOutcome::Pass;
         }
-        ExtraOutcome::Handled(self.combat_unless_wave5(mode, p))
+        ExtraOutcome::Handled(self.choices_combat_unless(mode, p))
     }
 
-    fn combat_unless_wave5(&mut self, mode: &str, mut p: Params) -> Option<()> {
-        p.drop_prose();
-        if !matches!(p.take("Secondary").as_deref(), None | Some("True"))
-            || !matches!(p.take("EffectZone").as_deref(), None | Some("Battlefield"))
-        {
-            return self.deny(format!("static ability `S: Mode$ {mode}`"));
-        }
-        let Some(valid_card) = p.take("ValidCard") else {
-            return self.deny(format!("static ability `S: Mode$ {mode}`"));
-        };
-        let Some(cost) = p.take("Cost") else {
-            return self.deny(format!("static ability `S: Mode$ {mode}`"));
-        };
-        let target = p.take("Target");
-        let attacker = p.take("Attacker");
-        let cond = self.condition_any(&mut p)?;
-        if !p.exhausted() {
-            return self.deny(format!("static ability `S: Mode$ {mode}`"));
-        }
-        let filter = self.filter_expr(&valid_card)?;
-        match mode {
-            "CantAttackUnless" => self.cant_attack_unless_wave5(
-                &filter,
-                cost.trim(),
-                target.as_deref(),
-                attacker.as_deref(),
-                &cond,
-            ),
-            "CantBlockUnless" => self.cant_block_unless_wave5(
-                &filter,
-                cost.trim(),
-                target.as_deref(),
-                attacker.as_deref(),
-                &cond,
-            ),
-            _ => self.deny(format!("static ability `S: Mode$ {mode}`")),
-        }
-    }
-
-    fn cant_attack_unless_wave5(
-        &mut self,
-        filter: &str,
-        cost: &str,
-        target: Option<&str>,
-        attacker: Option<&str>,
-        cond: &str,
-    ) -> Option<()> {
-        if let Some(tgt) = target {
-            if !is_you_and_your_planeswalkers(tgt) {
-                return self.deny("static ability `S: Mode$ CantAttackUnless`".into());
-            }
-            if let Ok(mana) = cost.parse::<u32>()
-                && mana > 0
-            {
-                self.push_static_with_cond(
-                    filter,
-                    &format!("Modifier::AttackTaxMana {{ mana: {mana} }}"),
-                    cond,
-                );
-                return Some(());
-            }
-            if let Some(life) = parse_pay_life_u16(cost) {
-                self.push_static_with_cond(
-                    filter,
-                    &format!("Modifier::AttackTaxLife {{ life: {life} }}"),
-                    cond,
-                );
-                return Some(());
-            }
-            return self.deny("static ability `S: Mode$ CantAttackUnless`".into());
-        }
-        if attacker.is_some() {
-            return self.deny("static ability `S: Mode$ CantAttackUnless`".into());
-        }
-        if let Ok(mana) = cost.parse::<u32>()
-            && mana > 0
-        {
-            self.push_static_with_cond(
-                filter,
-                &format!("Modifier::CantAttackUnlessPayMana({mana})"),
-                cond,
-            );
-            return Some(());
-        }
-        if let Some(sac) = cost.strip_prefix("Sac<").and_then(|s| s.strip_suffix('>'))
-            && let Some((count, sac_filter)) = self.parse_attack_sac(sac)
-        {
-            self.push_static_with_cond(
-                filter,
-                &format!(
-                    "Modifier::CantAttackUnlessYouSacrifice {{ count: {count}, filter: &{sac_filter} }}"
-                ),
-                cond,
-            );
-            return Some(());
-        }
-        self.deny("static ability `S: Mode$ CantAttackUnless`".into())
-    }
-
-    fn cant_block_unless_wave5(
-        &mut self,
-        filter: &str,
-        cost: &str,
-        target: Option<&str>,
-        attacker: Option<&str>,
-        cond: &str,
-    ) -> Option<()> {
-        if target.is_some() {
-            return self.deny("static ability `S: Mode$ CantBlockUnless`".into());
-        }
-        let Ok(mana) = cost.parse::<u32>() else {
-            return self.deny("static ability `S: Mode$ CantBlockUnless`".into());
-        };
-        if mana == 0 {
-            return self.deny("static ability `S: Mode$ CantBlockUnless`".into());
-        }
-        if let Some(att_raw) = attacker {
-            let att_expr = self.filter_expr(att_raw)?;
-            let att_name = self.body.filter_static("ATTACKER", &att_expr);
-            self.push_static_with_cond(
-                filter,
-                &format!(
-                    "Modifier::CantBlockMatchingUnlessPayMana {{ attacker: &{att_name}, mana: {mana} }}"
-                ),
-                cond,
-            );
-            return Some(());
-        }
-        self.push_static_with_cond(
-            filter,
-            &format!("Modifier::CantBlockUnlessPayMana({mana})"),
-            cond,
-        );
-        Some(())
-    }
-
-    fn parse_attack_sac(&mut self, body: &str) -> Option<(u8, String)> {
+    pub(super) fn parse_attack_sac(&mut self, body: &str) -> Option<(u8, String)> {
         let mut parts = body.split('/');
         let count: u8 = parts.next()?.trim().parse().ok()?;
         let valid = parts.next()?.trim();
@@ -3875,7 +3838,7 @@ fn scope_controlled_by_you(valid: &str) -> String {
         .join(",")
 }
 
-fn conjoin_filter_expr(expr: &str, extra: &str) -> String {
+pub(super) fn conjoin_filter_expr(expr: &str, extra: &str) -> String {
     if expr == "Filter::Any" {
         return extra.to_string();
     }
@@ -3901,12 +3864,7 @@ fn is_top_library_yours(affected: &str, base: &str) -> bool {
         && (atoms.contains(&"YouCtrl") || atoms.contains(&"YouOwn"))
 }
 
-fn is_you_and_your_planeswalkers(target: &str) -> bool {
-    let parts: Vec<&str> = target.split(',').map(str::trim).collect();
-    parts.len() == 2 && parts.contains(&"You") && parts.contains(&"Planeswalker.YouCtrl")
-}
-
-fn parse_pay_life_u16(raw: &str) -> Option<u16> {
+pub(super) fn parse_pay_life_u16(raw: &str) -> Option<u16> {
     let inner = raw.strip_prefix("PayLife<")?.strip_suffix('>')?;
     let n: u16 = inner.trim().parse().ok()?;
     (n > 0).then_some(n)

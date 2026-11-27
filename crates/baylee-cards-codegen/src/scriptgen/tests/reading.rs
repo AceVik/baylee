@@ -2847,3 +2847,301 @@ fn wave23c_duskmourn_rooms_and_unlock_door() {
         assert!(refused(bad), "must refuse:\n{bad}");
     }
 }
+
+#[test]
+fn spell_cast_self_predicates_triggers() {
+    // 1. Single-kicker self-cast (`Sowing Mycospawn` shape).
+    let single_kicked = read(
+        "Name:Mycospawn Shape\nManaCost:3 G\nTypes:Creature Eldrazi\nPT:3/3\n\
+         K:Kicker:1 C\n\
+         T:Mode$ SpellCast | ValidCard$ Card.Self | Execute$ TrigDraw\n\
+         T:Mode$ SpellCast | ValidCard$ Card.Self+kicked | Execute$ TrigExile\n\
+         SVar:TrigDraw:DB$ Draw | NumCards$ 1\n\
+         SVar:TrigExile:DB$ ChangeZone | ValidTgts$ Land | Origin$ Battlefield | Destination$ Exile",
+    );
+    assert!(
+        single_kicked.abilities[0].contains("Trigger::SpellCast(&Filter::This)")
+            && !single_kicked.abilities[0].contains("condition ="),
+        "{:?}",
+        single_kicked.abilities
+    );
+    assert!(
+        single_kicked.abilities[1].contains("Trigger::SpellCast(&Filter::This)")
+            && single_kicked.abilities[1].contains("Condition::SourceMatches(&Filter::Kicked)"),
+        "{:?}",
+        single_kicked.abilities
+    );
+
+    // 2. Dual-kicker self-cast respects Oracle paragraph ordering (`Wastescape Battlemage` shape).
+    let dual_kicked = read(
+        "Name:Dual Kicked Caster\nManaCost:1 C\nTypes:Creature Eldrazi Wizard\nPT:2/2\n\
+         K:Kicker:G:1 U\n\
+         T:Mode$ SpellCast | ValidCard$ Card.Self+kicked 1 | Execute$ TrigExile\n\
+         T:Mode$ SpellCast | ValidCard$ Card.Self+kicked 2 | Execute$ TrigBounce\n\
+         SVar:TrigExile:DB$ ChangeZone | ValidTgts$ Artifact.OppCtrl | Origin$ Battlefield | Destination$ Exile\n\
+         SVar:TrigBounce:DB$ ChangeZone | ValidTgts$ Creature.OppCtrl | Origin$ Battlefield | Destination$ Hand\n\
+         Oracle:Kicker {1}{U} and/or {G}\\nWhen you cast this spell, if it was kicked with its {1}{U} kicker, return target creature an opponent controls to its owner's hand.\\nWhen you cast this spell, if it was kicked with its {G} kicker, exile target artifact an opponent controls.",
+    );
+    assert!(
+        dual_kicked.abilities[0].contains("Condition::KickedWith(0)")
+            && dual_kicked.abilities[0].contains("Effect::bounce")
+            && dual_kicked.abilities[1].contains("Condition::KickedWith(1)")
+            && dual_kicked.abilities[1].contains("Effect::exile"),
+        "{:?}",
+        dual_kicked.abilities
+    );
+
+    // 3. `Card.Self+wasCastFromYourHandByYou` (`Banish into Fable` shape).
+    let banish = read_with_tokens(
+        "Name:Banish Shape\nManaCost:4 W U\nTypes:Instant\n\
+         T:Mode$ SpellCast | ValidCard$ Card.Self+wasCastFromYourHandByYou | Execute$ TrigCopy\n\
+         SVar:TrigCopy:DB$ CopySpellAbility | Defined$ TriggeredSpellAbility | ConditionPresent$ Artifact.YouCtrl | ConditionCompare$ GE1 | MayChooseTarget$ True\n\
+         A:SP$ Draw | NumCards$ 1",
+    );
+    assert!(
+        banish.abilities[0].contains("Trigger::SpellCast(&Filter::This)")
+            && banish.abilities[0].contains("Condition::SourceWasCastByYou")
+            && banish.abilities[0].contains("Condition::SourceCastFromZone(ZoneRef::Hand)"),
+        "{:?}",
+        banish.abilities
+    );
+}
+
+#[test]
+fn spell_cast_granted_valid_sa_and_trigger_refusals() {
+    // 4. `AddTrigger$` granted `Mode$ SpellCast` inherits battlefield zone (`Folk Hero` shape).
+    let folk = read(
+        "Name:Folk Hero Shape\nManaCost:1 W\nTypes:Legendary Enchantment Background\n\
+         S:Mode$ Continuous | Affected$ Creature.IsCommander+YouOwn | AddTrigger$ SacTypeDraw\n\
+         SVar:SacTypeDraw:Mode$ SpellCast | ValidCard$ Card.sharesCreatureTypeWith | ValidActivatingPlayer$ You | Execute$ TrigDraw | ActivationLimit$ 1\n\
+         SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1",
+    );
+    assert!(
+        folk.statics.contains("GRANTED_TRIGGER_")
+            && folk.statics.contains("Trigger::SpellCast(&")
+            && folk.statics.contains("once_per_turn = true")
+            && folk
+                .statics
+                .contains("Filter::SharesCreatureTypeWith(&Filter::This)"),
+        "{}\n{}",
+        folk.statics,
+        folk.statics
+    );
+
+    // 5. `SpellCast` `ValidSA$` combining `Spell.Equipment` + `Spell.IsTargeting Valid Creature.YouCtrl` (`Danitha, Sword of Hope`).
+    let mut danitha_cats = cats();
+    danitha_cats.artifact.push("Equipment".into());
+    danitha_cats.normalize();
+    let danitha = transcode(
+        &parse(
+            "Name:Danitha Shape\nManaCost:2 W\nTypes:Legendary Creature Human Knight\nPT:2/2\n\
+             T:Mode$ SpellCast | ValidSA$ Spell.Equipment,Spell.IsTargeting Valid Creature.YouCtrl | ValidActivatingPlayer$ You | Execute$ TrigDraw | TriggerZones$ Battlefield | ActivationLimit$ 1\n\
+             SVar:TrigDraw:DB$ Draw",
+        ),
+        &danitha_cats,
+        None,
+    )
+    .expect("danitha should read in full");
+    assert!(
+        danitha.abilities[0].contains("Trigger::SpellCast(&")
+            && danitha.abilities[0].contains("once_per_turn = true")
+            && danitha
+                .statics
+                .contains("Filter::TargetsYouControl(&Filter::CREATURE)"),
+        "{:?}
+{}",
+        danitha.abilities,
+        danitha.statics
+    );
+
+    // Refusal guards: unsupported ValidSA$, unmodeled triggers, non-kicker Card.Self+kicked, and Un-set / Alchemy patterns stay refused.
+    for bad in [
+        "Name:BadNoKicker\nManaCost:1 G\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ SpellCast | ValidCard$ Card.Self+kicked | Execute$ D\nSVar:D:DB$ Draw | NumCards$ 1",
+        "Name:BadOpponentSelfCast\nManaCost:1 U\nTypes:Instant\n\
+         T:Mode$ SpellCast | ValidCard$ Card.Self+wasCastFromYourHandByYou | ValidActivatingPlayer$ Opponent | Execute$ D\nSVar:D:DB$ Draw | NumCards$ 1\n\
+         A:SP$ Draw | NumCards$ 1",
+        "Name:BadManaSpentTrigger\nManaCost:2 W\nTypes:Creature\nPT:3/3\n\
+         T:Mode$ SpellCast | ValidCard$ Card | ValidActivatingPlayer$ Opponent | TriggerZones$ Battlefield | ValidSA$ Spell.ManaSpent EQ0 | Execute$ D\nSVar:D:DB$ Draw | NumCards$ 1",
+        "Name:BadBecomesTargetSpell\nManaCost:2 R\nTypes:Creature\nPT:4/3\n\
+         T:Mode$ BecomesTarget | ValidTarget$ Card.Self | ValidSource$ Spell | TriggerZones$ Battlefield | Execute$ D\nSVar:D:DB$ Draw | NumCards$ 1",
+        "Name:BadAnyToGraveyard\nManaCost:1 G\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Graveyard | ValidCard$ Land.!token+YouOwn | TriggerZones$ Battlefield | Execute$ D\nSVar:D:DB$ GainLife | LifeAmount$ 1",
+        "Name:BadMustBeBlocked\nManaCost:3 G\nTypes:Creature Cat\nPT:4/2\nK:CARDNAME must be blocked if able.",
+        "Name:BadGrantedSelfSpellCast\nManaCost:1 W\nTypes:Enchantment\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddTrigger$ BadT\n\
+         SVar:BadT:Mode$ SpellCast | ValidCard$ Card.Self | ValidActivatingPlayer$ You | Execute$ D\nSVar:D:DB$ Draw | NumCards$ 1",
+        "Name:BadAlchemyValidSA\nManaCost:W\nTypes:Creature\nPT:2/1\n\
+         T:Mode$ SpellCast | ValidCard$ Card.Self+wasCastFromYourGraveyardByYou | Execute$ P\n\
+         SVar:P:DB$ PumpAll | ValidCards$ Card.YouOwn | NumAtt$ +1 | Duration$ Perpetual",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
+}
+
+#[test]
+fn mana_clash_and_myriad_pools_and_umbris_exile_opp_own() {
+    let mana_clash = read(
+        "Name:Mana Clash Shape\nManaCost:R\nTypes:Sorcery\n\
+         A:SP$ Repeat | ValidTgts$ Opponent | RepeatCheckSVar$ RepeatCheck | RepeatSVarCompare$ GT0 | RepeatSubAbility$ ResetCheck\n\
+         SVar:ResetCheck:DB$ StoreSVar | SVar$ RepeatCheck | Type$ Number | Expression$ 0 | SubAbility$ RepeatClash\n\
+         SVar:RepeatClash:DB$ RepeatEach | RepeatPlayers$ TargetedAndYou | RepeatSubAbility$ FlipClash | SubAbility$ ClashDamage\n\
+         SVar:FlipClash:DB$ FlipCoin | Flipper$ Remembered | NoCall$ True | TailsSubAbility$ ClashTails | RememberResult$ True\n\
+         SVar:ClashTails:DB$ StoreSVar | SVar$ RepeatCheck | Type$ CountSVar | Expression$ RepeatCheck/Plus.1\n\
+         SVar:ClashDamage:DB$ DamageAll | ValidPlayers$ FlippedTails | NumDmg$ 1 | SubAbility$ ResetFlips\n\
+         SVar:ResetFlips:DB$ Cleanup | ClearCoinFlips$ True\n\
+         SVar:RepeatCheck:Number$ 0",
+    );
+    assert_eq!(
+        mana_clash.abilities,
+        [
+            "spell!(&[Effect::FlipCoinsDamageTailsRepeatUntilBothHeads { damage: Amount::Fixed(1) }], targets = Some(TargetReq::one(TargetSpec::AnyOpponent)))"
+        ]
+    );
+
+    let myriad_pools = read(
+        "Name:The Myriad Pools Shape\nTypes:Legendary Artifact Land\n\
+         A:AB$ Mana | Cost$ T | Produced$ U\n\
+         T:Mode$ SpellCast | ValidCard$ Permanent | ValidSA$ Spell.ManaFromCard.StrictlySelf | ValidActivatingPlayer$ You | Execute$ TrigCopy\n\
+         SVar:TrigCopy:DB$ Clone | Defined$ TriggeredCardLKICopy | CloneTarget$ Targeted | ValidTgts$ Permanent.YouCtrl+Other | TargetMin$ 0 | TargetMax$ 1 | TgtPrompt$ Select up to one other target permanent you control | Duration$ UntilEndOfTurn",
+    );
+    assert!(
+        myriad_pools.abilities[1].contains("Trigger::SpellCastUsingSourceMana(&")
+            && myriad_pools.abilities[1].contains("Effect::TargetsCopyEventSpellUntilEndOfTurn")
+            && myriad_pools.abilities[1].contains("TargetReq::up_to_one(TargetSpec::Object(&"),
+        "{:?}",
+        myriad_pools.abilities
+    );
+
+    let umbris_typed = read(
+        "Name:Umbris Typed\nManaCost:3 U B\nTypes:Creature\nPT:1/1\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddPower$ X | AddToughness$ X\n\
+         SVar:X:Count$ValidExile Creature.OppOwn",
+    );
+    assert!(
+        umbris_typed
+            .statics
+            .contains("Filter::OwnedBy(PlayerRel::EachOpponent)")
+            && umbris_typed.statics.contains("Filter::CREATURE")
+            && umbris_typed.abilities[0].contains("zone: ZoneSel::ExileAll"),
+        "{}
+{:?}",
+        umbris_typed.statics,
+        umbris_typed.abilities
+    );
+
+    for bad in [
+        // Wrong target on Mana Clash (`Player` instead of `Opponent`).
+        "Name:BadClashPlayer\nManaCost:R\nTypes:Sorcery\n\
+         A:SP$ Repeat | ValidTgts$ Player | RepeatCheckSVar$ RepeatCheck | RepeatSVarCompare$ GT0 | RepeatSubAbility$ ResetCheck\n\
+         SVar:ResetCheck:DB$ StoreSVar | SVar$ RepeatCheck | Type$ Number | Expression$ 0 | SubAbility$ RepeatClash\n\
+         SVar:RepeatClash:DB$ RepeatEach | RepeatPlayers$ TargetedAndYou | RepeatSubAbility$ FlipClash | SubAbility$ ClashDamage\n\
+         SVar:FlipClash:DB$ FlipCoin | Flipper$ Remembered | NoCall$ True | TailsSubAbility$ ClashTails | RememberResult$ True\n\
+         SVar:ClashTails:DB$ StoreSVar | SVar$ RepeatCheck | Type$ CountSVar | Expression$ RepeatCheck/Plus.1\n\
+         SVar:ClashDamage:DB$ DamageAll | ValidPlayers$ FlippedTails | NumDmg$ 1 | SubAbility$ ResetFlips\n\
+         SVar:ResetFlips:DB$ Cleanup | ClearCoinFlips$ True\n\
+         SVar:RepeatCheck:Number$ 0",
+        // Missing ClearCoinFlips on Mana Clash.
+        "Name:BadClashNoCleanup\nManaCost:R\nTypes:Sorcery\n\
+         A:SP$ Repeat | ValidTgts$ Opponent | RepeatCheckSVar$ RepeatCheck | RepeatSVarCompare$ GT0 | RepeatSubAbility$ ResetCheck\n\
+         SVar:ResetCheck:DB$ StoreSVar | SVar$ RepeatCheck | Type$ Number | Expression$ 0 | SubAbility$ RepeatClash\n\
+         SVar:RepeatClash:DB$ RepeatEach | RepeatPlayers$ TargetedAndYou | RepeatSubAbility$ FlipClash | SubAbility$ ClashDamage\n\
+         SVar:FlipClash:DB$ FlipCoin | Flipper$ Remembered | NoCall$ True | TailsSubAbility$ ClashTails | RememberResult$ True\n\
+         SVar:ClashTails:DB$ StoreSVar | SVar$ RepeatCheck | Type$ CountSVar | Expression$ RepeatCheck/Plus.1\n\
+         SVar:ClashDamage:DB$ DamageAll | ValidPlayers$ FlippedTails | NumDmg$ 1",
+        // Wrong Duration on Myriad Pools clone.
+        "Name:BadPoolsDuration\nTypes:Land\n\
+         T:Mode$ SpellCast | ValidCard$ Permanent | ValidSA$ Spell.ManaFromCard.StrictlySelf | ValidActivatingPlayer$ You | Execute$ TrigCopy\n\
+         SVar:TrigCopy:DB$ Clone | Defined$ TriggeredCardLKICopy | CloneTarget$ Targeted | ValidTgts$ Permanent.YouCtrl+Other | TargetMin$ 0 | TargetMax$ 1",
+        // Mixed YouOwn + OppOwn in Count$ValidExile stays refused.
+        "Name:BadMixedOwnExile\nManaCost:3 U B\nTypes:Creature\nPT:1/1\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddPower$ X | AddToughness$ X\n\
+         SVar:X:Count$ValidExile Card.OppOwn+YouOwn",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
+}
+
+#[test]
+fn reduce_cost_check_svar_turn_history_and_refusals() {
+    // Count Nefaria shape (using catalog subtype): PlayerCountPropertyYou$SacrificedThisTurn Permanent.
+    let nefaria = read(
+        "Name:Count Nefaria\nManaCost:6 B\nTypes:Legendary Creature Wizard\nPT:6/6\nS:Mode$ ReduceCost | ValidCard$ Card.Self | EffectZone$ All | Type$ Spell | Amount$ 3 | CheckSVar$ X\nK:Flying\nSVar:X:PlayerCountPropertyYou$SacrificedThisTurn Permanent",
+    );
+    assert!(
+        nefaria.abilities.iter().any(|a| {
+            a.contains("Modifier::SpellsCostLess(3)")
+                && a.contains("zone = ZoneRef::Stack")
+                && a.contains("Amount::PermanentsSacrificedThisTurn { who: PlayerRel::You, filter: &Filter::Any }")
+        }),
+        "{:?}",
+        nefaria.abilities
+    );
+
+    // Suspicious Detonation: PlayerCountPropertyYou$SacrificedThisTurn Artifact.
+    let detonation = read(
+        "Name:Suspicious Detonation\nManaCost:4 R\nTypes:Sorcery\nS:Mode$ ReduceCost | ValidCard$ Card.Self | CheckSVar$ X | Type$ Spell | Amount$ 3 | EffectZone$ All\nSVar:X:PlayerCountPropertyYou$SacrificedThisTurn Artifact\nR:Event$ Counter | ValidCard$ Card.Self | ValidSA$ Spell | Layer$ CantHappen\nA:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 4",
+    );
+    assert!(
+        detonation.abilities.iter().any(|a| {
+            a.contains("Modifier::SpellsCostLess(3)")
+                && a.contains("Amount::PermanentsSacrificedThisTurn { who: PlayerRel::You, filter: &Filter::ARTIFACT }")
+        }),
+        "{:?}",
+        detonation.abilities
+    );
+
+    // Tale of Momo: Count$LeftBattlefieldThisTurn Creature.YouCtrl.
+    let momo = read(
+        "Name:Tale of Momo\nManaCost:2 W\nTypes:Sorcery\nS:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ 2 | EffectZone$ All | CheckSVar$ X\nA:SP$ ChangeZone | Optional$ True | Origin$ Library | OriginAlternative$ Graveyard | Destination$ Hand | ChangeType$ Creature.Wizard+YouOwn | ChangeNum$ 1 | ShuffleNonMandatory$ True\nSVar:X:Count$LeftBattlefieldThisTurn Creature.YouCtrl",
+    );
+    assert!(
+        momo.abilities.iter().any(|a| {
+            a.contains("Modifier::SpellsCostLess(2)")
+                && a.contains("Amount::LeftZoneThisTurn { filter: &Filter::CREATURE, from: ZoneRef::Battlefield, owner_or_ctrl: PlayerRel::You }")
+        }),
+        "{:?}",
+        momo.abilities
+    );
+
+    // Wilt in the Heat: Count$LeftGraveyardThisTurn Card.YouOwn.
+    let wilt = read(
+        "Name:Wilt in the Heat\nManaCost:2 R W\nTypes:Instant\nS:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ 2 | EffectZone$ All | CheckSVar$ X\nA:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 5 | ReplaceDyingDefined$ Targeted\nSVar:X:Count$LeftGraveyardThisTurn Card.YouOwn",
+    );
+    assert!(
+        wilt.abilities.iter().any(|a| {
+            a.contains("Modifier::SpellsCostLess(2)")
+                && a.contains("Amount::LeftZoneThisTurn { filter: &Filter::Any, from: ZoneRef::Graveyard, owner_or_ctrl: PlayerRel::You }")
+        }),
+        "{:?}",
+        wilt.abilities
+    );
+
+    // Void CheckSVar on ReduceCost (`Count$Void.1.0`).
+    let void_reduce = read(
+        "Name:VoidBolt\nManaCost:2 B\nTypes:Sorcery\nS:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ 2 | EffectZone$ All | CheckSVar$ X\nA:SP$ LoseLife | ValidTgts$ Opponent | LifeAmount$ 2\nSVar:X:Count$Void.1.0",
+    );
+    assert!(
+        void_reduce.abilities.iter().any(|a| {
+            a.contains("Modifier::SpellsCostLess(2)")
+                && a.contains("Amount::LeftZoneThisTurn { filter: &Filter::NONLAND, from: ZoneRef::Battlefield, owner_or_ctrl: PlayerRel::EachPlayer }")
+                && a.contains("Condition::SpellWarpedThisTurn(None)")
+        }),
+        "{:?}",
+        void_reduce.abilities
+    );
+
+    // Refusal boundaries: relative atoms, Graveyard Ctrl scope, Continuous SacrificedThisTurn Artifact,
+    // and Wave 20 DSL-gated static/keyword items stay refused.
+    for bad in [
+        "Name:BadLeftOther\nManaCost:2 W\nTypes:Sorcery\nS:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ 2 | EffectZone$ All | CheckSVar$ X\nA:SP$ Draw | NumCards$ 1\nSVar:X:Count$LeftBattlefieldThisTurn Creature.Other+YouCtrl",
+        "Name:BadGyCtrl\nManaCost:2 R W\nTypes:Instant\nS:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ 2 | EffectZone$ All | CheckSVar$ X\nA:SP$ Draw | NumCards$ 1\nSVar:X:Count$LeftGraveyardThisTurn Card.YouCtrl",
+        "Name:BadSacOpp\nManaCost:4 R\nTypes:Sorcery\nS:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ 2 | EffectZone$ All | CheckSVar$ X\nA:SP$ Draw | NumCards$ 1\nSVar:X:PlayerCountPropertyYou$SacrificedThisTurn Artifact.OppCtrl",
+        "Name:BadSacSelf\nManaCost:4 R\nTypes:Sorcery\nS:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ 2 | EffectZone$ All | CheckSVar$ X\nA:SP$ Draw | NumCards$ 1\nSVar:X:PlayerCountPropertyYou$SacrificedThisTurn Permanent.Self",
+        "Name:BadContinuousArtifactSac\nManaCost:1 R\nTypes:Enchantment\nS:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Flying | CheckSVar$ X | SVarCompare$ GE1\nSVar:X:PlayerCountPropertyYou$SacrificedThisTurn Artifact",
+        "Name:BadHandGrant\nManaCost:U\nTypes:Enchantment\nS:Mode$ Continuous | AffectedZone$ Hand | Affected$ Card.OppOwn | AddKeyword$ Flying",
+        "Name:CanopyStalker\nManaCost:3 G\nTypes:Creature\nPT:4/2\nK:CARDNAME must be blocked if able.",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
+}

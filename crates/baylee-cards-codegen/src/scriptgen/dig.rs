@@ -173,6 +173,30 @@ impl Tx<'_> {
                 ));
             }
         };
+        if dest_zone.as_deref() == Some("Library")
+            && !tapped
+            && matches!(lib_pos.as_deref(), None | Some("-1"))
+            && rest == Rest::Top
+            && take == Take::Any
+            && !random
+            && !reveal
+            && !optional
+            && !force_reveal
+            && !p.has("ChangeValid")
+            && !p.has("Choser")
+        {
+            if targets_here && !targets_a_player {
+                return self.deny("a `Dig` on a line that targets an object".to_string());
+            }
+            let who = self.wave11_player_of_line(defined.as_deref(), target, targets_a_player)?;
+            if !Self::is_single_player_rel(who) {
+                return self.deny("a `Dig` of more than one library".to_string());
+            }
+            let count = self.dig_count(&count_raw)?;
+            return Some(vec![format!(
+                "Effect::ScryFor {{ player: {who}, amount: {count} }}"
+            )]);
+        }
         let first = match (dest_zone.as_deref(), tapped) {
             (None | Some("Hand"), false) => First::Hand,
             (Some("Battlefield"), tapped) => First::Battlefield { tapped },
@@ -189,6 +213,7 @@ impl Tx<'_> {
             {
                 First::TopOfLibrary
             }
+
             (Some("Library"), true) => {
                 return self.deny("`Tapped$` on a `Dig` to the library".to_string());
             }
@@ -358,8 +383,8 @@ impl Tx<'_> {
             };
             return Some(vec![format!(
                 "Effect::PeekAndReveal {{ library: {who}, count: {count}, reveal_all: false, \
-                 reveal_chosen: false, filter: &Filter::Any, min_pick: 0, max_pick: u8::MAX, \
-                 picked: {picked}, rest: PeekRestDest::TopAnyOrder, if_picked: &[] }}"
+     reveal_chosen: false, filter: &Filter::Any, min_pick: 0, max_pick: u8::MAX, \
+     picked: {picked}, rest: PeekRestDest::TopAnyOrder, if_picked: &[] }}"
             )]);
         }
         // "Look at (or reveal) the top N cards of [a single player's] library.
@@ -399,7 +424,7 @@ impl Tx<'_> {
             };
             return Some(vec![format!(
                 "Effect::PeekAndReveal {{ library: {who}, count: {count}, reveal_all: {reveal}, \
-                 reveal_chosen: false, filter: &Filter::Any, min_pick: {min_pick}, \
+     reveal_chosen: false, filter: &Filter::Any, min_pick: {min_pick}, \
                  max_pick: {pick}, picked: {picked}, rest: {rest_dest}, if_picked: &[] }}"
             )]);
         }
@@ -425,8 +450,8 @@ impl Tx<'_> {
             let min_pick = u8::from(!optional);
             return Some(vec![format!(
                 "Effect::PeekAndReveal {{ library: {who}, count: {count}, reveal_all: false, \
-                 reveal_chosen: false, filter: &Filter::Any, min_pick: {min_pick}, max_pick: 1, \
-                 picked: PeekPickDest::TopOfLibrary, rest: PeekRestDest::Graveyard, if_picked: &[] }}"
+     reveal_chosen: false, filter: &Filter::Any, min_pick: {min_pick}, max_pick: 1, \
+     picked: PeekPickDest::TopOfLibrary, rest: PeekRestDest::Graveyard, if_picked: &[] }}"
             )]);
         }
         // Non-controller single-player top-card reveal (`Gate to the Aether`, `Goblin Guide`).
@@ -559,7 +584,7 @@ impl Tx<'_> {
                          reveal_all: false, reveal_chosen: false, filter: &Filter::Any, \
                          min_pick: 1, max_pick: 1, picked: PeekPickDest::TopOfLibrary, \
                          rest: PeekRestDest::BottomOfLibrary {{ random: {random} }}, \
-                         if_picked: &[] }}"
+             if_picked: &[] }}"
                     )])
                 }
                 (Take::Exactly(1), First::TopOfLibrary, false, true, Rest::Move(dest))
@@ -1227,7 +1252,7 @@ impl Tx<'_> {
                  filter: &Filter::Any, \
                  min: 0, \
                  max: Amount::Fixed(0), \
-                 reveal_chosen: false, \
+     reveal_chosen: false, \
                  movement: ChooseMove::None, \
                  not_chosen_movement: {chosen_move}, \
                  then: &[], \
@@ -1239,7 +1264,7 @@ impl Tx<'_> {
                  filter: &Filter::Any, \
                  min: 0, \
                  max: Amount::Fixed(0), \
-                 reveal_chosen: false, \
+     reveal_chosen: false, \
                  movement: ChooseMove::None, \
                  not_chosen_movement: {unchosen_move}, \
                  then: &[], \
@@ -3507,12 +3532,14 @@ impl Tx<'_> {
         let spec = Self::reconstruct_dig_spec(api, sp);
         let mut inner = Chain::default();
         let saved_delayed = std::mem::replace(&mut self.in_delayed, uses_event_obj);
+        let saved_repeat = std::mem::replace(&mut self.in_repeat_each_object, true);
         let saved_mode = if uses_event_player {
             self.trigger_mode.replace("LifeGained".into())
         } else {
             self.trigger_mode.clone()
         };
         let ok = self.chain(&spec, &mut inner);
+        self.in_repeat_each_object = saved_repeat;
         self.in_delayed = saved_delayed;
         self.trigger_mode = saved_mode;
         ok?;
@@ -4331,7 +4358,7 @@ impl Tx<'_> {
                 "Effect::PeekAndReveal {{ library: PlayerRel::You, count: {count}, \
                  reveal_all: {reveal}, reveal_chosen: {reveal_chosen}, filter: {filter_ref}, \
                  min_pick: {min_pick}, max_pick: 1, picked: {picked}, rest: {rest_dest}, \
-                 if_picked: &[{}] }}",
+     if_picked: &[{}] }}",
                 if_picked.join(", ")
             ));
             return self.chain_sub_ability(trailing, chain);
@@ -4369,10 +4396,10 @@ impl Tx<'_> {
                  when_source_leaves: None }}], \
                  otherwise: &[Effect::MayDo {{ effects: &[Effect::PeekAndReveal {{ \
                  library: PlayerRel::You, count: Amount::Fixed(1), reveal_all: false, \
-                 reveal_chosen: false, filter: &Filter::Any, min_pick: 0, max_pick: 0, \
-                 picked: PeekPickDest::StayOnTop, \
+     reveal_chosen: false, filter: &Filter::Any, min_pick: 0, max_pick: 0, \
+     picked: PeekPickDest::StayOnTop, \
                  rest: PeekRestDest::BottomOfLibrary {{ random: false }}, \
-                 if_picked: &[] }}] }}] }}"
+     if_picked: &[] }}] }}] }}"
             ));
             return self.chain_sub_ability(trailing.into_option(), chain);
         }
@@ -4659,7 +4686,7 @@ impl Tx<'_> {
                  found: RevealUntilFound::Exile, rest: RevealUntilRest::Exile, \
                  then: &[Effect::ChooseCardEx {{ chooser: PlayerRel::You, \
                  zone: ChooseZone::Found, filter: {filter_ref}, min: 1, max: Amount::Fixed(1), \
-                 reveal_chosen: false, movement: ChooseMove::None, \
+     reveal_chosen: false, movement: ChooseMove::None, \
                  not_chosen_movement: ChooseMove::None, \
                  then: &[Effect::ExileWithPermission {{ target: TargetSpec::EventObject, \
                  until: None, permission: {perm} }}], for_unchosen: &[] }}] }}"
@@ -4743,7 +4770,7 @@ impl Tx<'_> {
                 then_steps.push(format!(
                     "Effect::ChooseCardEx {{ chooser: PlayerRel::You, zone: ChooseZone::Found, \
                      filter: &Filter::InZone(ZoneRef::Exile), min: 0, max: Amount::Fixed(0), \
-                     reveal_chosen: false, movement: ChooseMove::None, \
+         reveal_chosen: false, movement: ChooseMove::None, \
                      not_chosen_movement: {rest_move}, then: &[], for_unchosen: &[] }}"
                 ));
                 self.consume_dig_cleanup_or_unremembered_tail(after_rest, false)?
@@ -4787,6 +4814,64 @@ impl Tx<'_> {
         };
         let after = rp.take("SubAbility");
         rp.exhausted().then_some((mv, after))
+    }
+
+    /// Lower `Dig | [Defined$ You] | DigNum$ N | [ChangeNum$ 1] | [Optional$ True]
+    /// | DestinationZone$ Exile | [DestinationZone2$ Library | LibraryPosition[$] -1]
+    /// | [RestRandomOrder$ True]` inside `CaptureAffected::first`.
+    pub(super) fn dig_peek_exile_bottom_step(&mut self, p: &mut Params) -> Option<Vec<String>> {
+        if !matches!(p.peek("Defined"), None | Some("You"))
+            || p.peek("DestinationZone") != Some("Exile")
+            || !matches!(p.peek("ChangeNum"), None | Some("1"))
+            || !matches!(p.peek("DestinationZone2"), None | Some("Library"))
+            || p.has("Choser")
+            || p.has("ExileFaceDown")
+            || p.has("Reveal")
+            || p.has("ForceRevealToController")
+            || p.has("NoReveal")
+            || p.has("RandomChange")
+            || p.has("Tapped")
+        {
+            return None;
+        }
+        let mut probe = p.clone();
+        probe.take("Defined");
+        probe.take("ChangeNum");
+        probe.take("DestinationZone");
+        probe.take("DestinationZone2");
+        if !matches!(probe.take("LibraryPosition").as_deref(), None | Some("-1"))
+            || !matches!(probe.take("LibraryPosition2").as_deref(), None | Some("-1"))
+        {
+            return None;
+        }
+        probe.claim_label("ChangeValidDesc", "ChangeValid");
+        let count_raw = probe.take("DigNum")?;
+        let count = self.dig_count(&count_raw)?;
+        let optional = match probe.take("Optional").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let random = match probe.take("RestRandomOrder").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let filter = match probe.take("ChangeValid") {
+            None => "&Filter::Any".to_string(),
+            Some(v) => {
+                let expr = self.filter_expr_in_zone(&v, true)?;
+                format!("&{}", self.body.filter_static("DIG", &expr))
+            }
+        };
+        if !probe.exhausted() {
+            return None;
+        }
+        *p = probe;
+        let min_pick = u8::from(!optional);
+        Some(vec![format!(
+            "Effect::PeekAndReveal {{ library: PlayerRel::You, count: {count}, reveal_all: false, reveal_chosen: false, filter: {filter}, min_pick: {min_pick}, max_pick: 1, picked: PeekPickDest::Exile, rest: PeekRestDest::BottomOfLibrary {{ random: {random} }}, if_picked: &[] }}"
+        )])
     }
 
     fn wave26e_dig_rest_dest(
@@ -5407,6 +5492,180 @@ impl CleanupTail {
 }
 
 /// Filter restriction decoded from `Play.ValidSA$` inside `RevealUntilThen` / `RepeatEachObject`.
+impl super::Tx<'_> {
+    /// Lower `Dig | DigNum$ 1 | ChangeNum$ All | DestinationZone$ Exile | RememberChanged$ True`
+    /// follow-ups for *Vaan, Street Thief* (cast exiled spell, else create token) and
+    /// *Omen Machine* (put land onto battlefield under event player's control, else cast free).
+    pub(super) fn try_dig_exile_remembered_play_or_land(
+        &mut self,
+        p: &mut super::Params,
+        sub: &mut Option<String>,
+        target: Option<&str>,
+        targets_here: bool,
+        targets_a_player: bool,
+    ) -> Option<Vec<String>> {
+        if targets_here && !targets_a_player {
+            return None;
+        }
+        if p.peek("DigNum") != Some("1")
+            || !matches!(p.peek("ChangeNum"), None | Some("All" | "1"))
+            || p.peek("DestinationZone") != Some("Exile")
+            || p.peek("RememberChanged") != Some("True")
+            || !matches!(p.peek("ChangeValid"), None | Some("Card"))
+            || p.has("Reveal")
+            || p.has("ExileFaceDown")
+            || p.has("Optional")
+            || p.has("DestinationZone2")
+            || !p.entries.iter().all(|(k, _)| {
+                matches!(
+                    k.as_str(),
+                    "Defined"
+                        | "DigNum"
+                        | "ChangeNum"
+                        | "DestinationZone"
+                        | "RememberChanged"
+                        | "ChangeValid"
+                        | "IsCurse"
+                ) || k.starts_with("Condition")
+            })
+        {
+            return None;
+        }
+        let s1_name = sub.as_deref()?.trim().to_string();
+        let s1_body = self.svars.get(&s1_name)?.clone();
+        let (s1_api, mut sp1) = super::Params::parse(&s1_body)?;
+        sp1.drop_prose();
+
+        let mut probe = p.clone();
+        probe.take("DigNum");
+        probe.take("ChangeNum");
+        probe.take("DestinationZone");
+        probe.take("RememberChanged");
+        probe.take("ChangeValid");
+        probe.take("IsCurse");
+        let who =
+            self.wave11_player_of_line(probe.take("Defined").as_deref(), target, targets_a_player)?;
+        if !Self::is_single_player_rel(who) || !probe.exhausted() {
+            return None;
+        }
+
+        let (effect, trailing) = if s1_api == "Play" {
+            self.dig_exile_remembered_vaan(&mut sp1, who)?
+        } else if s1_api == "ChangeZone" {
+            self.dig_exile_remembered_omen_machine(&mut sp1, who)?
+        } else {
+            return None;
+        };
+        *p = probe;
+        *sub = trailing;
+        Some(vec![effect])
+    }
+
+    fn dig_exile_remembered_vaan(
+        &mut self,
+        sp1: &mut super::Params,
+        who: &str,
+    ) -> Option<(String, Option<String>)> {
+        if sp1.take("Defined").as_deref() != Some("Remembered")
+            || sp1.take("Optional").as_deref() != Some("True")
+            || sp1.take("ForgetPlayed").as_deref() != Some("True")
+            || !matches!(sp1.take("Controller").as_deref(), None | Some("You"))
+        {
+            return None;
+        }
+        let cost = self.parse_play_cost_mode(sp1)?;
+        let (cast_only, sa_owner, sa_filter) = match sp1.take("ValidSA") {
+            None => (false, None, None),
+            Some(raw_sa) => {
+                let (owner, filter) = self.parse_play_sa_filter(&raw_sa)?;
+                (true, owner, filter)
+            }
+        };
+        if sa_owner.is_some() {
+            return None;
+        }
+        let filter_ref = self.combine_play_filters(None, sa_filter)?;
+        let s2_name = sp1.take("SubAbility")?;
+        if !sp1.exhausted() {
+            return None;
+        }
+        let s2_body = self.svars.get(s2_name.trim())?.clone();
+        let (s2_api, mut sp2) = super::Params::parse(&s2_body)?;
+        sp2.drop_prose();
+        if s2_api != "Token"
+            || sp2.take("ConditionDefined").as_deref() != Some("Remembered")
+            || sp2.take("ConditionPresent").as_deref() != Some("Card")
+            || !matches!(
+                sp2.take("ConditionCompare").as_deref(),
+                Some("GT0" | "GE1" | "EQ1")
+            )
+        {
+            return None;
+        }
+        let after_tok = sp2.take("SubAbility");
+        let tok_spec = Self::reconstruct_dig_spec(&s2_api, &sp2);
+        let mut tok_chain = super::Chain::default();
+        self.chain(&tok_spec, &mut tok_chain)?;
+        if tok_chain.effects.is_empty()
+            || tok_chain.target.is_some()
+            || tok_chain.second_target.is_some()
+        {
+            return None;
+        }
+        let trailing = self.wave29c_consume_remember_cleanup(after_tok)?;
+        let effect = format!(
+            "Effect::CaptureAffected {{              first: &[Effect::ExileTop {{ who: {who}, count: Amount::Fixed(1) }}],              then: &[Effect::ForEachRemembered {{ filter: &Filter::Any, effects: &[              Effect::Play {{ source: PlaySource::Subject(TargetSpec::EventObject),              filter: {filter_ref}, controller: PlayerRel::You, count: PlayCount::One,              cost: {cost}, cast_only: {cast_only}, copy: false,              exile_instead_of_graveyard: false, optional: true }}] }},              Effect::IfCondition {{ condition: Condition::AmountCompare {{              left: &Amount::CountOf {{ filter: &Filter::IsRemembered, zone: ZoneSel::ExileAll }},              op: AmountCmp::AtLeast, right: &Amount::Fixed(1) }},              then: &[{}], otherwise: &[] }}] }}",
+            tok_chain.effects.join(", ")
+        );
+        Some((effect, trailing))
+    }
+
+    fn dig_exile_remembered_omen_machine(
+        &mut self,
+        sp1: &mut super::Params,
+        who: &str,
+    ) -> Option<(String, Option<String>)> {
+        if !matches!(who, "PlayerRel::EventPlayer" | "PlayerRel::ActivePlayer")
+            || sp1.take("Origin").as_deref() != Some("Exile")
+            || sp1.take("Destination").as_deref() != Some("Battlefield")
+            || sp1.take("ChangeType").as_deref()
+                != Some("Land.IsRemembered+ControlledBy TriggeredPlayer")
+            || !matches!(sp1.take("ChangeNum").as_deref(), None | Some("1"))
+            || sp1.take("DefinedPlayer").as_deref() != Some("TriggeredPlayer")
+            || sp1.take("Chooser").as_deref() != Some("TriggeredPlayer")
+            || sp1.take("Hidden").as_deref() != Some("True")
+            || sp1.take("Mandatory").as_deref() != Some("True")
+        {
+            return None;
+        }
+        let s2_name = sp1.take("SubAbility")?;
+        if !sp1.exhausted() {
+            return None;
+        }
+        let s2_body = self.svars.get(s2_name.trim())?.clone();
+        let (s2_api, mut sp2) = super::Params::parse(&s2_body)?;
+        sp2.drop_prose();
+        if s2_api != "Play"
+            || sp2.take("ValidZone").as_deref() != Some("Exile")
+            || sp2.take("Controller").as_deref() != Some("TriggeredPlayer")
+            || sp2.take("Valid").as_deref() != Some("Card.IsRemembered")
+            || sp2.take("ValidSA").as_deref() != Some("Spell")
+            || sp2.take("WithoutManaCost").as_deref() != Some("True")
+            || !matches!(sp2.take("Optional").as_deref(), None | Some("False"))
+        {
+            return None;
+        }
+        let after_play = sp2.take("SubAbility");
+        if !sp2.exhausted() {
+            return None;
+        }
+        let trailing = self.wave29c_consume_remember_cleanup(after_play)?;
+        let effect = format!(
+            "Effect::CaptureAffected {{              first: &[Effect::ExileTop {{ who: {who}, count: Amount::Fixed(1) }}],              then: &[Effect::ForEachRemembered {{ filter: &Filter::LAND, effects: &[              Effect::MoveAndModify {{ subject: MoveSubject::Target(TargetSpec::EventObject),              expected_origin: Some(ZoneRef::Exile), blink: false, owner_control: true,              tapped: false, face: None, counters: None, modifiers: &[],              duration: Duration::Indefinitely, attach_source: false, when_source_leaves: None }}] }},              Effect::ForEachRemembered {{ filter: &Filter::NONLAND, effects: &[              Effect::Play {{ source: PlaySource::Subject(TargetSpec::EventObject),              filter: &Filter::Any, controller: {who}, count: PlayCount::One,              cost: PlayCostMode::WithoutPayingManaCost, cast_only: true, copy: false,              exile_instead_of_graveyard: false, optional: false }}] }}] }}"
+        );
+        Some((effect, trailing))
+    }
+}
 enum DigPlaySaFilter {
     AnySpell,
     Filtered(String),

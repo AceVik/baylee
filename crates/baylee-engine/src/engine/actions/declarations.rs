@@ -1,6 +1,9 @@
 //! Declaring attackers and blockers: the attack tax and its payment window, the blocks made, and what a declaration records (CR 508.1, 509.1).
 
-use super::super::attack_sacrifice::{AttackCostKind, AttackSacrificeCost, AttackSacrificePayment};
+use super::super::attack_sacrifice::{
+    AttackCostKind, AttackSacrificeCost, AttackSacrificePayment, BlockTapWork, block_tap_options,
+    block_tap_payable,
+};
 use super::{
     AttackerInfo, CardLookup, Cause, CombatDeclared, Engine, EngineError, GameEvent, ObjectId,
     ObjectKind, PlayerId, combat,
@@ -10,7 +13,7 @@ use super::{
 /// (CR 508.1h).
 struct AttackCosts {
     sacrifices: Vec<AttackSacrificeCost>,
-    mana: u32,
+    mana: baylee_core::mana::ManaCost,
     life: i32,
 }
 
@@ -30,7 +33,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let costs = self.attack_costs(player, &attackers, reach)?;
         // Before any permanent is chosen: nothing takes a declaration back
         // once its sacrifices are being asked for.
-        if !self.attack_tax_within_reach(player, costs.mana, reach) {
+        if !self.attack_tax_within_reach(player, &costs.mana, reach) {
             return Err(EngineError::IllegalAction(
                 "cannot pay mana required to declare those attackers",
             ));
@@ -50,12 +53,20 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
 
     /// Whether the pool, and up to `reach` more mana made in a payment window,
     /// could cover a mana tax.
-    fn attack_tax_within_reach(&self, player: PlayerId, tax: u32, reach: u64) -> bool {
-        self.state.players[usize::from(player.get())]
-            .mana_pool
-            .total()
-            .saturating_add(reach)
-            >= u64::from(tax)
+    fn attack_tax_within_reach(
+        &self,
+        player: PlayerId,
+        tax: &baylee_core::mana::ManaCost,
+        reach: u64,
+    ) -> bool {
+        if tax.is_empty() {
+            return true;
+        }
+        let pool = &self.state.players[usize::from(player.get())].mana_pool;
+        if crate::mana_pay::can_pay(pool, tax) {
+            return true;
+        }
+        reach > 0 && pool.total().saturating_add(reach) >= u64::from(tax.cmc())
     }
 
     /// What a mana tax the attacking player's pool does not cover may still
@@ -83,6 +94,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// 508.1a–d and 508.1h. `reach` is the mana a payment window could still
     /// make for its tax (`Self::attack_mana_reach`), and zero as that window
     /// closes, when the pool alone stands behind it.
+    #[allow(clippy::too_many_lines)]
     fn attack_costs(
         &self,
         player: PlayerId,
@@ -161,7 +173,29 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             .iter()
             .flat_map(|&(creature, _)| rules.sacrifice_tax(creature))
             .map(AttackSacrificeCost::from)
-            .filter(|cost| !cost.is_empty_sacrifice())
+            .chain(attackers.iter().flat_map(|&(creature, _)| {
+                rules
+                    .return_tax(creature)
+                    .into_iter()
+                    .map(|(count, filter, you, source)| {
+                        AttackSacrificeCost::return_to_hand(count, filter, you, source)
+                    })
+            }))
+            .chain(attackers.iter().flat_map(|&(creature, _)| {
+                rules
+                    .tap_tax(creature)
+                    .into_iter()
+                    .map(|(count, filter, you, source)| {
+                        AttackSacrificeCost::tap(count, filter, you, source)
+                    })
+            }))
+            .chain(attackers.iter().flat_map(|&(creature, defending)| {
+                rules
+                    .phyrexian_tax_for(creature, defending)
+                    .into_iter()
+                    .map(|(color, source)| AttackSacrificeCost::phyrexian(color, source))
+            }))
+            .filter(|cost| !cost.is_empty_cost())
             .collect();
         // CR 508.1g, CR 702.154a–d: each instance of enlist on a declared
         // attacker offers an independent optional tap cost after mandatory
@@ -181,10 +215,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // CR 508.1h–i: every cost is now known and none is paid yet. A mana
         // tax the pool does not cover is made in a payment window, and the
         // declaration waits in it with nothing paid.
-        let mana = attackers
+        let generic_mana = attackers
             .iter()
             .map(|&(creature, defending)| rules.mana_tax_for(creature, defending))
             .fold(0_u32, u32::saturating_add);
+        let mana = baylee_core::mana::ManaCost::ZERO.with_more_generic(generic_mana);
         Ok(AttackCosts {
             sacrifices,
             mana,
@@ -200,7 +235,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         player: PlayerId,
         attackers: Vec<(ObjectId, baylee_core::ids::Defender)>,
         sacrifices: Vec<AttackSacrificePayment>,
-        total_mana_tax: u32,
+        total_mana_tax: baylee_core::mana::ManaCost,
         total_life_tax: i32,
         reach: u64,
     ) -> Result<(), EngineError> {
@@ -219,25 +254,30 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 "cannot pay life required to declare those attackers",
             ));
         }
-        let tax = baylee_core::mana::ManaCost::ZERO.with_more_generic(total_mana_tax);
         let pool = &self.state.players[usize::from(player.get())].mana_pool;
-        if total_mana_tax > 0 && !crate::mana_pay::can_pay(pool, &tax) {
-            if !self.attack_tax_within_reach(player, total_mana_tax, reach) {
+        if !total_mana_tax.is_empty() && !crate::mana_pay::can_pay(pool, &total_mana_tax) {
+            if !self.attack_tax_within_reach(player, &total_mana_tax, reach) {
                 return Err(EngineError::IllegalAction(
                     "cannot pay mana required to declare those attackers",
                 ));
             }
-            self.open_attack_tax_window(player, attackers, sacrifices, total_life_tax, tax);
+            self.open_attack_tax_window(
+                player,
+                attackers,
+                sacrifices,
+                total_life_tax,
+                total_mana_tax,
+            );
             return Ok(());
         }
         if total_life_tax > 0 {
             self.state
                 .change_life(player, -total_life_tax, Cause::TurnBased);
         }
-        if total_mana_tax > 0 {
+        if !total_mana_tax.is_empty() {
             let paid = crate::mana_pay::pay(
                 &mut self.state.players[usize::from(player.get())].mana_pool,
-                &tax,
+                &total_mana_tax,
             );
             debug_assert!(paid, "mana tax was validated");
         }
@@ -252,11 +292,39 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         let _ = self.state.sacrifice_object(sac_id, Cause::TurnBased);
                     }
                 }
+                AttackCostKind::ReturnToHand { .. } => {
+                    for ret_id in payment.objects {
+                        if let Some(owner) = self
+                            .state
+                            .object(ret_id)
+                            .filter(|o| o.zone == crate::zone::Zone::Battlefield)
+                            .map(|o| o.owner)
+                        {
+                            let _ = self.state.move_object(
+                                ret_id,
+                                crate::zone::ZoneLocation::Hand(owner),
+                                crate::zone::ZonePosition::Top,
+                                Cause::Cost,
+                            );
+                        }
+                    }
+                }
+                AttackCostKind::Tap { .. } => {
+                    for tap_id in payment.objects {
+                        if self.state.object(tap_id).is_some_and(|o| {
+                            o.zone == crate::zone::Zone::Battlefield && o.controller == player
+                        }) {
+                            self.state.set_tapped(tap_id, true);
+                            self.state.record_tap_event(tap_id, true, Cause::Cost);
+                        }
+                    }
+                }
                 AttackCostKind::Enlist => {
                     for enlisted in payment.objects {
                         enlists.push((payment.cost.source, enlisted));
                     }
                 }
+                AttackCostKind::Phyrexian { .. } => {}
             }
         }
         // CR 508.1k: only a creature its cost left under this player's control
@@ -303,6 +371,51 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     .per_turn
                     .attacked
                     .push((creature, version, player));
+                if let baylee_core::ids::Defender::Player(attacked_seat) = defending {
+                    if !self
+                        .state
+                        .per_turn
+                        .attacked_players
+                        .items
+                        .contains(&(player, attacked_seat))
+                    {
+                        self.state
+                            .per_turn
+                            .attacked_players
+                            .items
+                            .push((player, attacked_seat));
+                    }
+                    let declared_entry = (
+                        baylee_core::ids::DamageSourceRef {
+                            object: creature,
+                            version,
+                        },
+                        attacked_seat,
+                    );
+                    if !self
+                        .state
+                        .combat
+                        .declared_against_players
+                        .contains(&declared_entry)
+                    {
+                        self.state
+                            .combat
+                            .declared_against_players
+                            .push(declared_entry);
+                    }
+                }
+                if let baylee_core::ids::Defender::Player(defender) = defending
+                    && (self.state.per_turn.opponents_attacked.tracked
+                        || self.state.last_turn_attacked_players.tracked)
+                {
+                    let rec = crate::state::per_turn::OpponentAttackedRecord {
+                        attacker: player,
+                        defender,
+                    };
+                    if !self.state.per_turn.opponents_attacked.items.contains(&rec) {
+                        self.state.per_turn.opponents_attacked.items.push(rec);
+                    }
+                }
                 self.state.combat.participants.push((creature, version));
                 crate::combat::remember_attack(&mut self.state, creature, defending);
             }
@@ -384,14 +497,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // attack. The costs stay the ones determined before it (CR 508.1h).
         if self.attack_costs(player, &attackers, 0).is_ok()
             && self
-                .finish_attack_declaration(
-                    player,
-                    attackers,
-                    sacrifices,
-                    cost.generic_total(),
-                    life,
-                    0,
-                )
+                .finish_attack_declaration(player, attackers, sacrifices, cost, life, 0)
                 .is_ok()
         {
             return true;
@@ -410,6 +516,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     }
 
     /// The block declaration, with a payment window only on the outer call.
+    #[allow(clippy::too_many_lines)]
     fn declare_blockers_paying(
         &mut self,
         defending: PlayerId,
@@ -494,16 +601,182 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 return Err(crate::choice::AnswerFault::MustBlock.into());
             }
         }
+        let tap_costs: Vec<(u8, &'static baylee_cards_dsl::Filter, PlayerId, ObjectId)> = blocks
+            .keys()
+            .flat_map(|&blocker| rules.tap_tax(blocker))
+            .filter(|&(count, _, _, _)| count > 0)
+            .collect();
         let total_mana_tax = blockers
             .iter()
             .map(|&(blocker, attacker)| rules.mana_tax(blocker, attacker))
             .fold(0_u32, u32::saturating_add);
+        drop(rules);
+        if !tap_costs.is_empty() {
+            if !block_tap_payable(
+                &self.state,
+                defending,
+                blockers,
+                &tap_costs,
+                &std::collections::BTreeSet::new(),
+            ) {
+                return Err(EngineError::IllegalAction(
+                    "cannot pay tap cost required to declare those blockers",
+                ));
+            }
+            if total_mana_tax > 0 {
+                let reach = if window {
+                    self.attack_mana_reach(defending)
+                } else {
+                    0
+                };
+                let available = self.state.players[usize::from(defending.get())]
+                    .mana_pool
+                    .total()
+                    .saturating_add(reach);
+                if available < u64::from(total_mana_tax) {
+                    return Err(EngineError::IllegalAction(
+                        "cannot pay mana required to declare those blockers",
+                    ));
+                }
+            }
+            return self.advance_block_taps(BlockTapWork {
+                defending,
+                blockers: blockers.to_vec(),
+                remaining: tap_costs.into(),
+                tapped: Vec::new(),
+                reserved: std::collections::BTreeSet::new(),
+                window,
+            });
+        }
+        self.finish_block_declaration(defending, blockers, &[], total_mana_tax, window)
+    }
+
+    fn advance_block_taps(&mut self, work: BlockTapWork) -> Result<(), EngineError> {
+        if work.remaining.is_empty() {
+            let rules = combat::BlockRules::new(&self.state);
+            let total_mana_tax = work
+                .blockers
+                .iter()
+                .map(|&(blocker, attacker)| rules.mana_tax(blocker, attacker))
+                .fold(0_u32, u32::saturating_add);
+            drop(rules);
+            return self.finish_block_declaration(
+                work.defending,
+                &work.blockers,
+                &work.tapped,
+                total_mana_tax,
+                work.window,
+            );
+        }
+        let &(count, filter, you, source) = work.remaining.front().expect("block tap cost");
+        let mut owed: Vec<_> = work.remaining.iter().copied().collect();
+        owed[0].0 -= 1;
+        let legal: Vec<ObjectId> = block_tap_options(
+            &self.state,
+            work.defending,
+            &work.blockers,
+            filter,
+            you,
+            source,
+            &work.reserved,
+        )
+        .into_iter()
+        .filter(|id| {
+            let mut reserved = work.reserved.clone();
+            reserved.insert(*id);
+            block_tap_payable(
+                &self.state,
+                work.defending,
+                &work.blockers,
+                &owed,
+                &reserved,
+            )
+        })
+        .collect();
+        let defending = work.defending;
+        self.pending_plan = Some(super::PlanKind::BlockTapCost(Box::new(work)));
+        self.pending = crate::choice::Pending::ChooseCards {
+            player: defending,
+            options: legal,
+            min: count,
+            max: count,
+            prompt: crate::choice::ChoicePrompt::CostTap,
+            total: None,
+        };
+        self.awaiting_answer = true;
+        Ok(())
+    }
+
+    pub(in crate::engine) fn answer_block_tap(
+        &mut self,
+        mut work: BlockTapWork,
+        objects: Vec<ObjectId>,
+    ) -> Result<(), EngineError> {
+        let Some((count, filter, you, source)) = work.remaining.pop_front() else {
+            return Err(EngineError::IllegalAction("no block tap cost waiting"));
+        };
+        let legal = block_tap_options(
+            &self.state,
+            work.defending,
+            &work.blockers,
+            filter,
+            you,
+            source,
+            &work.reserved,
+        );
+        let mut picked = std::collections::BTreeSet::new();
+        if objects.len() != usize::from(count)
+            || objects
+                .iter()
+                .any(|&id| !legal.contains(&id) || !picked.insert(id))
+        {
+            return Err(EngineError::IllegalAction(
+                "those permanents cannot pay this block tap cost",
+            ));
+        }
+        work.reserved.extend(objects.iter().copied());
+        let rem: Vec<_> = work.remaining.iter().copied().collect();
+        if !block_tap_payable(
+            &self.state,
+            work.defending,
+            &work.blockers,
+            &rem,
+            &work.reserved,
+        ) {
+            return Err(EngineError::IllegalAction(
+                "those permanents would leave another block tap cost unpayable",
+            ));
+        }
+        work.tapped.extend(objects);
+        self.advance_block_taps(work)
+    }
+
+    fn finish_block_declaration(
+        &mut self,
+        defending: PlayerId,
+        blockers: &[(ObjectId, ObjectId)],
+        tapped: &[ObjectId],
+        total_mana_tax: u32,
+        window: bool,
+    ) -> Result<(), EngineError> {
+        for &id in tapped {
+            if blockers.iter().any(|&(b, _)| b == id)
+                || !self.state.object(id).is_some_and(|o| {
+                    o.zone == crate::zone::Zone::Battlefield
+                        && o.controller == defending
+                        && !o.status.contains(crate::object::Status::TAPPED)
+                })
+            {
+                return Err(EngineError::IllegalAction(
+                    "chosen permanents no longer pay the block tap cost",
+                ));
+            }
+        }
         let tax = baylee_core::mana::ManaCost::ZERO.with_more_generic(total_mana_tax);
         let can_pay = crate::mana_pay::can_pay(
             &self.state.players[usize::from(defending.get())].mana_pool,
             &tax,
         );
-        drop(rules);
         if total_mana_tax > 0 && !can_pay {
             if !window {
                 return Err(EngineError::IllegalAction(
@@ -520,7 +793,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     "cannot pay mana required to declare those blockers",
                 ));
             }
-            self.open_block_tax_window(defending, blockers.to_vec(), tax);
+            self.open_block_tax_window(defending, blockers.to_vec(), tapped.to_vec(), tax);
             return Ok(());
         }
         if total_mana_tax > 0 {
@@ -529,6 +802,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 &tax,
             );
             debug_assert!(paid, "block mana tax was validated");
+        }
+        for &tap_id in tapped {
+            self.state.set_tapped(tap_id, true);
+            self.state.record_tap_event(tap_id, true, Cause::Cost);
         }
         self.make_blocks(defending, blockers);
         Ok(())
@@ -539,6 +816,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         &mut self,
         defending: PlayerId,
         blockers: Vec<(ObjectId, ObjectId)>,
+        tapped: Vec<ObjectId>,
         cost: baylee_core::mana::ManaCost,
     ) {
         let mut legal = self.compute_legal(defending);
@@ -548,6 +826,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             suspended: super::PaymentContinuation::BlockTax {
                 defending,
                 blockers,
+                tapped,
                 cost,
                 opened: Box::new(self.window_start(defending)),
             },
@@ -561,13 +840,29 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         &mut self,
         defending: PlayerId,
         blockers: &[(ObjectId, ObjectId)],
+        tapped: &[ObjectId],
         opened: &super::WindowStart,
     ) -> bool {
         self.awaiting_answer = false;
-        if self
-            .declare_blockers_paying(defending, blockers, false)
-            .is_ok()
-        {
+        let ok = if tapped.is_empty() {
+            self.declare_blockers_paying(defending, blockers, false)
+                .is_ok()
+        } else {
+            let rules = combat::BlockRules::new(&self.state);
+            let legal = blockers.iter().all(|&(b, a)| {
+                self.state.combat.is_attacking(a) && rules.can_declare(defending, b, a)
+            });
+            let total_mana_tax = blockers
+                .iter()
+                .map(|&(b, a)| rules.mana_tax(b, a))
+                .fold(0_u32, u32::saturating_add);
+            drop(rules);
+            legal
+                && self
+                    .finish_block_declaration(defending, blockers, tapped, total_mana_tax, false)
+                    .is_ok()
+        };
+        if ok {
             return true;
         }
         self.give_back_window(defending, opened);

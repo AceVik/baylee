@@ -19,6 +19,7 @@ mod entry;
 mod mana;
 mod play;
 mod search;
+mod state;
 mod targets;
 mod verbs;
 
@@ -29,40 +30,74 @@ pub use entry::*;
 pub use mana::*;
 pub use play::*;
 pub use search::*;
+pub use state::*;
 pub use targets::*;
 
-/// A damage prevention or replacement instruction that commits one immediate
-/// effect (CR 615.5). Choices introduced by other replacement effects belong
-/// to the game's ordinary counter, life, entry or graveyard-order queues.
+/// A damage prevention or replacement instruction sequence that commits
+/// immediate effects without suspending (CR 615.5). Choices introduced by
+/// other replacement effects belong to the game's ordinary counter, life,
+/// draw, entry or graveyard-order queues.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
-pub struct DamageRider(&'static [Effect; 1]);
+pub struct DamageRider(&'static [Effect]);
 
 impl DamageRider {
-    /// Build a printed rider. Card definitions check this at compile time.
+    const fn is_valid_op(op: &Effect) -> bool {
+        matches!(
+            op,
+            Effect::GainLife { .. }
+                | Effect::AddCounterSource { .. }
+                | Effect::AddCounterFilter { .. }
+                | Effect::AddCounterDamagedObject { .. }
+                | Effect::RemoveCounterSelf { .. }
+                | Effect::ExileTop { .. }
+                | Effect::Mill { .. }
+                | Effect::CreateTokenN { .. }
+                | Effect::Rad { .. }
+                | Effect::DrawCardsFor { .. }
+                | Effect::ShuffleDamagedObjectIntoLibrary
+                | Effect::DealDamageToEventSourceOrController { .. }
+        )
+    }
+
+    /// Build a printed single-instruction rider. Card definitions check this
+    /// at compile time.
     ///
     /// # Panics
     /// If the operation needs its own resolution continuation.
     #[must_use]
     pub const fn new(op: &'static [Effect; 1]) -> Self {
         assert!(
-            matches!(
-                op[0],
-                Effect::GainLife { .. }
-                    | Effect::AddCounterSource { .. }
-                    | Effect::AddCounterFilter { .. }
-                    | Effect::ExileTop { .. }
-                    | Effect::Mill { .. }
-                    | Effect::CreateTokenN { .. }
-                    | Effect::Rad { .. }
-            ),
-            "a damage rider must commit a single immediate instruction"
+            Self::is_valid_op(&op[0]),
+            "a damage rider must commit an immediate instruction"
         );
-        Self(op)
+        Self(op.as_slice())
     }
 
-    /// The printed instruction for execution and DSL traversal.
+    /// Build a multi-instruction damage rider (*Szadek*, *Sekki*, *New Way
+    /// Forward*). Card definitions check every instruction at compile time.
+    ///
+    /// # Panics
+    /// If `ops` is empty or any operation needs its own resolution continuation.
     #[must_use]
-    pub const fn instruction(self) -> &'static [Effect; 1] {
+    pub const fn sequence(ops: &'static [Effect]) -> Self {
+        assert!(
+            !ops.is_empty(),
+            "a damage rider must contain at least one op"
+        );
+        let mut i = 0;
+        while i < ops.len() {
+            assert!(
+                Self::is_valid_op(&ops[i]),
+                "every damage rider operation must commit immediately"
+            );
+            i += 1;
+        }
+        Self(ops)
+    }
+
+    /// The printed instructions for execution and DSL traversal.
+    #[must_use]
+    pub const fn instruction(self) -> &'static [Effect] {
         self.0
     }
 }
@@ -6362,6 +6397,409 @@ pub enum Effect {
         /// Whether the player may fail to find / decline.
         optional: bool,
     },
+    /// Immediate damage-rider op: put `amount` counters of `kind` on the
+    /// object that would have been dealt damage (*Vigor*, *Soul-Scar Mage*).
+    /// Appended to preserve replay identities.
+    AddCounterDamagedObject {
+        /// Counter kind placed on the damaged object.
+        kind: CounterKind,
+        /// Number of counters (typically `Amount::ThisWay(ThisWay::DamagePrevented)`).
+        amount: Amount,
+    },
+    /// Immediate damage-rider op: the owner of the creature that would have
+    /// been dealt damage shuffles it into their library (*Weeping Angel*).
+    /// Appended to preserve replay identities.
+    ShuffleDamagedObjectIntoLibrary,
+    /// Immediate damage-rider op: deal `amount` damage from the prevention
+    /// source to the damaging creature (`creature_source_takes_damage: true`,
+    /// *Comeuppance*) or otherwise to the damaging source's controller
+    /// (*Deflecting Palm*, *New Way Forward*, *Comeuppance* noncreature branch).
+    /// Appended to preserve replay identities.
+    DealDamageToEventSourceOrController {
+        /// Damage dealt (typically `Amount::ThisWay(ThisWay::DamagePrevented)`).
+        amount: Amount,
+        /// When `true` and the damaging source is a creature on the
+        /// battlefield, deal the damage to that creature instead of its controller.
+        creature_source_takes_damage: bool,
+    },
+    /// Redirect the next `amount` damage that would be dealt to `from` this
+    /// turn [from a chosen source matching `choose_source`] to `to` instead
+    /// (*Outrider en-Kor*, *Carom*, *Ward of Piety*, *Razia, Boros Archangel*,
+    /// *Harm's Way*; `CR 614.9`, `CR 615.7`). Appended to preserve replay
+    /// identities.
+    RedirectNextDamageTo {
+        /// Recipient(s) whose damage is redirected.
+        from: TargetSpec,
+        /// Optional source filter chosen on resolution (*Harm's Way*).
+        choose_source: Option<&'static Filter>,
+        /// Finite amount of damage redirected before the shield expires.
+        amount: Amount,
+        /// Destination permanent or player (`TargetSpec::AnyTarget`, etc.).
+        to: TargetSpec,
+    },
+    /// "The next time a source of your choice matching `sources` would deal
+    /// [combat] damage to `target` this turn, prevent that damage" and
+    /// immediately run `then` with `ThisWay::DamagePrevented` bound
+    /// (*Deflecting Palm*, *New Way Forward*; `CR 609.7`, `CR 615.5`, `CR 615.8`).
+    /// Appended to preserve replay identities.
+    PreventNextFromChosenSourceWithThen {
+        /// Protected recipient(s).
+        target: TargetSpec,
+        /// Source filter offered to the controller on resolution.
+        sources: &'static Filter,
+        /// Restrict to combat damage only.
+        combat_only: bool,
+        /// Immediate follow-up rider(s) executed when damage is prevented.
+        then: DamageRider,
+    },
+    /// Change the face or orientation state of one or more objects
+    /// (CR 701.27 Transform, CR 708 Turn face down/up, CR 710 Flip).
+    /// Appended to preserve replay identities.
+    SetState {
+        /// Which object(s) to act on.
+        subject: StateSubject,
+        /// Transition to perform on each object.
+        transition: StateTransition,
+        /// Continuation run with failed object(s) in `found` when turning an object
+        /// fails (e.g. CR 701.40g instant/sorcery cannot turn face up: *Etrata*).
+        if_cant: &'static [Effect],
+    },
+    /// Extended meld instruction (CR 701.42a): supports non-creature partner types
+    /// (Artifact for *Urza*, Land for *Titania*), attacking requirement (*Mishra*),
+    /// and entering tapped and/or attacking. Appended to preserve replay identities.
+    MeldPair {
+        /// Physical front-face name of the card carrying the meld ability.
+        source_name: &'static str,
+        /// Exact English name of the meld partner permanent.
+        partner_name: &'static str,
+        /// Card type(s) required on the partner permanent (`CREATURE`, `ARTIFACT`, `LAND`).
+        partner_types: TypeSet,
+        /// Whether both source and partner must currently be attacking (*Mishra*).
+        require_attacking: bool,
+        /// Whether the melded permanent enters tapped.
+        enters_tapped: bool,
+        /// Whether the melded permanent enters attacking.
+        enters_attacking: bool,
+        /// The melded back-face characteristics and abilities.
+        melded: &'static TokenDef,
+    },
+    /// Transform the source permanent into an Aura enchantment with `enchant`,
+    /// optionally losing the resolving ability, attach it to `target`, and
+    /// optionally grant its activator a priority special action (`CR 116.2a`)
+    /// to pay `revert_cost` and end these continuous effects (Licids, animate-into-Aura).
+    /// Appended to preserve replay identities.
+    BecomeAura {
+        /// Host to attach the newly animated Aura to.
+        target: TargetSpec,
+        /// `Enchant <quality>` ability granted in Layer 6 (`CR 702.5a`).
+        enchant: TargetSpec,
+        /// When `true`, suppresses only the resolving printed ability (`CR 113.10`).
+        lose_this_ability: bool,
+        /// Optional special-action mana cost for the activator to end the effect.
+        revert_cost: Option<ManaCost>,
+    },
+    /// Lock dynamic Layer 7b power and/or toughness on `subject` (`CR 608.2h`,
+    /// `CR 613.4b`), supporting `ThisObject` even on targeted abilities
+    /// (*Halfdane*, *Riptide Mangler*, *Sentinel*, *Sworn Defender*), single-sided
+    /// P or T (*Arni Brokenbrow*), signed offsets, and `EventObject` / targets.
+    /// Appended to preserve replay identities.
+    SetDynamicPT {
+        /// Subject permanent(s) whose base power and/or toughness are set.
+        subject: TargetSpec,
+        /// New base power amount (`None` leaves base power unchanged).
+        power: Option<Amount>,
+        /// New base toughness amount (`None` leaves base toughness unchanged).
+        toughness: Option<Amount>,
+        /// Signed offset added to evaluated `power` (e.g. `-1` for *Sworn Defender*).
+        power_offset: i16,
+        /// Signed offset added to evaluated `toughness` (e.g. `+1` for *Sentinel*).
+        toughness_offset: i16,
+        /// Lifetime of the Layer 7b continuous effect.
+        duration: crate::Duration,
+    },
+    /// Unattach the permanent(s) named by `target` from whatever permanent or
+    /// player they are attached to (`CR 701.3d`; *Ogre Geargrabber*, *Unexpected
+    /// Request*). Appended to preserve replay identities.
+    Unattach {
+        /// Attachment(s) to unattach.
+        target: TargetSpec,
+    },
+    /// Attach permanent(s) named by `object` (including `EventObject` or
+    /// multi-target `Object(...)`) to the permanent or player named by `to`
+    /// (`CR 701.3a-b`; *Hammer of Nazahn*, *Sigarda's Aid*, *Kemba, Kha Enduring*,
+    /// *Super-Soldier Serum*, *Archnemesis*, *Ogre Geargrabber*). Appended to
+    /// preserve replay identities.
+    AttachObject {
+        /// Attachment permanent(s) to attach.
+        object: TargetSpec,
+        /// Recipient permanent or player.
+        to: TargetSpec,
+        /// Whether the controller may decline to attach (`YesNoPrompt::MayDo`).
+        optional: bool,
+    },
+    /// Choose a recipient permanent matching `recipient_filter` (evaluated with
+    /// `from` as `reference`) and move every battlefield attachment matching
+    /// `attachments` currently attached to `from` that can legally attach to
+    /// the chosen recipient, leaving illegal ones attached to `from` (*Glamer
+    /// Spinners*, `CR 701.3b`, `CR 613.7m`). Appended to preserve replay identities.
+    MoveAllAttachments {
+        /// Which attachments currently attached to `from` to move (e.g. `&Filter::AURA`).
+        attachments: &'static Filter,
+        /// Current host permanent whose attachments are moved.
+        from: TargetSpec,
+        /// Filter candidate new hosts must match (with `reference = from`).
+        recipient_filter: &'static Filter,
+        /// When `true`, excludes `from` itself from recipient options.
+        must_change_recipient: bool,
+        /// When `true`, the controller may choose no new host.
+        optional: bool,
+    },
+    /// Attach all battlefield permanents matching `filter` that are currently
+    /// attached to `of` — or were attached to `of` as it last existed on the
+    /// battlefield (`ltb_attachments`, `CR 603.10a`) — to `to` (*Rhuk, Hexgold
+    /// Nabber*). Appended to preserve replay identities.
+    AttachLtbAttachments {
+        /// Permanent whose current or last-known attachments are gathered.
+        of: TargetSpec,
+        /// Filter matched against candidate attachments (e.g. `&Filter::EQUIPMENT`).
+        filter: &'static Filter,
+        /// New host to attach them to.
+        to: TargetSpec,
+        /// Whether the controller may decline to attach (`YesNoPrompt::MayDo`).
+        optional: bool,
+    },
+    /// Like [`Self::AttachChosen`], but tracks which chosen attachment(s)
+    /// actually changed attachment to `to` (`CR 701.3b`), binds `EventObject` /
+    /// `found` to them, and executes `then_if_attached` only if at least one
+    /// actually attached (*Unexpected Request*, *Magitek Scythe*). Appended to
+    /// preserve replay identities.
+    AttachChosenThen {
+        /// Attachments that may be chosen.
+        filter: &'static Filter,
+        /// The object or player they are attached to.
+        to: TargetSpec,
+        /// Maximum number of attachments chosen.
+        max: Amount,
+        /// Whether choosing none is allowed.
+        optional: bool,
+        /// Instructions executed only if at least one attachment actually attached.
+        then_if_attached: &'static [Effect],
+    },
+    /// Have `chooser` choose a legal permanent recipient matching
+    /// `recipient_filter` for `attachment` (which may be a `TargetSpec` or
+    /// `AttachmentSource::GrantedSource`), attach it, and execute `then_if_moved`
+    /// if it actually moved (*Steam Vines*, *Kudzu*, *Nettlevine Blight*,
+    /// *Aura Graft*). Appended to preserve replay identities.
+    RelocateAttachment {
+        /// Which attachment permanent to move.
+        attachment: AttachmentSource,
+        /// Player who chooses the new recipient.
+        chooser: PlayerRel,
+        /// Additional filter candidate recipients must match.
+        recipient_filter: &'static Filter,
+        /// When `true`, excludes the current host permanent.
+        must_change_recipient: bool,
+        /// When `true`, `chooser` may decline (`min = 0`).
+        optional: bool,
+        /// Instructions executed only if the attachment actually moved (`CR 701.3b`).
+        then_if_moved: &'static [Effect],
+    },
+    /// Choose a player satisfying `filter` (chosen by `chooser`, or uniformly at
+    /// random when `random` is `true`), optionally recording that player in
+    /// resolution player-memory (`remember`), then execute `then` with
+    /// `PlayerRel::Chosen` bound — or execute `if_none` when no legal candidate
+    /// exists (`CR 608.2d`; *Boreas Charger*, *Gluntch, the Bestower*, *The
+    /// Master, Gallifrey's End*, *Your Inescapable Doom*, *Territorial
+    /// Hellkite*). Appended to preserve replay identities.
+    ChoosePlayerEx {
+        /// Player making the choice (ignored when `random` is `true`).
+        chooser: PlayerRel,
+        /// Candidate player filter evaluated at resolution.
+        filter: PlayerFilter,
+        /// When `true`, pick uniformly at random from candidates using `state.rng`.
+        random: bool,
+        /// When `true`, record the chosen player in resolution player-memory so
+        /// subsequent [`PlayerFilter::NotYetRemembered`] steps exclude them.
+        remember: bool,
+        /// Instructions executed when zero candidates satisfy `filter`.
+        if_none: &'static [Effect],
+        /// Instructions executed when a player is chosen (`PlayerRel::Chosen` bound).
+        then: &'static [Effect],
+    },
+    /// Choose a number in `min..=max` uniformly at random using `state.rng`,
+    /// bind [`Amount::ResolutionChosenNumber`], and run `then` (*Hapato's Might*,
+    /// *Murgish Cemetery*, *Saji's Torrent*, *Tibalt's Trickery*). Appended
+    /// to preserve replay identities.
+    ChooseNumberAtRandom {
+        /// Inclusive minimum bound.
+        min: Amount,
+        /// Inclusive maximum bound.
+        max: Amount,
+        /// Instructions executed with `Amount::ResolutionChosenNumber` bound.
+        then: &'static [Effect],
+    },
+    /// Simultaneous secret numeric choice among `players` (`CR 101.4`,
+    /// `CR 107.1`; *Wheel of Misfortune*, *Goblin Game*, *Menacing Ogre*,
+    /// *Expert-Level Safe*). Choices are collected in APNAP order without
+    /// exposing earlier answers, then revealed simultaneously and dispatched to
+    /// the configured outcome branches. Appended to preserve replay identities.
+    SecretChooseNumbers(SecretNumberChoice),
+    /// Secretly choose a number in `min..=max` (optionally excluding numbers
+    /// already recorded on the source permanent), then have a player matching
+    /// `guesser` guess a number in `min..=max`; run `on_correct` on a match or
+    /// `on_wrong` otherwise with `PlayerRel::Chosen` = guesser and
+    /// `Amount::ResolutionChosenNumber` = guessed number (*The Toymaker's
+    /// Trap*). Appended to preserve replay identities.
+    SecretNumberGuess {
+        /// Inclusive lower bound.
+        min: u8,
+        /// Inclusive upper bound.
+        max: u8,
+        /// When `true`, record each chosen secret number on the source permanent
+        /// and exclude already-used numbers; if none remain, do nothing.
+        track_used_on_source: bool,
+        /// Opponent/player domain that chooses the guess (chosen by controller
+        /// if multiple opponents exist).
+        guesser: PlayerRel,
+        /// Instructions run when the guess matches the secret number.
+        on_correct: &'static [Effect],
+        /// Instructions run when the guess does not match.
+        on_wrong: &'static [Effect],
+    },
+    /// Add the current [`Amount::ResolutionChosenNumber`] to the current
+    /// resolution's running accumulator readable via
+    /// [`Amount::ResolutionAccumulatedNumber`] (Join forces). Appended to
+    /// preserve replay identities.
+    AccumulateChosenNumber,
+    /// Starting with the resolving controller, each living player in turn order
+    /// may pay any amount (`0..=max_per_player`) of `kind`; repeat full passes
+    /// until an entire pass sees zero payments, then run `then_per_player` once
+    /// per player in turn order starting with controller with
+    /// `PlayerRel::EventPlayer` = that player and
+    /// `Amount::ResolutionChosenNumber` = that player's total paid (*Plague of
+    /// Vermin*). Appended to preserve replay identities.
+    RepeatEachPlayerPayUntilNone {
+        /// Variable resource paid on each turn of the loop.
+        kind: VariablePayKind,
+        /// Maximum payable on each choice (clamped to affordable resources).
+        max_per_player: Amount,
+        /// Instructions executed once per player after payments finish.
+        then_per_player: &'static [Effect],
+    },
+    /// Add mana to each player matching `who` (e.g. `PlayerRel::Chosen` for
+    /// *Spectral Searchlight* and *Stadium Vendors*), letting each recipient
+    /// choose the color(s) when `source` requires a color choice. Appended to
+    /// preserve replay identities.
+    AddManaChoiceFor {
+        /// Recipient player(s), relative to the resolving controller.
+        who: PlayerRel,
+        /// Which color(s) of mana are produced.
+        source: ManaSource,
+        /// How much mana is added.
+        amount: Amount,
+        /// How multi-color amounts are distributed.
+        distribution: ManaDistribution,
+        /// Optional spending restriction/rider on the produced mana.
+        restriction: Option<ManaRestriction>,
+    },
+    /// Multiply the number of counters of `kind` (or each counter kind present
+    /// when `kind` is `None`) on `subject` by `factor` (`CR 701.9e`: places
+    /// `(factor - 1) * count` counters through replacement effects). Appended
+    /// to preserve replay identities.
+    MultiplyCounters {
+        /// Permanent(s) or player(s) whose counters are multiplied.
+        subject: CounterSubject,
+        /// Specific counter kind, or `None` for each kind present.
+        kind: Option<CounterKind>,
+        /// Multiplier (`2` to double).
+        factor: u16,
+    },
+    /// Move counters from `from` onto `to` (`CR 122.5`), supporting fixed
+    /// counts, all counters, any number of counters, one of each kind not on
+    /// destination (*Goldberry*), filtered sources (*Slippery Bogbonder*,
+    /// *Aetherborn Marauder*, *Spike Cannibal*), and distribution among
+    /// filtered destinations (*Forgotten Ancient*). Appended to preserve replay
+    /// identities.
+    MoveCounters {
+        /// Source object(s) losing counters.
+        from: MoveCounterSource,
+        /// Destination object(s) receiving counters.
+        to: MoveCounterDest,
+        /// Specific counter kind, or `None` for any kind present.
+        kind: Option<CounterKind>,
+        /// How many counters to move.
+        count: MoveCounterCount,
+    },
+    /// Remove counters of `kind` (or any kind when `kind` is `None`) from
+    /// `subject` (`CR 122`), supporting exact amounts, up-to amounts, any
+    /// number, all counters, player counters, and non-targeted permanent
+    /// choices (*Ferropede*, *Hex Parasite*, *Thornmantle Striker*, *Rhys, the
+    /// Evermore*, *Eventide's Shadow*, *Mister Hyde*, *Final Act*). Appended
+    /// to preserve replay identities.
+    RemoveCounters {
+        /// Permanent(s) or player(s) losing counters.
+        subject: RemoveCounterSubject,
+        /// Specific counter kind, or `None` for any kind present.
+        kind: Option<CounterKind>,
+        /// How many counters to remove.
+        count: RemoveCounterCount,
+    },
+}
+
+/// Candidate player filter evaluated at resolution by [`Effect::ChoosePlayerEx`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum PlayerFilter {
+    /// Any living player matching `PlayerRel`.
+    Among(PlayerRel),
+    /// Any living opponent controlling strictly more permanents matching
+    /// `filter` than the resolving controller (*Boreas Charger*).
+    OpponentControlsMoreThanYou(&'static Filter),
+    /// Any living opponent tied for the greatest life total among living
+    /// opponents (*The Master, Gallifrey's End*, *Your Inescapable Doom*).
+    OpponentWithGreatestLife,
+    /// Any living player matching `PlayerRel` not yet recorded in the current
+    /// resolution's remembered players (*Gluntch, the Bestower*).
+    NotYetRemembered(PlayerRel),
+    /// Any living opponent whom the source permanent did not attack during its
+    /// controller's most recent combat phase (*Territorial Hellkite*).
+    OpponentNotAttackedBySourceLastCombat,
+}
+
+/// Simultaneous secret numeric choice specification for [`Effect::SecretChooseNumbers`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct SecretNumberChoice {
+    /// Players who secretly choose a number (collected in APNAP order).
+    pub players: PlayerRel,
+    /// Inclusive minimum permitted choice.
+    pub min: Amount,
+    /// Inclusive maximum permitted choice (`Amount::Fixed(u32::MAX)` for unbounded).
+    pub max: Amount,
+    /// Run once per choosing player in APNAP order with `PlayerRel::EventPlayer`
+    /// = player and `Amount::ResolutionChosenNumber` = that player's number
+    /// (*Goblin Game*).
+    pub on_each: &'static [Effect],
+    /// Run once per player tied for the highest revealed number, with
+    /// `PlayerRel::EventPlayer` = player and `Amount::ResolutionChosenNumber` =
+    /// highest number (*Wheel of Misfortune*, *Menacing Ogre*).
+    pub on_highest: &'static [Effect],
+    /// Run once per player tied for the lowest revealed number, with
+    /// `PlayerRel::EventPlayer` = player and `Amount::ResolutionChosenNumber` =
+    /// lowest number (*Goblin Game*).
+    pub on_lowest: &'static [Effect],
+    /// Run once per player who did NOT choose the lowest revealed number, with
+    /// `PlayerRel::EventPlayer` = player and `Amount::ResolutionChosenNumber` =
+    /// that player's number (*Wheel of Misfortune*).
+    pub on_not_lowest: &'static [Effect],
+    /// Run once if all choosing players revealed the same number (requires >= 2
+    /// players; *Expert-Level Safe*).
+    pub on_matched: &'static [Effect],
+    /// Run once if choosing players did not all reveal the same number
+    /// (*Expert-Level Safe*).
+    pub on_unmatched: &'static [Effect],
+    /// When `true`, record the player(s) tied for the highest number in
+    /// resolution player-memory so [`crate::Condition::YouAreRememberedPlayer`]
+    /// holds afterward (*Menacing Ogre*).
+    pub remember_highest: bool,
 }
 
 /// Non-mana unless-cost offered to any player in APNAP order by [`Effect::AnyPlayerMayPayCost`].
@@ -6441,6 +6879,104 @@ pub enum CounterDonor {
     Source,
     /// The triggering event object (or its LKI if it died or left the battlefield).
     Event,
+}
+
+/// Subject whose counters are multiplied by [`Effect::MultiplyCounters`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum CounterSubject {
+    /// Every legal permanent target in the resolving target list.
+    Targets,
+    /// The resolving ability's source permanent.
+    Source,
+    /// The permanent the resolving Aura/Equipment is attached to.
+    Attached,
+    /// The triggering event object.
+    EventObject,
+    /// Player(s) matching `PlayerRel`.
+    Player(PlayerRel),
+}
+
+/// Source permanent(s) losing counters in [`Effect::MoveCounters`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum MoveCounterSource {
+    /// Explicit target slot (`TargetSlot::First`, etc.).
+    Slot(TargetSlot),
+    /// First object target (`res.targets[0]`).
+    FirstTarget,
+    /// The resolving ability's source permanent.
+    Source,
+    /// All battlefield permanents matching `Filter` (e.g. *Aetherborn Marauder*,
+    /// *Slippery Bogbonder*, *Spike Cannibal*).
+    Filter(&'static Filter),
+}
+
+/// Destination permanent(s) receiving counters in [`Effect::MoveCounters`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum MoveCounterDest {
+    /// Explicit target slot (`TargetSlot::Second`, etc.).
+    Slot(TargetSlot),
+    /// Second object target (`res.second_targets[0]` or `res.targets[1]`).
+    SecondTarget,
+    /// First object target (`res.targets[0]`).
+    FirstTarget,
+    /// The resolving ability's source permanent.
+    Source,
+    /// The permanent the resolving Aura/Equipment is attached to.
+    Attached,
+    /// The triggering event object.
+    EventObject,
+    /// Distribute moved counters among any number of battlefield permanents
+    /// matching `Filter` (*Forgotten Ancient*).
+    DistributeAmong(&'static Filter),
+}
+
+/// Quantity rule for [`Effect::MoveCounters`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum MoveCounterCount {
+    /// Move exactly `u16` counters (or choose one kind when `kind` is `None`).
+    Exact(u16),
+    /// Move all counters of the matching kind(s).
+    All,
+    /// Choose any number of matching counters to move (`min_one: true` requires
+    /// at least one if able, e.g. *Goldberry* `{U}, {T}` ability).
+    AnyNumber {
+        /// Whether at least one counter must be moved when legal.
+        min_one: bool,
+    },
+    /// Move one counter of each kind on `from` that is not currently on `to`
+    /// (*Goldberry, River-Daughter*).
+    OneOfEachKindNotOnDest,
+}
+
+/// Subject losing counters in [`Effect::RemoveCounters`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum RemoveCounterSubject {
+    /// Legal target permanents (or players when `Player` targets exist).
+    Targets,
+    /// The permanent the resolving Aura/Equipment is attached to.
+    Attached,
+    /// The resolving ability's source permanent.
+    Source,
+    /// Player(s) matching `PlayerRel`.
+    Player(PlayerRel),
+    /// Choose permanent(s) on the battlefield matching `Filter` without
+    /// targeting (*Mister Hyde*, *Eventide's Shadow*).
+    Choice(&'static Filter),
+    /// All battlefield permanents matching `Filter` (*Aether Snap*).
+    Filter(&'static Filter),
+}
+
+/// Quantity rule for [`Effect::RemoveCounters`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum RemoveCounterCount {
+    /// Remove exactly `Amount` counters (clamped to available counters, CR 609.3).
+    Exact(Amount),
+    /// Remove up to `Amount` counters.
+    UpTo(Amount),
+    /// Remove any number of counters.
+    AnyNumber,
+    /// Remove all counters of the matching kind(s).
+    All,
 }
 
 #[cfg(test)]

@@ -308,11 +308,81 @@ impl RestartOffer {
     }
 }
 
+/// Whether restarting into the update `ready` brings this client back to the
+/// networked table it sits at. The table goes on on the engine build that
+/// began it, and speaks that build's protocol to the end
+/// (`docs/proposals/games-survive-restarts.md`), so a client that comes back
+/// speaking another is refused at its own table. An update does not say its
+/// protocol, but a gateway that runs that very release does: the restart
+/// keeps the seat only then, and only while that is still this client's
+/// protocol. Otherwise the offer waits until the game is over. A house game
+/// in this client resumes from its record and is not asked.
+#[must_use]
+pub fn restart_keeps_a_networked_seat(
+    ready: &str,
+    gateway: Option<&crate::lobby::gateway_info::GatewayInfo>,
+    ours: u32,
+) -> bool {
+    gateway.is_some_and(|info| {
+        info.protocol_version == ours
+            && !release_of(ready).is_empty()
+            && release_of(&info.version) == release_of(ready)
+    })
+}
+
+/// A build's release, as a version names it: without a leading `v`, the
+/// `+build.…` part and the commit in brackets (`baylee_build::short`).
+fn release_of(version: &str) -> &str {
+    let version = version.trim();
+    let version = version.strip_prefix('v').unwrap_or(version);
+    version.split([' ', '+']).next().unwrap_or_default()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     const NOW: u64 = 1_760_000_000_000;
+
+    /// A restart at a networked table waits unless its gateway already runs
+    /// the update and still speaks this client's protocol.
+    #[test]
+    fn a_restart_keeps_a_networked_seat_only_on_a_gateway_of_that_release() {
+        use crate::lobby::gateway_info::GatewayInfo;
+        let ours = baylee_protocol::PROTOCOL_VERSION;
+        let gateway = |version: &str, protocol: u32| GatewayInfo {
+            version: version.into(),
+            protocol_version: protocol,
+            ..GatewayInfo::default()
+        };
+        let there = gateway("0.2.1-beta.o1+build.7 (abcdef0123)", ours);
+        assert!(restart_keeps_a_networked_seat(
+            "0.2.1-beta.o1",
+            Some(&there),
+            ours
+        ));
+        assert!(restart_keeps_a_networked_seat(
+            "v0.2.1-beta.o1",
+            Some(&there),
+            ours
+        ));
+        let older = gateway("0.2.0-beta.o1+build.6 (0123abcdef)", ours);
+        assert!(
+            !restart_keeps_a_networked_seat("0.2.1-beta.o1", Some(&older), ours),
+            "the update may speak another protocol: wait for the end"
+        );
+        let moved_on = gateway("0.2.1-beta.o1+build.7 (abcdef0123)", ours + 1);
+        assert!(
+            !restart_keeps_a_networked_seat("0.2.1-beta.o1", Some(&moved_on), ours),
+            "the table stays on this client's protocol to its end"
+        );
+        assert!(!restart_keeps_a_networked_seat("0.2.1-beta.o1", None, ours));
+        assert!(!restart_keeps_a_networked_seat(
+            "",
+            Some(&gateway("", ours)),
+            ours
+        ));
+    }
 
     fn written() -> ResumeState {
         ResumeState {

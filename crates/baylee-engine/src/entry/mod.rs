@@ -80,6 +80,7 @@ pub(super) enum TributeState {
 }
 
 #[derive(Clone, Debug)]
+#[allow(clippy::struct_excessive_bools)]
 struct Attempt {
     object: ObjectId,
     version: u32,
@@ -103,6 +104,9 @@ struct Attempt {
     player_chosen_modes: Vec<(PlayerId, u8)>,
     chosen_subtype: Option<baylee_core::ids::SubtypeId>,
     chosen_player: Option<PlayerId>,
+    second_chosen_player: Option<PlayerId>,
+    secret_chosen_player: Option<PlayerId>,
+    secret_chosen_number: Option<u8>,
     battle_protector: Option<PlayerId>,
     saga_chapter: Option<u8>,
     kw_choices: EntryKeywordState,
@@ -114,9 +118,88 @@ struct Attempt {
     next_counter: usize,
     copy: CopyStatus,
     preview_effects: Vec<baylee_core::ids::EffectId>,
+    controller_override: Option<PlayerId>,
+    instead_destination: Option<baylee_cards_dsl::EntryInsteadZone>,
+    entry_type_pt: Vec<(
+        baylee_core::types::TypeSet,
+        &'static [baylee_core::ids::SubtypeId],
+        i16,
+        i16,
+    )>,
+    applied_effects: Vec<baylee_core::ids::EffectId>,
+    applied_self_replace: bool,
+    applied_own_control: bool,
+    zone_play_rider: baylee_cards_dsl::ZonePlayCastRider,
+}
+
+impl Attempt {
+    #[allow(clippy::too_many_arguments)]
+    fn pending(
+        object: ObjectId,
+        version: u32,
+        controller: PlayerId,
+        putter: PlayerId,
+        tapped: bool,
+        position: ZonePosition,
+        cause: Cause,
+        modifiers: &'static [EnterModifier],
+        lost: bool,
+    ) -> Self {
+        Self {
+            object,
+            version,
+            controller,
+            putter,
+            applied: Vec::new(),
+            tapped,
+            sacrifices_after: 0,
+            own_first: false,
+            position,
+            cause,
+            modifiers,
+            next: 0,
+            refusal: None,
+            sacrifices: None,
+            chosen_number: None,
+            chosen_mode: None,
+            player_chosen_modes: Vec::new(),
+            chosen_subtype: None,
+            chosen_player: None,
+            second_chosen_player: None,
+            secret_chosen_player: None,
+            secret_chosen_number: None,
+            battle_protector: None,
+            saga_chapter: None,
+            kw_choices: EntryKeywordState::default(),
+            tribute: TributeState::None,
+            counters: Vec::new(),
+            counter_plans: Vec::new(),
+            counters_prepared: false,
+            counter_caps: Vec::new(),
+            next_counter: 0,
+            copy: if lost {
+                CopyStatus::None
+            } else {
+                CopyStatus::Pending
+            },
+            preview_effects: Vec::new(),
+            controller_override: None,
+            instead_destination: None,
+            entry_type_pt: Vec::new(),
+            applied_effects: Vec::new(),
+            applied_self_replace: false,
+            applied_own_control: false,
+            zone_play_rider: baylee_cards_dsl::ZonePlayCastRider::None,
+        }
+    }
+
+    const fn is_cancelled(&self) -> bool {
+        self.refusal.is_some() || self.instead_destination.is_some()
+    }
 }
 
 impl Hash for Attempt {
+    #[allow(clippy::too_many_lines)]
     fn hash<H: Hasher>(&self, h: &mut H) {
         let Self {
             object,
@@ -138,6 +221,9 @@ impl Hash for Attempt {
             player_chosen_modes,
             chosen_subtype,
             chosen_player,
+            second_chosen_player,
+            secret_chosen_player,
+            secret_chosen_number,
             battle_protector,
             saga_chapter,
             kw_choices,
@@ -149,6 +235,13 @@ impl Hash for Attempt {
             next_counter,
             copy,
             preview_effects,
+            controller_override,
+            instead_destination,
+            entry_type_pt,
+            applied_effects,
+            applied_self_replace,
+            applied_own_control,
+            zone_play_rider,
         } = self;
         object.hash(h);
         version.hash(h);
@@ -170,6 +263,15 @@ impl Hash for Attempt {
         }
         if let Some(player) = chosen_player {
             player.hash(h);
+        }
+        if let Some(number) = secret_chosen_number {
+            (255_u8, 552_u16, 1_u8, number).hash(h);
+        }
+        if let Some(player) = secret_chosen_player {
+            (255_u8, 552_u16, 2_u8, player).hash(h);
+        }
+        if let Some(player) = second_chosen_player {
+            (255_u8, 552_u16, 3_u8, player).hash(h);
         }
         battle_protector.hash(h);
         // Folded in only when set (Read-Ahead Sagas, CR 702.155b), preserving
@@ -204,6 +306,30 @@ impl Hash for Attempt {
         next_counter.hash(h);
         copy.hash(h);
         preview_effects.hash(h);
+        if controller_override.is_some()
+            || instead_destination.is_some()
+            || !entry_type_pt.is_empty()
+            || !applied_effects.is_empty()
+            || *applied_self_replace
+            || *applied_own_control
+        {
+            (
+                583_u16,
+                controller_override,
+                instead_destination,
+                entry_type_pt,
+                applied_effects,
+                applied_self_replace,
+                applied_own_control,
+            )
+                .hash(h);
+        }
+        // Folded in only when a deferred graveyard/exile land play carries a
+        // post-entry rider (Serra Paragon / Eighth Doctor), keeping unrelated
+        // entry hashes bit-identical (reserved tag 573).
+        if *zone_play_rider != baylee_cards_dsl::ZonePlayCastRider::None {
+            (573_u16, zone_play_rider).hash(h);
+        }
     }
 }
 
@@ -304,6 +430,28 @@ enum Question {
     EntrySubtype,
     /// Pre-counter entry player/opponent choice (`CR 614.12`, *Canker Abomination*).
     EntryPlayer,
+    /// Choosing an opponent under whose control this permanent enters (*Xantcha*, *Captive Audience*).
+    EntryControllerOpponent,
+    /// Secretly choose a number as this permanent enters (*Ominous Lockbox*).
+    SecretNumber,
+    /// Secretly choose an opponent as this permanent enters (*Guardian Archon*, *Stalking Leonin*).
+    SecretOpponent,
+    /// Choose the first of two players as this permanent enters (*Bitter Feud*, *Sower of Discord*).
+    EntryFirstOfTwoPlayers,
+    /// Choose the second distinct player as this permanent enters.
+    EntrySecondOfTwoPlayers {
+        first: PlayerId,
+    },
+    /// Choose which opponent chooses a creature type (*Callous Oppressor* in multiplayer).
+    EntryOpponentForSubtype,
+    /// Chosen opponent chooses a creature type (*Callous Oppressor*).
+    EntrySubtypeBy(PlayerId),
+    /// Choose which opponent's library is inspected for its most prevalent creature type (*Favored Enemy*).
+    EntryOpponentLibraryType,
+    /// Controller breaks a tie among most-prevalent creature types (*Favored Enemy*).
+    EntrySubtypeTie {
+        options: Vec<baylee_core::ids::SubtypeId>,
+    },
 }
 
 impl Hash for Entries {
@@ -377,9 +525,7 @@ fn projected_modifiers(state: &GameState, id: ObjectId) -> &'static [EnterModifi
     let Some(object) = state.object(id) else {
         return &[];
     };
-    let mut prospective = object.clone();
-    prospective.zone = Zone::Battlefield;
-    prospective.version = prospective.version.wrapping_add(1);
+    let prospective = prospective_battlefield(object);
     let plan = crate::layers::LayerPlan::before_entries(&state.effects, unavailable(state));
     let projection = crate::layers::recompute_with(state, &prospective, &plan);
     if projection.characteristics.rules_text_lost
@@ -458,6 +604,12 @@ fn needs_before_entry(modifier: &EnterModifier) -> bool {
         || matches!(
             modifier,
             EnterModifier::ChooseNumber { .. }
+                | EnterModifier::ChooseNumberAtRandom { .. }
+                | EnterModifier::SecretlyChooseNumber { .. }
+                | EnterModifier::SecretlyChooseOpponent
+                | EnterModifier::ChooseTwoPlayers
+                | EnterModifier::OpponentChoosesCreatureType
+                | EnterModifier::NoteMostPrevalentCreatureTypeInOpponentLibrary
                 | EnterModifier::ChooseMode(_)
                 | EnterModifier::EachPlayerChooseMode(_)
                 | EnterModifier::ChooseShape(_)
@@ -471,6 +623,7 @@ fn needs_before_entry(modifier: &EnterModifier) -> bool {
                 | EnterModifier::Amplify(_)
                 | EnterModifier::Suspected
                 | EnterModifier::Tribute(_)
+                | EnterModifier::EntersUnderChosenOpponentControl
         )
 }
 
@@ -507,7 +660,7 @@ pub(crate) fn defer(
     state.entries.event_objects.insert(id);
     let mut modifiers = modifiers(state, id);
     let copy = copy_clause(state, id);
-    let external = equilibrium::exists(state);
+    let external = equilibrium::exists_for(state, id);
     let aura = auras::needs_choice(state, id);
     let mut counter_entry = counters::needs_entry(state, id)
         || battles::needs_entry(state, id)
@@ -526,9 +679,7 @@ pub(crate) fn defer(
     let Some(object) = state.object(id) else {
         return false;
     };
-    let mut prospective = object.clone();
-    prospective.zone = Zone::Battlefield;
-    prospective.version = prospective.version.wrapping_add(1);
+    let prospective = prospective_battlefield(object);
     let plan = crate::layers::LayerPlan::before_entries(&state.effects, unavailable(state));
     let projected = crate::layers::recompute_with(state, &prospective, &plan);
     let kw_entry = (projected.characteristics.keywords.bits() & ENTRY_CHOICE_KEYWORDS.bits()) != 0;
@@ -546,42 +697,17 @@ pub(crate) fn defer(
     {
         return false;
     }
-    let attempt = Attempt {
-        object: id,
-        version: object.version,
-        controller: projected.controller,
-        putter: state.entries.putter.unwrap_or(object.controller),
-        applied: Vec::new(),
-        tapped: object.status.contains(crate::object::Status::TAPPED),
-        sacrifices_after: 0,
-        own_first: false,
+    let attempt = Attempt::pending(
+        id,
+        object.version,
+        projected.controller,
+        state.entries.putter.unwrap_or(object.controller),
+        object.status.contains(crate::object::Status::TAPPED),
         position,
         cause,
         modifiers,
-        next: 0,
-        refusal: None,
-        sacrifices: None,
-        chosen_number: None,
-        chosen_mode: None,
-        player_chosen_modes: Vec::new(),
-        chosen_subtype: None,
-        chosen_player: None,
-        battle_protector: None,
-        saga_chapter: None,
-        kw_choices: EntryKeywordState::default(),
-        tribute: TributeState::None,
-        counters: Vec::new(),
-        counter_plans: Vec::new(),
-        counters_prepared: false,
-        counter_caps: Vec::new(),
-        next_counter: 0,
-        copy: if lost {
-            CopyStatus::None
-        } else {
-            CopyStatus::Pending
-        },
-        preview_effects: Vec::new(),
-    };
+        lost,
+    );
     state.entries.counter_transaction |= kw_entry;
     state.entries.pending_objects.insert(id);
     state.entries.order_prepared = false;
@@ -641,6 +767,22 @@ pub(crate) fn put_counters(
     }
 }
 
+/// Clone `object` as a prospective battlefield permanent for pre-entry layer
+/// projection. Preserves the stack version when entering from the stack so
+/// CR 400.7b resolution effects (`EffectFilter::ObjectIs(id, stack_ver)`)
+/// apply before `EffectTable::follow_into_permanent` runs inside `move_object`.
+pub(super) fn prospective_battlefield(
+    object: &crate::object::GameObject,
+) -> crate::object::GameObject {
+    let mut prospective = object.clone();
+    let from_stack = prospective.zone == Zone::Stack;
+    prospective.zone = Zone::Battlefield;
+    if !from_stack {
+        prospective.version = prospective.version.wrapping_add(1);
+    }
+    prospective
+}
+
 pub(crate) fn unavailable(state: &GameState) -> &BTreeSet<ObjectId> {
     &state.entries.event_objects
 }
@@ -687,5 +829,60 @@ pub(crate) fn put_entry_counters(state: &mut GameState, id: ObjectId, kind: Coun
         .map(|object| object.controller)
     {
         crate::replacement::put_counters_by(state, controller, id, kind, n);
+    }
+}
+
+pub(super) fn attach_zone_play_rider(
+    object: &mut crate::object::GameObject,
+    rider: baylee_cards_dsl::ZonePlayCastRider,
+) {
+    match rider {
+        baylee_cards_dsl::ZonePlayCastRider::None
+        | baylee_cards_dsl::ZonePlayCastRider::ExileInsteadOfGraveyard
+        | baylee_cards_dsl::ZonePlayCastRider::EntryFinality => {}
+        baylee_cards_dsl::ZonePlayCastRider::GrantDeathExileAndGainLife(life) => {
+            object
+                .riders
+                .push(crate::object::Rider::GrantDeathExileAndGainLife(life));
+        }
+        baylee_cards_dsl::ZonePlayCastRider::GrantLeaveExileReplacement => {
+            object
+                .riders
+                .push(crate::object::Rider::GrantLeaveExileReplacement);
+        }
+    }
+}
+
+/// Applies a `ZonePlayCastRider` from playing a land via `ZonePlayGrant`
+/// (*Serra Paragon*, *The Eighth Doctor*), preserving it across deferred
+/// entries (shocklands, checklands, external entry replacements).
+pub(crate) fn set_entry_zone_play_rider(
+    state: &mut GameState,
+    id: ObjectId,
+    rider: baylee_cards_dsl::ZonePlayCastRider,
+) {
+    match rider {
+        baylee_cards_dsl::ZonePlayCastRider::None
+        | baylee_cards_dsl::ZonePlayCastRider::ExileInsteadOfGraveyard => {}
+        baylee_cards_dsl::ZonePlayCastRider::EntryFinality => {
+            put_entry_counters(state, id, CounterKind::Finality, 1);
+        }
+        baylee_cards_dsl::ZonePlayCastRider::GrantDeathExileAndGainLife(_)
+        | baylee_cards_dsl::ZonePlayCastRider::GrantLeaveExileReplacement => {
+            if let Some(entry) = state
+                .entries
+                .pending
+                .iter_mut()
+                .find(|entry| entry.object == id)
+            {
+                entry.zone_play_rider = rider;
+            } else if state
+                .object(id)
+                .is_some_and(|object| object.zone == Zone::Battlefield)
+                && let Some(object) = state.object_mut(id)
+            {
+                attach_zone_play_rider(object, rider);
+            }
+        }
     }
 }

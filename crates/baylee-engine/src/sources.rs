@@ -1193,12 +1193,15 @@ impl GameState {
         // Presentation of a permission does not make its source eligible.
         for grant in &self.granted_actions {
             retained.insert(grant.offer.source);
-            if let crate::choice::GrantedActionKind::PreventNextDamage {
-                target: baylee_core::ids::TargetRef::Object(reference),
-                ..
-            } = grant.offer.effect
-            {
-                retained.insert(reference);
+            match grant.offer.effect {
+                crate::choice::GrantedActionKind::PreventNextDamage {
+                    target: baylee_core::ids::TargetRef::Object(reference),
+                    ..
+                }
+                | crate::choice::GrantedActionKind::EndContinuousEffects { target: reference } => {
+                    retained.insert(reference);
+                }
+                _ => {}
             }
         }
         // A referenced departed spell may itself refer to targets which are

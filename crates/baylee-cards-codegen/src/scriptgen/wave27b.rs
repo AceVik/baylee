@@ -1306,7 +1306,9 @@ impl Tx<'_> {
             )]);
         }
         if matches!(def_raw.as_str(), "Targeted" | "ParentTarget") {
-            let tgt = target.filter(|t| t.starts_with("TargetSpec::Object("))?;
+            let tgt = target.filter(|t| {
+                t.starts_with("TargetSpec::Object(") || t.starts_with("TargetSpec::PlayerOrObject(")
+            })?;
             return Some(vec![format!(
                 "Effect::AttachChosen {{ filter: &{att_name}, to: {tgt}, \
                  max: {max_expr}, optional: {optional} }}"
@@ -1604,7 +1606,7 @@ impl Tx<'_> {
             .join(",")
     }
 
-    fn wave27b_strip_zone_owner(valid: &str) -> Option<(Option<&'static str>, String)> {
+    pub(super) fn wave27b_strip_zone_owner(valid: &str) -> Option<(Option<&'static str>, String)> {
         let mut owner: Option<&'static str> = None;
         let mut out = Vec::new();
         for alt in valid.split(',').map(str::trim) {

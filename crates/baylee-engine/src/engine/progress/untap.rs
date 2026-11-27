@@ -369,6 +369,33 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// a projection: what a "doesn't untap" effect modifies is a rule and
     /// not a characteristic (CR 613.11), so there is nothing on the
     /// permanent to look at.
+    /// Whether a static effect (Seedborn Muse, Unwinding Clock, Prop Room,
+    /// Teferi emblem) untaps this non-active player's tapped permanent during
+    /// the current active player's untap step (CR 502.3).
+    fn untaps_during_other_player_untap(&self, id: ObjectId) -> bool {
+        let active = self.state.turn.active;
+        let Some(obj) = self.state.object(id) else {
+            return false;
+        };
+        if obj.controller == active || !obj.status.contains(Status::TAPPED) {
+            return false;
+        }
+        self.state.effects.iter().any(|fx| {
+            let baylee_cards_dsl::Modifier::UntapDuringUntapStep { who } = fx.modifier else {
+                return false;
+            };
+            let applies =
+                crate::eval::players_for_source(who, &self.state, fx.controller, fx.source)
+                    .is_some_and(|players| players.contains(&active))
+                    && crate::effects::applies_to(&self.state, fx, obj);
+            #[cfg(any(test, feature = "test-support"))]
+            if applies {
+                crate::ability_log::static_applied(fx);
+            }
+            applies
+        })
+    }
+
     pub(crate) fn finish_untap_step(&mut self, kept: &[ObjectId]) -> bool {
         let active = self.state.turn.active;
         let determined: Vec<_> = self
@@ -376,10 +403,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             .battlefield_view()
             .into_iter()
             .filter(|id| {
-                self.state.object(*id).is_some_and(|object| {
+                let active_untap = self.state.object(*id).is_some_and(|object| {
                     object.controller == active && object.status.contains(Status::TAPPED)
                 }) && !kept.contains(id)
-                    && !self.keeps_tapped(*id)
+                    && !self.keeps_tapped(*id);
+                active_untap || self.untaps_during_other_player_untap(*id)
             })
             .collect();
         let batch = super::untap_replacements::UntapBatch::new(&self.state, determined);

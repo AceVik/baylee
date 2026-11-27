@@ -67,6 +67,13 @@ pub(super) fn count(
             0
         };
     }
+    if matches!(what, ThisWay::CountersMoved) {
+        return if only.is_none_or(|p| p == res.controller) {
+            res.subject.counters_moved
+        } else {
+            0
+        };
+    }
     let mine = |player: PlayerId| only.is_none_or(|p| p == player);
     let mut total: u32 = 0;
     for entry in entries(state, res) {
@@ -207,6 +214,17 @@ pub(super) fn count(
                 },
                 ThisWay::CountersRemovedFromTargets,
             ) if res.target_players.contains(*player) && new < old => u32::from(old - new),
+            (GameEvent::CounterChanged { old, new, .. }, ThisWay::CountersRemovedAny)
+                if new < old =>
+            {
+                u32::from(old - new)
+            }
+            (
+                GameEvent::PlayerCountersChanged {
+                    player, old, new, ..
+                },
+                ThisWay::CountersRemovedAny,
+            ) if mine(*player) && new < old => u32::from(old - new),
             (GameEvent::ControllerChanged { .. }, ThisWay::ControlChanged)
             | (GameEvent::SpellCountered { .. }, ThisWay::Countered) => 1,
             (

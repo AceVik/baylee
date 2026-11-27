@@ -29,70 +29,30 @@ card!(
                 who: PlayerRel::ActivePlayer,
                 filter: &SAC1
             }],
-            then: &[
-                Effect::IfCondition {
-                    condition: Condition::AmountCompare {
-                        left: &Amount::RememberedCount,
-                        op: AmountCmp::Equal,
-                        right: &Amount::Fixed(0)
-                    },
-                    then: &[Effect::DiscardForPlayers {
+            then: &[Effect::IfCondition {
+                condition: Condition::AmountCompare {
+                    left: &Amount::RememberedCount,
+                    op: AmountCmp::Equal,
+                    right: &Amount::Fixed(0)
+                },
+                then: &[
+                    Effect::DiscardForPlayers {
                         who: PlayerRel::ActivePlayer,
                         count: 1
-                    }],
-                    otherwise: &[]
-                },
-                Effect::IfCondition {
-                    condition: Condition::AmountCompare {
-                        left: &Amount::RememberedCount,
-                        op: AmountCmp::Equal,
-                        right: &Amount::Fixed(0)
                     },
-                    then: &[Effect::LoseLife {
+                    Effect::LoseLife {
                         amount: Amount::Fixed(2),
                         target: PlayerRel::ActivePlayer
-                    }],
-                    otherwise: &[]
-                },
-                Effect::IfCondition {
-                    condition: Condition::AmountCompare {
-                        left: &Amount::RememberedCount,
-                        op: AmountCmp::Equal,
-                        right: &Amount::Fixed(0)
                     },
-                    then: &[Effect::draw(1)],
-                    otherwise: &[]
-                },
-                Effect::IfCondition {
-                    condition: Condition::AmountCompare {
-                        left: &Amount::RememberedCount,
-                        op: AmountCmp::Equal,
-                        right: &Amount::Fixed(0)
-                    },
-                    then: &[Effect::gain_life(2)],
-                    otherwise: &[]
-                },
-                Effect::IfCondition {
-                    condition: Condition::AmountCompare {
-                        left: &Amount::RememberedCount,
-                        op: AmountCmp::Equal,
-                        right: &Amount::Fixed(0)
-                    },
-                    then: &[Effect::CreateToken {
+                    Effect::draw(1),
+                    Effect::gain_life(2),
+                    Effect::CreateToken {
                         token: &generated_tokens::KNIGHT_2_2_WHITE_VIGILANCE
-                    }],
-                    otherwise: &[]
-                },
-                Effect::IfCondition {
-                    condition: Condition::AmountCompare {
-                        left: &Amount::RememberedCount,
-                        op: AmountCmp::Equal,
-                        right: &Amount::Fixed(0)
                     },
-                    then: &[Effect::SacrificeSelf],
-                    otherwise: &[]
-                }
-            ]
+                    Effect::SacrificeSelf
+                ],
+                otherwise: &[]
+            }]
         }]
     ),],
 );

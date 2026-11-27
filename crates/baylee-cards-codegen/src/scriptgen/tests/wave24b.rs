@@ -647,15 +647,30 @@ fn amount_compare_ai_hints_and_raise_cost_discard_x() {
 
 #[test]
 fn wave24b_refuses_engine_gaps_and_non_paper_scripts() {
+    // `Count$ValidExile Card.OppOwn` now uses 2HG-exact `Filter::OwnedBy(PlayerRel::EachOpponent)`.
+    let umbris = read_w24b(
+        "Name:Umbris Shape\nManaCost:3 U B\nTypes:Creature\nPT:1/1\n\
+         S:Mode$ Continuous | Affected$ Card.Self | AddPower$ X | AddToughness$ X\n\
+         SVar:X:Count$ValidExile Card.OppOwn",
+    );
+    assert!(
+        umbris
+            .statics
+            .contains("Filter::OwnedBy(PlayerRel::EachOpponent)"),
+        "{}",
+        umbris.statics
+    );
+    assert!(
+        umbris.abilities[0].contains("zone: ZoneSel::ExileAll"),
+        "{:?}",
+        umbris.abilities
+    );
+
     for bad in [
         // `HandChosen` without `ChooseOpponent` enter modifier.
         "Name:BadHandChosen\nManaCost:2 B\nTypes:Creature\nPT:5/5\n\
          S:Mode$ Continuous | Affected$ Card.Self | AddPower$ -X | AddToughness$ -X\n\
          SVar:X:Count$ValidHand Card.ChosenCtrl",
-        // `Count$ValidExile Card.OppOwn` (2HG team semantics: Not(OwnedByYou) != OppOwn).
-        "Name:Umbris Shape\nManaCost:3 U B\nTypes:Creature\nPT:1/1\n\
-         S:Mode$ Continuous | Affected$ Card.Self | AddPower$ X | AddToughness$ X\n\
-         SVar:X:Count$ValidExile Card.OppOwn",
         // `AmountCompare` with all-players-max SVar (`PlayerCountPlayers$HighestCardsInHand`).
         "Name:AllPlayersHighestHand Shape\nManaCost:4 G\nTypes:Creature\nPT:4/3\n\
          S:Mode$ Continuous | Affected$ Card.Self | AddPower$ 3 | AddToughness$ 3 | \
@@ -673,10 +688,6 @@ fn wave24b_refuses_engine_gaps_and_non_paper_scripts() {
          Cost$ Discard<X/Random> | EffectZone$ All\n\
          A:SP$ Draw | NumCards$ X\n\
          SVar:X:Count$xPaid",
-        // `RaiseCost` `ValidSpell$ Activated.ManaAbility | EffectZone$ All` (Thran Portal).
-        "Name:Thran Portal Shape\nTypes:Land\n\
-         S:Mode$ RaiseCost | ValidCard$ Card.Self | ValidSpell$ Activated.ManaAbility | \
-         Cost$ PayLife<1> | EffectZone$ All",
         // `AffectedZone$ Library` / `Graveyard` `MayPlay$ True` (engine/DSL gaps).
         "Name:Graveyard Mutate\nManaCost:3 B G\nTypes:Creature\nPT:4/4\n\
          S:Mode$ Continuous | Affected$ Creature.YouOwn | AffectedZone$ Graveyard | \

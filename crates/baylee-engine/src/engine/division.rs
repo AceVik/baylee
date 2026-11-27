@@ -61,6 +61,11 @@ pub(crate) fn eval_division_amount(
             .or_else(|| state.object(context.source))
             .and_then(|o| o.characteristics().power)
             .map_or(0, |p| p.max(0) as u32),
+        Amount::SourceToughness => state
+            .damage_source(context.source, source_version)
+            .or_else(|| state.object(context.source))
+            .and_then(|o| o.characteristics().toughness)
+            .map_or(0, |t| t.max(0) as u32),
         Amount::Plus { base, offset } => {
             eval_division_amount(base, state, you, context, source_version, x)
                 .saturating_add(*offset)

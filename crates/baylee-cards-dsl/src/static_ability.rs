@@ -77,6 +77,126 @@ pub enum DamageAmountReplacement {
     /// and applied once to each source's damage to each recipient. Not a
     /// prevention effect. Appended to preserve replay identities.
     Subtract(u32),
+    /// Replace any positive damage event (`amount >= 1`) with exactly this
+    /// amount (*Equal Treatment*: "If any source would deal 1 or more damage
+    /// to a permanent or player this turn, it deals 2 damage instead";
+    /// CR 614.1a). Not a prevention effect. Appended to preserve replay
+    /// identities.
+    SetTo(u32),
+}
+
+/// How [`ReplacementRule::ReplaceMultiDraw`] transforms a multi-card draw
+/// instruction before it breaks into individual card draws (`CR 121.2`,
+/// `CR 614.11`).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum MultiDrawReplacementKind {
+    /// "Instead you and that player each draw a card" (*Alms Collector*;
+    /// draws are queued in APNAP order per `CR 121.2c`).
+    EachDrawsOne,
+    /// "You draw that many cards plus `add` instead" (*Quantum Riddler*).
+    AddCards(u8),
+}
+
+/// One-shot next-draw replacement created by a resolving spell or ability
+/// (`CR 614.1a`, `CR 616.1`; *Words of Worship*, *Words of Wilding*).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum NextDrawReplacement {
+    /// "You gain `N` life instead" (*Words of Worship*).
+    GainLife(u16),
+    /// "Create a token instead" (*Words of Wilding*).
+    CreateToken(&'static crate::effect::TokenDef),
+}
+
+/// Alternate destination when [`Modifier::ReplaceBattlefieldEntry`] replaces an
+/// object entering the battlefield (`CR 614.1c`, `CR 614.6`).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum EntryInsteadZone {
+    /// Exile the object instead of putting it onto the battlefield
+    /// (*Containment Priest*, *Primeval Spawn*, *Hallowed Moonlight*, *Mistcaller*).
+    Exile,
+    /// Shuffle the object into its owner's library instead (*Don't Blink*).
+    ShuffleIntoOwnersLibrary,
+}
+
+/// Provenance condition tested by [`Modifier::ReplaceBattlefieldEntry`] before
+/// an object reaches the battlefield.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum EntryPredicate {
+    /// The entering permanent was not cast (*Containment Priest*, *Hallowed
+    /// Moonlight*, *Mistcaller*).
+    NotCast,
+    /// The entering permanent was not cast or zero mana was spent to cast it
+    /// (*Primeval Spawn*).
+    NotCastOrNoManaSpent,
+    /// Entering directly from exile or resolving after being cast from exile
+    /// (*Don't Blink*).
+    FromExileOrCastFromExile,
+}
+
+/// Non-exile destination for [`ReplacementRule::RedirectGraveyard`]
+/// (`CR 614.1a`, `CR 614.6`).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum GraveyardRedirectDest {
+    /// Return to its owner's hand instead (*Necromancer's Magemark*).
+    Hand,
+    /// Put on top of its owner's library instead (*Gravebane Zombie*).
+    TopOfLibrary,
+    /// Put on the bottom of its owner's library instead (*Nissa's Chosen*,
+    /// *Wheel of Sun and Moon*).
+    BottomOfLibrary,
+    /// Shuffle into its owner's library instead.
+    ShuffleIntoLibrary,
+}
+
+/// Additional immediate action performed when a graveyard-exile replacement
+/// exiles a card or creature (`CR 614.6`).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum GraveyardExileRider {
+    /// Put `count` counters of `kind` on the exiled card (*Darigaaz
+    /// Reincarnated*: 3 egg counters; *Ravenloft Adventurer*: 1 hit counter).
+    CountersOnExiled {
+        /// Counter kind placed on the exiled card.
+        kind: crate::CounterKind,
+        /// Number of counters placed.
+        count: u16,
+    },
+    /// Replacement controller creates `count` tokens (*Kalitas, Traitor of
+    /// Ghet*, *Nemata, Primeval Warden*, *Head of the Hunt*).
+    CreateToken {
+        /// Token blueprint created.
+        token: &'static crate::effect::TokenDef,
+        /// Number of tokens created per exiled permanent.
+        count: u8,
+    },
+    /// Replacement controller gains `amount` life (*The Darkness Crystal*).
+    GainLife(u16),
+    /// Put counters on the replacement source equal to the departing
+    /// creature's last-known power (*Ravenous Slime*).
+    PowerCountersOnSource(crate::CounterKind),
+    /// Replacement controller takes an extra turn after this one
+    /// (*Ugin's Nexus*).
+    ExtraTurn,
+    /// Return the exiled card to the battlefield under its owner's control at
+    /// the beginning of the next end step (*Cosmic Intervention*).
+    ReturnAtNextEndStep,
+}
+
+/// Granularity at which [`Modifier::ReplaceOrPreventDamageScopedWithThen`]
+/// groups simultaneous damage parts into prevention/replacement candidates and
+/// rider executions (`CR 615.5`, `CR 616.1`).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum DamageRiderScope {
+    /// One application per recipient across the damage batch (same as
+    /// [`Modifier::ReplaceOrPreventDamageWithThen`]).
+    PerBatch,
+    /// One application per `(source, recipient)` pair (*Nine Lives*,
+    /// *Ironscale Hydra*, *Swans of Bryn Argoll*, *Comeuppance*).
+    PerSource,
+    /// One application per recipient with the damaged object bound for
+    /// [`crate::Effect::AddCounterDamagedObject`] /
+    /// [`crate::Effect::ShuffleDamagedObjectIntoLibrary`] (*Vigor*,
+    /// *Soul-Scar Mage*, *Szadek*, *Undead Alchemist*, *Weeping Angel*).
+    PerTarget,
 }
 
 /// How a [`Modifier::ModifyLifeGain`] changes the amount of a life gain
@@ -1910,6 +2030,502 @@ pub enum Modifier {
         /// Generic mana tax added if no chosen target matches `filter`.
         generic: u8,
     },
+    /// One-shot next-draw replacement for this effect's controller (*Words of
+    /// Worship*, *Words of Wilding*; `CR 614.1a`, `CR 616.1`). Appended to
+    /// preserve replay identities.
+    NextDrawReplace(NextDrawReplacement),
+    /// One-shot replacement for the next time this effect's controller would
+    /// lose the game this turn: instead draw `draw` cards and set their life
+    /// total to `set_life` (*Stunning Reversal*; `CR 614.1a`, `CR 104.3`).
+    /// Appended to preserve replay identities.
+    ReplaceNextGameLoss {
+        /// Cards drawn as part of the replacement.
+        draw: u8,
+        /// New life total set as part of the replacement.
+        set_life: i32,
+    },
+    /// If a permanent matching `filter` would enter the battlefield under an
+    /// opponent's control, it enters under this effect's controller's control
+    /// instead (*Gather Specimens*; `CR 614.1c`, `CR 616.1`). Appended to
+    /// preserve replay identities.
+    EnterUnderYourControl(&'static Filter),
+    /// If an object matching `filter` and `predicate` would enter the
+    /// battlefield, send it to `destination` instead (*Containment Priest*,
+    /// *Primeval Spawn*, *Hallowed Moonlight*, *Mistcaller*, *Don't Blink*;
+    /// `CR 614.1c`, `CR 616.1`). Appended to preserve replay identities.
+    ReplaceBattlefieldEntry {
+        /// Prospective permanent filter (or `&Filter::This` for self-replacement).
+        filter: &'static Filter,
+        /// Entry provenance check.
+        predicate: EntryPredicate,
+        /// Zone it goes to instead of the battlefield.
+        destination: EntryInsteadZone,
+    },
+    /// Continuous-effect graveyard-to-exile replacement matching `filter` and
+    /// optional `origin` / `controller_lki` / `rider` (*Flaying Tendrils*,
+    /// *Malicious Eclipse*, *Malicious Malfunction*, *Cosmic Intervention*;
+    /// `CR 614.6`). Appended to preserve replay identities.
+    ExileMatchingInsteadOfGraveyard {
+        /// Characteristic filter evaluated against pre-move LKI.
+        filter: &'static Filter,
+        /// Required origin zone (`Some(ZoneRef::Battlefield)` for "would die").
+        origin: Option<crate::filter::ZoneRef>,
+        /// Optional last-known controller relation relative to effect controller.
+        controller_lki: Option<crate::effect::PlayerRel>,
+        /// Optional immediate or delayed follow-up rider.
+        rider: Option<GraveyardExileRider>,
+    },
+    /// Continuous-effect entry-tapping replacement ("Permanents enter tapped
+    /// this turn", *Due Respect*; `CR 614.1c`, `CR 616.1`). Appended to
+    /// preserve replay identities.
+    PermanentsEnterTapped(&'static Filter),
+    /// Continuous-effect token creation multiplier ("Until end of turn, if one
+    /// or more tokens would be created under your control, twice that many are
+    /// created instead", *Kaya, Geist Hunter*; `CR 614.1a`). Appended to
+    /// preserve replay identities.
+    MultiplyTokensCreated {
+        /// Whose token creations are multiplied.
+        who: crate::effect::PlayerRel,
+        /// Positive multiplication factor.
+        factor: u32,
+    },
+    /// Each token that would be created under an opponent's control is created
+    /// under this effect's controller's control instead (*Crafty Cutpurse*;
+    /// `CR 614.1a`, `CR 616.1`). Appended to preserve replay identities.
+    StealOpponentTokens,
+    /// Dynamic additive damage replacement ("deals that much damage plus X
+    /// instead", *Fated Firepower*, *Hawkeye, Young Avenger*, *Taii Wakeen*;
+    /// `CR 614.1a`). Appended to preserve replay identities.
+    AddDamageDynamic {
+        /// Sources whose damage is increased.
+        sources: &'static Filter,
+        /// Dynamic bonus evaluated against the effect's source and controller.
+        extra: crate::Amount,
+        /// Only combat damage.
+        combat_only: bool,
+        /// Only noncombat damage.
+        noncombat_only: bool,
+        /// Players and/or permanents receiving that damage.
+        recipients: DamageRecipients,
+    },
+    /// "If damage would be dealt to [the affected permanent] [while it has a
+    /// `kind` counter on it], prevent that damage and remove a `kind` counter
+    /// from it" (*Oathsworn Knight*, *Undergrowth Champion*, *Phantom Centaur*,
+    /// *Phantom Wurm*, *Unbreathing Horde*; `CR 615.1`, `CR 615.12`). Unlike
+    /// [`Self::PreventDamageRemovingCounters`], removes at most **one** counter
+    /// per prevented damage event. Appended to preserve replay identities.
+    PreventDamageRemovingOneCounter {
+        /// Counter kind removed (typically `+1/+1`).
+        kind: crate::CounterKind,
+        /// When `true`, only applies while at least one `kind` counter is on it.
+        require_counter: bool,
+    },
+    /// Redirect all matching damage that would be dealt to `recipients` to the
+    /// affected permanent instead while it remains a damageable battlefield
+    /// permanent (*Palisade Giant*, *Ancient Adamantoise*, *Weathered
+    /// Bodyguards*, *Heroic Sacrifice*, *Gideon's Sacrifice*, *Ascent of the
+    /// Worthy*; `CR 614.9`). Appended to preserve replay identities.
+    RedirectDamageToAffected {
+        /// Sources whose damage is redirected.
+        sources: &'static Filter,
+        /// Recipients whose damage is redirected to the affected permanent.
+        recipients: DamageRecipients,
+        /// Restrict to combat (`Some(true)`), noncombat (`Some(false)`), or any.
+        combat: Option<bool>,
+    },
+    /// All damage that would be dealt to the affected permanent is dealt to
+    /// its controller instead (*Treacherous Link*; `CR 614.9`). Appended to
+    /// preserve replay identities.
+    RedirectDamageToAffectedController,
+    /// "If a source would deal damage to [recipients], prevent all but 1 of
+    /// that damage" (*Temple Altisaur*, *Hyperion, Supreme Hero*, *Ajani
+    /// Steadfast* emblem; `CR 615.1`, `CR 615.12`). Prevention effect, so
+    /// unpreventable damage bypasses it. Appended to preserve replay identities.
+    PreventAllButOneDamage {
+        /// Sources whose damage is reduced to 1.
+        sources: &'static Filter,
+        /// Recipients protected.
+        recipients: DamageRecipients,
+        /// Restrict to combat (`Some(true)`), noncombat (`Some(false)`), or any.
+        combat: Option<bool>,
+    },
+    /// Scoped damage prevention or non-prevention replacement with an
+    /// immediate rider (*Vigor*, *Soul-Scar Mage*, *Swans of Bryn Argoll*,
+    /// *Nine Lives*, *Ironscale Hydra*, *Szadek*, *Undead Alchemist*, *Sekki*,
+    /// *Weeping Angel*, *Comeuppance*, *Brace for Impact*; `CR 614.1a`,
+    /// `CR 615.5`). Appended to preserve replay identities.
+    ReplaceOrPreventDamageScopedWithThen {
+        /// Sources whose damage is prevented or replaced.
+        sources: &'static Filter,
+        /// Players and/or permanents receiving that damage.
+        recipients: DamageRecipients,
+        /// Restrict to combat (`Some(true)`), noncombat (`Some(false)`), or any.
+        combat: Option<bool>,
+        /// `false` for prevention; `true` for non-prevention replacement.
+        is_replacement: bool,
+        /// When `is_replacement` is `false`: `true` gates the rider on
+        /// `prevented > 0` (*Vigor*, *Swans of Bryn Argoll*, *Comeuppance*,
+        /// *Brace for Impact*), while `false` fires on `attempted > 0` even
+        /// for unpreventable damage (`CR 615.12`; *Nine Lives*, *Ironscale
+        /// Hydra*). Ignored when `is_replacement` is `true`.
+        only_if_prevented: bool,
+        /// Candidate/rider grouping granularity.
+        scope: DamageRiderScope,
+        /// Immediate rider effect(s) executed after damage commits.
+        then: crate::DamageRider,
+    },
+    /// "If damage would be dealt to [the affected creature], instead that
+    /// damage is dealt, but all other damage already dealt to it is healed"
+    /// (*Wolverine, Fierce Fighter*; `CR 614.1a`). Appended to preserve replay
+    /// identities.
+    HealOtherDamageWhenDealtDamage,
+    /// Your opponents play with their hands revealed (*Telepathy*, *Seer's
+    /// Vision*, *Wisedrafter's Will*). Appended to preserve replay identities.
+    RevealOpponentsHands,
+    /// Affected cards in hand have miracle (`CR 702.94a`; *Aminatou, Veil
+    /// Piercer*, *Lorehold, the Historian*, *Molecule Man*). Appended to
+    /// preserve replay identities.
+    GrantMiracle(MiracleGrant),
+    /// Affected nonland cards in hand without printed foretell have foretell
+    /// with a foretell cost equal to their mana cost reduced by `{reduce_generic}`
+    /// (`CR 702.143a`; *Dream Devourer*, *Edgin, Larcenous Lutenist*). Appended
+    /// to preserve replay identities.
+    GrantForetell {
+        /// Generic mana subtracted from the card's printed mana cost.
+        reduce_generic: u32,
+    },
+    /// Affected cards in hand (or other permitted zone) have warp with this
+    /// cost (`CR 702.185a`; *Tannuk, Steadfast Second*). Appended to preserve
+    /// replay identities.
+    GrantWarp(crate::cost::Cost),
+    /// Affected permanent spells cast from hand have evoke with this cost
+    /// (`CR 702.74a`; *Ashling, the Limitless*). Appended to preserve replay
+    /// identities.
+    GrantEvoke(crate::cost::Cost),
+    /// Affected cards not on the battlefield have madness with a madness cost
+    /// equal to their mana cost (`CR 702.35a`; *Falkenrath Gorger*). Appended
+    /// to preserve replay identities.
+    GrantMadnessManaCost,
+    /// Affected nonland cards in your graveyard have mayhem with a mayhem cost
+    /// equal to their mana cost (`CR 702.187a`; *Norman Osborn // Green Goblin*).
+    /// Appended to preserve replay identities.
+    GrantsMayhemManaCost,
+    /// Affected instant and sorcery cards in your graveyard have beam me up with
+    /// a beam me up cost equal to their mana cost (*Scotty, Miracle Worker*).
+    /// Appended to preserve replay identities.
+    GrantsBeamMeUpManaCost {
+        /// When `true`, the granting source permanent itself cannot be returned
+        /// to pay the beam me up return-a-creature cost (*Scotty, Miracle Worker*).
+        cant_return_source: bool,
+    },
+    /// Extended zone-scoped cast/play permission with optional mana-spending
+    /// color washing and cast/land-play riders (`CR 118.9`, `CR 601.3e`).
+    /// Appended to preserve replay identities.
+    ZonePlayGrant(ZonePlayGrant),
+    /// Grants `Enchant <quality>` as a Layer 6 static ability (`CR 702.5a`,
+    /// `CR 613.1f`; Licids, animate-into-Aura effects). Appended to preserve
+    /// replay identities.
+    GrantEnchant(crate::effect::TargetSpec),
+    /// Removes only the printed ability at `index` in Layer 6 (`CR 113.10`,
+    /// `CR 613.1f`; Licids: "loses this ability" while retaining their other
+    /// static/activated/triggered abilities). Appended to preserve replay identities.
+    LoseAbility(u32),
+    /// Grants Bloodthirst N in Layer 6 (`CR 702.54a-b`, `CR 400.7b`;
+    /// *Bloodlord of Vaasgoth*). Appended to preserve replay identities.
+    GrantBloodthirst(u8),
+    /// Grants Sunburst in Layer 6 (`CR 702.44a-d`, `CR 400.7b`;
+    /// *Lux Artillery*). Appended to preserve replay identities.
+    GrantSunburst,
+    /// Sets the affected permanent's name in Layer 3 (`CR 613.1c`, `CR 612`,
+    /// non-copiable per `CR 707.2`; *Princess Yue* -> "Moon", *Awakening of
+    /// Vitu-Ghazi*). Appended to preserve replay identities.
+    SetName(&'static str),
+    /// Permanents matching this ability's `affected` filter untap during
+    /// other players' untap steps (`who`, `CR 502.3`; *Seedborn Muse*,
+    /// *Unwinding Clock*, *Prophet of Kruphix*, *Drumbellower*, *Victory Chimes*,
+    /// *Teferi, Who Slows the Sunset* emblem, *Horizon Boughs*). Appended to
+    /// preserve replay identities.
+    UntapDuringUntapStep {
+        /// Active players whose untap steps trigger this untap, relative to
+        /// the static ability's controller (`EachOtherPlayer`, `EachOpponent`,
+        /// or `EachPlayer`).
+        who: crate::effect::PlayerRel,
+    },
+    /// Affected creatures can't attack `target` unless their controller pays
+    /// `{amount}` generic mana for each of those creatures (`CR 508.1h`;
+    /// *Propaganda*, *Ghostly Prison*, *Onakke Oathkeeper*, *Sphere of Safety*,
+    /// *Collective Restraint*, *Cowed by Wisdom*, *Nils, Discipline Enforcer*).
+    /// `amount` is evaluated with the effect's source as `this` and the
+    /// prospective attacker as the subject (`Amount::TotalCountersOnSubject`).
+    /// Appended to preserve replay identities.
+    AttackManaTax {
+        /// Which defenders are protected by this tax.
+        target: AttackTaxTarget,
+        /// Generic mana charged per matching attacking creature.
+        amount: crate::Amount,
+    },
+    /// Affected creatures can't attack `target` unless their controller pays
+    /// one Phyrexian mana of `color` (`{color/P}`, i.e. one mana of `color` or
+    /// 2 life) for each of those creatures (`CR 508.1h`, `CR 107.4f`; *Norn's
+    /// Annex*). Appended to preserve replay identities.
+    AttackPhyrexianTax {
+        /// Which defenders are protected by this tax.
+        target: AttackTaxTarget,
+        /// Color of the Phyrexian mana symbol (`ManaColor::White` for `{W/P}`).
+        color: baylee_core::mana::ManaColor,
+    },
+    /// Affected creature can't attack unless its controller returns `count`
+    /// permanents they control matching `filter` to their owners' hands
+    /// (`CR 508.1h`; *Floodtide Serpent*). Appended to preserve replay identities.
+    CantAttackUnlessYouReturn {
+        /// Exact number of matching controlled permanents to return to hand.
+        count: u8,
+        /// Filter each returned permanent must satisfy.
+        filter: &'static Filter,
+    },
+    /// Affected creature can't attack unless its controller taps `count`
+    /// untapped permanents they control matching `filter` not declared as
+    /// attackers this combat (`CR 508.1h`; *Hollow Warrior*). Appended to
+    /// preserve replay identities.
+    CantAttackUnlessYouTap {
+        /// Exact number of untapped non-attacking controlled permanents to tap.
+        count: u8,
+        /// Filter each tapped permanent must satisfy.
+        filter: &'static Filter,
+    },
+    /// Affected creature can't block unless its controller pays `{amount}`
+    /// generic mana (`CR 509.1d`; *Cowed by Wisdom*). Appended to preserve
+    /// replay identities.
+    BlockManaTax {
+        /// Generic mana charged per matching blocking creature.
+        amount: crate::Amount,
+    },
+    /// Affected creature can't block unless its controller taps `count`
+    /// untapped permanents they control matching `filter` not declared as
+    /// blockers this combat (`CR 509.1d`; *Hollow Warrior*). Appended to
+    /// preserve replay identities.
+    CantBlockUnlessYouTap {
+        /// Exact number of untapped non-blocking controlled permanents to tap.
+        count: u8,
+        /// Filter each tapped permanent must satisfy.
+        filter: &'static Filter,
+    },
+    /// Hexproof from `[quality]` (`CR 702.11d`): affected permanent on the
+    /// battlefield can't be the target of spells your opponents control matching
+    /// `Filter`, or abilities your opponents control from sources matching
+    /// `Filter`. Respects `LoseAllAbilities`, `CantHaveKeywords(HEXPROOF)`, and
+    /// ignore-hexproof effects (`CR 702.11f`). Appended to preserve replay
+    /// identities.
+    HexproofFrom(&'static Filter),
+    /// Affected permanent on the battlefield has hexproof from each of its
+    /// colors (`CR 702.11d`; *Tam, Mindful First-Year*). Appended to preserve
+    /// replay identities.
+    HexproofFromOwnColors,
+    /// Affected permanent on the battlefield has hexproof from activated and
+    /// triggered abilities your opponents control (`CR 702.11d`; *Volatile
+    /// Stormdrake*). Appended to preserve replay identities.
+    HexproofFromAbilities,
+    /// Affected player matching `who` has hexproof from spells/sources matching
+    /// `from` controlled by opponents (`CR 702.11d`; *Veil of Summer*).
+    /// Appended to preserve replay identities.
+    PlayerHexproofFrom {
+        /// Protected player(s).
+        who: crate::effect::PlayerRel,
+        /// Quality filter on opposing spells or ability sources.
+        from: &'static Filter,
+    },
+    /// Opponents' permanents matching `permanent_filter` (and opponents
+    /// themselves when `players` is `true`) with hexproof (including hexproof
+    /// from `[quality]`) can be the targets of spells and abilities `effect.controller`
+    /// controls as though they didn't have hexproof (*Glaring Spotlight*, *Kaya,
+    /// Bane of the Dead*, `CR 702.11f`). Appended to preserve replay identities.
+    IgnoreOpponentsHexproofMatching {
+        /// Filter matched against opponents' permanents whose hexproof is ignored.
+        permanent_filter: &'static Filter,
+        /// Whether opponents' player hexproof is also ignored.
+        players: bool,
+    },
+    /// Plotting cards from `who`'s hand costs `{amount}` less generic mana
+    /// (`CR 702.170a`; *Doc Aurlock, Grizzled Genius*). Appended to preserve
+    /// replay identities.
+    PlotActionCostsLess {
+        /// Whose plot special actions are discounted.
+        who: crate::effect::PlayerRel,
+        /// Generic mana subtracted from the plot cost.
+        amount: u8,
+    },
+    /// Turning face-down creatures face up costs `{amount}` more generic mana
+    /// (`CR 702.37e`, `CR 702.168e`; *Exiled Doomsayer*). Appended to preserve
+    /// replay identities.
+    MorphTurnFaceUpCostsMore {
+        /// Generic mana added to morph/disguise/manifest turn-face-up costs.
+        amount: u8,
+    },
+    /// Activated abilities of permanents matching `filter` activated by `who`
+    /// cost an additional non-mana `cost` to activate (`CR 602.2b`; *Brutal
+    /// Suppression*). Appended to preserve replay identities.
+    ActivatedAbilitiesCostAdditional {
+        /// Whose activations pay the additional cost.
+        who: crate::effect::PlayerRel,
+        /// Permanent source filter.
+        filter: &'static Filter,
+        /// Additional non-mana cost part required.
+        cost: crate::CostPart,
+    },
+    /// Spells `who` casts cost `{1}` less to cast for each card type shared
+    /// between the spell and cards exiled with the source (*Cemetery Prowler*).
+    /// Appended to preserve replay identities.
+    SpellsCostLessPerSharedCardTypeWithExiled {
+        /// Whose spells receive the reduction.
+        who: crate::effect::PlayerRel,
+    },
+    /// First spell matching `filter` cast by `who` each turn costs `amount`
+    /// less (or more when `increase` is `true`) generic mana (`CR 601.2f`;
+    /// *Zimone, Infinite Analyst*). Appended to preserve replay identities.
+    FirstSpellEachTurnCostAdjustByAmount {
+        /// Whose first matching spell each turn is adjusted.
+        who: crate::effect::PlayerRel,
+        /// Spell filter matched against the spell and earlier cast spells this turn.
+        filter: &'static Filter,
+        /// Dynamic generic mana delta evaluated on cost determination.
+        amount: crate::Amount,
+        /// `false` for reduction, `true` for tax.
+        increase: bool,
+    },
+    /// First activated ability matching `source_filter` (and targeting
+    /// `target_filter` when not `Filter::Any`) activated by `who` each turn
+    /// (restricted to `who`'s turn when `your_turn_only` is `true`) costs
+    /// `{amount}` less generic mana (`CR 602.2b`; *Professor Hojo*, *Tezzeret,
+    /// Betrayer of Flesh*). Appended to preserve replay identities.
+    FirstActivatedAbilityEachTurnCostLess {
+        /// Whose first matching activation each turn is discounted.
+        who: crate::effect::PlayerRel,
+        /// Source permanent filter.
+        source_filter: &'static Filter,
+        /// Chosen/preview target filter (`Filter::Any` for untargeted).
+        target_filter: &'static Filter,
+        /// Generic mana subtracted from the activation cost.
+        amount: u32,
+        /// When `true`, applies only during `who`'s turn.
+        your_turn_only: bool,
+    },
+    /// Activated keyword abilities of kind `keyword` (`Boast`, `Ninjutsu`)
+    /// activated by `who` cost `amount` less generic mana (`CR 602.2b`;
+    /// *Dragonkin Berserker*, *Silver-Fur Master*). Appended to preserve
+    /// replay identities.
+    ActivatedAbilitiesWithKeywordCostLess {
+        /// Whose keyword activations receive the discount.
+        who: crate::effect::PlayerRel,
+        /// Activated ability keyword category.
+        keyword: ActivatedAbilityKind,
+        /// Generic mana reduction evaluated dynamically.
+        amount: crate::Amount,
+    },
+    /// Equip abilities `who` activates cost `{X}` less generic mana where X is
+    /// `metric` read from the equip target (`CR 702.6a`; *Belt of Giant
+    /// Strength*, *Dragonfire Blade*, *Warrior's Blades*). Appended to preserve
+    /// replay identities.
+    EquipCostsLessByTargetAmount {
+        /// Whose equip activations receive the discount.
+        who: crate::effect::PlayerRel,
+        /// Target property determining the generic reduction.
+        metric: EquipTargetMetric,
+    },
+    /// Self-cost replacement for casting from the command zone (*Liesa, Shroud
+    /// of Dusk*): reduces `{2}` generic mana per previous command-zone cast and
+    /// adds `life_per_tax` life per previous command-zone cast. Appended to
+    /// preserve replay identities.
+    CommanderTaxReplacedWithLife {
+        /// Life paid in place of each `{2}` commander tax increment.
+        life_per_tax: u32,
+    },
+    /// Spells cast by `who` matching `spell_filter` that target `effect.controller`
+    /// or a permanent matching `permanent_filter` cost additional `extra_mana`
+    /// and/or `extra_life` (*Monastery Siege* — Dragons). Appended to preserve
+    /// replay identities.
+    RaiseCostIfTargetsYouOrPermanent {
+        /// Whose spells are taxed.
+        who: crate::effect::PlayerRel,
+        /// Filter matched against the spell.
+        spell_filter: &'static Filter,
+        /// Filter matched against chosen object targets.
+        permanent_filter: &'static Filter,
+        /// Additional mana cost added when targeting `you` or a matching permanent.
+        extra_mana: baylee_core::mana::ManaCost,
+        /// Additional life payment added when targeting `you` or a matching permanent.
+        extra_life: u32,
+    },
+    /// Spells cast by `who` matching `spell_filter` cost `mana_per_extra_target`
+    /// more for each target beyond the first (*Fireball*, *Officious
+    /// Interrogation*). Appended to preserve replay identities.
+    AdjustSpellCostBeyondFirstTarget {
+        /// Whose spells are taxed.
+        who: crate::effect::PlayerRel,
+        /// Filter matched against the spell.
+        spell_filter: &'static Filter,
+        /// Mana cost added for each chosen target after the first.
+        mana_per_extra_target: baylee_core::mana::ManaCost,
+    },
+    /// Spells cast by `who` matching `spell_filter` cost `reduction` less when
+    /// chosen target(s) satisfy `check` (*Lullmage's Domination*, *Not of This
+    /// World*). Appended to preserve replay identities.
+    ReduceCostIfTargetsCheck {
+        /// Whose spells receive the reduction.
+        who: crate::effect::PlayerRel,
+        /// Filter matched against the spell.
+        spell_filter: &'static Filter,
+        /// Mana cost reduction applied when `check` holds.
+        reduction: baylee_core::mana::ManaCost,
+        /// Target-dependent predicate evaluated at `CR 601.2f`.
+        check: TargetCostCheck,
+    },
+}
+
+/// Which defenders an attack-tax static ability protects (`CR 508.1h`).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum AttackTaxTarget {
+    /// Only the ability's controller (*Propaganda*, *Ghostly Prison*,
+    /// *Collective Restraint*, *Elephant Grass*).
+    You,
+    /// Only planeswalkers controlled by the ability's controller
+    /// (*Onakke Oathkeeper*, *Oko, Lord of the Fae*).
+    PlaneswalkersYouControl,
+    /// The ability's controller or any planeswalker they control
+    /// (*Sphere of Safety*, *Norn's Annex*, *Nils, Discipline Enforcer*).
+    YouOrYourPlaneswalkers,
+    /// Any defender (*Cowed by Wisdom*).
+    AnyDefender,
+}
+
+/// Keyword ability family matched by [`Modifier::ActivatedAbilitiesWithKeywordCostLess`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ActivatedAbilityKind {
+    /// Boast abilities (`CR 702.142a`).
+    Boast,
+    /// Ninjutsu / Commander ninjutsu abilities (`CR 702.49a`).
+    Ninjutsu,
+}
+
+/// Target characteristic read by [`Modifier::EquipCostsLessByTargetAmount`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum EquipTargetMetric {
+    /// Target creature's power, floored at 0 (*Belt of Giant Strength*).
+    Power,
+    /// Number of colors on the target creature (*Dragonfire Blade*).
+    ColorCount,
+    /// Number of counters of `CounterKind` on the target creature (*Warrior's Blades*).
+    Counters(crate::CounterKind),
+}
+
+/// Target-dependent condition read by [`Modifier::ReduceCostIfTargetsCheck`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum TargetCostCheck {
+    /// At least one chosen target's controller has at least `u32` cards in
+    /// their graveyard (*Lullmage's Domination*).
+    TargetControllerGraveyardAtLeast(u32),
+    /// At least one chosen stack target (spell or ability) targets a permanent
+    /// matching `Filter` controlled by the spell's caster (*Not of This World*).
+    TargetedStackTargetsYouControl(&'static Filter),
 }
 
 /// Keyword alternative-cost modes opened from a graveyard by
@@ -1924,6 +2540,88 @@ pub enum GraveyardAltKind {
     Warp,
     /// Sneak (`CR 702.190a`; *Ninja Teen*).
     Sneak,
+}
+
+/// Miracle cost specification granted by [`Modifier::GrantMiracle`] (`CR 702.94a`).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum MiracleGrant {
+    /// Fixed miracle mana cost (*Lorehold, the Historian*: `{2}`, *Molecule Man*: `{0}`).
+    Fixed(baylee_core::mana::ManaCost),
+    /// Miracle cost equal to the card's printed mana cost reduced by `{N}`
+    /// generic mana (*Aminatou, Veil Piercer*: `4`). Cards without a printed
+    /// mana cost receive no payable miracle cost (`CR 118.6a`).
+    ManaCostLessGeneric(u32),
+}
+
+/// Mana-spending color-washing mode attached to [`ZonePlayGrant`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ZonePlayManaSpending {
+    /// No extra mana-spending permission beyond normal board rules.
+    Exact,
+    /// Mana may be spent as though it were mana of any color (`CR 609.4b`;
+    /// *Haldan, Avid Arcanist*). Does not pay `{C}` with colored mana.
+    AnyColor,
+    /// Mana of any type may be spent to cast matching spells (*Rogue Class*,
+    /// *Null Summoner*). Pays colored and `{C}` pips alike.
+    AnyType,
+    /// Mana produced by snow sources may be spent as though it were mana of
+    /// any color (*Draugr Necromancer*).
+    SnowAsAnyColor,
+}
+
+/// Extra rider attached to spells cast (or lands played) via [`ZonePlayGrant`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ZonePlayCastRider {
+    /// No extra rider.
+    None,
+    /// If the cast spell would be put into a graveyard, exile it instead
+    /// (*Maestros Ascendancy*, *Glimpse the Cosmos*).
+    ExileInsteadOfGraveyard,
+    /// The resulting permanent enters with a finality counter on it (`CR 122.1h`;
+    /// *Leonardo, Sewer Samurai*, *Overflow Submatrix*, *Noctis, Prince of Lucis*,
+    /// *Intrepid Paleontologist*).
+    EntryFinality,
+    /// The resulting permanent gains "When this permanent is put into a
+    /// graveyard from the battlefield, exile it and you gain `life` life."
+    /// (*Serra Paragon*: `life = 2`). Applies to both cast permanent spells
+    /// and played lands.
+    GrantDeathExileAndGainLife(u32),
+    /// The resulting permanent gains "If this permanent would leave the
+    /// battlefield, exile it instead of putting it anywhere else." (*The Eighth
+    /// Doctor*). Applies to both cast permanent spells and played lands.
+    GrantLeaveExileReplacement,
+}
+
+/// Extended zone-scoped cast/play permission (`CR 118.9`, `CR 601.3e`).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct ZonePlayGrant {
+    /// Which players may use this permission/alternative cost.
+    pub who: crate::effect::PlayerRel,
+    /// Candidate origin zone(s).
+    pub zones: AltCastZones,
+    /// When `true`, grants permission to play/cast from `zones`.
+    pub grant_zone_permission: bool,
+    /// When `true` alongside `grant_zone_permission: true`, also allows playing lands.
+    pub allow_lands: bool,
+    /// When `true`, matching spells may be cast as though they had flash.
+    pub with_flash: bool,
+    /// Optional dynamic upper bound on the prospective spell face's mana value.
+    pub max_mana_value: Option<crate::Amount>,
+    /// When `true`, each eligible player may use this grant at most once per turn.
+    pub once_per_turn: bool,
+    /// Price paid to cast matching spells.
+    pub price: AltCastPrice,
+    /// Mana-spending permission applied when paying for spells cast via this grant.
+    pub mana_spending: ZonePlayManaSpending,
+    /// Rider applied to spells cast (and lands played, where applicable) via this grant.
+    pub rider: ZonePlayCastRider,
+    /// When `true`, only usable during the eligible player's own turn (`PlayerTurn$ True`).
+    pub your_turn_only: bool,
+    /// When `true`, only usable any time the eligible player could cast a sorcery (`SorcerySpeed$ True`).
+    pub as_sorcery_only: bool,
+    /// Optional set of mana colors that must all appear in the prospective face's mana cost.
+    pub mana_cost_must_contain: Option<baylee_core::color::ColorSet>,
 }
 
 /// Quantity evaluated during CR 601.2f spell cost determination by
@@ -1997,6 +2695,9 @@ pub enum AltCastZones {
     /// Cards in exile linked to (`ExiledWith` / `LinkedExile`) the effect's
     /// source permanent (*Valgavoth, Terror Eater*).
     LinkedExile,
+    /// Cards in exile exiled by the casting player (`Rider::ExiledBy(player)`;
+    /// *Haldan, Avid Arcanist*). Appended to preserve replay identities.
+    ExiledByYou,
 }
 
 /// Alternative price paid rather than a spell's mana cost under
@@ -2241,6 +2942,13 @@ impl Modifier {
             | Self::GrantBlitzCardManaCost
             | Self::GrantProwl(_)
             | Self::GrantFreerunning(_)
+            | Self::GrantMiracle(_)
+            | Self::GrantForetell { .. }
+            | Self::GrantWarp(_)
+            | Self::GrantEvoke(_)
+            | Self::GrantMadnessManaCost
+            | Self::GrantsMayhemManaCost
+            | Self::GrantsBeamMeUpManaCost { .. }
             | Self::Sneak(_)
             | Self::CantActivateArtifacts
             // CR 613.1f is the whole argument for these two: "Layer 6:
@@ -2251,9 +2959,16 @@ impl Modifier {
             // ability-adding effect, and so is granting a trigger.
             | Self::ProtectionFrom(_)
             | Self::ProtectionFromExiledWithSourceTypes
+            | Self::HexproofFrom(_)
+            | Self::HexproofFromOwnColors
+            | Self::HexproofFromAbilities
             | Self::GrantTriggered { .. }
             | Self::GrantTriggeredUpToOne { .. }
-            | Self::GrantTriggeredDefinition(_) => Layer::Ability,
+            | Self::GrantTriggeredDefinition(_)
+            | Self::GrantEnchant(_)
+            | Self::LoseAbility(_)
+            | Self::GrantBloodthirst(_)
+            | Self::GrantSunburst => Layer::Ability,
             // Layer 7a/7b/7c/7e: power and toughness.
             Self::CharacteristicPT { .. } | Self::CharacteristicPTSeparate { .. } => Layer::PtCda,
             Self::SetPT(..)
@@ -2272,8 +2987,10 @@ impl Modifier {
             | Self::ReducePTByCount { .. }
             | Self::ModifyPTPerGraveyardCard { .. } => Layer::PtModify,
             Self::SwitchPT => Layer::PtSwitch,
-            // No layer: rules-modifying effects.
-            Self::SpellsCostLess(_)
+            // Layer 3: text-changing effects (CR 613.1c, CR 612: name changes)
+            // plus rules-modifying effects that park in `Layer::Text`.
+            Self::SetName(_)
+            | Self::SpellsCostLess(_)
             | Self::SpellsCostLessMana { .. }
             | Self::SpellsCostLessByAmount(_)
             | Self::SpellsCostLessPerCounter(_)
@@ -2309,6 +3026,7 @@ impl Modifier {
             | Self::RevealAllLibraryTops
             | Self::RevealAllHands
             | Self::RevealYourHand
+            | Self::RevealOpponentsHands
             | Self::RevealLibraryTop
             | Self::ExtraLandDrops(_)
             | Self::OpponentsCastAsSorcery
@@ -2470,7 +3188,44 @@ impl Modifier {
             | Self::CantBeAttackedBy(_)
             | Self::MayActivateLoyaltyAsInstant { .. }
             | Self::MayCastFromGraveyardTargeted { .. }
-            | Self::CastCostIncreaseUnlessTargets { .. } => Layer::Text,
+            | Self::CastCostIncreaseUnlessTargets { .. }
+            | Self::NextDrawReplace(_)
+            | Self::ReplaceNextGameLoss { .. }
+            | Self::EnterUnderYourControl(_)
+            | Self::ReplaceBattlefieldEntry { .. }
+            | Self::ExileMatchingInsteadOfGraveyard { .. }
+            | Self::PermanentsEnterTapped(_)
+            | Self::MultiplyTokensCreated { .. }
+            | Self::StealOpponentTokens
+            | Self::AddDamageDynamic { .. }
+            | Self::PreventDamageRemovingOneCounter { .. }
+            | Self::RedirectDamageToAffected { .. }
+            | Self::RedirectDamageToAffectedController
+            | Self::PreventAllButOneDamage { .. }
+            | Self::ReplaceOrPreventDamageScopedWithThen { .. }
+            | Self::HealOtherDamageWhenDealtDamage
+            | Self::ZonePlayGrant(_)
+            | Self::UntapDuringUntapStep { .. }
+            | Self::AttackManaTax { .. }
+            | Self::AttackPhyrexianTax { .. }
+            | Self::CantAttackUnlessYouReturn { .. }
+            | Self::CantAttackUnlessYouTap { .. }
+            | Self::BlockManaTax { .. }
+            | Self::CantBlockUnlessYouTap { .. }
+            | Self::PlayerHexproofFrom { .. }
+            | Self::IgnoreOpponentsHexproofMatching { .. }
+            | Self::PlotActionCostsLess { .. }
+            | Self::MorphTurnFaceUpCostsMore { .. }
+            | Self::ActivatedAbilitiesCostAdditional { .. }
+            | Self::SpellsCostLessPerSharedCardTypeWithExiled { .. }
+            | Self::FirstSpellEachTurnCostAdjustByAmount { .. }
+            | Self::FirstActivatedAbilityEachTurnCostLess { .. }
+            | Self::ActivatedAbilitiesWithKeywordCostLess { .. }
+            | Self::EquipCostsLessByTargetAmount { .. }
+            | Self::CommanderTaxReplacedWithLife { .. }
+            | Self::RaiseCostIfTargetsYouOrPermanent { .. }
+            | Self::AdjustSpellCostBeyondFirstTarget { .. }
+            | Self::ReduceCostIfTargetsCheck { .. } => Layer::Text,
         }
     }
 }
@@ -2994,6 +3749,156 @@ pub enum ReplacementRule {
         /// Optional board condition required for the multiplier to apply.
         condition: Option<crate::ability::Condition>,
     },
+    /// "If `who` would draw a card, exile the top `count` cards of their
+    /// library [face down] instead [and they may play them this turn]"
+    /// (*Eruth, Tormented Prophet*; `CR 614.1a`, `CR 614.11b`). Appended to
+    /// preserve replay identities.
+    ReplaceDrawExileTopN {
+        /// Whose draws are replaced.
+        who: crate::effect::PlayerRel,
+        /// Number of top cards exiled per replaced draw.
+        count: u8,
+        /// Whether exiled face down.
+        face_down: bool,
+        /// Whether the drawing player may play those exiled cards this turn.
+        may_play_this_turn: bool,
+    },
+    /// "If you would draw a card, instead reveal the top `count` cards of your
+    /// library. Put all cards matching `filter` into your hand and the rest on
+    /// the bottom of your library in any order" (*Sages of the Anima*;
+    /// `CR 614.1a`, `CR 614.11b`). Appended to preserve replay identities.
+    ReplaceDrawRevealAllMatching {
+        /// Number of top cards revealed.
+        count: u8,
+        /// Filter selecting cards put into hand.
+        filter: &'static Filter,
+    },
+    /// Extended draw-replacement multiplying draws with optional first-extra
+    /// gating and life loss (*Blood Scrivener*, *Reed Richards, Smartest Man*;
+    /// `CR 121.2`, `CR 614.1a`, `CR 614.5`). Appended to preserve replay
+    /// identities.
+    ReplaceDrawWithDrawsThen {
+        /// Whose draws are replaced.
+        who: crate::effect::PlayerRel,
+        /// Ignore the player's first card drawn in each of their draw steps.
+        skip_first_in_draw_step: bool,
+        /// Apply only to the first non-(first-in-draw-step) draw each turn
+        /// (*Reed Richards, Smartest Man*).
+        first_extra_this_turn: bool,
+        /// Optional condition checked as the draw would occur.
+        condition: Option<crate::ability::Condition>,
+        /// Number of cards drawn instead.
+        count: u8,
+        /// Life lost by the drawing player when this replacement applies
+        /// (*Blood Scrivener*: `1`).
+        lose_life: u16,
+    },
+    /// "If you would draw a card while your library has no cards in it,
+    /// instead put `count` `kind` counters on this permanent" (*Ormos, Archive
+    /// Keeper*; `CR 614.1a`, `CR 614.11`). Appended to preserve replay
+    /// identities.
+    ReplaceDrawEmptyLibraryWithCounters {
+        /// Counter kind placed on the source permanent.
+        kind: crate::CounterKind,
+        /// Number of counters placed.
+        count: u16,
+    },
+    /// "If you would draw a card while your library has no cards in it,
+    /// instead return a card matching `filter` from your graveyard to the
+    /// battlefield. If you can't, you lose the game" (*Out of the Tombs*;
+    /// `CR 614.1a`, `CR 614.11`). Appended to preserve replay identities.
+    ReplaceDrawEmptyLibraryReanimateOrLose {
+        /// Graveyard card filter eligible to return.
+        filter: &'static Filter,
+    },
+    /// "If you would draw a card [while `condition` holds], you may instead
+    /// search your library for a card, put it into your hand, then shuffle"
+    /// (*Archmage Ascension*; `CR 614.1a`, `CR 701.19`). Appended to preserve
+    /// replay identities.
+    ReplaceDrawMaySearchToHand {
+        /// Optional board condition checked on the replacement source.
+        condition: Option<crate::ability::Condition>,
+    },
+    /// Multi-card draw instruction replacement (`Event$ DrawCards`; *Alms
+    /// Collector*, *Quantum Riddler*; `CR 121.2`, `CR 614.11`, `CR 616.1`).
+    /// Appended to preserve replay identities.
+    ReplaceMultiDraw {
+        /// Whose multi-card draw instructions are replaced.
+        who: crate::effect::PlayerRel,
+        /// Minimum number of cards in the draw instruction (`2` for Alms
+        /// Collector, `1` for Quantum Riddler).
+        min_cards: u32,
+        /// Optional board condition checked as the draw would occur.
+        condition: Option<crate::ability::Condition>,
+        /// Replacement transformation.
+        kind: MultiDrawReplacementKind,
+    },
+    /// "If a spell or ability an opponent controls causes you to discard this
+    /// card, put it onto the battlefield [with counters] instead of putting it
+    /// into your graveyard" (*Obstinate Baloth*, *Loxodon Smiter*, *Wilt-Leaf
+    /// Liege*, *Nullhide Ferox*, *Dodecapod*; `CR 614.1a`, `CR 701.9`).
+    /// Functions in hand. Appended to preserve replay identities.
+    PutOntoBattlefieldOnOpponentDiscard {
+        /// Optional counter kind placed on entry (*Dodecapod*: `+1/+1`).
+        counter_kind: Option<crate::CounterKind>,
+        /// Number of counters placed on entry (*Dodecapod*: `2`).
+        counter_count: u16,
+    },
+    /// Non-exile graveyard-arrival replacement (*Nissa's Chosen*, *Gravebane
+    /// Zombie*, *Wheel of Sun and Moon*, *Necromancer's Magemark*; `CR 614.1a`,
+    /// `CR 614.6`). Appended to preserve replay identities.
+    RedirectGraveyard {
+        /// Characteristic filter evaluated against pre-move LKI (or `&Filter::This`).
+        filter: &'static Filter,
+        /// Required origin zone (`Some(ZoneRef::Battlefield)` for "would die"),
+        /// or `None` for "from anywhere".
+        origin: Option<crate::filter::ZoneRef>,
+        /// Optional graveyard owner relation relative to replacement controller.
+        owner: Option<crate::effect::PlayerRel>,
+        /// Optional last-known controller relation.
+        controller_lki: Option<crate::effect::PlayerRel>,
+        /// Replacement destination zone.
+        destination: GraveyardRedirectDest,
+        /// Whether to reveal the card as part of the replacement.
+        reveal: bool,
+    },
+    /// Graveyard-to-exile replacement with an immediate or delayed rider
+    /// (*Kalitas, Traitor of Ghet*, *Nemata*, *Head of the Hunt*, *Darigaaz
+    /// Reincarnated*, *The Darkness Crystal*, *Ravenloft Adventurer*,
+    /// *Ravenous Slime*, *Ugin's Nexus*; `CR 603.10a`, `CR 614.6`). Appended
+    /// to preserve replay identities.
+    ExileInsteadOfGraveyardWithRider {
+        /// Characteristic filter evaluated against pre-move LKI.
+        filter: &'static Filter,
+        /// Required origin zone, or `None` for "from anywhere".
+        origin: Option<crate::filter::ZoneRef>,
+        /// Optional graveyard owner relation.
+        owner: Option<crate::effect::PlayerRel>,
+        /// Optional last-known controller relation.
+        controller_lki: Option<crate::effect::PlayerRel>,
+        /// Damage-history requirement against the departing permanent.
+        damaged_by: DamagedByScope,
+        /// Whether to link the exiled card to the replacement source.
+        link_to_source: bool,
+        /// Follow-up action executed when the card/permanent is exiled this way.
+        rider: GraveyardExileRider,
+    },
+    /// "As a permanent matching `filter` enters, it becomes a `power`/`toughness`
+    /// with `add_types` and `add_subtypes` in addition to its other types"
+    /// (*Displaced Dinosaurs*; `CR 614.1c`, `CR 707.9`). Appended to preserve
+    /// replay identities.
+    EnterAsAdditionalTypesAndPt {
+        /// Prospective permanents affected.
+        filter: &'static Filter,
+        /// Additional card types added.
+        add_types: TypeSet,
+        /// Additional subtypes added.
+        add_subtypes: &'static [baylee_core::ids::SubtypeId],
+        /// New base power.
+        power: i16,
+        /// New base toughness.
+        toughness: i16,
+    },
 }
 
 /// Event-cause predicate for [`ReplacementRule::TriggerMultiplierMatching`]
@@ -3062,6 +3967,9 @@ pub enum DamagedByScope {
     /// Dealt damage this turn by any source controlled by the replacement's
     /// controller at the time damage was dealt (*Etching of Kumano*).
     SourceControllerThisTurn,
+    /// Dealt damage this turn by the creature the replacement source is
+    /// attached to (*Kumano's Blessing*). Appended to preserve replay identities.
+    AttachedCreatureThisTurn,
 }
 
 #[cfg(test)]
@@ -3209,6 +4117,9 @@ mod tests {
             (Modifier::CantActivateArtifacts, Layer::Ability),
             // The two that moved. Layer 6 by CR 613.1f, not layer 3.
             (Modifier::ProtectionFrom(&Filter::CREATURE), Layer::Ability),
+            (Modifier::HexproofFrom(&Filter::INSTANT), Layer::Ability),
+            (Modifier::HexproofFromOwnColors, Layer::Ability),
+            (Modifier::HexproofFromAbilities, Layer::Ability),
             (
                 Modifier::GrantTriggered {
                     trigger: crate::ability::Trigger::ETB,
@@ -3266,6 +4177,35 @@ mod tests {
                 Modifier::GrantFreerunning(baylee_core::mana::ManaCost::ZERO),
                 Layer::Ability,
             ),
+            (
+                Modifier::GrantMiracle(MiracleGrant::Fixed(baylee_core::mana::ManaCost::ZERO)),
+                Layer::Ability,
+            ),
+            (
+                Modifier::GrantForetell { reduce_generic: 2 },
+                Layer::Ability,
+            ),
+            (Modifier::GrantWarp(crate::cost::Cost::FREE), Layer::Ability),
+            (
+                Modifier::GrantEvoke(crate::cost::Cost::FREE),
+                Layer::Ability,
+            ),
+            (Modifier::GrantMadnessManaCost, Layer::Ability),
+            (Modifier::GrantsMayhemManaCost, Layer::Ability),
+            (
+                Modifier::GrantsBeamMeUpManaCost {
+                    cant_return_source: true,
+                },
+                Layer::Ability,
+            ),
+            (
+                Modifier::GrantEnchant(crate::TargetSpec::Object(&Filter::CREATURE)),
+                Layer::Ability,
+            ),
+            (Modifier::LoseAbility(0), Layer::Ability),
+            (Modifier::GrantBloodthirst(3), Layer::Ability),
+            (Modifier::GrantSunburst, Layer::Ability),
+            (Modifier::SetName("Moon"), Layer::Text),
             (
                 Modifier::CharacteristicPT {
                     count: PtCount::CardTypesInAllGraveyards,
@@ -3695,6 +4635,165 @@ mod tests {
             Modifier::CastCostIncreaseUnlessTargets {
                 filter: &Filter::YOUR_CREATURE,
                 generic: 8,
+            },
+            Modifier::NextDrawReplace(NextDrawReplacement::GainLife(5)),
+            Modifier::ReplaceNextGameLoss {
+                draw: 7,
+                set_life: 1,
+            },
+            Modifier::EnterUnderYourControl(&Filter::CREATURE),
+            Modifier::ReplaceBattlefieldEntry {
+                filter: &Filter::CREATURE,
+                predicate: EntryPredicate::NotCast,
+                destination: EntryInsteadZone::Exile,
+            },
+            Modifier::ExileMatchingInsteadOfGraveyard {
+                filter: &Filter::CREATURE,
+                origin: Some(crate::ZoneRef::Battlefield),
+                controller_lki: None,
+                rider: None,
+            },
+            Modifier::PermanentsEnterTapped(&Filter::Any),
+            Modifier::MultiplyTokensCreated {
+                who: crate::PlayerRel::You,
+                factor: 2,
+            },
+            Modifier::StealOpponentTokens,
+            Modifier::AddDamageDynamic {
+                sources: &Filter::ControlledByYou,
+                extra: crate::Amount::Fixed(1),
+                combat_only: false,
+                noncombat_only: true,
+                recipients: DamageRecipients::Any,
+            },
+            Modifier::PreventDamageRemovingOneCounter {
+                kind: crate::CounterKind::P1P1,
+                require_counter: true,
+            },
+            Modifier::RedirectDamageToAffected {
+                sources: &Filter::Any,
+                recipients: DamageRecipients::PlayersOrTheirPermanents(crate::PlayerRel::You),
+                combat: None,
+            },
+            Modifier::RedirectDamageToAffectedController,
+            Modifier::PreventAllButOneDamage {
+                sources: &Filter::Any,
+                recipients: DamageRecipients::Players(crate::PlayerRel::You),
+                combat: None,
+            },
+            Modifier::ReplaceOrPreventDamageScopedWithThen {
+                sources: &Filter::Any,
+                recipients: DamageRecipients::Permanents(&Filter::YOUR_CREATURE),
+                combat: None,
+                is_replacement: false,
+                only_if_prevented: true,
+                scope: DamageRiderScope::PerTarget,
+                then: RIDER,
+            },
+            Modifier::HealOtherDamageWhenDealtDamage,
+            Modifier::RevealOpponentsHands,
+            Modifier::ZonePlayGrant(ZonePlayGrant {
+                who: crate::PlayerRel::You,
+                zones: AltCastZones::LinkedExile,
+                grant_zone_permission: true,
+                allow_lands: true,
+                with_flash: false,
+                max_mana_value: None,
+                once_per_turn: false,
+                price: AltCastPrice::Normal,
+                mana_spending: ZonePlayManaSpending::AnyColor,
+                rider: ZonePlayCastRider::None,
+                your_turn_only: false,
+                as_sorcery_only: false,
+                mana_cost_must_contain: None,
+            }),
+            Modifier::UntapDuringUntapStep {
+                who: crate::PlayerRel::EachOtherPlayer,
+            },
+            Modifier::AttackManaTax {
+                target: AttackTaxTarget::You,
+                amount: crate::Amount::Fixed(2),
+            },
+            Modifier::AttackPhyrexianTax {
+                target: AttackTaxTarget::YouOrYourPlaneswalkers,
+                color: baylee_core::mana::ManaColor::White,
+            },
+            Modifier::CantAttackUnlessYouReturn {
+                count: 1,
+                filter: &Filter::ENCHANTMENT,
+            },
+            Modifier::CantAttackUnlessYouTap {
+                count: 1,
+                filter: &Filter::CREATURE,
+            },
+            Modifier::BlockManaTax {
+                amount: crate::Amount::Fixed(2),
+            },
+            Modifier::CantBlockUnlessYouTap {
+                count: 1,
+                filter: &Filter::CREATURE,
+            },
+            Modifier::PlayerHexproofFrom {
+                who: crate::PlayerRel::You,
+                from: &Filter::INSTANT,
+            },
+            Modifier::IgnoreOpponentsHexproofMatching {
+                permanent_filter: &Filter::CREATURE,
+                players: false,
+            },
+            Modifier::PlotActionCostsLess {
+                who: crate::PlayerRel::You,
+                amount: 2,
+            },
+            Modifier::MorphTurnFaceUpCostsMore { amount: 2 },
+            Modifier::ActivatedAbilitiesCostAdditional {
+                who: crate::PlayerRel::EachPlayer,
+                filter: &Filter::CREATURE,
+                cost: crate::CostPart::Sacrifice(&Filter::LAND),
+            },
+            Modifier::SpellsCostLessPerSharedCardTypeWithExiled {
+                who: crate::PlayerRel::You,
+            },
+            Modifier::FirstSpellEachTurnCostAdjustByAmount {
+                who: crate::PlayerRel::You,
+                filter: &Filter::Any,
+                amount: crate::Amount::Fixed(1),
+                increase: false,
+            },
+            Modifier::FirstActivatedAbilityEachTurnCostLess {
+                who: crate::PlayerRel::You,
+                source_filter: &Filter::ARTIFACT,
+                target_filter: &Filter::Any,
+                amount: 2,
+                your_turn_only: false,
+            },
+            Modifier::ActivatedAbilitiesWithKeywordCostLess {
+                who: crate::PlayerRel::You,
+                keyword: ActivatedAbilityKind::Boast,
+                amount: crate::Amount::Fixed(1),
+            },
+            Modifier::EquipCostsLessByTargetAmount {
+                who: crate::PlayerRel::You,
+                metric: EquipTargetMetric::Power,
+            },
+            Modifier::CommanderTaxReplacedWithLife { life_per_tax: 2 },
+            Modifier::RaiseCostIfTargetsYouOrPermanent {
+                who: crate::PlayerRel::EachOpponent,
+                spell_filter: &Filter::Any,
+                permanent_filter: &Filter::Any,
+                extra_mana: baylee_core::mana::ManaCost::parse("{2}"),
+                extra_life: 0,
+            },
+            Modifier::AdjustSpellCostBeyondFirstTarget {
+                who: crate::PlayerRel::You,
+                spell_filter: &Filter::This,
+                mana_per_extra_target: baylee_core::mana::ManaCost::parse("{1}"),
+            },
+            Modifier::ReduceCostIfTargetsCheck {
+                who: crate::PlayerRel::You,
+                spell_filter: &Filter::This,
+                reduction: baylee_core::mana::ManaCost::parse("{3}"),
+                check: TargetCostCheck::TargetControllerGraveyardAtLeast(8),
             },
         ] {
             assert_eq!(

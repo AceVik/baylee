@@ -257,6 +257,48 @@ pub(super) fn exec_choice(
             then,
             ..
         } => super::wave14f::choose_number_ex_start(state, res, chooser, min, max, pay_cost, then),
+        Effect::ChoosePlayerEx {
+            chooser,
+            filter,
+            random,
+            remember,
+            if_none,
+            then,
+        } => super::player_number_choices::choose_player_ex_start(
+            state, res, chooser, filter, random, remember, if_none, then,
+        ),
+        Effect::SecretChooseNumbers(spec) => {
+            super::player_number_choices::secret_choose_numbers_exec(state, res, op, spec)
+        }
+        Effect::SecretNumberGuess {
+            min,
+            max,
+            track_used_on_source,
+            guesser,
+            on_correct,
+            on_wrong,
+        } => super::player_number_choices::secret_number_guess_start(
+            state,
+            res,
+            min,
+            max,
+            track_used_on_source,
+            guesser,
+            on_correct,
+            on_wrong,
+        ),
+        Effect::RepeatEachPlayerPayUntilNone {
+            kind,
+            max_per_player,
+            then_per_player,
+        } => super::player_number_choices::repeat_pay_until_none_exec(
+            state,
+            res,
+            op,
+            kind,
+            Some(max_per_player),
+            then_per_player,
+        ),
         Effect::MoveAttachment {
             attachment,
             recipient_filter,
@@ -278,6 +320,53 @@ pub(super) fn exec_choice(
             max,
             optional,
         } => super::wave15b::attach_chosen(state, res, filter, to, max, optional),
+        Effect::MoveAllAttachments {
+            attachments,
+            from,
+            recipient_filter,
+            must_change_recipient,
+            optional,
+        } => super::attachments::move_all_attachments(
+            state,
+            res,
+            attachments,
+            from,
+            recipient_filter,
+            must_change_recipient,
+            optional,
+        ),
+        Effect::AttachChosenThen {
+            filter,
+            to,
+            max,
+            optional,
+            then_if_attached,
+        } => super::attachments::attach_chosen_then(
+            state,
+            res,
+            filter,
+            to,
+            max,
+            optional,
+            then_if_attached,
+        ),
+        Effect::RelocateAttachment {
+            attachment,
+            chooser,
+            recipient_filter,
+            must_change_recipient,
+            optional,
+            then_if_moved,
+        } => super::attachments::relocate_attachment(
+            state,
+            res,
+            attachment,
+            chooser,
+            recipient_filter,
+            must_change_recipient,
+            optional,
+            then_if_moved,
+        ),
         Effect::DestroyWeakest { filter, no_regen } => {
             super::weakest::start(state, res, filter, no_regen)
         }

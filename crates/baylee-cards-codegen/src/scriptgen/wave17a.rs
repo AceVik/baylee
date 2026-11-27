@@ -401,6 +401,10 @@ impl Tx<'_> {
             }
             "wasCastFromLibrary" => "Filter::CastFromZone(ZoneRef::Library)".to_string(),
             "wasCastFromCommand" => "Filter::CastFromZone(ZoneRef::Command)".to_string(),
+            "wasCastForFlashback" => "Filter::CastForFlashback".to_string(),
+            "!wasCastForFlashback" => "Filter::Not(&Filter::CastForFlashback)".to_string(),
+            "wasCastForDash" => "Filter::CastForDash".to_string(),
+            "!wasCastForDash" => "Filter::Not(&Filter::CastForDash)".to_string(),
             "wasCastFromYourHand" => {
                 "Filter::And(&[Filter::CastFromZone(ZoneRef::Hand), Filter::OwnedByYou])"
                     .to_string()

@@ -992,3 +992,24 @@ machine-owned stubs** and adding **+282 pure-paper cards** (`0` Un-sets/Acorn,
 Whole pool after Wave 18 (`xtask validate`): **26,686 definitions** —
 **26,086 finished** (**2,782 hand-owned `Implemented`** and **23,304
 machine-owned `Generated`**) and **600 stubs**.
+
+## Wave 19 pure-paper expansion (2026-11-27)
+
+Implemented all six Wave 19 Engine lanes (`eng-replacements-prev`,
+`eng-zones-filters`, `eng-flip-omen`, `eng-animate-attach`,
+`eng-choices-players`, `eng-costs-keywords`), both stub-drain lanes
+(`stub-drain-1`, `stub-drain-2`), `w19-cg-*` / `w20-cg-*` codegen lanes, and
+all six post-engine Wave 19 codegen lanes (`w19-post-repl-draw`,
+`w19-post-repl-prev`, `w19-post-costs-keywords`, `w19-post-zones-filters`,
+`w19-post-animate-attach`, `w19-post-choices-players`), followed by full
+`xtask codegen` harvest and targeted verification (promoting **61** stubs and
+**2** partials to hand-owned `Implemented`, adding **41** machine-owned
+`Generated` cards with **5** honest codegen refusals reverted to stub, `0`
+Un-sets/Acorn, `0` Alchemy/digital-only; *Shallow Grave* promoted to
+`Implemented`, *Hollow Warrior* held back on `CantAttackUnlessYouTap` AI/attack
+protocol support).
+
+Whole pool after Wave 19 (`xtask validate`): **26,686 definitions** —
+**26,184 finished** (**2,844 hand-owned `Implemented`** and **23,340
+machine-owned `Generated`**) and **502 stubs** (**92 of 1,203** precon decks
+playable).

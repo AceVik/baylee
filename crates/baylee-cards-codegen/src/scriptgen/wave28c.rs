@@ -454,13 +454,45 @@ impl Tx<'_> {
             if valid.is_empty()
                 || valid.contains(['$', '/'])
                 || has_forbidden_zone_count_atom(valid)
-                || valid.contains("OppOwn")
                 || valid.contains("OppCtrl")
                 || valid.contains("YouCtrl")
             {
                 return None;
             }
-            let expr = self.filter_expr_in_zone(valid, true)?;
+            let expr = if valid.contains("OppOwn") {
+                if valid.contains(',') || valid.contains("YouOwn") || valid.contains("YouDontOwn") {
+                    return None;
+                }
+                let (base, rest) = valid.split_once('.')?;
+                if base.contains("OppOwn") {
+                    return None;
+                }
+                let mut saw_opp = false;
+                let mut kept = Vec::new();
+                for atom in rest.split('+').map(str::trim).filter(|a| !a.is_empty()) {
+                    if atom == "OppOwn" {
+                        saw_opp = true;
+                    } else {
+                        kept.push(atom);
+                    }
+                }
+                if !saw_opp {
+                    return None;
+                }
+                let cleaned = if kept.is_empty() {
+                    base.to_string()
+                } else {
+                    format!("{base}.{}", kept.join("+"))
+                };
+                let inner = self.filter_expr_in_zone(&cleaned, true)?;
+                if inner == "Filter::Any" {
+                    "Filter::OwnedBy(PlayerRel::EachOpponent)".to_string()
+                } else {
+                    format!("Filter::And(&[{inner}, Filter::OwnedBy(PlayerRel::EachOpponent)])")
+                }
+            } else {
+                self.filter_expr_in_zone(valid, true)?
+            };
             let filter_ref = if simple_const_filter(&expr) || expr == "Filter::OwnedByYou" {
                 format!("&{expr}")
             } else {
@@ -2119,8 +2151,9 @@ impl Tx<'_> {
         let tbody = self.svars.get(trig_name.trim())?.clone();
         let (mode, mut tp) = Params::parse(&tbody)?;
         tp.drop_prose();
+        let trig_zones = tp.take("TriggerZones");
         if !matches!(
-            tp.take("TriggerZones").as_deref(),
+            trig_zones.as_deref(),
             None | Some("Command" | "Battlefield")
         ) {
             return None;
@@ -2201,11 +2234,20 @@ impl Tx<'_> {
                  effects: &[Effect::destroy(TargetSpec::EventObject)] }}"
             )]);
         }
-        // Case C: General unbound `Triggers$` (`TriggerZones$ Battlefield` or bare `Mode$ Blocks`).
+        // Case C: General unbound `Triggers$` (`TriggerZones$ Command | Battlefield` or bare).
         if !matches!(
             mode.as_str(),
-            "ChangesZone" | "Attacks" | "AttackersDeclared" | "Blocks" | "DamageDone"
+            "ChangesZone"
+                | "Attacks"
+                | "AttackersDeclared"
+                | "Blocks"
+                | "DamageDone"
+                | "DamageDoneOnce"
+                | "SpellCast"
         ) {
+            return None;
+        }
+        if mode == "DamageDoneOnce" && optional {
             return None;
         }
         if mode == "Blocks" && !tp.has("ValidCard") {
@@ -2220,7 +2262,7 @@ impl Tx<'_> {
         }) {
             return None;
         }
-        let trigger_expr = self.trigger_expr(&mut tp, &mode)?;
+        let trigger_expr = self.trigger_expr_in_zone(&mut tp, &mode, trig_zones.is_some())?;
         let exec = tp.take("Execute")?;
         if !tp.exhausted() {
             return None;
@@ -2234,11 +2276,16 @@ impl Tx<'_> {
         let saved_mode = self.trigger_mode.replace(mode);
         let saved_self = std::mem::replace(&mut self.trigger_is_self, false);
         let saved_block = self.block_line.take();
+        let saved_dmg_src = std::mem::replace(
+            &mut self.damage_trigger_binds_source,
+            Self::wave28b_trigger_binds_damage_source(&trigger_expr),
+        );
         let read = self.chain(&ebody, &mut inner);
         self.in_delayed = saved_delayed;
         self.trigger_mode = saved_mode;
         self.trigger_is_self = saved_self;
         self.block_line = saved_block;
+        self.damage_trigger_binds_source = saved_dmg_src;
         read?;
         if inner.second_target.is_some() || inner.effects.is_empty() {
             return None;

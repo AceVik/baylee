@@ -193,15 +193,25 @@ fn wave17c_reduce_cost_and_foretell_any_turn() {
         thaumaturge.abilities
     );
 
-    // Honest refusals: Night condition, Ninjutsu cost reduction, MinMana$ 1 on Equip.
+    // Unlocked post-engine: Ninjutsu cost reduction (Silver-Fur Master).
+    let silver_fur = read_w17c(
+        "Name:SilverFur\nManaCost:U B\nTypes:Creature Ninja\nPT:2/2\n\
+         S:Mode$ ReduceCost | ValidCard$ Card | ValidSpell$ Activated.Ninjutsu | Activator$ You | Amount$ 1",
+    );
+    assert!(
+        silver_fur.abilities.iter().any(|a| {
+            a.contains("Modifier::ActivatedAbilitiesWithKeywordCostLess")
+                && a.contains("ActivatedAbilityKind::Ninjutsu")
+        }),
+        "{:?}",
+        silver_fur.abilities
+    );
+
+    // Honest refusals: Night condition, MinMana$ 1 on Equip.
     assert!(refused_w17c(
         "Name:Moonragers Slash\nManaCost:2 R\nTypes:Instant\n\
          S:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ 2 | EffectZone$ All | Condition$ Night\n\
          A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 3"
-    ));
-    assert!(refused_w17c(
-        "Name:SilverFur\nManaCost:U B\nTypes:Creature Ninja\nPT:2/2\n\
-         S:Mode$ ReduceCost | ValidCard$ Card | ValidSpell$ Activated.Ninjutsu | Activator$ You | Amount$ 1"
     ));
     assert!(refused_w17c(
         "Name:BadEquipFloor\nManaCost:R\nTypes:Creature\nPT:1/1\n\

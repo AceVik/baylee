@@ -2331,6 +2331,7 @@ dependencies = [
  "bytes",
  "prost",
  "prost-build",
+ "prost-types",
  "protoc-bin-vendored",
  "serde",
  "serde_json",

@@ -57,13 +57,37 @@ pub(super) enum Reply {
     },
     Poll {
         generation: u64,
-        snapshot: Option<wire::Snapshot>,
+        metadata: Metadata,
         keys: Vec<wire::AccountKeys>,
         messages: Vec<RetainedMessage>,
         after: u64,
         more: bool,
     },
 }
+/// What one inbox read learned of the account's contacts and groups.
+pub(super) enum Metadata {
+    /// Not asked for this time.
+    Skipped,
+    /// Read.
+    Read(wire::Snapshot),
+    /// Asked for and refused, while the inbox read beside it was served: the
+    /// session stands, and this build cannot read what Central answered.
+    /// Central's types refuse a field they do not know, so a newer Central
+    /// adding one (group administrators, once) does this to an older build.
+    /// Never a reason to end the session: a refused session refuses the
+    /// inbox too.
+    Unreadable,
+}
+
+/// The contacts half of a read, judged once the inbox half was served.
+pub(super) fn judged(read: Result<wire::Snapshot, Error>) -> Result<Metadata, Error> {
+    match read {
+        Ok(snapshot) => Ok(Metadata::Read(snapshot)),
+        Err(Error::Rejected) => Ok(Metadata::Unreadable),
+        Err(error) => Err(error),
+    }
+}
+
 pub(super) fn run(account: &Account, job: &Job, retries: &Retries) -> Result<Reply, Error> {
     match job {
         Job::Connect { own, device } => connect(account, own, device),
@@ -216,10 +240,11 @@ fn poll(
     generation: u64,
     metadata: bool,
 ) -> Result<Reply, Error> {
-    let snapshot = if metadata {
-        Some(mapping::snapshot(account)?)
-    } else {
-        None
+    // Read before the inbox as ever; a refusal is judged after it, since
+    // only the inbox says whether it was the session's.
+    let read = match metadata.then(|| mapping::snapshot(account)) {
+        Some(Err(error)) if error != Error::Rejected => return Err(error),
+        read => read,
     };
     let chat::ChatResponse::Inbox { messages, more } = http::chat(
         account,
@@ -252,7 +277,7 @@ fn poll(
     };
     Ok(Reply::Poll {
         generation,
-        snapshot,
+        metadata: read.map_or(Ok(Metadata::Skipped), judged)?,
         keys,
         messages: deliveries,
         after: cursor,

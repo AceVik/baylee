@@ -62,6 +62,7 @@ mod inspirit_flagship_vessel;
 mod iron_maiden;
 mod jalum_tome;
 mod jinxed_choker;
+mod kill_switch;
 mod kyren_archive;
 mod kyren_toy;
 mod lightning_coils;

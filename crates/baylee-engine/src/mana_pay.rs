@@ -319,8 +319,54 @@ fn preferred_first(options: &[ManaColor], prefer: [u32; 6]) -> SmallVec<[ManaCol
         .collect()
 }
 
+/// Whether `symbol` requires colored mana (W/U/B/R/G, phyrexian, hybrid, or
+/// two-or-color) — i.e., eligible for `SnowAsAnyColor` substitution, unlike
+/// `{C}` or `{S}`.
+pub(super) const fn symbol_is_colored(symbol: ManaSymbol) -> bool {
+    !matches!(
+        symbol,
+        ManaSymbol::Colorless
+            | ManaSymbol::Snow
+            | ManaSymbol::Generic(_)
+            | ManaSymbol::Variable(_)
+            | ManaSymbol::HalfGeneric
+            | ManaSymbol::Infinite
+    )
+}
+
+fn assign_snow_as_any_color(
+    pool: &ManaPool,
+    options: &[ManaColor],
+    rest: &[ManaSymbol],
+    generic: u32,
+    prefer: [u32; 6],
+    spending: ManaSpending,
+    consumption: &Consumption,
+) -> Option<CreditedPayment> {
+    for color in preferred_first(&ManaColor::ALL, prefer) {
+        if options.contains(&color) {
+            continue;
+        }
+        let mut trial = pool.clone();
+        if trial.spend_snow(color)
+            && let Some(paid) = assign(
+                trial,
+                rest,
+                generic,
+                spent(prefer, color),
+                spending,
+                consumption,
+            )
+        {
+            return Some(paid);
+        }
+    }
+    None
+}
+
 /// Reserve constrained symbols first, backtracking on flexible choices.
 /// Generic fallback is deferred so it cannot consume a later symbol's color.
+#[allow(clippy::too_many_lines)]
 fn assign(
     pool: ManaPool,
     symbols: &[ManaSymbol],
@@ -419,6 +465,20 @@ fn assign(
         {
             return Some(paid);
         }
+    }
+    if spending.snow_as_any_color()
+        && symbol_is_colored(*symbol)
+        && let Some(paid) = assign_snow_as_any_color(
+            &pool,
+            &options,
+            rest,
+            generic,
+            prefer,
+            spending,
+            consumption,
+        )
+    {
+        return Some(paid);
     }
     if matches!(symbol, ManaSymbol::TwoOrColor(_)) {
         return assign(
@@ -526,6 +586,19 @@ fn split_assign(
         };
         if spent && split_assign(next, rest, generic, next_limit, fixed_spending) {
             return true;
+        }
+    }
+    if !subset && fixed_spending.snow_as_any_color() && symbol_is_colored(symbol) {
+        for color in ManaColor::ALL {
+            if accepts(color) {
+                continue;
+            }
+            let mut next = pool.clone();
+            if next.spend_snow(color)
+                && split_assign(next, rest, generic, next_limit, fixed_spending)
+            {
+                return true;
+            }
         }
     }
     if matches!(symbol, ManaSymbol::TwoOrColor(_)) {
