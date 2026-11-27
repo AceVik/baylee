@@ -51,6 +51,13 @@ pub trait Brain4 {
     fn take_rules_fired(&mut self) -> Vec<(&'static str, u64)> {
         Vec::new()
     }
+    /// Why the runtime fell back on its own answer in the last decision,
+    /// where it did; `None` where the policy (and its tactical layer)
+    /// answered.
+    #[must_use]
+    fn fallback_reason(&self) -> Option<&'static str> {
+        None
+    }
     /// Consume a genuinely changed authorized observation before any action.
     ///
     /// # Errors
@@ -93,6 +100,15 @@ impl Brain4 for NetPlayer4 {
     }
     fn take_rules_fired(&mut self) -> Vec<(&'static str, u64)> {
         self.take_tactic_rules_fired()
+    }
+    fn fallback_reason(&self) -> Option<&'static str> {
+        use crate::netplay4::FallbackReason4;
+        self.last_fallback().map(|fallback| match fallback.reason {
+            FallbackReason4::UnsupportedChoice => "unsupported_choice",
+            FallbackReason4::ForcedDecode => "forced_decode",
+            FallbackReason4::RepeatedView => "repeated_view",
+            FallbackReason4::InferenceOrDecode => "inference_or_decode",
+        })
     }
     fn initialize(
         &mut self,

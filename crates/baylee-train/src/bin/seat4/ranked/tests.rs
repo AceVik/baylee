@@ -224,13 +224,11 @@ impl Table for Wire {
         Ok(Some(socket))
     }
 
-    async fn room_closed(&mut self) -> bool {
-        false
+    fn room_closed(&mut self) -> impl Future<Output = bool> + Send {
+        std::future::ready(false)
     }
 
-    fn selected_deck(
-        &self,
-    ) -> impl Future<Output = anyhow::Result<Option<DeckList>>> + Send {
+    fn selected_deck(&self) -> impl Future<Output = anyhow::Result<Option<DeckList>>> + Send {
         std::future::ready(Ok(None))
     }
 
@@ -238,7 +236,7 @@ impl Table for Wire {
         None
     }
 
-    fn seat_secret(&self) -> &str {
+    fn seat_secret(&self) -> &'static str {
         ""
     }
 
@@ -305,9 +303,15 @@ async fn a_whole_game_ends_with_its_result_and_only_real_decisions_wait() {
         ]
     );
     let waited: Vec<_> = heard.actions.iter().map(|(_, after)| *after).collect();
-    assert!(waited[0] >= THINK, "keeping a hand is a decision: {waited:?}");
+    assert!(
+        waited[0] >= THINK,
+        "keeping a hand is a decision: {waited:?}"
+    );
     assert!(waited[1] < THINK, "a pass goes at once: {waited:?}");
-    assert!(waited[2] >= THINK, "naming a colour is a decision: {waited:?}");
+    assert!(
+        waited[2] >= THINK,
+        "naming a colour is a decision: {waited:?}"
+    );
     assert!(core.game_result().is_some());
     assert_eq!(core.turn(), 2);
     assert_eq!(core.report().won, Some(true));

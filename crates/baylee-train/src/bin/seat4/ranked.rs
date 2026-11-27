@@ -30,19 +30,19 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
 use anyhow::{Context as _, ensure};
-use baylee_seat::ranked::cli::RankedArgs;
-use clap::Parser as _;
 use baylee_account::ranked::ai::{AiKind, ranked_profile};
 use baylee_core::ids::PlayerId;
 use baylee_protocol::v1::SeatMind;
 use baylee_seat::bridge::Played;
 use baylee_seat::link::Table as _;
+use baylee_seat::ranked::cli::RankedArgs;
 use baylee_seat::ranked::{Flight, Pilot, Piloted, Seat};
 use baylee_seat::seat::{AnsweredCounts, Outcome};
 use baylee_seat::{DeckList, Stats};
 use baylee_train::cardstructure::{compat, digest};
 use baylee_train::live4::{Brain4, LiveSeat4};
 use baylee_train::netplay4::{CatalogPolicy4, NetPlayer4};
+use clap::Parser as _;
 use flight::Flown;
 
 /// The account key's family for a trained net (Central's `AiKind::Net`).
@@ -222,8 +222,9 @@ impl Pilot for NetPilot {
             let Ok(Ok(brain)) = loaded else {
                 let why = "the net's model could not be loaded";
                 self.break_with(why);
-                seat.transcript
-                    .write_value(&serde_json::json!({ "net": { "model": self.label, "failure": why } }));
+                seat.transcript.write_value(
+                    &serde_json::json!({ "net": { "model": self.label, "failure": why } }),
+                );
                 return Ok(Piloted::HandOver(why.to_owned()));
             };
             let me = PlayerId::new(seat.link.assignment().seat);
@@ -275,9 +276,14 @@ fn played<B: Brain4>(core: &LiveSeat4<B>, me: PlayerId, dials: u32) -> Played {
     let stats = Stats {
         questions: count(report.answers),
         answered: AnsweredCounts {
-            mind: count(report.neural_answers + report.search_answers),
-            // The runtime's own house answers, the live draw rule's among them.
-            house: count(report.fallback_answers),
+            // The net's policy, raw or under its tactical layer.
+            mind: count(report.neural_answers + report.search_answers + report.tactical_answers),
+            // The runtime's own fallbacks and the live draw rule.
+            house: count(
+                report
+                    .fallback_answers
+                    .saturating_sub(report.tactical_answers),
+            ),
             standing: count(report.forced_answers),
             least: 0,
         },
@@ -291,7 +297,7 @@ fn played<B: Brain4>(core: &LiveSeat4<B>, me: PlayerId, dials: u32) -> Played {
     };
     Played {
         stats,
-        result: core.game_result().cloned(),
+        result: core.game_result().copied(),
         dials,
         fallbacks: Vec::new(),
         reports: None,

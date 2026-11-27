@@ -17,10 +17,14 @@ struct Calls {
     answers: usize,
     fail_observation: bool,
     provenance: Option<StepProvenance4>,
+    fallback: Option<&'static str>,
 }
 
 struct Brain(Rc<RefCell<Calls>>);
 impl Brain4 for Brain {
+    fn fallback_reason(&self) -> Option<&'static str> {
+        self.0.borrow().fallback
+    }
     fn initialize(
         &mut self,
         seat: PlayerId,
@@ -929,4 +933,26 @@ fn a_seat_says_which_answers_are_paced_and_keeps_the_result() {
         ViewBuilder::new(2).build().turn,
         "the turn of the latest view"
     );
+}
+
+/// An answer of House provenance is the policy under its tactical layer
+/// unless the runtime says it fell back, and then it is counted by why.
+#[test]
+fn tactical_answers_and_runtime_fallbacks_are_told_apart() {
+    let (mut seat, calls) = adapter();
+    calls.borrow_mut().provenance = Some(StepProvenance4 {
+        source: SourceKind4::House,
+        ..StepProvenance4::default()
+    });
+    seat.hear(&table()).unwrap();
+    seat.hear(&view(1, 20)).unwrap();
+    seat.hear(&curtain()).unwrap();
+    assert_eq!(seat.hear(&question(1)).unwrap().len(), 1);
+    calls.borrow_mut().fallback = Some("repeated_view");
+    seat.hear(&view(2, 19)).unwrap();
+    assert_eq!(seat.hear(&question(2)).unwrap().len(), 1);
+    let report = seat.report();
+    assert_eq!(report.fallback_answers, 2);
+    assert_eq!(report.tactical_answers, 1);
+    assert_eq!(report.runtime_fallbacks.get("repeated_view"), Some(&1));
 }

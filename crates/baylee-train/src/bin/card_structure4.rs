@@ -78,8 +78,8 @@ fn main() -> anyhow::Result<()> {
     println!(
         "{}",
         serde_json::to_string_pretty(&serde_json::json!({
-            "model_structure_sha256": digest(&model)?,
-            "catalog_sha256": digest(&compiled)?,
+            "model_structure_sha256": digest(model)?,
+            "catalog_sha256": digest(compiled)?,
             "model_dsl_source_sha256": model.dsl_source_sha256,
             "catalog_dsl_source_sha256": compiled.dsl_source_sha256,
             "model_roots": report.model_roots,
