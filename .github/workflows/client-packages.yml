@@ -16,6 +16,11 @@ on:
       client-profile:
         type: string
         default: ''
+      # A release builds what it ships in `dist`, with or without a profile
+      # (release.yml, `BAYLEE_CLIENT_PROFILE`).
+      release:
+        type: boolean
+        default: false
 permissions:
   contents: read
   actions: read
@@ -111,8 +116,9 @@ jobs:
       # Mac arm client profile-guided on top. A main push's packages are never
       # shipped, since a tag builds its own (docs/releasing.md §"Build reuse and
       # caches"), so they check the recipe in `package-check`, which links in
-      # a fraction of the time (owner, 10.11.2026).
-      PACKAGE_PROFILE: ${{ inputs.client-profile != '' && 'dist' || 'package-check' }}
+      # a fraction of the time (owner, 10.11.2026). A release whose client
+      # profile is switched off (`BAYLEE_CLIENT_PROFILE`) still ships `dist`.
+      PACKAGE_PROFILE: ${{ (inputs.release || inputs.client-profile != '') && 'dist' || 'package-check' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -178,7 +184,8 @@ jobs:
       # target until 29.10.2026 (2.5 min of each Mac row, 5 on Windows).
       # A release ships a client built from its commit's profile (docs/releasing.md
       # §"The client's profile"), and stops here without one: nothing builds a
-      # plain client in its place.
+      # plain client in its place, unless the release switched the profile off
+      # (`BAYLEE_CLIENT_PROFILE`), when no row receives one.
       - if: inputs.source-run == '' && inputs.client-profile != '' && matrix.profiled
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:

@@ -109,6 +109,17 @@ impl Plan {
         Ok(self.out(&profiled))
     }
 
+    /// Builds what ships without a profile, in the plain proof's own directory
+    /// and with the same selection as [`Self::build`]: for a variant whose
+    /// workload cannot train yet. The directory of its binaries.
+    ///
+    /// # Errors
+    /// [`Failure`] when the build fails.
+    pub fn build_plain(&self) -> Result<PathBuf, Failure> {
+        self.cargo(&self.plain, &[], &self.ship)?;
+        Ok(self.out(&self.plain))
+    }
+
     /// Holds the compiler's `report` of the profiled build to the profile.
     fn require_counts_used(&self, merged: &Path, report: &str) -> Result<(), Failure> {
         let output = Command::new(&self.profdata)

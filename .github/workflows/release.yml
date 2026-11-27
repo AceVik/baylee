@@ -80,6 +80,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PROMOTE_CI: ${{ inputs.promote-ci || false }}
+          # `off` ships every client row built here without a profile; unset
+          # (the rule) a tag needs this commit's profile (docs/releasing.md
+          # §"The client's profile").
+          CLIENT_PROFILE: ${{ vars.BAYLEE_CLIENT_PROFILE }}
         run: |
           # `sign` enters the `release` environment, which admits a `v*` tag
           # and `main` only; a dry run from elsewhere would build all six
@@ -115,7 +119,9 @@ jobs:
             # A tag ships a client built from this commit's profile, which no CI
             # run has, so its packages are built here and not promoted
             # (docs/releasing.md §"The client's profile"). A dry run promotes.
-            if [ "$GITHUB_REF_TYPE" = tag ]; then
+            if [ "$GITHUB_REF_TYPE" = tag ] && [ "$CLIENT_PROFILE" = off ]; then
+              echo "::warning::BAYLEE_CLIENT_PROFILE is off: every client row is built here without a profile"
+            elif [ "$GITHUB_REF_TYPE" = tag ]; then
               echo "client-profile=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
             else
               echo "ci-run=$run" >> "$GITHUB_OUTPUT"
@@ -159,6 +165,7 @@ jobs:
       version: ${{ needs.version.outputs.version }}
       source-run: ${{ needs.version.outputs.ci-run }}
       client-profile: ${{ needs.version.outputs.client-profile }}
+      release: ${{ github.ref_type == 'tag' }}
     permissions:
       contents: read
       actions: read
