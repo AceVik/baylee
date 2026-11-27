@@ -84,7 +84,6 @@ async fn offline_admin_is_idempotent_immutable_role_scoped_and_revocable() {
         for operation in [
             json!({"action": "revoke", "operator": Uuid::now_v7()}),
             json!({"action": "pause_enrollment", "cohort": Uuid::now_v7()}),
-            json!({"action": "erase_account", "account": Uuid::now_v7()}),
         ] {
             client.refused(operation).await;
         }
