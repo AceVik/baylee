@@ -275,3 +275,63 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
+
+/// The file each format's games are written to, one JSON line a game, in
+/// the format's directory: what `deck improve` reads.
+pub const GAMES: &str = "games.jsonl";
+
+/// One ranked game a version played, as its runner writes it after the
+/// match ([`record_game`]).
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Game {
+    /// When it ended, RFC 3339 in UTC.
+    pub at: String,
+    /// The deck version that played it.
+    pub version: u32,
+    /// `won`, `lost`, `draw` or `unrated`.
+    pub result: String,
+    /// Its turns.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub turns: Option<u32>,
+    /// The account's rating after it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub elo: Option<i32>,
+    /// The rating's change.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub delta: Option<i32>,
+    /// What the opponent is, where it is public (an AI's label); never a
+    /// person's name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub opponent: Option<String>,
+    /// A short note of the runner's or the pilot's, plain text.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
+}
+
+/// Appends `game` to `format`'s games in `dir`, one line, in one write.
+///
+/// # Errors
+/// When the file cannot be opened or written.
+pub fn record_game(dir: &Path, format: Format, game: &Game) -> std::io::Result<()> {
+    use std::io::Write as _;
+    let at = format_dir(dir, format);
+    std::fs::create_dir_all(&at)?;
+    let mut line = serde_json::to_string(game).map_err(std::io::Error::other)?;
+    line.push('\n');
+    std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(at.join(GAMES))?
+        .write_all(line.as_bytes())
+}
+
+/// `format`'s games in `dir`, oldest first; a line that does not read is
+/// passed over.
+#[must_use]
+pub fn games(dir: &Path, format: Format) -> Vec<Game> {
+    std::fs::read_to_string(format_dir(dir, format).join(GAMES)).map_or_default(|text| {
+        text.lines()
+            .filter_map(|line| serde_json::from_str(line).ok())
+            .collect()
+    })
+}
