@@ -576,11 +576,18 @@ before playing.
   status --json` says `"loggedIn": true`; `codex login status` says
   `Logged in using …` on stderr, not with an API key; `opencode auth list`
   names an `oauth` credential, not a stored key; `agy -p /quota
-  --output-format json` (agy's read-only `/quota` in print mode, about five
-  seconds) says `SUCCESS` and names at least one group of models with its
-  quota. Output it cannot read counts as signed out, and so does a check
-  past its ten seconds (agy's `--version`, the check before 27.11.2026,
-  never failed, and showed only that the program runs). Junie has no
+  --output-format json` (agy's read-only `/quota` in print mode, which asks
+  the account over the network: five seconds on the owner's Mac, 62 on
+  the machine that plays the AI accounts) says `SUCCESS` and names at
+  least one group of models with its quota. A check gets ten seconds,
+  agy's 150 (`Dialect::probe_wait`). Only an answer that says signed out
+  is one: any answer but yes from a tool whose check is a login command
+  of its own, and from agy one that names the login. A check that gives
+  no answer in time, or one it cannot read (agy's network error), is
+  unknown, said in words that name no sign-in (so `baylee-seat check`
+  calls it `failing`, not `signed_out`), and asked again later (agy's
+  `--version`, the check before 27.11.2026, never failed, and showed only
+  that the program runs). Junie has no
   such check: its `--version` shows only that the program runs. Junie's spent balance
   ("Insufficient account balance. All tokens in your account have been
   spent.") and its provider's rate limiting are limits; a session it
@@ -1696,17 +1703,26 @@ the other.
   `claude-sonnet-5-5`, each at low. A chain that crosses models or efforts is refused before any
   offer, saying what to change: the account's name and rating are the
   model's. Central's profile for the account is `model:<profile>`.
-  - Before a game the pilot is ready while a path is not held back; with
-    every path held back the account makes no offer. A path that was rate
-    limited sits out new games until its limit lifts (as the provider
-    said, else 30 minutes); one that failed, or whose free check (a
-    model's entry, a CLI's login) fails before a game, for 10 minutes,
-    doubled with each failure in a row up to 4 hours; one that cannot be
-    reached (its key not kept yet, its program gone) likewise, from the
-    start: the account starts whatever paths it can reach, and refuses to
-    start only for a chain that is wrong (crossing models or efforts, a
-    model or effort not named). A game starts on the first path not held
-    back, the others standing by in order.
+  - Before a game the pilot is ready while a path is not held back and
+    its free check (a model's entry, a CLI's account check:
+    `Mind::check`, no game's call) passed within the last 30 minutes
+    (`ranked_llm::CHECK_STANDS`; owner, 27.11.2026: agy's `/quota` took
+    62 s on the machine that plays the AI accounts). The runner checks
+    before it offers, in the background, each live path whose pass is
+    older, one check a path at a time, and makes no offer until one has
+    passed; never while a match waits for its seat. With every path held
+    back the account makes no offer. A path that was rate limited sits
+    out new games until its limit lifts (as the provider said, else 30
+    minutes); one that failed, or whose free check fails or gives no
+    answer in time (unknown: asked again once its hold lifts), for 10
+    minutes, doubled with each failure in a row up to 4 hours; one that
+    cannot be reached (its key not kept yet, its program gone) likewise,
+    from the start: the account starts whatever paths it can reach, and
+    refuses to start only for a chain that is wrong (crossing models or
+    efforts, a model or effort not named). A game starts on the first live
+    path whose check passed within the 30 minutes, else on one whose check
+    passed before that rather than on the house, the others standing by
+    in order; no check runs then.
   - Mid-game the bridge hands the question down the chain at once on a
     limit or a failure (§"A fallback profile"), each path declaring its
     model to the table before its first answer, and past the last path
