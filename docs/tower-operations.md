@@ -231,7 +231,27 @@ out of its own build, one to three of its most valuable relics left in the
 bag, and the builds of two further shop runs (86,400 duels). Measured again
 on fresh deals (33,800 duels): every stage still beats the one below
 (53–70 %); outside the band per stage 1 (stage 1), 6–14 (stages 2–9) and
-17–19 (stages 10–12), with the extremes at 9 % and 97 %.
+17–19 (stages 10–12), with the extremes at 9 % and 97 %. A second round
+touched only the cells that fresh measurement found outside the band: each
+took the best of its pick, one or two relics more or one less in the bag,
+and the same trim of the other two shop runs, measured against the
+published ladder itself (76,224 duels). The ladder that is published,
+measured on fresh deals (33,800 duels, `ladder-v4.json`): every stage beats
+the one below by 54–69 %; 505 of the 600 cells lie inside 30–70 % (before
+any cell calibration 336), outside per stage 1, 2, 7, 7, 5, 6, 8, 7, 10,
+13, 16 and 13, between 12 % and 97 %. The later stages, where whole-team
+relic engines are complete, keep most of the rest; tuning those relics is a
+change to the run's balance for players too, not to the house alone.
+
+**What the numbers hold for.** Both chairs are the Expert heuristics, so
+these are measurements of builds, not of human play: a person who shops
+and pilots better than the Expert beats the house more often. The content
+is the release `e476745f7`'s card registry: the starters come from the
+shared builder over the whole registry, so a later card wave can change
+them. `baylee_tower_content::CALIBRATED` holds the measured content's
+fingerprint, and `baylee-tower-provision` refuses to publish any other;
+a new cohort on a later registry is measured again with the same commands
+(`docs/history/tower-calibration-2026-11-27/`).
 
 ## Runtime grants
 
