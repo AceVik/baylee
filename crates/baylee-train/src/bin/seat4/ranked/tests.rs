@@ -254,6 +254,15 @@ fn held(brain: Script) -> LiveSeat4<Script> {
 }
 
 async fn fly(steps: Vec<Step>, brain: Script) -> (Flown, LiveSeat4<Script>, Heard, u32) {
+    let (flown, core, heard, dials, _) = fly_kept(steps, brain).await;
+    (flown, core, heard, dials)
+}
+
+/// [`fly`], with the lines the flight kept in its transcript.
+async fn fly_kept(
+    steps: Vec<Step>,
+    brain: Script,
+) -> (Flown, LiveSeat4<Script>, Heard, u32, Vec<serde_json::Value>) {
     let (url, served) = scripted(steps).await;
     let mut wire = Wire { url, dials: 0 };
     let mut core = held(brain);
@@ -261,8 +270,16 @@ async fn fly(steps: Vec<Step>, brain: Script) -> (Flown, LiveSeat4<Script>, Hear
         min_think: THINK,
         room_check: Duration::from_secs(5),
     };
-    let flown = flight::fly(&mut wire, &mut core, pace).await.unwrap();
-    (flown, core, served.await.unwrap(), wire.dials)
+    let mut transcript = baylee_seat::Transcript::memory();
+    let flown = flight::fly(&mut wire, &mut core, pace, &mut transcript)
+        .await
+        .unwrap();
+    let lines = transcript
+        .lines()
+        .iter()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    (flown, core, served.await.unwrap(), wire.dials, lines)
 }
 
 /// The opening, as a table that just started shows it: the seat's table,
@@ -290,9 +307,24 @@ async fn a_whole_game_ends_with_its_result_and_only_real_decisions_wait() {
         Step::Send(view(4, 2)),
         Step::Send(ask(4, &game_over())),
     ]);
-    let (flown, core, heard, dials) = fly(steps, Script::default()).await;
+    let (flown, core, heard, dials, lines) = fly_kept(steps, Script::default()).await;
     assert_eq!(flown, Flown::Ended);
     assert_eq!(dials, 1);
+    // The transcript keeps each answer as the bridge does, and the end.
+    let answered: Vec<_> = lines.iter().filter(|l| l["event"] == "answered").collect();
+    assert_eq!(answered.len(), 3, "{lines:?}");
+    assert!(
+        answered
+            .iter()
+            .all(|l| l["by"] == "mind" && l["model_ms"].is_u64())
+    );
+    assert_eq!(answered[1]["action"], serde_json::json!("PassPriority"));
+    let over = lines
+        .iter()
+        .find(|l| l["event"] == "over")
+        .expect("the end");
+    assert!(over["result"].as_str().unwrap().contains("GameResult"));
+    assert_eq!(over["turn"], 2);
     let actions: Vec<_> = heard.actions.iter().map(|(a, _)| a.clone()).collect();
     assert_eq!(
         actions,

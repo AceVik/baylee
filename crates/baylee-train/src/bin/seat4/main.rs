@@ -343,7 +343,8 @@ async fn run(
                     ..ranked::flight::Pace::default()
                 };
                 if let ranked::flight::Flown::HandOver(why) =
-                    ranked::flight::fly(&mut link, core, pace).await?
+                    ranked::flight::fly(&mut link, core, pace, &mut baylee_seat::Transcript::none())
+                        .await?
                 {
                     bail!("the pilot handed the seat over: {why}");
                 }

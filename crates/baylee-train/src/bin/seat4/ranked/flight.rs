@@ -15,7 +15,9 @@
 
 use std::time::Duration;
 
+use baylee_engine::choice::PlayerAction;
 use baylee_protocol::v1::envelope::Msg;
+use baylee_seat::Transcript;
 use baylee_seat::link::{Socket, Table};
 use baylee_train::live4::{Brain4, LiveSeat4};
 use futures_util::{SinkExt as _, StreamExt as _};
@@ -60,7 +62,10 @@ pub enum Flown {
 }
 
 /// Plays `core`'s seat over `link` until the game ends or the net cannot
-/// go on. The socket is opened here and closed before it returns.
+/// go on, each answer and the end kept in `transcript` as the bridge keeps
+/// them (`event` `answered`, by `mind`, `forced` or `house`, with the time
+/// the net took; `over` with the result). The socket is opened here and
+/// closed before it returns.
 ///
 /// # Errors
 /// Only when the link cannot open a socket at all; once the seat holds one,
@@ -69,13 +74,50 @@ pub async fn fly<L: Table, B: Brain4>(
     link: &mut L,
     core: &mut LiveSeat4<B>,
     pace: Pace,
+    transcript: &mut Transcript,
 ) -> anyhow::Result<Flown> {
     let Some(mut socket) = link.connect().await? else {
         return Ok(Flown::Closed);
     };
-    let flown = over(&mut socket, link, core, pace).await;
+    let flown = over(&mut socket, link, core, pace, |core, line| {
+        transcript.write_value(&line.json(core));
+    })
+    .await;
     let _ = socket.close(None).await;
+    transcript.flush();
     Ok(flown)
+}
+
+/// A line of the transcript.
+enum Line {
+    /// An answer sent, and how long the net took to make it.
+    Answered(Vec<u8>, Duration),
+    /// The game's end.
+    Over,
+}
+
+impl Line {
+    /// The line, which the transcript stamps with its time.
+    fn json<B: Brain4>(&self, core: &LiveSeat4<B>) -> serde_json::Value {
+        match self {
+            Self::Answered(action, took) => serde_json::json!({
+                "turn": core.turn(),
+                "event": "answered",
+                "by": core.last_by().word(),
+                "action": baylee_core::wire::decode::<PlayerAction>(action).ok(),
+                "model_ms": millis(*took),
+            }),
+            Self::Over => serde_json::json!({
+                "turn": core.turn(),
+                "event": "over",
+                "result": core.game_result().map(|result| format!("{result:?}")),
+            }),
+        }
+    }
+}
+
+fn millis(time: Duration) -> u64 {
+    u64::try_from(time.as_millis()).unwrap_or(u64::MAX)
 }
 
 async fn over<L: Table, B: Brain4>(
@@ -83,6 +125,7 @@ async fn over<L: Table, B: Brain4>(
     link: &mut L,
     core: &mut LiveSeat4<B>,
     pace: Pace,
+    mut note: impl FnMut(&LiveSeat4<B>, Line),
 ) -> Flown {
     loop {
         let next = match tokio::time::timeout(pace.room_check, socket.next()).await {
@@ -96,8 +139,13 @@ async fn over<L: Table, B: Brain4>(
                 let Ok(outgoing) = core.hear(&bytes) else {
                     return Flown::HandOver(stopped(core));
                 };
+                let took = heard.elapsed();
                 for envelope in outgoing {
-                    if matches!(envelope.msg, Some(Msg::PlayerAction(_))) && core.paced() {
+                    let action = match &envelope.msg {
+                        Some(Msg::PlayerAction(action)) => Some(action.action.clone()),
+                        _ => None,
+                    };
+                    if action.is_some() && core.paced() {
                         tokio::time::sleep_until(heard + pace.min_think).await;
                     }
                     let frame = Message::Binary(envelope.encode_to_vec().into());
@@ -105,8 +153,12 @@ async fn over<L: Table, B: Brain4>(
                         core.disconnected();
                         return Flown::HandOver(SOCKET_LOST.to_owned());
                     }
+                    if let Some(action) = action {
+                        note(core, Line::Answered(action, took));
+                    }
                 }
                 if core.finished() {
+                    note(core, Line::Over);
                     return Flown::Ended;
                 }
             }
