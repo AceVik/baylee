@@ -668,14 +668,18 @@ Claude Code and Codex called no model.
 - **agy.** Gemini 4 Neon goes up to `xhigh` as Hydrogen does; the dialect
   had played `gemini-4-neon-xhigh` as `gemini-4-neon-high` and no longer
   does. `excludeDefaultComponents: true` in our agent drops agy's own
-  prompt sections and built-in tools: a first turn read 470 input tokens
-  where it read 14,849 without. A control pair shows that the agent's
-  `tools` list is what holds, not the model's obedience: an agent with
-  `tools: [finish, view_file]` read a file in a Git repository outside
-  its workspace without asking (Auto mode, agy's default, reads anywhere
-  since 1.5.14 and writes outside the workspace inside a repository
-  since 1.5.16); ours, `tools: [finish]`, was told `view_file` is not
-  available, and no tool step came. agy still offers every agent
+  prompt sections and built-in tools: a first model step read 470 input
+  tokens where it read 11,029 without. A control pair shows that what
+  holds is the agent, not the model's obedience: an agent with `tools:
+  [finish, view_file]` (and agy's defaults) read a file in a Git
+  repository outside its workspace without asking (Auto mode, agy's
+  default, reads anywhere since 1.5.14 and writes outside the workspace
+  inside a repository since 1.5.16); ours, `tools: [finish]` with
+  `excludeDefaultComponents`, was told `view_file` is not available, and
+  no tool step came. The pair differs in both lines, so which of them
+  holds alone is not shown; asked to name its tools, an agent with
+  `tools: [finish]` named `finish` and `manage_task` with and without
+  `excludeDefaultComponents`. agy still offers every agent
   `manage_task`. `--mode plan` has no effect beside
   `--disable-slash-commands` (agy says so), `--sandbox` restricts only a
   terminal the agent does not have, and permission rules in `--settings`
@@ -690,7 +694,12 @@ Claude Code and Codex called no model.
   1.5.17). agy refuses `--effort` for them, so the seat passes none
   whatever the profile names, and the settings panel offers none; a
   ranked account on one claims the orchestrator's id at its Standard,
-  never the model it plans with. Under the seat's agent, whose only tool
+  never the model it plans with. That Standard is whatever the
+  `orchestrator` setting of agy on the machine that plays says: the seat
+  pins no planner or executor. agy took `--settings` with
+  `{"orchestrator":{"planner":"gemini-4-neon-xhigh","executor":"gemini-4-neon-medium"}}`
+  without complaint (other shapes it refused), but what it did with it
+  was not seen. Under the seat's agent, whose only tool
   is `finish`, the Neon orchestrator answered a one-line question in one
   model step and no tool in 73 seconds, where `gemini-4-neon-xhigh` took
   82: with nothing to execute it buys little, and a game decision's
@@ -699,8 +708,8 @@ Claude Code and Codex called no model.
   `run_workflow` (a tool) are agy's other multi-agent modes: both lie
   outside the lockdown, spend quota fast and outlast a decision's clock,
   and are not offered. An "orchestra of Neons at xhigh" is, by agy
-  1.5.17's rule, one agent on `gemini-4-neon-xhigh`, which the seat now
-  plays as named.
+  1.5.17's changelog (not seen in a run), one agent on
+  `gemini-4-neon-xhigh`, which the seat now plays as named.
 
 opencode 1.19.4 with `deepseek/deepseek-flash` played a complete game
 through turn 14 (508 actions, 73 calls) in the live check. One call exceeded

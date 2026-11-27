@@ -155,9 +155,12 @@ fn codex_takes_a_tool_item_as_a_breach() {
         "mcp_tool_call",
         "web_search",
         "todo_list",
-        // What a sub-agent, a dynamic tool (code mode's `exec`, the async
-        // message GPT-6.2's catalog adds) or an image would be, by the item
-        // names Codex 0.166 carries: none of them is the answer.
+        // Types a sub-agent, a dynamic tool or an image could arrive as:
+        // `collab_agent_tool_call`, `dynamic_tool_call` and `image_view` are
+        // item names in Codex 0.166's binary (its rollout's), the other two
+        // are guesses. Whether `exec --json` reports code mode's `exec` or
+        // the async message GPT-6.2 keeps as an item at all is unproven;
+        // this shows only that no type but the answer's is taken.
         "collab_tool_call",
         "collab_agent_tool_call",
         "dynamic_tool_call",

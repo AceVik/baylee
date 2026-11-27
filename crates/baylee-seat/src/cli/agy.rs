@@ -7,13 +7,13 @@
 //! The agent is discovered under `.agents/agents` in the private working
 //! directory. An empty tools list inherits tools, so it must explicitly
 //! contain `finish`; `excludeDefaultComponents` drops agy's own prompt
-//! sections and built-in tools (agy 1.5.18: a first turn read 470 input
-//! tokens where it read 14,849 without). Its `init` must confirm the selected
-//! agent; agy still reports its global tool inventory there, not the agent's
-//! filtered capabilities. agy offers every agent `manage_task` beside
-//! `finish` (1.5.18); a step that uses it, or any tool but `finish`, is a
-//! breach. Slash commands are disabled, no approval flag is passed, and no MCP
-//! server may connect.
+//! sections and built-in tools (agy 1.5.18: a first model step read 470
+//! input tokens where it read 11,029 without). Its `init` must confirm the
+//! selected agent; agy still reports its global tool inventory there, not
+//! the agent's filtered capabilities. agy offers every agent `manage_task`
+//! beside `finish` (1.5.18); a step that uses it, or any tool but `finish`,
+//! is a breach. Slash commands are disabled, no approval flag is passed, and
+//! no MCP server may connect.
 //! User rules under `~/.gemini` and the tool's own session storage remain
 //! the CLI's (`docs/llm-seat.md` §"A CLI as the model").
 

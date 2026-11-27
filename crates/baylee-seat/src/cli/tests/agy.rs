@@ -324,8 +324,8 @@ fn agy_orchestrators_are_started_without_an_effort() {
 }
 
 /// The private agent lists only `finish` and drops agy's own prompt
-/// sections and built-in tools (1.5.18: 470 input tokens on a first turn
-/// where 14,849 without).
+/// sections and built-in tools (1.5.18: 470 input tokens on a first model
+/// step where 11,029 without).
 #[test]
 fn agy_agent_file_is_finish_only_and_lean() {
     use super::super::agy::Agy;
