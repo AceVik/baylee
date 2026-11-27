@@ -36,7 +36,6 @@ fn codex_runs_exec_with_our_instructions_and_no_tools() {
         "mcp_servers={}",
         "notify=[]",
         "web_search=\"disabled\"",
-        "tools.view_image=false",
         "history.persistence=\"none\"",
         "analytics.enabled=false",
         "feedback.enabled=false",
@@ -143,6 +142,53 @@ fn codex_reads_its_answer_and_usage_off_the_turn() {
     );
     assert!(Codex.usage_is_cumulative());
     assert_eq!(Codex.lockdown_fault(&Started::default()), None);
+}
+
+/// One live Codex 0.166 turn (27.11.2026) under the seat's flags, on
+/// GPT-6.2 Astra at low, asked to run JavaScript with `exec` and to call
+/// `send_message_to_user_async` before answering. Its rollout shows both
+/// ran: `exec` with `text(17*23)` (output 391) and the async message
+/// `{"message":"computing"}`. Its `--json`, below as recorded, shows
+/// neither as a tool: code mode's `exec` leaves no item, and the async
+/// message is an `agent_message` like the answer (one warning shortened).
+/// So the seat sees no
+/// breach in either (neither reaches beyond the process: a JavaScript
+/// isolate with no file system, network or nested tool, and a line on
+/// the seat's own stdout), and the answer is the turn's last message.
+/// The three warnings are Codex's own about its flags of that day.
+#[test]
+fn codex_0_166_code_mode_and_async_message_leave_no_tool_item() {
+    let events = read_all(
+        &Codex,
+        &[
+            r#"{"type":"thread.started","thread_id":"01a21cde-bf27-7f73-b313-1db59563abdb"}"#,
+            r#"{"type":"item.completed","item":{"id":"item_0","type":"error","message":"Codex is ignoring 1 unrecognized configuration setting. Check for typos or deprecated settings.\n  session-flags: `tools.view_image` is ignored."}}"#,
+            r#"{"type":"item.completed","item":{"id":"item_1","type":"error","message":"`[features].web_search_request` is deprecated because web search is enabled by default."}}"#,
+            r#"{"type":"item.completed","item":{"id":"item_2","type":"error","message":"Codex is ignoring 1 unrecognized configuration setting. Check for typos or deprecated settings.\n  session-flags: `tools.view_image` is ignored."}}"#,
+            r#"{"type":"turn.started"}"#,
+            r#"{"type":"item.completed","item":{"id":"item_3","type":"agent_message","text":"computing"}}"#,
+            r#"{"type":"item.completed","item":{"id":"item_4","type":"agent_message","text":"{\"answer\":\"391\"}"}}"#,
+            r#"{"type":"turn.completed","usage":{"input_tokens":7540,"cached_input_tokens":4864,"cache_write_input_tokens":0,"output_tokens":53,"reasoning_output_tokens":0}}"#,
+        ],
+    );
+    assert_eq!(events[0], Event::Started(Started::default()));
+    assert!(
+        events.iter().all(|e| !matches!(e, Event::Breach(_))),
+        "{events:?}"
+    );
+    let Some(Event::Reply(Outcome::Answer { value, text, usage })) = events.last() else {
+        panic!("{events:?}");
+    };
+    assert_eq!(value.as_ref().unwrap()["answer"], "391");
+    assert_eq!(
+        text, "{\"answer\":\"391\"}",
+        "the async message is not the answer"
+    );
+    let usage = usage.unwrap();
+    assert_eq!(
+        (usage.input, usage.cache_read, usage.output),
+        (2676, 4864, 53)
+    );
 }
 
 /// Any item but the answer, the reasoning and a warning is a tool used:

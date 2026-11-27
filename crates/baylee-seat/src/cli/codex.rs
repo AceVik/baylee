@@ -74,8 +74,11 @@ const SCHEMA: &str = "schema.json";
 /// answer, each turned off as `-c features.<name>=false`. That is what
 /// `--disable <name>` sets, but Codex ignores a name it does not know there,
 /// where `--disable` refuses the run ("Unknown feature flag", 0.166 and
-/// 0.172), so a name one version drops never fails a game.
-pub(crate) const DISABLED_FEATURES: [&str; 22] = [
+/// 0.172), so a name one version drops never fails a game. A live 0.166
+/// run (27.11.2026) warned of two old keys, now dropped: `web_search_request`
+/// is deprecated (`web_search="disabled"` holds) and `tools.view_image` is
+/// ignored (`view_image` here holds).
+pub(crate) const DISABLED_FEATURES: [&str; 21] = [
     "shell_tool",
     "unified_exec",
     "view_image",
@@ -94,7 +97,6 @@ pub(crate) const DISABLED_FEATURES: [&str; 22] = [
     "in_app_browser",
     "tool_suggest",
     "memories",
-    "web_search_request",
     "standalone_web_search",
     "send_message_to_user_async",
     "request_permissions_tool",
@@ -174,7 +176,6 @@ impl Dialect for Codex {
             "mcp_servers={}".into(),
             "notify=[]".into(),
             "web_search=\"disabled\"".into(),
-            "tools.view_image=false".into(),
             "history.persistence=\"none\"".into(),
             "analytics.enabled=false".into(),
             "feedback.enabled=false".into(),
