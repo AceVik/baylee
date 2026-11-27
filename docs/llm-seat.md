@@ -1656,8 +1656,10 @@ sixty Forests). The person searches accepting any AI for a model and the
 local ones otherwise, and plays the house. The test checks the person's
 receipt against the table, reads the AI seat's transcript, and prints one
 line (also kept as `<target>/tmp/ai-players-runners/summary.txt`):
-turns, how the game ended, questions that expired, and the model's think
-time per answer (median and most). A failing runner, or one that
+whether the AI won or lost and at which seat, the turns and how the game
+ended, the questions that expired, and its answers counted apart: decided
+by the pilot (with their think time: median, P95, most), instant (a
+standing pass, a plan's tap, a forced answer) and the house's. A failing runner, or one that
 does not stop after its game, fails the test, and the process is killed
 either way.
 

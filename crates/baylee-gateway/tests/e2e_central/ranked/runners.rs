@@ -717,21 +717,34 @@ pub(in super::super) fn run(
             .expect("the runner played its match to the end");
         (report, person)
     });
-    // The game is in the deck's chronicle, its result marked as inferred.
+    chronicled(&state, &report);
+    agreed(&report, &person);
+    agent.abort();
+}
+
+/// The game is in the deck's chronicle with Central's own result.
+fn chronicled(state: &std::path::Path, report: &MatchReport) {
     let games = baylee_seat::deckbuild::history::games(&state.join("decks"), Format::Standard);
     assert_eq!(games.len(), 1, "one game in the chronicle");
     assert_eq!(games[0].version, 1);
     assert_eq!(games[0].turns, Some(report.played.stats.turns));
+    let receipt = report.receipt.expect("Central settled the AI's match");
+    assert!(
+        !receipt.inferred,
+        "Central's own result, not the standing's"
+    );
+    assert_eq!(
+        (games[0].elo, games[0].delta),
+        (Some(receipt.elo), receipt.delta)
+    );
     assert!(
         games[0]
             .note
             .as_deref()
-            .is_some_and(|n| n.contains("inferred")),
+            .is_none_or(|n| !n.contains("inferred")),
         "{:?}",
         games[0].note
     );
-    agreed(&report, &person);
-    agent.abort();
 }
 
 /// Both sides saw a whole game to its end, the AI through a socket it lost
@@ -1000,17 +1013,7 @@ impl External {
             person_won, central,
             "the table and Central agree on the result"
         );
-        let line = format!(
-            "ai-players e2e: {} played {} turns, {}, {} questions expired, think time median {} ms, \
-             max {} ms over {} answers",
-            def.profile,
-            seen.turns,
-            seen.ended,
-            seen.expired,
-            seen.median_ms,
-            seen.max_ms,
-            seen.answers
-        );
+        let line = seen.line(&def.profile, &played, 1 - *seat);
         // Past the test harness's capture, which keeps a passing test's
         // prints, and kept beside the transcripts.
         {
@@ -1025,49 +1028,99 @@ impl External {
     }
 }
 
-/// What the AI seat's transcript says of its game.
+/// What the AI seat's transcript says of its game. Its answers are told
+/// apart: those its pilot decided (a model's call, which took time), those
+/// that took none (a standing order's pass, a plan's next tap, a forced
+/// answer), and the house's (and the least answer's) where the pilot did
+/// not answer.
 struct Seen {
     turns: u64,
     ended: String,
     expired: u64,
-    answers: usize,
-    median_ms: u64,
-    max_ms: u64,
+    /// The decided answers' think times, in milliseconds, rising.
+    decided: Vec<u64>,
+    instant: usize,
+    house: usize,
 }
 
 impl Seen {
     fn read(path: &std::path::Path) -> Self {
         let text = std::fs::read_to_string(path)
             .unwrap_or_else(|e| panic!("the AI's transcript {}: {e}", path.display()));
-        let (mut turns, mut ended, mut expired, mut thought) = (0, String::new(), 0, Vec::new());
+        let mut seen = Self {
+            turns: 0,
+            ended: String::new(),
+            expired: 0,
+            decided: Vec::new(),
+            instant: 0,
+            house: 0,
+        };
         for line in text.lines() {
             let Ok(value) = serde_json::from_str::<serde_json::Value>(line) else {
                 continue;
             };
-            match value["event"].as_str() {
-                Some("over") => value["result"]
+            match (value["event"].as_str(), value["by"].as_str()) {
+                (Some("over"), _) => value["result"]
                     .as_str()
                     .unwrap_or_default()
-                    .clone_into(&mut ended),
-                Some("answered") if value["by"] == "mind" => {
-                    thought.push(value["model_ms"].as_u64().unwrap_or(0));
-                }
+                    .clone_into(&mut seen.ended),
+                (Some("answered"), Some("mind")) => match value["model_ms"].as_u64() {
+                    Some(ms) if ms > 0 => seen.decided.push(ms),
+                    _ => seen.instant += 1,
+                },
+                (Some("answered"), Some(_)) => seen.house += 1,
+                (Some("standing"), _) => seen.instant += 1,
                 _ => {}
             }
             if let Some(summary) = value.get("summary") {
-                turns = summary["turns"].as_u64().unwrap_or(turns);
-                expired = summary["fallbacks"]["expired"].as_u64().unwrap_or(expired);
+                seen.turns = summary["turns"].as_u64().unwrap_or(seen.turns);
+                seen.expired = summary["fallbacks"]["expired"]
+                    .as_u64()
+                    .unwrap_or(seen.expired);
             }
         }
-        thought.sort_unstable();
-        Self {
-            turns,
-            ended,
-            expired,
-            answers: thought.len(),
-            median_ms: thought.get(thought.len() / 2).copied().unwrap_or(0),
-            max_ms: thought.last().copied().unwrap_or(0),
+        seen.decided.sort_unstable();
+        seen
+    }
+
+    /// The summary line: from the AI's side (it plays `ai_seat`), how the
+    /// person's table `played` it ended, and how the AI answered.
+    fn line(&self, profile: &str, played: &Played, ai_seat: u8) -> String {
+        let said = match played.result.and_then(|r| r.winner) {
+            Some(Victor::Player(winner)) if winner == PlayerId::new(ai_seat) => "AI won",
+            Some(_) => "AI lost",
+            None => "draw",
+        };
+        let reason = played
+            .result
+            .map_or_else(|| "no end".to_owned(), |r| format!("{:?}", r.reason));
+        format!(
+            "ai-players e2e: {profile} {said} as seat {ai_seat} after {} turns ({reason}); {} \
+             questions expired; decided {} (median {} ms, P95 {} ms, max {} ms), instant {}, \
+             house {}",
+            self.turns,
+            self.expired,
+            self.decided.len(),
+            self.at(0.5),
+            self.at(0.95),
+            self.decided.last().copied().unwrap_or(0),
+            self.instant,
+            self.house
+        )
+    }
+
+    /// The decided think time at the share `q` of them (0.5 the median).
+    fn at(&self, q: f64) -> u64 {
+        if self.decided.is_empty() {
+            return 0;
         }
+        #[allow(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            clippy::cast_precision_loss
+        )]
+        let at = ((self.decided.len() - 1) as f64 * q).round() as usize;
+        self.decided[at.min(self.decided.len() - 1)]
     }
 }
 
