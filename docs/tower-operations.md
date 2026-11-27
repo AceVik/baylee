@@ -134,6 +134,7 @@ a fixed diagnostic containing no input. A failed preflight never changes state.
 | `publish_house` | `publisher`, `cohort`, `stage`, `archetype`, `build` | `done`. Additionally requires a live dedicated Publisher credential. Stage is 1–12, archetype 1–8 (1–3 for retained cohorts). The typed `Build` contains `formation`, `deck`, `active`, `potions`; it must validate against that cohort's saved catalog and loadout bounds. Run equipment has six slots; retained builds keep three. An exact repeat succeeds; changing a published fallback refuses. |
 | `pause_enrollment` | `cohort` | `done`. Closes new enrollment, preserving existing runs, receipts and immutable content. Exact repeats succeed. Republishing the same content cannot reopen it. |
 | `supervise` | `supervisor`, `run`, `revision`, `recovery` | `{"result":"supervised","revision":<u64>}`. Additionally requires a live dedicated Supervisor credential and the run's current saved revision. `recovery` is `{"kind":"quarantine"}` (stop a reserved, playing or verifying duel and revoke its generations), `{"kind":"resume","host":<UUIDv7 or null>}` (a quarantined run returns to its exact retained package/prefix; an unsealed duel names an enabled compatible Host, a sealed record names none and returns to verification) or `{"kind":"interrupt"}` (retire a quarantined run without a rules result or compensation). A stale revision or wrong phase refuses without change; the reply's revision is the one to name next. |
+| `grant_runtime` | `role` | `done`. Renews the runtime role's reviewed grants (§"Runtime grants") after taking every earlier one back. Refuses a role that is or inherits the schema owner, and any caller that is not the owner. |
 
 All IDs must be UUIDv7. There is no arbitrary SQL, script, state patch, currency
 grant, award injection, unrevocation, content rewrite or reopening operation.
@@ -178,6 +179,117 @@ Already committed results and outbox records remain durable. Revocation is a
 live authorization boundary, not retroactive cancellation of transactions that
 committed before it. Replacing a revoked Host requires a fresh credential/ID and
 explicit handling of retained assignments; there is no silent origin takeover.
+
+## Runtime grants
+
+The service never runs as the schema owner. Its runtime role gets exactly
+`crates/baylee-tower-store/src/runtime_grants.sql`, which the owner renews
+after every migration with the closed admin action
+`{"action":"grant_runtime","role":"<runtime role>"}`; the action takes every
+earlier grant back first and refuses a role that is or inherits the owner.
+Production startup (`development: false`) refuses a connection that owns the
+schema, may create in it, or may write published cohorts, house builds,
+approved gateway origins, operator records or their enabled flag
+(`Store::runtime_least_privilege`).
+
+| Table | Runtime may |
+| --- | --- |
+| every table | `SELECT` |
+| `players` | `INSERT`; `UPDATE` of the byte/chunk/run counters, echo consent and ranking listing columns |
+| `enrollment` | `INSERT`; `UPDATE (start_seed)` |
+| `runs` | `INSERT`; `UPDATE (state, revision, active, touched_at, expires_at)` |
+| `requests` | `INSERT` |
+| `operators` | `UPDATE (capabilities)` only: a host's own engine inventory, also what lets the service hold an operator row `FOR SHARE` |
+| `host_availability` | `INSERT`, `DELETE` |
+| `reservations` | `INSERT`; `UPDATE (host, automatic_recoveries)` |
+| `execution_claims`, `record_chunks`, `record_batches` | `INSERT` |
+| `execution_watch` | `INSERT`, `DELETE`; `UPDATE (fence, lease_until)` |
+| `verification_jobs` | `INSERT`; `UPDATE (fence, generation, verifier, claim, lease_until, ready, failure)` |
+| `verification_claims`, `settled_duels` | `INSERT` |
+| `award_outbox` | `INSERT`; `UPDATE (courier, claim, lease_until, retry_after, backoff, delivered_at)` |
+| `echo_snapshots` | `INSERT` |
+| `echo_partitions` | `INSERT`; `UPDATE (population, generation, prune_slot)` |
+| `eligible_echoes` | `INSERT`, `DELETE`; `UPDATE (slot)` |
+| `personal_bests` | `INSERT`; `UPDATE (wins, defeats, listed)` |
+| `cohorts`, `house_builds`, `host_locations`, `schema_version` | nothing beyond `SELECT` |
+
+No `TRUNCATE`, `REFERENCES`, `TRIGGER` or `CREATE` anywhere. The store's
+`execution` test target plays a whole run (reservation, record, seal,
+verification, settlement, reward claims, award delivery, rankings, echo
+withdrawal) as a role holding only these grants and proves every
+administrative write refused, through the store and in plain SQL
+(`tests/execution/grants.rs`).
+
+## Deleted accounts
+
+Tower data is not deleted with a Central account: it is kept until its
+season ends, about six months, and pseudonymised (Central's privacy policy
+2026-11-27, § 7; the deletion at a season's end comes with the next major
+update). What does go is the account's display name and tag on the Tower
+leaderboard. The award courier learns of a deletion from Central's answer
+`account_gone`: on a delivery, and once a day for every listed account, by
+repeating its newest delivered fact exactly (Central deduplicates it and
+changes nothing). Either way the listing is withdrawn as if the owner had
+removed their public identity (`Store::ranking_identity`). The first daily
+check runs ten minutes after the service starts.
+
+## Production on one server
+
+The official cohort runs beside the gateway on the release server
+(`docs/releasing.md`). Everything below is root's, done once; credentials go
+only into root-owned 0600 files that a process reads on stdin.
+
+1. **Database.** A database `baylee_tower` in the shared PostgreSQL container,
+   owned by a login role `tower_owner`, with a login role `tower_runtime`
+   that owns nothing. In `pg_hba.conf`, above every `host` line:
+   `hostnossl baylee_tower all all reject`, then `hostssl baylee_tower
+   tower_owner,tower_runtime 127.0.0.1/32 scram-sha-256`, and both roles
+   refused on every other database. Both URLs use
+   `sslmode=verify-full&sslrootcert=/etc/baylee-tower/db-ca.pem` (a copy of
+   the database's private CA certificate, 0644) with host `127.0.0.1`.
+2. **The retained engine.** After the release deploy, copy the deployed
+   `/opt/baylee/bin/baylee-engine-tower` to
+   `/opt/baylee/engines/tower-<short commit>/` and list that copy, with
+   `/opt/baylee/bin/baylee-engine-standard-loops`, in the agent's
+   `BAYLEE_ENGINE_BINS` (a set value turns sibling discovery off; the same
+   identity twice stops the agent, so never list the deployed sibling too).
+   The cohort binds to this copy; a later deploy replaces the sibling and
+   leaves every run of the cohort playable. Restart the agent only with no
+   game running.
+3. **Binaries.** `baylee-tower-service` and `baylee-tower-provision`
+   (`cargo build --release --locked -p baylee-tower-service -p
+   baylee-tower-provision`) in `/opt/baylee-tower/bin`; a system user
+   `baylee-tower` without a shell or home.
+4. **Cohort.** `baylee-tower-provision` reads one JSON value:
+   `{"service": "/opt/baylee-tower/bin/baylee-tower-service", "engine":
+   <retained engine>, "configuration": {"database_url": <owner URL>,
+   "schema": "tower", "development": false}, "gateway":
+   "https://gateway.baylee.app", "runtime_role": "tower_runtime",
+   "house_seed": <64 hex>, "credentials": {"host", "verifier", "supervisor",
+   "publisher", "courier"}}`, each credential a fresh `Token` in 64 hex. It
+   migrates, renews the runtime grants, provisions the five operators,
+   approves the gateway, publishes the cohort bound to the engine's identity
+   and the house's 600 builds (12 stages × 50 starters, from the private
+   seed; `§"Calibration"`), all through `--migrate`/`--admin`, and prints the
+   cohort and operator IDs. An exact repeat succeeds with the same IDs.
+   Keep the seed and the credentials in `/etc/baylee-tower/` (root, 0600).
+5. **Central.** Provision the award issuer for `https://tower.baylee.app`
+   with the migrator's connection (`central_identity.tower_award_issuers`,
+   the SHA-256 digest of a fresh 32-byte `Token`, never the Courier's), set
+   `tower_origin` to `https://tower.baylee.app` in `central.json`, restart
+   Central.
+6. **Service.** `/etc/baylee-tower/service.json` (root 0600): the runtime
+   URL, `"development": false`, and `service`: `listen` 127.0.0.1:28796,
+   `origin` `https://tower.baylee.app`, `record_bytes`, one `workers` entry
+   (the cohort, the retained engine, the verifier and supervisor
+   credentials) and `awards` (the courier and the issuer credentials).
+   Install `scripts/server/baylee-tower.service` and
+   `scripts/server/tower.caddy`, `systemctl enable --now baylee-tower`,
+   reload Caddy, and check `https://tower.baylee.app/health`.
+7. **Gateway.** `BAYLEE_TOWER_ORIGIN=https://tower.baylee.app` and
+   `BAYLEE_TOWER_HOST_TOKEN=<host credential>` in the gateway's environment;
+   the gateway restart ends running games, so it waits for an empty table
+   list. Central then shows the Tower tile in the client.
 
 ## Reproducible focused checks
 

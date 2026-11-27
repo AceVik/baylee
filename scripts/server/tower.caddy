@@ -1,0 +1,23 @@
+# Tower Echoes' public side (docs/tower-operations.md §"Production on one
+# server"): the player API (/v2/player, its WebSocket /v2/player/ws/8 with
+# the 15-second ping/pong heartbeat) and the gateways' host routes. Caddy
+# forwards WebSocket upgrades on its own and keeps the original Host. No
+# response compression: responses carry run state behind bearer tokens. No
+# access log.
+#
+# A gateway host route carries a record batch of up to 8 MiB
+# (`baylee_tower_api::host::batch::MAX_FRAME_BYTES`); the service bounds
+# every route exactly, this is only the outer fence.
+#
+# Install (as root): `install -m644 scripts/server/tower.caddy
+# /etc/caddy/sites/tower.caddy`, then `caddy validate --config
+# /etc/caddy/Caddyfile` and `systemctl reload caddy`.
+tower.baylee.app {
+	header Strict-Transport-Security "max-age=63072000"
+	request_body {
+		max_size 9MiB
+	}
+	reverse_proxy 127.0.0.1:28796 {
+		stream_close_delay 30s
+	}
+}

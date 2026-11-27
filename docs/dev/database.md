@@ -14,8 +14,9 @@ Migration is an explicit operator action, checks an exact recorded digest and
 never drops/reset existing data. IDs are `DEFAULT uuidv7()` with `RETURNING`;
 external account/request IDs must also be UUIDv7. Offline administration checks
 effective membership in the schema owner's SQL role; ordinary table grants and
-application tokens do not grant this capability. The final least-privilege runtime
-grant inventory remains a release check. See [Tower operations](../tower-operations.md).
+application tokens do not grant this capability. The runtime role holds only
+`crates/baylee-tower-store/src/runtime_grants.sql`, renewed by the owner after each
+migration; see [Tower operations](../tower-operations.md) §"Runtime grants".
 
 Owner mutations lock the account before its run. Request digest, original result,
 wallet/inventory and revision commit together. Same key with different contents

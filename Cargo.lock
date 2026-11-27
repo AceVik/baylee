@@ -2515,6 +2515,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "baylee-tower-provision"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "anyhow",
+ "baylee-cards-pool",
+ "baylee-tower",
+ "baylee-tower-content",
+ "baylee-tower-service",
+ "baylee-tower-store",
+ "central-api",
+ "serde",
+ "serde_json",
+ "tokio",
+ "uuid",
+ "zeroize",
+]
+
+[[package]]
 name = "baylee-tower-relics"
 version = "0.2.0-beta.o1"
 dependencies = [

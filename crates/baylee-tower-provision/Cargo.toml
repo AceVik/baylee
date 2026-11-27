@@ -1,0 +1,28 @@
+[package]
+name = "baylee-tower-provision"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Binary: brings up a production Tower Echoes cohort through the service's own migrate/admin commands; credentials only on stdin"
+publish = false
+
+[lints]
+workspace = true
+
+# The durable authority never links the card pool; this one-shot operator
+# tool does, to build the publication and the house ladder offline, and
+# hands every database write to `baylee-tower-service --migrate`/`--admin`.
+[dependencies]
+anyhow.workspace = true
+baylee-cards-pool.workspace = true
+baylee-tower.workspace = true
+baylee-tower-content.workspace = true
+baylee-tower-service.workspace = true
+baylee-tower-store.workspace = true
+central-api.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+uuid.workspace = true
+zeroize.workspace = true
