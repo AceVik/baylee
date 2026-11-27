@@ -1,4 +1,5 @@
-//! A local neural opponent in an ordinary gateway room.
+//! A local neural opponent in an ordinary gateway room; `seat4 ranked`
+//! plays Baylee AI's account in Ranked ([`ranked`]).
 
 // Looks cards up, so this program holds the pool (`baylee-cards-pool`).
 use baylee_cards_pool as _;
@@ -7,6 +8,7 @@ mod journal;
 mod model_selection;
 mod play;
 mod presence;
+mod ranked;
 
 use std::path::PathBuf;
 use std::time::Duration;
@@ -125,10 +127,80 @@ struct Args {
     /// Host only: free opening redraws, with `--starting-life`.
     #[arg(long, default_value_t = 0)]
     free_mulligans: u8,
+    /// Play the room as `seat4 ranked` plays a match: the ranked pilot's
+    /// flight (`ranked::flight`), its pacing and its opening check, at the
+    /// policy flags given. A hand-over ends the game here with an error: a
+    /// room has no runner whose house would take the seat.
+    #[arg(long, conflicts_with_all = ["decision_audits", "journal"])]
+    pilot: bool,
+    /// With `--pilot`: the least time between a question and a real
+    /// decision's answer, as the ranked runner's `--min-think-ms`.
+    #[arg(long, default_value_t = 1500, requires = "pilot")]
+    min_think_ms: u64,
+}
+
+/// How the net plays: what [`load_brain`] sets on a loaded model.
+#[derive(Clone, Debug, PartialEq)]
+struct Policy {
+    raw_policy: bool,
+    temperature: f32,
+    thinking_steps: u8,
+    think_adaptive: Option<String>,
+    grouped_decode: bool,
+    tactics_rules: String,
+    search_student: Option<PathBuf>,
+    search_student_candidates: usize,
+    catalog: CatalogPolicy4,
+}
+
+impl Policy {
+    /// What Baylee AI is measured at (`baylee_train_ops::measured`), as a
+    /// seat started with no policy flags plays: greedy, the tactical layer
+    /// with the bundle, depth K, the exact catalog, nothing else.
+    fn measured() -> Self {
+        Self {
+            raw_policy: false,
+            temperature: 0.0,
+            thinking_steps: baylee_train_ops::measured::THINKING_STEPS,
+            think_adaptive: None,
+            grouped_decode: false,
+            tactics_rules: baylee_train_ops::measured::RULE_GROUPS.to_owned(),
+            search_student: None,
+            search_student_candidates: baylee_train::netplay4::student::DEFAULT_CANDIDATES,
+            catalog: CatalogPolicy4::Exact,
+        }
+    }
+}
+
+impl Args {
+    fn policy(&self) -> Policy {
+        Policy {
+            raw_policy: self.raw_policy,
+            temperature: self.temperature,
+            thinking_steps: self.thinking_steps,
+            think_adaptive: self.think_adaptive.clone(),
+            grouped_decode: self.grouped_decode,
+            tactics_rules: self.tactics_rules.clone(),
+            search_student: self.search_student.clone(),
+            search_student_candidates: self.search_student_candidates,
+            catalog: if self.catalog_drift {
+                CatalogPolicy4::Drift
+            } else {
+                CatalogPolicy4::Exact
+            },
+        }
+    }
+}
+
+fn main() -> anyhow::Result<()> {
+    if std::env::args_os().nth(1).is_some_and(|first| first == "ranked") {
+        return ranked::main();
+    }
+    room()
 }
 
 #[tokio::main(flavor = "current_thread")]
-async fn main() -> anyhow::Result<()> {
+async fn room() -> anyhow::Result<()> {
     let args = Args::parse();
     validate_sampling(&args)?;
     ensure!(
@@ -161,7 +233,7 @@ async fn main() -> anyhow::Result<()> {
     {
         selected = initial;
     }
-    let mut first_brain = Some((load_brain(&args, &selected.model)?, selected));
+    let mut first_brain = Some((load_brain(&args.policy(), &selected.model)?, selected));
     let (session, name) = if args.session_stdin {
         use baylee_train_ops::session_input;
         session_input::require_loopback(&args.gateway)?;
@@ -256,15 +328,25 @@ async fn run(
             if journal.is_some() {
                 live.keep_journal();
             }
+            if args.pilot {
+                live.require_opening();
+            }
             core = Some(live);
             let mut link = SeatLink::new(lobby.clone(), chair.clone(), Some(session.clone()));
-            play::play(
-                &mut link,
-                core.as_mut().context("missing pinned brain")?,
-                &mut audit,
-                &mut journal,
-            )
-            .await?;
+            let core = core.as_mut().context("missing pinned brain")?;
+            if args.pilot {
+                let pace = ranked::flight::Pace {
+                    min_think: Duration::from_millis(args.min_think_ms),
+                    ..ranked::flight::Pace::default()
+                };
+                if let ranked::flight::Flown::HandOver(why) =
+                    ranked::flight::fly(&mut link, core, pace).await?
+                {
+                    bail!("the pilot handed the seat over: {why}");
+                }
+            } else {
+                play::play(&mut link, core, &mut audit, &mut journal).await?;
+            }
             Ok(true)
         };
         let result = tokio::select! {
@@ -410,7 +492,7 @@ fn select_brain(
 ) -> anyhow::Result<NetPlayer4> {
     if let Some(path) = &args.model_selection {
         match model_selection::proposal(path, selected, args.thinking_steps) {
-            Ok(candidate) => match load_brain(args, &candidate.model) {
+            Ok(candidate) => match load_brain(&args.policy(), &candidate.model) {
                 Ok(brain) => {
                     *selected = candidate;
                     *first_brain = Some(brain);
@@ -426,7 +508,7 @@ fn select_brain(
     }
     match first_brain.take() {
         Some(brain) => Ok(brain),
-        None => load_brain(args, &selected.model),
+        None => load_brain(&args.policy(), &selected.model),
     }
 }
 
@@ -462,6 +544,14 @@ fn write_report(
         serde_json::json!(args.policy_seed),
     );
     fields.insert("neural_seat".into(), serde_json::json!(chair.seat));
+    fields.insert(
+        "turns".into(),
+        serde_json::json!(core.map_or(0, LiveSeat4::turn)),
+    );
+    fields.insert(
+        "end_reason".into(),
+        serde_json::json!(core.and_then(LiveSeat4::game_result).map(|r| &r.reason)),
+    );
     fields.insert("model".into(), serde_json::json!(selected.model));
     fields.insert("model_label".into(), serde_json::json!(selected.label));
     fields.insert(
@@ -490,7 +580,7 @@ fn policy_mode_name(args: &Args) -> &'static str {
     if args.raw_policy { "raw" } else { "tactical" }
 }
 
-fn load_brain(args: &Args, model: &std::path::Path) -> anyhow::Result<NetPlayer4> {
+fn load_brain(policy: &Policy, model: &std::path::Path) -> anyhow::Result<NetPlayer4> {
     // `live4::brain` says the rest; Encoder 10 reads the views Encoder 7 reads.
     anyhow::ensure!(
         !matches!(
@@ -499,30 +589,26 @@ fn load_brain(args: &Args, model: &std::path::Path) -> anyhow::Result<NetPlayer4
         ),
         "Encoders 8 and 9 require versioned context on the wire; use offline eval4"
     );
-    let catalog = if args.catalog_drift {
-        CatalogPolicy4::Drift
-    } else {
-        CatalogPolicy4::Exact
-    };
-    let mut brain = NetPlayer4::load_with(model, catalog)?
-        .with_policy_mode(if args.raw_policy {
+    let mut brain = NetPlayer4::load_with(model, policy.catalog)?
+        .with_policy_mode(if policy.raw_policy {
             PolicyMode4::Raw
         } else {
             PolicyMode4::Tactical
         })
-        .with_temperature(args.temperature)
-        .with_thinking_steps(args.thinking_steps);
-    if let Some(text) = &args.think_adaptive {
-        let adaptive = baylee_train::netplay4::AdaptiveThinking4::parse(text, args.thinking_steps)?;
+        .with_temperature(policy.temperature)
+        .with_thinking_steps(policy.thinking_steps);
+    if let Some(text) = &policy.think_adaptive {
+        let adaptive =
+            baylee_train::netplay4::AdaptiveThinking4::parse(text, policy.thinking_steps)?;
         brain.set_adaptive_thinking(adaptive.deep, adaptive.threshold)?;
     }
-    brain.set_grouped_decode(args.grouped_decode);
-    brain.set_tactic_rules(TacticRules4::parse(&args.tactics_rules)?);
-    if let Some(dir) = &args.search_student {
+    brain.set_grouped_decode(policy.grouped_decode);
+    brain.set_tactic_rules(TacticRules4::parse(&policy.tactics_rules)?);
+    if let Some(dir) = &policy.search_student {
         let head = baylee_train::netplay4::student::AdvantageHead4::load(dir)?;
         brain.set_search_student(baylee_train::netplay4::student::SearchStudent4::new(
             std::sync::Arc::new(head),
-            args.search_student_candidates,
+            policy.search_student_candidates,
         )?)?;
     }
     Ok(brain)

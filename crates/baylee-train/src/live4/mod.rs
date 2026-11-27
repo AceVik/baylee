@@ -11,7 +11,8 @@ use crate::features4::{SourceKind4, board_observation_hash, board_observation_sh
 use crate::netplay4::NetPlayer4;
 use anyhow::{Context as _, bail, ensure};
 use baylee_core::ids::PlayerId;
-use baylee_engine::choice::Pending;
+use baylee_engine::choice::{Pending, PlayerAction};
+use baylee_engine::win::GameResult;
 use baylee_protocol::v1::{self, Envelope};
 use baylee_seat::{DeckList, TableMemory, memory::Heard};
 use baylee_view::PlayerView;
@@ -94,6 +95,11 @@ pub struct LiveSeat4<B = NetPlayer4> {
     ready: bool,
     curtain: bool,
     done: bool,
+    /// [`Self::require_opening`].
+    opening: bool,
+    /// [`Self::paced`].
+    paced: bool,
+    result: Option<GameResult>,
     report: LiveReport4,
 }
 
@@ -117,6 +123,9 @@ impl<B: Brain4> LiveSeat4<B> {
             ready: false,
             curtain: false,
             done: false,
+            opening: false,
+            paced: false,
+            result: None,
             report: LiveReport4 {
                 kind: "local_neural_v4",
                 ..LiveReport4::default()
@@ -171,6 +180,42 @@ impl<B: Brain4> LiveSeat4<B> {
     /// The row of the answer last generated, once.
     pub fn take_journal_row(&mut self) -> Option<serde_json::Value> {
         self.journal.as_mut()?.pop()
+    }
+
+    /// Refuses a game this seat did not see from its opening: its first
+    /// answer must be to the game's first question, whether it keeps its
+    /// opening hand before any mulligan (`Pending::Mulligan` with none
+    /// taken). A socket that first opens mid-game (a ranked runner that
+    /// restarted and resumes a match) shows the latest view, and recurrent
+    /// memory started there would be play on a history the net never saw.
+    pub const fn require_opening(&mut self) {
+        self.opening = true;
+    }
+
+    /// Whether the answer last generated is one a person across the table
+    /// should see the seat take its time over: not a pass, not a step of
+    /// paying mana, not an answer forced by the question.
+    #[must_use]
+    pub const fn paced(&self) -> bool {
+        self.paced
+    }
+
+    /// The brain, for what it counts of the game.
+    #[must_use]
+    pub const fn brain(&self) -> &B {
+        &self.brain
+    }
+
+    /// How the game ended, once the table said so.
+    #[must_use]
+    pub const fn game_result(&self) -> Option<&GameResult> {
+        self.result.as_ref()
+    }
+
+    /// The turn of the latest view this seat was shown; zero before one.
+    #[must_use]
+    pub fn turn(&self) -> u32 {
+        self.memory.view().map_or(0, |view| view.turn)
     }
 
     /// A live socket gap cannot silently reuse incomplete recurrent memory.
@@ -240,6 +285,7 @@ impl<B: Brain4> LiveSeat4<B> {
                             .is_some_and(|winner| winner.includes(self.seat, None)),
                     );
                     self.report.drawn = Some(result.winner.is_none());
+                    self.result = Some(result.clone());
                     self.done = true;
                     return Ok(outgoing);
                 }
@@ -325,6 +371,12 @@ impl<B: Brain4> LiveSeat4<B> {
             if question.pending.asked() != Some(self.seat) && view.awaiting != Some(self.seat) {
                 return Ok(outgoing);
             }
+            ensure!(
+                !self.opening
+                    || self.report.answers > 0
+                    || matches!(*question.pending, Pending::Mulligan { taken: 0, .. }),
+                "the seat's first question was not the game's opening; recurrent memory cannot start mid-game"
+            );
             let view = policy_view(view, self.brain.retains_live_context());
             let answer = self
                 .brain
@@ -374,6 +426,14 @@ impl<B: Brain4> LiveSeat4<B> {
                     .entry(group.to_owned())
                     .or_default() += fired;
             }
+            self.paced = answer.provenance.source != SourceKind4::Forced
+                && !matches!(
+                    answer.action,
+                    PlayerAction::PassPriority
+                        | PlayerAction::ChooseManaAbility { .. }
+                        | PlayerAction::ActivateManaAbility { .. }
+                        | PlayerAction::PayWindow { .. }
+                );
             if let Some(draw) = answer.draw {
                 self.report.draw_offer_answers += 1;
                 self.report.last_draw_decision = Some(draw);

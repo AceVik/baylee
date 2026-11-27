@@ -564,7 +564,8 @@ remains intact. Encoder 7 retains this permitted context, matching its offline
 contract. Encoders 8 and 9 remain rejected before initialization or observation:
 the socket does not declare or supply their persistent announcement contract.
 The current wire has no neural `SeatMind` kind, so the visible `NET-` name and
-local report identify it without claiming to be an LLM.
+local report identify it without claiming to be an LLM. `seat4 ranked` plays
+Baylee AI's account in Ranked on the same adapter (§"Baylee AI in Ranked").
 
 `seat4 --raw-policy --temperature 0.7 --policy-seed 77 --decision-audits DIR`
 opts into stochastic version-2 neural sampling. Temperature must be zero or
@@ -3626,6 +3627,49 @@ r1 with the bundle in the team formats:
 
 Team win rates that count every row as a game count each 3v3 game three times and each 4v4 game four times. Their intervals are that much
 too narrow.
+
+## Baylee AI in Ranked (`seat4 ranked`)
+
+`seat4 ranked` is the ranked runner (`baylee_seat::ranked::cli`, `docs/llm-seat.md` §"The ranked runner"; the same flags as
+`baylee-seat ranked` but `--level`) with the trained net as its pilot (`seat4/ranked.rs`): the runner signs in with its runner token, offers the
+account's decks, takes each match's admission and keeps its sessions; the pilot only plays a match's seat. Built as `seat4` is
+(`cargo build --release -p baylee-train --features live-seat --bin seat4`, CPU only, `BAYLEE_EP=cuda` refused):
+
+```text
+seat4 ranked --model <export dir> --central live --account <id | Name#tag> --token-file $CREDENTIALS_DIRECTORY/runner-token \
+  --state /var/lib/baylee-ai/<account> --accept-host <host origin> --fallback-level expert --min-think-ms 1500
+```
+
+- **The key.** Central holds the account as kind `net` with the profile `net:<--net-label>`, by default `net:baylee`: a key for the
+  account, not for one export, so Baylee AI keeps one rating as the champion moves on. The export's own name (its directory's) and the
+  digest of its `net.pt` go into every match's record instead.
+- **What plays.** What Baylee AI is measured at, the policy a `seat4` started with no policy flags plays (`Policy::measured`, a test holds
+  the two equal): greedy, the tactical layer with the 18-group bundle, depth K from `baylee_train_ops::measured`. No raw policy, no
+  temperature, no search student. The export's card catalog is bound the closest way this build allows, exact, else the strict superset,
+  else drift (§"Card catalog compatibility"), and the start line says which: `r1-4eb` on the catalog of 27 November binds only by drift,
+  1,095 cards withdrawn and 14,141 appended since its export. The net is loaded once at start (about 12 s and 1.1 GB on bigace), so a
+  model that does not load never offers, and again for each match, one brain a match: `max_games` 1 or 2.
+- **Its memory.** The net's recurrent state is the game it saw from its opening, and a snapshot does not give back what it missed. So a
+  socket that drops or fails, a frame or an observation it cannot take, a refused answer, and a first socket that opens mid-game (a
+  runner that restarted and resumes a match: the seat's first question must be whether it keeps its opening hand,
+  `LiveSeat4::require_opening`) hand the seat over (`Piloted::HandOver`, with the reason). The runner's house at `--fallback-level` then
+  plays the rest on the same link and declares itself to the table; the net never dials again. A model that fails to load for a match
+  hands that match over too and makes no further offer.
+- **Pace.** A real decision is not answered sooner than `--min-think-ms` after the frame that completed its question, so a person can
+  follow; a pass, a step of paying mana and a forced answer go at once (`LiveSeat4::paced`).
+- **What it says.** Nothing to the table: the wire has no kind for a trained net (`v1::SeatMind`), and none is borrowed. People see
+  Baylee AI through Central's badge. Each match's transcript (the runner's, under `--state`) gets one line `{"net": …}` and standard
+  output one line `{"phase": "ranked-game", …}`: the export, its digest, the catalog binding, how the flight ended, turns, the answers
+  by source (neural, forced, the runtime's house), the rule references left out, and the cards of its own deck the export does not read
+  as trained.
+- **Never training data.** The ranked path keeps no journal, no decision audit and no report file, and writes only beneath `--state`;
+  no game with a person enters a corpus from here.
+- **Its decks.** `card_structure4 --check-model <export dir> --unread-cards <file>` writes the name of every card this build has that the
+  export does not read as trained (those drift withdraws and those appended since), one a line, sorted. A deck built without them
+  (`baylee-seat deck lend --exclude <file>`) reads all its own cards as in training; the pilot names any it meets at the start of a
+  match.
+- **A room to try it in.** `seat4 --pilot` plays an ordinary gateway room through the same flight, pacing and opening check
+  (`--min-think-ms`); a hand-over ends that game with an error, since a room has no runner whose house would take the seat.
 
 ## Where it stands (2026-09-30)
 

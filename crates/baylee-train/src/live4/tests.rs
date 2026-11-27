@@ -856,3 +856,77 @@ fn a_decision_for_a_controlled_player_is_answered() {
     );
     assert_eq!(calls.borrow().answers, 1);
 }
+
+fn ask(seq: u64, pending: &Pending) -> Vec<u8> {
+    frame(v1::envelope::Msg::ChoiceRequest(v1::ChoiceRequest {
+        game_id: "test-game".into(),
+        seq,
+        pending: baylee_core::wire::encode(pending),
+        context: Vec::new(),
+    }))
+}
+
+/// A seat held to the game's opening answers nothing until its first
+/// question is whether it keeps its opening hand.
+#[test]
+fn a_seat_held_to_the_opening_refuses_a_first_question_mid_game() {
+    let (mut seat, calls) = adapter();
+    seat.require_opening();
+    seat.hear(&table()).unwrap();
+    seat.hear(&view(1, 20)).unwrap();
+    seat.hear(&curtain()).unwrap();
+    let error = seat.hear(&question(1)).unwrap_err();
+    assert!(error.to_string().contains("opening"), "{error}");
+    assert!(seat.finished());
+    assert_eq!(calls.borrow().answers, 0);
+    // Without the hold the same question is answered, as before.
+    let (mut free, _) = adapter();
+    free.hear(&table()).unwrap();
+    free.hear(&view(1, 20)).unwrap();
+    free.hear(&curtain()).unwrap();
+    assert_eq!(free.hear(&question(1)).unwrap().len(), 1);
+}
+
+/// The opening is answered, a real decision is paced and a forced one is
+/// not, and the end of the game is kept with its turn.
+#[test]
+fn a_seat_says_which_answers_are_paced_and_keeps_the_result() {
+    use baylee_engine::win::{EndReason, GameResult, Victor};
+    let (mut seat, calls) = adapter();
+    seat.require_opening();
+    seat.hear(&table()).unwrap();
+    seat.hear(&view(1, 20)).unwrap();
+    seat.hear(&curtain()).unwrap();
+    let opening = Pending::Mulligan {
+        player: ME,
+        taken: 0,
+        next_is_free: false,
+        can_take: true,
+    };
+    assert_eq!(seat.hear(&ask(1, &opening)).unwrap().len(), 1);
+    assert!(seat.paced(), "keeping a hand is a decision");
+    calls.borrow_mut().provenance = Some(StepProvenance4 {
+        source: SourceKind4::Forced,
+        ..StepProvenance4::default()
+    });
+    seat.hear(&view(2, 19)).unwrap();
+    assert_eq!(seat.hear(&question(2)).unwrap().len(), 1);
+    assert!(!seat.paced(), "a forced answer goes at once");
+    assert!(seat.game_result().is_none());
+    let over = Pending::GameOver(GameResult {
+        winner: Some(Victor::Player(ME)),
+        reason: EndReason::LastPlayerStanding,
+    });
+    seat.hear(&view(3, 19)).unwrap();
+    assert!(seat.hear(&ask(3, &over)).unwrap().is_empty());
+    assert!(seat.finished());
+    assert_eq!(
+        seat.game_result().map(|result| result.winner),
+        Some(Some(Victor::Player(ME)))
+    );
+    assert_eq!(
+        seat.turn(),
+        ViewBuilder::new(2).build().turn,
+        "the turn of the latest view"
+    );
+}
