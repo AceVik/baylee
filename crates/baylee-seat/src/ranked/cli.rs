@@ -6,8 +6,8 @@
 //! decks, offers and work, every match, and the house fallback).
 
 use super::{
-    HousePilot, LinkOptions, MatchOptions, MatchReport, Pilot, Player, RunnerToken, Settings,
-    Shelf, Stop,
+    DirectReports, HousePilot, LinkOptions, MatchOptions, MatchReport, Pilot, Player, RunnerToken,
+    Settings, Shelf, Stop,
 };
 use crate::bridge::PlayOptions;
 use crate::stop::Stoppers;
@@ -90,6 +90,12 @@ pub struct RankedArgs {
     /// played all the same.
     #[arg(long)]
     pub no_carousel: bool,
+    /// The official gateway the account's reports go to, as a client signed
+    /// in nowhere sends one (`POST <origin>/client/reports`), through an
+    /// outbox beneath --state that keeps each until Central filed it
+    /// [default: none: they stay in the reports file].
+    #[arg(long, value_name = "ORIGIN", requires = "state")]
+    pub reports_to: Option<String>,
 }
 
 impl RankedArgs {
@@ -173,6 +179,11 @@ pub async fn play(
         std::fs::create_dir_all(dir).with_context(|| format!("creating {}", dir.display()))?;
     }
     let fallback: Arc<dyn Pilot> = Arc::new(HousePilot::new(&args.fallback_level)?);
+    let reports = match (&args.reports_to, &args.state) {
+        (Some(origin), Some(state)) => Some(Arc::new(DirectReports::open(origin, state)?)),
+        (Some(_), None) => bail!("--reports-to keeps its outbox beneath --state"),
+        (None, _) => None,
+    };
     let token = match (&args.token_file, &args.token_key) {
         (Some(path), _) => RunnerToken::from_file(path.clone()),
         // The store is opened only where the token is kept there.
@@ -191,6 +202,15 @@ pub async fn play(
         Uuid::from_bytes(account),
         pilot.profile()
     );
+    if let Some(reports) = &reports {
+        say!(
+            "reports go to {}{}, {} waiting in {}",
+            reports.origin(),
+            baylee_client_core::bugreport::DIRECT_PATH,
+            reports.pending().len(),
+            reports.outbox().display()
+        );
+    }
     let alive = player.keep_alive(Duration::from_mins(5));
     let mut shelf = Shelf::directory(decks, FORMATS.to_vec());
     let settings = Settings {
@@ -213,6 +233,7 @@ pub async fn play(
                 ..LinkOptions::default()
             },
             transcripts,
+            reports,
             ..MatchOptions::default()
         },
         ..Settings::default()

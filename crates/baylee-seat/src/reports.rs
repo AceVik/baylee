@@ -47,7 +47,7 @@ mod body;
 mod checks;
 mod read;
 
-pub use body::{RECORD_TAIL_CHARS, RECORD_TAIL_LINES, bundle, count, submissions};
+pub use body::{RECORD_TAIL_CHARS, RECORD_TAIL_LINES, bundle, count, direct, submissions};
 pub use checks::{
     ANSWER_CHARS, Checked, ID_CHARS, MOST_OPTIONS, Moment, OPTION_CHARS, QUOTE_WORDS, Source,
     cites, dedupe_key, rule_number,

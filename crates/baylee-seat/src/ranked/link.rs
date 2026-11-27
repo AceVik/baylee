@@ -35,7 +35,7 @@
 //! [`Account::play_ai_seat`]: baylee_account::Account::play_ai_seat
 //! [`Account::renew_ai_seat`]: baylee_account::Account::renew_ai_seat
 
-use super::{Aborting, Frozen, Player, Session};
+use super::{Aborting, DirectFiling, Frozen, Player, Session};
 use crate::link::{Reporter, Socket, Table};
 use anyhow::{anyhow, bail};
 use baylee_account::ranked::Assignment;
@@ -123,6 +123,9 @@ pub struct RankedLink {
     /// Asks the host refused on a live session before the first seat:
     /// the host would not seat the deck.
     refusals: u32,
+    /// Where the game's reports go straight, where the runner sends them
+    /// (`--reports-to`); `None` keeps them in the reports file.
+    direct: Option<DirectFiling>,
 }
 
 /// What one ask for a seat came to.
@@ -169,7 +172,17 @@ impl RankedLink {
             renewal: None,
             renewals: Arc::default(),
             refusals: 0,
+            direct: None,
         }
+    }
+
+    /// Files the game's reports straight to the official gateway through
+    /// the runner's outbox ([`DirectFiling`]), instead of keeping them in
+    /// the reports file only.
+    #[must_use]
+    pub fn filing_direct(mut self, filing: DirectFiling) -> Self {
+        self.direct = Some(filing);
+        self
     }
 
     /// The match as Central last confirmed it (with its game once seated).
@@ -433,7 +446,7 @@ impl Table for RankedLink {
     }
 
     fn reporter(&self) -> Option<Reporter<'_>> {
-        None
+        self.direct.as_ref().map(Reporter::Direct)
     }
 
     fn seat_secret(&self) -> &str {

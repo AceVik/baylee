@@ -22,6 +22,10 @@
 //! mind: the house at a fair level ([`HousePilot`]) and the language models
 //! here, the trained net beside them. A pilot that cannot go on after a
 //! resume hands the seat to the declared house fallback.
+//!
+//! A game's reports go straight to the official gateway where the runner
+//! is given one ([`DirectReports`], `--reports-to`): queued in an outbox
+//! of the runner's and sent from there, never in the game's way.
 
 pub mod chain;
 pub mod cli;
@@ -30,6 +34,7 @@ mod game;
 mod link;
 mod pilot;
 mod player;
+pub mod reports;
 #[cfg(test)]
 mod tests;
 mod token;
@@ -39,7 +44,12 @@ pub use game::{Match, MatchOptions, MatchReport, Receipt, play_match};
 pub use link::{DeckRefused, LinkOptions, RankedLink, socket_url};
 pub use pilot::{Flight, HousePilot, Pilot, Piloted, Seat, fly_bridge};
 pub use player::{Player, ROLL_OVER, Session, resolve};
+pub use reports::{DirectFiling, DirectReports};
 pub use token::RunnerToken;
+
+/// How long the runner, ending, goes on sending the reports that wait
+/// before it leaves them for its next start.
+pub const FLUSH_REPORTS: Duration = Duration::from_secs(30);
 
 use crate::deckbuild::facts;
 use anyhow::anyhow;
@@ -171,6 +181,10 @@ pub async fn run(
         .clone()
         .zip(shelf.dir().map(facts::path_in))
         .map(|(origin, path)| fetch_facts(origin, path, settings.refetch_facts));
+    let reports = settings.play.reports.clone();
+    let sender = reports
+        .as_ref()
+        .map(|reports| reports.deliver(stop.clone()));
     let mut rounds = Rounds {
         player,
         shelf,
@@ -207,6 +221,21 @@ pub async fn run(
         }
     }
     offer(player, &[], &mut rounds.offered).await;
+    // One pass at a time ([`DirectReports::pass`]): the sender's own, if
+    // one is under way, ends before this one starts.
+    if let Some(reports) = reports
+        && *stop.borrow() != Stop::Leave
+        && !reports.pending().is_empty()
+        && let reports::Pass::Later(why) = reports.flush(FLUSH_REPORTS).await
+    {
+        tracing::warn!(
+            why = %why,
+            waiting = reports.pending().len(),
+            outbox = %reports.outbox().display(),
+            "reports wait in the outbox for the runner's next start"
+        );
+    }
+    drop(sender);
     Ok(rounds.done)
 }
 

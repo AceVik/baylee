@@ -325,6 +325,31 @@ impl Lobby {
             .string("report_id")
     }
 
+    /// Sends a report straight to the official gateway, as a client signed
+    /// in nowhere does (`POST /client/reports`, `docs/feedback.md`
+    /// §"Straight from a client"): no session, `body` sealed already. The
+    /// status and, where it says them, the report's id or why not.
+    ///
+    /// # Errors
+    /// When the gateway cannot be reached or answers with a redirect.
+    pub async fn direct_report(&self, body: String) -> anyhow::Result<DirectAnswer> {
+        let (status, answer) = self
+            .raw(
+                "POST",
+                baylee_client_core::bugreport::DIRECT_PATH,
+                None,
+                Some(body.into_bytes()),
+            )
+            .await?;
+        let answer: serde_json::Value = serde_json::from_slice(&answer).unwrap_or_default();
+        let said = |field: &str| answer.get(field).and_then(serde_json::Value::as_str);
+        Ok(DirectAnswer {
+            status,
+            report_id: said("report_id").map(str::to_string),
+            error: said("error").map(|why| why.chars().take(300).collect()),
+        })
+    }
+
     /// The room `game_id`, as the listing shows it to this session.
     ///
     /// # Errors
@@ -746,6 +771,18 @@ impl Lobby {
         .map_err(|e| anyhow!("{shown}: {e}"))?
         .with_context(|| shown.clone())
     }
+}
+
+/// The official gateway's answer to a direct report
+/// ([`Lobby::direct_report`]).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DirectAnswer {
+    /// The HTTP status.
+    pub status: u16,
+    /// Central's id for the report, once it filed it (`201`).
+    pub report_id: Option<String>,
+    /// The gateway's sentence for why not, cut to 300 characters.
+    pub error: Option<String>,
 }
 
 /// A gateway's answer, read as JSON.

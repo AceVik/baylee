@@ -29,6 +29,9 @@ baylee-view.workspace = true
 # orders (`automation::auto_answer`) and its payment matcher (`manaplan`), so
 # the bridge and a person's client wait, redial and pass by one rule.
 baylee-client-core.workspace = true
+# This build's version and commit, which a ranked seat's direct report names
+# as a client's does (`ranked::reports`).
+baylee-build.workspace = true
 # The house AI, for `HouseMind` and for its mana reader (what a seat could
 # reach by tapping lands).
 baylee-ai.workspace = true

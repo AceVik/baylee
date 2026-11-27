@@ -3,7 +3,9 @@
 //! [`Pilot`] (and by the house fallback, where the pilot hands it over),
 //! then the account's standing read back.
 
-use super::{Frozen, LinkOptions, Pilot, Piloted, Player, RankedLink, Seat};
+use super::{
+    DirectFiling, DirectReports, Frozen, LinkOptions, Pilot, Piloted, Player, RankedLink, Seat,
+};
 use crate::bridge::{PlayOptions, Played};
 use crate::transcript::Transcript;
 use anyhow::{Context as _, bail};
@@ -36,6 +38,9 @@ pub struct MatchOptions {
     /// Where each match's transcript goes
     /// (`ranked-<match>-<account name>.jsonl`).
     pub transcripts: Option<PathBuf>,
+    /// Where each game's reports go straight (`--reports-to`); `None`
+    /// keeps them in the reports file.
+    pub reports: Option<Arc<DirectReports>>,
 }
 
 impl Default for MatchOptions {
@@ -45,6 +50,7 @@ impl Default for MatchOptions {
             link: LinkOptions::default(),
             settle: Duration::from_secs(120),
             transcripts: None,
+            reports: None,
         }
     }
 }
@@ -104,6 +110,35 @@ pub struct MatchReport {
     pub opponent: Option<String>,
 }
 
+/// How one match files its reports straight ([`DirectFiling`]): what the
+/// report says of the AI beside the seat's own fields, the account by its
+/// id and public name, the kind and profile it plays as, its match and
+/// the match's format, and the host that seated it. A fallback that takes
+/// over after a hand-over names its own mind in the report's `model` and
+/// `profile`; `ai` stays the account's.
+fn filed_straight(
+    reports: &Arc<DirectReports>,
+    player: &Player,
+    assignment: &Assignment,
+    pilot: &dyn Pilot,
+) -> DirectFiling {
+    let about = serde_json::json!({
+        "ai": {
+            "account": Uuid::from_bytes(player.account()).to_string(),
+            "name": player.name(),
+            "kind": pilot.kind(),
+            "profile": pilot.profile(),
+        },
+        "match_id": Uuid::from_bytes(assignment.match_id).to_string(),
+        "format": assignment.format,
+        "host": assignment.origin,
+    });
+    let serde_json::Value::Object(about) = about else {
+        unreachable!("an object literal")
+    };
+    DirectFiling::new(Arc::clone(reports), player.clone(), about)
+}
+
 /// Plays `game` for `player` with `pilot` to its end, `fallback` taking the
 /// seat where the pilot hands it over, then reads Central's result.
 ///
@@ -126,12 +161,19 @@ pub async fn play_match(
         .as_ref()
         .map(|badge| badge.label.clone());
     let before = standing(player, format).await;
+    let filing = options
+        .reports
+        .as_ref()
+        .map(|reports| filed_straight(reports, player, &game.assignment, pilot));
     let mut link = RankedLink::new(
         player.clone(),
         game.assignment,
         Arc::clone(&game.deck),
         options.link.clone(),
     );
+    if let Some(filing) = filing {
+        link = link.filing_direct(filing);
+    }
     let mut transcript = match &options.transcripts {
         Some(dir) => {
             let path = dir.join(format!(

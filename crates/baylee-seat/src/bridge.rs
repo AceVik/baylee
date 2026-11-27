@@ -160,8 +160,11 @@ pub struct Filing {
     /// the seat's own session (`POST /reports`, one a report), `"chair"` on
     /// the seat token of a chair taken on its host's ticket
     /// (`POST …/chair/report`, which takes one a chair a game: all in one),
-    /// or `"none"` for a seat whose table takes no reports (a ranked seat:
-    /// they stay in the reports file).
+    /// `"direct"` for a ranked seat whose runner sends its reports straight
+    /// to the official gateway (`POST /client/reports`, all in one, queued
+    /// in the runner's outbox: `sent` stays false and `why` says where it
+    /// goes), or `"none"` for a ranked seat whose runner was given nowhere
+    /// to send them (they stay in the reports file).
     pub route: &'static str,
 }
 
@@ -637,7 +640,9 @@ impl Bridge {
         }
         let Some(reporter) = link.reporter() else {
             // A ranked seat has no session at its host, and its relay no
-            // route for reports: they stay in the reports file.
+            // route for reports: where its runner was given no gateway to
+            // send them to straight (`--reports-to`), they stay in the
+            // reports file.
             let filing = Filing {
                 count: crate::reports::count(&self.reports),
                 bug_reports: 0,
@@ -652,6 +657,11 @@ impl Bridge {
         };
         let log = crate::reports::game_log(memory);
         let (route, session, bodies) = match reporter {
+            Reporter::Direct(direct) => {
+                let filing = self.queue_direct(direct, link.seat_secret(), log.as_ref());
+                transcript.write_value(&serde_json::json!({ "llm_reports": filing }));
+                return Some(filing);
+            }
             Reporter::Session(_, session) => (
                 "reports",
                 Some(session.bearer()),
@@ -683,6 +693,7 @@ impl Bridge {
                 match reporter {
                     Reporter::Session(lobby, session) => lobby.report(session, body).await,
                     Reporter::Chair(lobby, chair) => lobby.chair_report(chair, body).await,
+                    Reporter::Direct(_) => Err(anyhow::anyhow!("a direct report is queued")),
                 }
             };
             send_each(bodies, &secrets, REPORTS_WAIT, send).await
@@ -711,6 +722,59 @@ impl Bridge {
         }
         transcript.write_value(&serde_json::json!({ "llm_reports": filing }));
         Some(filing)
+    }
+
+    /// Files the game's reports straight to the official gateway
+    /// ([`crate::link::Reporter::Direct`]): all of them in one direct
+    /// report ([`crate::reports::direct`]), sealed and written to the
+    /// runner's outbox, whose sender posts it; the game waits for nothing.
+    /// Where the bridge may not send reports, or the report would carry a
+    /// secret, or the outbox cannot be written, it is not queued and the
+    /// reports file keeps it, as on every route.
+    fn queue_direct(
+        &self,
+        direct: &crate::ranked::DirectFiling,
+        seat_secret: &str,
+        log: Option<&baylee_client_core::bugreport::SeatLog>,
+    ) -> Filing {
+        let count = crate::reports::count(&self.reports);
+        let body = crate::reports::direct(
+            &self.reports,
+            log,
+            direct.about(),
+            direct.device(),
+            direct.build(),
+        );
+        let why = match body {
+            None => Some("not sent: no report left to send".to_string()),
+            Some(_) if !self.options.send_reports => {
+                Some("not sent: the bridge was told not to".to_string())
+            }
+            Some(body) => match direct.queue(&body, seat_secret) {
+                Ok(_) => Some(format!(
+                    "queued: the runner sends it to {}{}",
+                    direct.origin(),
+                    baylee_client_core::bugreport::DIRECT_PATH
+                )),
+                Err(e) => Some(format!("not sent: {e}")),
+            },
+        };
+        if let Some(why) = why.as_deref().filter(|why| why.starts_with("not sent")) {
+            tracing::warn!(
+                reports = count,
+                route = "direct",
+                "the game's reports were {why}"
+            );
+        }
+        Filing {
+            count,
+            bug_reports: 1,
+            sent: false,
+            report_id: None,
+            report_ids: Vec::new(),
+            why,
+            route: "direct",
+        }
     }
 
     /// Takes every mind handed over since the last question, the latest

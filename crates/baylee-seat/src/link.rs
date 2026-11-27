@@ -81,6 +81,10 @@ pub enum Reporter<'a> {
     /// (`POST /lobby/games/{id}/chair/report`): the gateway files it under
     /// the host's pseudonym.
     Chair(&'a Lobby, &'a Chair),
+    /// Straight to the official gateway, as a client signed in nowhere
+    /// (`POST /client/reports`), through the runner's outbox: a ranked AI
+    /// seat, which has no session at its host (`--reports-to`).
+    Direct(&'a crate::ranked::DirectFiling),
 }
 
 /// How long a chair taken on its host's ticket goes on being refused (`401`)

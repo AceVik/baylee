@@ -242,6 +242,35 @@ impl Player {
             .unwrap_or_else(PoisonError::into_inner)
     }
 
+    /// What no report may carry, each with its label: the runner token, in
+    /// both its forms, and the bearer of each session whose account is not
+    /// busy with a call this moment (one that is holds the same kind of
+    /// secret, which the others stand for). Read now; nothing is kept.
+    pub(crate) fn secrets(&self) -> Vec<(&'static str, zeroize::Zeroizing<String>)> {
+        let mut secrets = Vec::new();
+        if let Ok(token) = self.0.token.read() {
+            secrets.push((super::reports::RUNNER_TOKEN, token.hex()));
+            secrets.push((super::reports::RUNNER_TOKEN, token.bearer()));
+        }
+        let sessions: Vec<Session> = self.sessions().clone();
+        for session in sessions {
+            let Ok(account) = session.0.account.try_lock() else {
+                continue;
+            };
+            if let Some(header) = account.bearer_header() {
+                let bare = header
+                    .strip_prefix("Bearer ")
+                    .unwrap_or(&header)
+                    .to_string();
+                secrets.push((
+                    baylee_client_core::bugreport::Keyring::SESSION,
+                    zeroize::Zeroizing::new(bare),
+                ));
+            }
+        }
+        secrets
+    }
+
     /// Runs `call` on the newest session.
     ///
     /// # Errors

@@ -911,8 +911,8 @@ Then:
   (`count`: the reports filed; `bug_reports`: the bug reports they made;
   `sent`: whether the gateway took every one; `report_id`: the first id;
   `report_ids`: every id taken, in order; `why`: the first reason one was
-  not sent; and `route`: `"reports"` or `"chair"`, below). It is said
-  there and in the log, never in the game.
+  not sent; and `route`: `"reports"`, `"chair"`, `"direct"` or `"none"`,
+  below). It is said there and in the log, never in the game.
 
 Which chairs send how, and with which record (`link::Reporter`):
 
@@ -940,6 +940,12 @@ Which chairs send how, and with which record (`link::Reporter`):
   pass the bound of `client`, the last are left out and
   `client.reports_omitted` counts them. A gateway from before the route
   answers `404`, which `why` says.
+- a ranked seat (`baylee-seat ranked`) has no session at its host and
+  Central's relay no route for reports: with `--reports-to` its runner
+  sends the game's reports in one, as a client signed in nowhere sends a
+  report, to the official gateway's `POST /client/reports` (route
+  `"direct"`, queued in the runner's outbox; §"The ranked runner"),
+  else they stay in the reports file (route `"none"`).
 
 `join --no-send-reports` sends none either way and still writes the file.
 The LLM collector (`llm_collector4 collect`) sends every game's reports
@@ -1425,6 +1431,7 @@ baylee-seat ranked --account <id | Name#tag>
     [--fallback-level expert]
     [--accept-host <origin>]… [--facts-from <origin>] [--facts-file <file>]
     [--games <n>] [--min-think-ms 1500] [--no-carousel]
+    [--reports-to <origin>]
 ```
 
 Everything but the pilot's own flags is `ranked::cli::RankedArgs`, and
@@ -1624,8 +1631,57 @@ the other.
   replicated across two hosts is refused in one sentence; that link is
   still to be built.
 - **Reports.** A ranked seat has no session at its host and the relay no
-  route for reports, so a language model's reports stay in its reports
-  file (`route: "none"` in the transcript).
+  route for reports. Without `--reports-to` a language model's reports
+  stay in its reports file (`route: "none"` in the transcript), as they
+  always did. With `--reports-to <origin>` (the official gateway,
+  `https://gateway.baylee.app`; `https://`, or `http://` only to this
+  machine; no default, so the machine's unit names it; it needs `--state`)
+  they go to Baylee Central the way a client signed in nowhere sends a
+  report (`POST <origin>/client/reports`, `docs/feedback.md` §"Straight
+  from a client"; `ranked::reports`):
+  - **What goes.** One report a game, every report of it inside
+    (`reports::direct`): the chair route's bundle (above, §"Reports and
+    lookups": `client.reports`, the seat's log, `record_sha256`, each
+    report's `record_tail`, `dedupe_key` and checks), in the route's body
+    and no other field: `{kind: "bug", text, build: {version, commit},
+    device, client}`. There is no `game_id` beside it (the route takes
+    none; `client.game_id` names the host's game) and no record (the seat
+    has none). `client` adds `ai: {account, name, kind, profile}` (the AI
+    account's id and public name, and the kind and profile it plays as;
+    `model` and `profile` stay the mind that filed each report, a fallback
+    too), `match_id`, `format` and `host` (the host's origin), never in
+    place of the seat's own fields, and is held to the route's 1 MiB:
+    the oldest log lines go first, then the last reports
+    (`client.reports_omitted`). Hidden information stays as on every
+    route: only what the table told the seat, its log in the client's
+    shape with nobody's name.
+  - **Who it comes from.** The route takes no credential. Each AI account
+    has a device id of its own, 32 random hex digits made once and kept
+    as `<state>/report-device`; the gateway files the report with Central
+    marked `direct` under its keyed hash of that id
+    (`BAYLEE_DIRECT_REPORT_KEY`, the gateway's), never the id, so triage
+    sees one reporter per AI account, and the report names the gateway
+    and this build. Before it is queued the body is sealed
+    (`bugreport::seal`): one that holds the seat's socket ticket, the
+    runner token or one of the account's Central sessions is not queued,
+    and the transcript's `why` names which, never its value.
+  - **Never in the game's way.** At the game's end the bridge writes the
+    sealed report to the outbox, `<state>/reports-outbox/<uuid v7>.json`,
+    and the transcript's `llm_reports` says `route: "direct"`, `sent:
+    false` and `why: "queued: the runner sends it to <origin>/client/reports"`.
+    The runner's sender posts what waits there, oldest first, when a
+    report is queued and every 15 s, and removes a report only once the
+    gateway answers `201` (Central filed it). A limit (`429`: ten an hour
+    from one address, forty from all direct reporters; the runners of one
+    machine share its address), a gateway that does not take direct
+    reports now (`503`), any other answer or none keeps it, and the sender
+    tries again after a minute, then twice as long each time up to an
+    hour, jittered. A report the gateway refuses for what it is (`400`,
+    `413`) would be refused again: it moves to `<state>/reports-refused/`
+    with the answer beside it as `<name>.why`. None is deleted unsent:
+    a runner that stops tries once more for up to 30 s (not after a
+    second signal) and leaves the rest in the outbox for its next start.
+    The reports file keeps every report as before, whatever the route.
 
 `cargo dev central integration --ai-players-only` proves it end to end
 against the pinned Central (its crates run in the test, so the pin is the
