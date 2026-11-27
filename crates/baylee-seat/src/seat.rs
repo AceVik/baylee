@@ -130,10 +130,11 @@ pub enum Labelled {
     /// ([`Disclosure::names`]): a lobby table, whose chairs players name.
     #[default]
     Chair,
-    /// The account the seat plays as carries the label, checked before it
-    /// queues (`ranked::Player::sign_in`): a ranked host names its chairs
-    /// itself (`Seat A`, `Seat B`), and no name of the seat's choosing
-    /// reaches the table.
+    /// The account the seat plays as carries the label: an AI account,
+    /// which Central badges as one wherever it names it (baylee-central
+    /// `docs/ai-players.md` §6): a ranked host names its chairs itself
+    /// (`Seat A`, `Seat B`), and no name of the seat's choosing reaches the
+    /// table.
     Account,
 }
 

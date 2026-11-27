@@ -227,7 +227,7 @@ fn an_exchange_names_its_protocol_and_presents_its_bearer() {
         Err(Error::Rejected)
     ));
     let seen = server.seen();
-    assert_eq!(seen[0].header("Baylee-Central-Protocol"), Some("2"));
+    assert_eq!(seen[0].header("Baylee-Central-Protocol"), Some("3"));
     assert_eq!(seen[0].header("Content-Type"), Some("application/json"));
     assert_eq!(
         seen[0].header("Authorization"),
@@ -322,7 +322,7 @@ fn a_filed_report_answers_with_the_number_central_gave_it() {
         seen[0].header("Authorization"),
         Some(bearer.bearer().as_str())
     );
-    assert_eq!(seen[0].header("Baylee-Central-Protocol"), Some("2"));
+    assert_eq!(seen[0].header("Baylee-Central-Protocol"), Some("3"));
     let sent: serde_json::Value = serde_json::from_slice(&seen[0].body).unwrap();
     assert_eq!(sent, serde_json::to_value(intake()).unwrap());
 }

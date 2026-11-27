@@ -60,6 +60,7 @@ pub mod scripted;
 pub mod seat;
 pub mod show;
 pub mod spend;
+pub mod stop;
 #[cfg(test)]
 mod testnet;
 pub mod transcript;

@@ -3,15 +3,21 @@
 //! Unused decision fields are represented by null, which the reader treats
 //! as absent. See `OpenAI`'s structured-outputs guide and `docs/llm-seat.md`.
 
-use crate::llm::prompt;
 use serde_json::{Value, json};
+
+/// An answer schema (a seat's, [`crate::llm::prompt::answer_schema`], or another
+/// brief's), adapted to Codex's strict response format.
+pub(super) fn closed(schema: &Value) -> Value {
+    let mut schema = schema.clone();
+    close(&mut schema);
+    schema
+}
 
 /// The answer schema of a seat with `extras`, adapted to Codex's strict
 /// response format.
-pub(super) fn answer(extras: prompt::Extras) -> Value {
-    let mut schema = prompt::answer_schema(extras);
-    close(&mut schema);
-    schema
+#[cfg(test)]
+fn answer(extras: crate::llm::prompt::Extras) -> Value {
+    closed(&crate::llm::prompt::answer_schema(extras))
 }
 
 /// Closes each object in our schema, including objects inside arrays.
@@ -36,30 +42,43 @@ fn close(schema: &mut Value) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::llm::prompt;
     use crate::narrator::Decision;
+
+    /// Every object of `value` closed, each of its fields required.
+    fn check(value: &Value) {
+        match value {
+            Value::Object(map) => {
+                if value["type"] == "object" {
+                    assert_eq!(value["additionalProperties"], false);
+                    let properties = value["properties"].as_object().unwrap();
+                    let required = value["required"].as_array().unwrap();
+                    assert_eq!(required.len(), properties.len());
+                    for name in properties.keys() {
+                        assert!(required.contains(&json!(name)), "{name}");
+                    }
+                }
+                for child in map.values() {
+                    check(child);
+                }
+            }
+            Value::Array(values) => values.iter().for_each(check),
+            _ => {}
+        }
+    }
+
+    /// The deck builder's schema, which Codex is handed as a brief's, is
+    /// closed as strict mode asks, nested rows included.
+    #[test]
+    fn the_deck_builders_schema_is_closed_too() {
+        let schema = closed(&crate::deckbuild::brief::schema());
+        check(&schema);
+        let row = &schema["properties"]["propose"]["anyOf"][0]["properties"]["cards"]["items"];
+        assert_eq!(row["additionalProperties"], false, "{row}");
+    }
 
     #[test]
     fn every_object_is_closed_and_requires_all_its_fields() {
-        fn check(value: &Value) {
-            match value {
-                Value::Object(map) => {
-                    if value["type"] == "object" {
-                        assert_eq!(value["additionalProperties"], false);
-                        let properties = value["properties"].as_object().unwrap();
-                        let required = value["required"].as_array().unwrap();
-                        assert_eq!(required.len(), properties.len());
-                        for name in properties.keys() {
-                            assert!(required.contains(&json!(name)), "{name}");
-                        }
-                    }
-                    for child in map.values() {
-                        check(child);
-                    }
-                }
-                Value::Array(values) => values.iter().for_each(check),
-                _ => {}
-            }
-        }
         let schema = answer(prompt::Extras::default());
         check(&schema);
         assert_eq!(schema["properties"]["ask"]["type"], "string");

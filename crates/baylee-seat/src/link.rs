@@ -378,8 +378,12 @@ impl Table for SeatLink {
 }
 
 /// Opens a socket at `url` with Nagle's algorithm off: [`open`], for another
-/// way to a table ([`crate::ranked::RankedLink`]).
-pub(crate) async fn open_socket(url: &str) -> Result<Socket, String> {
+/// way to a table ([`crate::ranked::RankedLink`], a test's person at a ranked
+/// table).
+///
+/// # Errors
+/// Why it did not open.
+pub async fn open_socket(url: &str) -> Result<Socket, String> {
     open(url).await.map_err(|e| describe(&e))
 }
 

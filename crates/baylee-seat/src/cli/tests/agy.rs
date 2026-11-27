@@ -35,7 +35,7 @@ fn agy_dialect_args_and_events() {
         .args(
             &settings,
             Some("gemini-3.8-flash-high"),
-            "system",
+            &crate::cli::Brief::told(&settings, "system"),
             Path::new("/support"),
         )
         .into_iter()
@@ -58,7 +58,7 @@ fn agy_dialect_args_and_events() {
         .args(
             &low_settings,
             Some("gemini-3.8-flash-high"),
-            "system",
+            &crate::cli::Brief::told(&settings, "system"),
             Path::new("/support"),
         )
         .into_iter()
@@ -190,7 +190,12 @@ fn agy_gemini4_and_claude_tier_reconciliation() {
         let mut s = Settings::new(&Spec::parse(&format!("cli:agy:{raw}")).unwrap().unwrap());
         s.effort = Some(ask_effort.into());
         let got: Vec<String> = Agy
-            .args(&s, Some(raw), "system", Path::new("/support"))
+            .args(
+                &s,
+                Some(raw),
+                &crate::cli::Brief::told(&s, "system"),
+                Path::new("/support"),
+            )
             .into_iter()
             .map(|a| a.to_str().unwrap().to_string())
             .collect();

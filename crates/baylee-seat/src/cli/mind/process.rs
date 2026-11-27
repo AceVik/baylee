@@ -27,10 +27,10 @@ impl CliMind {
         )?;
         let dialect = &self.launch.dialect;
         let model = self.launch.model.as_deref();
-        dir.write(&dialect.files(&self.settings, &self.system))
-            .and_then(|()| dir.write_workspace(&dialect.workspace_files(&self.system)))
+        dir.write(&dialect.files(&self.settings, &self.brief))
+            .and_then(|()| dir.write_workspace(&dialect.workspace_files(&self.brief)))
             .map_err(|e| format!("{tool}'s files could not be written: {e}"))?;
-        let mut args = dialect.args(&self.settings, model, &self.system, &dir.support());
+        let mut args = dialect.args(&self.settings, model, &self.brief, &dir.support());
         let resumes = conversation.and_then(|going| going.id.as_deref());
         if let Some(id) = resumes {
             dialect.resume(&mut args, id);

@@ -63,6 +63,11 @@ GRANT SELECT, INSERT, DELETE ON central_identity.report_parts, central_identity.
 GRANT SELECT, INSERT ON central_identity.report_audit TO central_runtime;
 GRANT SELECT, INSERT, DELETE ON central_identity.report_views TO central_runtime;
 GRANT UPDATE (query) ON central_identity.report_views TO central_runtime;
+-- Report tokens (docs/reports.md, "Report tokens"): stored by digest, with
+-- the rights they keep; afterwards only their revocation and last use change,
+-- and none is deleted.
+GRANT SELECT, INSERT (name, digest, file, read, triage, purge, created_by, created_at, expires_at),
+  UPDATE (revoked_at, revoked_by, last_used_at) ON central_identity.report_tokens TO central_runtime;
 -- The legacy store (docs/operations.md §"The legacy store"): its own role,
 -- which reads its accounts, deletes a row when its move closes and counts the
 -- lockout, and nothing else; the runtime role gets nothing in the schema.
@@ -157,6 +162,23 @@ GRANT SELECT, INSERT ON central_identity.ranked_receipts TO central_runtime;
 GRANT SELECT, INSERT, UPDATE (published_on, finalized) ON central_identity.ranked_publications TO central_runtime;
 GRANT SELECT, INSERT, DELETE ON central_identity.ranked_champions TO central_runtime;
 GRANT SELECT, INSERT, UPDATE (place) ON central_identity.ranked_badge_peaks TO central_runtime;
+-- AI players (docs/ai-players.md): an administrator flags, changes, switches
+-- and clears; the kind, the profile and who flagged never change. A runner
+-- renews its offers; a person's consent and how a match was made are written once.
+GRANT SELECT, INSERT, DELETE, UPDATE (label, enabled, max_games, daily_games, changed_at, changed_by)
+  ON central_identity.ai_players TO central_runtime;
+GRANT SELECT, UPDATE (fill_in_after, drain_minutes, global_seats, host_reserve, carousel_games,
+  carousel_daily, changed_at, changed_by) ON central_identity.ai_settings TO central_runtime;
+GRANT SELECT, INSERT, DELETE, UPDATE (session_digest, commitment, renewed_at, expires_at)
+  ON central_identity.ai_offers TO central_runtime;
+GRANT SELECT, INSERT ON central_identity.ranked_ticket_ai, central_identity.ai_matches TO central_runtime;
+-- AI runner tokens (docs/ai-players.md section 2): stored by digest with the
+-- accounts they list; afterwards only their revocation and last use change,
+-- and none is deleted. Each exchange is kept 90 days and then pruned.
+GRANT SELECT, INSERT (name, digest, created_by, created_at, expires_at),
+  UPDATE (revoked_at, revoked_by, last_used_at) ON central_identity.ai_runner_tokens TO central_runtime;
+GRANT SELECT, INSERT ON central_identity.ai_runner_accounts TO central_runtime;
+GRANT SELECT, INSERT, DELETE ON central_identity.ai_runner_signins TO central_runtime;
 
 -- Only the operator stages a legacy source. The authenticated transfer advances or retires it.
 GRANT SELECT, DELETE, UPDATE (next_page) ON central_identity.legacy_deck_transfers TO central_runtime;

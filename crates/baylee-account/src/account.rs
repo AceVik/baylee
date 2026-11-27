@@ -103,6 +103,50 @@ impl Account {
         Self::restore(http, session)
     }
 
+    /// An AI runner's session of the AI account `account`: the runner token
+    /// `token` traded at Central for an ordinary native session of an
+    /// account it lists (baylee-central `docs/ai-players.md` §2). No
+    /// password opened it and it holds no master key, so it restores
+    /// nothing: its document, library, chat keys and vault refuse, and
+    /// [`Account::data`] is empty. Renewal, the terms, ranked admission and
+    /// the relay work as for any native session.
+    ///
+    /// # Errors
+    /// `Rejected` for every refusal of the token (unknown, revoked,
+    /// expired, not listing the account, no AI); `Busy` past Central's
+    /// budgets; transport failure. The session ends on a failure after it.
+    pub fn ai_runner(
+        endpoint: Endpoint,
+        token: &crate::Token,
+        account: [u8; 16],
+    ) -> Result<Self, Error> {
+        let http = CentralHttp::new(endpoint);
+        let session = central_client::ai_runner_session(&http, token, account)?;
+        let terms_open = match session.terms_status(&http) {
+            Ok(status) => !status.accepted,
+            Err(error) => {
+                let _ = session.logout(&http);
+                return Err(error);
+            }
+        };
+        let data = AccountData::unrestored();
+        Ok(Self {
+            http,
+            session,
+            submitted_preferences: data.preferences.clone(),
+            submitted_gateways: Vec::new(),
+            data,
+            held: false,
+            terms_open,
+        })
+    }
+
+    /// Whether this is an AI runner's session ([`Account::ai_runner`]).
+    #[must_use]
+    pub const fn is_ai_runner(&self) -> bool {
+        self.session.is_runner()
+    }
+
     /// The signed-in account from a fresh session, a password's or a
     /// pairing's: its document read and checked, the restore confirmed,
     /// Central's terms asked about, and a move from a gateway account

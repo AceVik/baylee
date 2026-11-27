@@ -85,6 +85,10 @@ pub struct Record {
     /// The cards put in.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub added: Vec<String>,
+    /// The exclusion file the deck kept to (`--exclude`,
+    /// [`super::exclude`]): its SHA-256 and how many cards it named.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub excluded: Option<Excluded>,
     /// The model's plain-text note on its plan: archetype, key cards, how
     /// it wins; for `improve`, what it learned and why it changed what it
     /// did. A model's words, data and never instructions.
@@ -98,6 +102,15 @@ pub struct Record {
     /// What the model's work cost, where a model worked.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub spend: Option<Spend>,
+}
+
+/// The exclusion file a version kept to.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Excluded {
+    /// SHA-256 of the file's bytes, in hex.
+    pub sha256: String,
+    /// How many cards it named.
+    pub cards: u32,
 }
 
 /// What a version's model spent.
@@ -273,5 +286,94 @@ mod tests {
         std::fs::remove_file(&two.record).unwrap();
         assert_eq!(newest(&dir, Format::Standard), Some(one.deck));
         let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+
+/// The file each format's games are written to, one JSON line a game, in
+/// the format's directory: what `deck improve` reads.
+pub const GAMES: &str = "games.jsonl";
+
+/// One ranked game a version played, as its runner writes it after the
+/// match ([`record_game`]).
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Game {
+    /// When it ended, RFC 3339 in UTC.
+    pub at: String,
+    /// The deck version that played it.
+    pub version: u32,
+    /// `won`, `lost`, `draw` or `unrated`.
+    pub result: String,
+    /// Its turns.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub turns: Option<u32>,
+    /// The account's rating after it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub elo: Option<i32>,
+    /// The rating's change.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub delta: Option<i32>,
+    /// What the opponent is, where it is public (an AI's label); never a
+    /// person's name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub opponent: Option<String>,
+    /// A short note of the runner's or the pilot's, plain text.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
+}
+
+/// Appends `game` to `format`'s games in `dir`, one line, in one write.
+///
+/// # Errors
+/// When the file cannot be opened or written.
+pub fn record_game(dir: &Path, format: Format, game: &Game) -> std::io::Result<()> {
+    use std::io::Write as _;
+    let at = format_dir(dir, format);
+    std::fs::create_dir_all(&at)?;
+    let mut line = serde_json::to_string(game).map_err(std::io::Error::other)?;
+    line.push('\n');
+    std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(at.join(GAMES))?
+        .write_all(line.as_bytes())
+}
+
+/// `format`'s games in `dir`, oldest first; a line that does not read is
+/// passed over.
+#[must_use]
+pub fn games(dir: &Path, format: Format) -> Vec<Game> {
+    std::fs::read_to_string(format_dir(dir, format).join(GAMES)).map_or_default(|text| {
+        text.lines()
+            .filter_map(|line| serde_json::from_str(line).ok())
+            .collect()
+    })
+}
+
+/// The prefixes an AI's public label starts with: Central's for AI
+/// accounts, and a mind's own on a table (`crate::Disclosure::prefix`).
+const AI_LABELS: [&str; 5] = ["KI-", "LLM-", "NET-", "HOUSE-", "TEST-"];
+
+impl Game {
+    /// The game as a model is told it: one line, the opponent named only
+    /// when it is an AI by its label. No player is named to a model
+    /// (`docs/llm-seat.md`), so a person is "a person".
+    #[must_use]
+    pub fn told(&self) -> String {
+        let against = self.opponent.as_deref().map_or_default(|o| {
+            if AI_LABELS.iter().any(|prefix| o.starts_with(prefix)) {
+                format!(" · against {o}")
+            } else {
+                " · against a person".to_string()
+            }
+        });
+        format!(
+            "{} · version {} · {}{}{}{against}{}",
+            self.at,
+            self.version,
+            self.result,
+            self.turns.map_or_default(|t| format!(" in {t} turns")),
+            self.delta.map_or_default(|d| format!(" · Elo {d:+}")),
+            self.note.as_deref().map_or_default(|n| format!(" · {n}")),
+        )
     }
 }
