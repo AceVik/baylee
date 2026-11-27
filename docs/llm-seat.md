@@ -1629,6 +1629,32 @@ results agree with the table's
 (`crates/baylee-gateway/tests/e2e_central/ranked/runners.rs`). An AI
 against an AI waits for Central's carousel.
 
+The same test plays a proof game of a real pilot on the machine whose CLIs
+are signed in, when `BAYLEE_E2E_AI_RUNNER` names a runner binary: the
+administrator creates the account of `BAYLEE_E2E_AI_KIND` and
+`BAYLEE_E2E_AI_PROFILE` (default `house`, `house:expert`; a model gets a
+day's cap of ten games), the harness writes the token to a `0600` file and
+starts `$BAYLEE_E2E_AI_RUNNER ranked --central <served> --account <id>
+--token-file <file> --state <dir> --accept-host <host> --games 1
+$BAYLEE_E2E_AI_ARGS`, with `BAYLEE_E2E_AI_DECKS` copied into its state as
+its deck directory (the person plays its newest Standard deck too; default
+sixty Forests). The person searches accepting any AI for a model and the
+local ones otherwise, and plays the house. The test checks the person's
+receipt against the table, reads the AI seat's transcript, and prints one
+line: turns, how the game ended, questions that expired, and the model's
+think time per answer (median and most). A failing runner, or one that
+does not stop after its game, fails the test, and the process is killed
+either way.
+
+```text
+cargo build -p baylee-seat        # or the trained net's seat4
+BAYLEE_E2E_AI_RUNNER=$PWD/target/debug/baylee-seat \
+BAYLEE_E2E_AI_KIND=model BAYLEE_E2E_AI_PROFILE=model:haiku-high \
+BAYLEE_E2E_AI_ARGS="--profile haiku-high --config /path/llm-seat.json" \
+BAYLEE_E2E_AI_DECKS=/var/lib/baylee-ai/<account>/decks \
+  cargo dev central integration --ai-players-only
+```
+
 ## A dev table
 
 `cargo run -p xtask -- dev-table --bridge profile:<name>` seats the bridge

@@ -115,10 +115,30 @@ impl Desk<'_> {
     }
 }
 
+/// The AI a run creates: the in-process house, or what an external
+/// runner flies ([`External`]).
+struct AiDef {
+    kind: AiKind,
+    profile: String,
+    label: String,
+    name: &'static str,
+}
+
+impl AiDef {
+    fn house() -> Self {
+        Self {
+            kind: AiKind::House,
+            profile: "house:expert".into(),
+            label: "Haus-KI · Expert".into(),
+            name: "KI-Haus-Expert",
+        }
+    }
+}
+
 /// The AI as an administrator sets it up: fill-in after Central's shortest
 /// wait, no host slots held back for people (the fixture's host has few),
 /// the AI created, switched on, and a runner token for it alone.
-fn set_up_ai(desk: &Desk<'_>) -> (Id, u32, Token) {
+fn set_up_ai(desk: &Desk<'_>, ai: &AiDef) -> (Id, u32, Token) {
     assert!(matches!(
         desk.ask(AdminRequest::SetAiSettings {
             settings: AiSettings {
@@ -136,12 +156,13 @@ fn set_up_ai(desk: &Desk<'_>) -> (Id, u32, Token) {
         answer: AdminAnswer::AiPlayerCreated { account, tag },
     } = desk.ask(AdminRequest::CreateAiPlayer {
         settings: AiPlayerSettings {
-            kind: AiKind::House,
-            profile: "house:expert".into(),
-            label: "Haus-KI · Expert".into(),
+            kind: ai.kind,
+            profile: ai.profile.clone(),
+            label: ai.label.clone(),
             max_games: 1,
-            daily_games: None,
-            display_name: "KI-Haus-Expert".into(),
+            // Central requires a day's cap for a language model.
+            daily_games: (ai.kind == AiKind::Model).then_some(10),
+            display_name: ai.name.into(),
         },
         tag: None,
     })
@@ -482,8 +503,18 @@ impl Table for PersonLink {
 /// The person's side: a search that accepts the house, the assignment
 /// Central makes, the whole game with the house at their seat, and their
 /// receipt.
-async fn person(account: Account, transcripts: &std::path::Path) -> (Id, Played, QueueState) {
-    let deck = Arc::new(forests());
+async fn person(
+    account: Account,
+    transcripts: &std::path::Path,
+    deck: Frozen,
+    ai: &AiDef,
+) -> (Id, Played, QueueState) {
+    let deck = Arc::new(deck);
+    let accepts = if ai.kind == AiKind::Model {
+        AiOpponents::Any
+    } else {
+        AiOpponents::Local
+    };
     let key = *uuid::Uuid::now_v7().as_bytes();
     let account = Arc::new(Mutex::new(account));
     let mut link = PersonLink {
@@ -501,7 +532,7 @@ async fn person(account: Account, transcripts: &std::path::Path) -> (Id, Played,
                 key,
                 format: Format::Standard,
                 deck: digest,
-                ai: AiOpponents::Local,
+                ai: accepts,
             })
         })
         .await
@@ -527,8 +558,8 @@ async fn person(account: Account, transcripts: &std::path::Path) -> (Id, Played,
                     .opponent_ai
                     .clone()
                     .expect("the person is told the opponent is an AI");
-                assert_eq!(badge.kind, AiKind::House);
-                assert_eq!(badge.label, "Haus-KI · Expert");
+                assert_eq!(badge.kind, ai.kind);
+                assert_eq!(badge.label, ai.label);
                 break assignment.match_id;
             }
             other => panic!("the person's search ended as {other:?}"),
@@ -589,7 +620,9 @@ pub(in super::super) fn run(
     let agent = rt.block_on(common::ranked::provision(&host.gateway));
     capacity(rt, operator, &host);
     let desk = Desk::open(rt, served, operator, "runner_admin");
-    let (ai, tag, token) = set_up_ai(&desk);
+    let external = External::from_env();
+    let def = external.as_ref().map_or_else(AiDef::house, External::def);
+    let (ai, tag, token) = set_up_ai(&desk, &def);
     let person_account = fresh::register(
         rt,
         &served.service,
@@ -597,12 +630,13 @@ pub(in super::super) fn run(
         "runner_person",
         fresh::DOCUMENT,
     );
-    // Every question and answer of both seats, for a run that fails or
-    // ends sooner than a whole game: `<target>/tmp/ai-players-runners/`.
-    let transcripts = std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).join("ai-players-runners");
-    let _ = std::fs::remove_dir_all(&transcripts);
-    std::fs::create_dir_all(&transcripts).unwrap();
-    let (state, token_file) = runner_state(&token);
+    if let Some(external) = external {
+        external.run(rt, served, &host.origin, ai, &def, &token, person_account);
+        agent.abort();
+        return;
+    }
+    let transcripts = fresh_transcripts();
+    let (state, token_file) = runner_state(&token, None);
     // The runner's own command line, by the account's public handle.
     let args = RankedArgs {
         central: served.endpoint.origin().to_owned(),
@@ -632,7 +666,7 @@ pub(in super::super) fn run(
                         .await
                         .expect("the runner plays")
                 },
-                person(person_account, &transcripts)
+                person(person_account, &transcripts, forests(), &def)
             )
         })
         .await
@@ -745,18 +779,25 @@ fn agreed(ai: &MatchReport, (match_id, person, receipt): &(Id, Played, QueueStat
 /// The runner's state as an operator lays it out: the token in a file only
 /// the runner reads, and one Standard deck version with its record. The
 /// state directory and the token file.
-fn runner_state(token: &Token) -> (std::path::PathBuf, std::path::PathBuf) {
+fn runner_state(
+    token: &Token,
+    decks: Option<&std::path::Path>,
+) -> (std::path::PathBuf, std::path::PathBuf) {
     use std::io::Write as _;
     let state = std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).join("ai-players-runner-state");
     let _ = std::fs::remove_dir_all(&state);
-    let standard = state.join("decks").join("standard");
-    std::fs::create_dir_all(&standard).unwrap();
-    std::fs::write(
-        standard.join("v0001-20261127T000000Z.txt"),
-        "# name: Forest\n# format: standard\n60 Forest\n",
-    )
-    .unwrap();
-    std::fs::write(standard.join("v0001-20261127T000000Z.json"), "{}").unwrap();
+    if let Some(decks) = decks {
+        copy_dir(decks, &state.join("decks"));
+    } else {
+        let standard = state.join("decks").join("standard");
+        std::fs::create_dir_all(&standard).unwrap();
+        std::fs::write(
+            standard.join("v0001-20261127T000000Z.txt"),
+            "# name: Forest\n# format: standard\n60 Forest\n",
+        )
+        .unwrap();
+        std::fs::write(standard.join("v0001-20261127T000000Z.json"), "{}").unwrap();
+    }
     let token_file = state.join("runner-token");
     let mut options = std::fs::OpenOptions::new();
     options.write(true).create_new(true);
@@ -768,4 +809,238 @@ fn runner_state(token: &Token) -> (std::path::PathBuf, std::path::PathBuf) {
     let text = baylee_account::sdk::ai_runner::token_text(token);
     writeln!(options.open(&token_file).unwrap(), "{}", *text).unwrap();
     (state, token_file)
+}
+
+/// Copies the directory `from` into `to`, whole.
+fn copy_dir(from: &std::path::Path, to: &std::path::Path) {
+    std::fs::create_dir_all(to).unwrap();
+    for entry in std::fs::read_dir(from).unwrap() {
+        let entry = entry.unwrap();
+        let target = to.join(entry.file_name());
+        if entry.file_type().unwrap().is_dir() {
+            copy_dir(&entry.path(), &target);
+        } else {
+            std::fs::copy(entry.path(), &target).unwrap();
+        }
+    }
+}
+
+/// An AI runner process the environment names, flying the AI instead of the
+/// in-process house: the proof game of a real pilot (a language model on its
+/// CLIs, the trained net's `seat4`) on the machine whose CLIs are signed in.
+///
+/// - `BAYLEE_E2E_AI_RUNNER`: the binary (`baylee-seat`, `seat4`);
+/// - `BAYLEE_E2E_AI_KIND`, `BAYLEE_E2E_AI_PROFILE`: the account Central makes
+///   (`model` and `model:haiku-high`, `net` and `net:baylee`; default
+///   `house` and `house:expert`);
+/// - `BAYLEE_E2E_AI_ARGS`: the runner's own flags, split at whitespace
+///   (`--profile haiku-high --config /path/llm-seat.json`);
+/// - `BAYLEE_E2E_AI_DECKS`: a deck directory copied into the runner's state;
+///   the person plays its newest Standard deck too (default: sixty Forests).
+struct External {
+    runner: std::path::PathBuf,
+    kind: AiKind,
+    profile: String,
+    args: Vec<String>,
+    decks: Option<std::path::PathBuf>,
+}
+
+/// A process the test started, killed and waited for when dropped.
+struct Running(std::process::Child);
+
+impl Drop for Running {
+    fn drop(&mut self) {
+        let _ = self.0.kill();
+        let _ = self.0.wait();
+    }
+}
+
+impl External {
+    fn from_env() -> Option<Self> {
+        let runner = std::env::var_os("BAYLEE_E2E_AI_RUNNER")?.into();
+        let kind = std::env::var("BAYLEE_E2E_AI_KIND").unwrap_or_else(|_| "house".into());
+        let kind = AiKind::from_key(&kind).expect("BAYLEE_E2E_AI_KIND is house, model or net");
+        Some(Self {
+            runner,
+            kind,
+            profile: std::env::var("BAYLEE_E2E_AI_PROFILE")
+                .unwrap_or_else(|_| "house:expert".into()),
+            args: std::env::var("BAYLEE_E2E_AI_ARGS")
+                .unwrap_or_default()
+                .split_whitespace()
+                .map(str::to_owned)
+                .collect(),
+            decks: std::env::var_os("BAYLEE_E2E_AI_DECKS").map(Into::into),
+        })
+    }
+
+    fn def(&self) -> AiDef {
+        let label: String = format!("E2E · {}", self.profile).chars().take(40).collect();
+        AiDef {
+            kind: self.kind,
+            profile: self.profile.clone(),
+            label: label.trim_end().to_owned(),
+            name: "KI-E2E-Runner",
+        }
+    }
+
+    /// The person's search, the runner's process for the AI, the game, and
+    /// one line on how the AI played.
+    #[allow(clippy::too_many_arguments)]
+    fn run(
+        self,
+        rt: &Runtime,
+        served: &Served,
+        host: &str,
+        ai: Id,
+        def: &AiDef,
+        token: &Token,
+        person_account: Account,
+    ) {
+        let transcripts = fresh_transcripts();
+        let (state, token_file) = runner_state(token, self.decks.as_deref());
+        let deck = self.decks.as_deref().map_or_else(forests, |dir| {
+            let newest = baylee_seat::deckbuild::history::newest(dir, Format::Standard)
+                .expect("BAYLEE_E2E_AI_DECKS holds a Standard deck");
+            Frozen::from_file(&newest, Format::Standard).expect("the Standard deck freezes")
+        });
+        let mut command = std::process::Command::new(&self.runner);
+        command
+            .arg("ranked")
+            .arg("--central")
+            .arg(served.endpoint.origin())
+            .arg("--account")
+            .arg(uuid::Uuid::from_bytes(ai).to_string())
+            .arg("--token-file")
+            .arg(&token_file)
+            .arg("--state")
+            .arg(&state)
+            .arg("--accept-host")
+            .arg(host)
+            .arg("--games")
+            .arg("1")
+            .args(&self.args);
+        let mut runner = Running(command.spawn().expect("the AI runner starts"));
+        let (match_id, played, receipt) = rt.block_on(async {
+            tokio::time::timeout(
+                Duration::from_mins(15),
+                person(person_account, &transcripts, deck, def),
+            )
+            .await
+            .expect("the person's game ends")
+        });
+        // The runner ends by itself once its one game settled.
+        let until = std::time::Instant::now() + Duration::from_mins(4);
+        let status = loop {
+            if let Some(status) = runner.0.try_wait().unwrap() {
+                break status;
+            }
+            assert!(
+                std::time::Instant::now() < until,
+                "the AI runner did not stop after its game"
+            );
+            std::thread::sleep(Duration::from_millis(500));
+        };
+        assert!(status.success(), "the AI runner ended with {status}");
+        let path = state.join("transcripts").join(format!(
+            "ranked-{}-{}.jsonl",
+            uuid::Uuid::from_bytes(match_id),
+            def.name
+        ));
+        let seen = Seen::read(&path);
+        let QueueState::Finished {
+            seat,
+            outcome,
+            opponent_ai,
+            ..
+        } = &receipt
+        else {
+            panic!("the person's receipt: {receipt:?}");
+        };
+        assert!(opponent_ai.is_some(), "the receipt names the AI as an AI");
+        let person_won = match played.result.and_then(|r| r.winner) {
+            Some(Victor::Player(winner)) => Some(winner == PlayerId::new(*seat)),
+            _ => None,
+        };
+        let central = match outcome {
+            baylee_account::ranked::Outcome::FirstWins => Some(*seat == 0),
+            baylee_account::ranked::Outcome::SecondWins => Some(*seat == 1),
+            baylee_account::ranked::Outcome::Draw => None,
+        };
+        assert_eq!(
+            person_won, central,
+            "the table and Central agree on the result"
+        );
+        println!(
+            "ai-players e2e: {} played {} turns, {}, {} questions expired, think time median {} ms, \
+             max {} ms over {} answers",
+            def.profile,
+            seen.turns,
+            seen.ended,
+            seen.expired,
+            seen.median_ms,
+            seen.max_ms,
+            seen.answers
+        );
+        assert!(
+            seen.ended.contains("GameResult"),
+            "the AI seat saw the game's end"
+        );
+    }
+}
+
+/// What the AI seat's transcript says of its game.
+struct Seen {
+    turns: u64,
+    ended: String,
+    expired: u64,
+    answers: usize,
+    median_ms: u64,
+    max_ms: u64,
+}
+
+impl Seen {
+    fn read(path: &std::path::Path) -> Self {
+        let text = std::fs::read_to_string(path)
+            .unwrap_or_else(|e| panic!("the AI's transcript {}: {e}", path.display()));
+        let (mut turns, mut ended, mut expired, mut thought) = (0, String::new(), 0, Vec::new());
+        for line in text.lines() {
+            let Ok(value) = serde_json::from_str::<serde_json::Value>(line) else {
+                continue;
+            };
+            match value["event"].as_str() {
+                Some("over") => value["result"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .clone_into(&mut ended),
+                Some("answered") if value["by"] == "mind" => {
+                    thought.push(value["model_ms"].as_u64().unwrap_or(0));
+                }
+                _ => {}
+            }
+            if let Some(summary) = value.get("summary") {
+                turns = summary["turns"].as_u64().unwrap_or(turns);
+                expired = summary["fallbacks"]["expired"].as_u64().unwrap_or(expired);
+            }
+        }
+        thought.sort_unstable();
+        Self {
+            turns,
+            ended,
+            expired,
+            answers: thought.len(),
+            median_ms: thought.get(thought.len() / 2).copied().unwrap_or(0),
+            max_ms: thought.last().copied().unwrap_or(0),
+        }
+    }
+}
+
+/// Where every question and answer of both seats goes, emptied: for a run
+/// that fails or ends sooner than a whole game,
+/// `<target>/tmp/ai-players-runners/`.
+fn fresh_transcripts() -> std::path::PathBuf {
+    let transcripts = std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).join("ai-players-runners");
+    let _ = std::fs::remove_dir_all(&transcripts);
+    std::fs::create_dir_all(&transcripts).unwrap();
+    transcripts
 }
