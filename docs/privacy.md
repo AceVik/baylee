@@ -57,11 +57,20 @@ withdrawal. Listed names refresh when their owner reads a board; removal of the
 public identity at that point withdraws listing. Reads expose at most the top 25
 public bests and the authenticated owner's own best, without account/run IDs.
 
-Deleting an account at Central alone does not currently deliver an erasure event
-to Tower. The operator's account-erasure workflow must also remove the Tower
-player after draining its echo eligibility. This is an explicit integration and
-release constraint, not a claim of automatic cross-service erasure or compliance.
-See [Tower operations](tower-operations.md) for versioning and retention limits.
+Deleting an account at Central does not delete its Tower data, and no erasure
+event reaches Tower. As Central's privacy policy (version 2026-11-27, § 7)
+says, the runs, duels, records, echoes and personal bests stay until their
+season ends, about six months, because other players' verified results and the
+season's leaderboard rest on them (legitimate interest, Art. 6(1)(f) GDPR).
+They are pseudonymised: what remains is tied to the account's random
+identifier, which after the deletion belongs to no account, and the account's
+display name and tag leave the leaderboard by the next day, when the
+award courier learns of the deletion from Central's `account_gone`
+([Tower operations](tower-operations.md) §"Deleted accounts"). Not built yet,
+and promised for the season's end: deleting a season's data when it ends, and
+an operator command that removes one account's Tower data on an individual
+request; until then, such a request is answered by hand. See
+[Tower operations](tower-operations.md) for versioning and retention limits.
 
 ## At a glance
 
