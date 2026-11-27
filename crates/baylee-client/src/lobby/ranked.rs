@@ -164,6 +164,8 @@ impl Ui {
             league: self.league,
             division: self.division,
             after: self.pages.last().map(|(cursor, _)| *cursor),
+            // TODO(ai-players client): the ladder filter (everyone, people, AIs).
+            players: api::ai::BoardPlayers::Everyone,
         }
     }
     fn reset_pages(&mut self) {

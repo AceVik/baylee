@@ -109,6 +109,7 @@ mod tests {
                 delta: 8,
                 placement_games: 10,
             },
+            opponent_ai: None,
         };
         let mut app = App::new();
         app.insert_resource(state)

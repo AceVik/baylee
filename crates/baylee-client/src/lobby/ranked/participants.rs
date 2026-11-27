@@ -59,9 +59,11 @@ impl Reader {
             let result = account
                 .replica(SeatRequest::Participants { match_id: id })
                 .and_then(|answer| match answer {
-                    SeatResponse::Participants { match_id, seats }
-                        if match_id == id
-                            && seats.iter().flatten().all(|name| valid_handle(name)) =>
+                    // TODO(ai-players client): the AI badges, in seat order.
+                    SeatResponse::Participants {
+                        match_id, seats, ..
+                    } if match_id == id
+                        && seats.iter().flatten().all(|name| valid_handle(name)) =>
                     {
                         Ok(seats)
                     }

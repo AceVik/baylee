@@ -93,6 +93,7 @@ fn verify_boards(served: &Served, profiles: &[Response; 2]) {
                 league: League::Unranked,
                 division: None,
                 after: None,
+                players: baylee_account::ranked::ai::BoardPlayers::Everyone,
             },
         )
         .unwrap();
@@ -136,10 +137,12 @@ fn verify_player(
         after,
         outcome: confirmed,
         deck,
+        opponent_ai,
     } = receipt
     else {
         unreachable!()
     };
+    assert_eq!(*opponent_ai, None, "two people met: no AI badge");
     assert_eq!(
         (*key, *match_id, *seat, *format, *confirmed),
         (

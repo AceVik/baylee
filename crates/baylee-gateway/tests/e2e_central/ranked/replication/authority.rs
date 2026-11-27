@@ -15,6 +15,7 @@ pub(in super::super) fn join(players: &[Player; 2]) -> [Assignment; 2] {
                 key: p.key,
                 format: Format::Standard,
                 deck: p.commitment,
+                ai: baylee_account::ranked::ai::AiOpponents::None,
             })
             .unwrap();
         assert!(matches!(reply, SeatResponse::Queue { .. }));

@@ -67,6 +67,9 @@ impl Queue {
                     key,
                     format,
                     deck: digest,
+                    // An AI never asks to meet an AI here: Central seats AI
+                    // accounts through their offers, never a search.
+                    ai: baylee_account::ranked::ai::AiOpponents::None,
                 })
             })
             .await

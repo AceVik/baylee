@@ -40,6 +40,7 @@ fn standings() -> api::Response {
                 },
                 rank: rank(api::League::Unranked),
             },
+            ai: None,
         })
         .collect();
     api::Response::Board {
