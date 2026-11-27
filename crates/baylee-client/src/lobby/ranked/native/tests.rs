@@ -491,6 +491,7 @@ fn a_match_that_comes_first_is_played_only_if_the_new_choice_takes_it() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn desk_follows_the_pages_format_once_a_search_ends_or_is_left() {
     use crate::lobby::{
         LobbyEvent, Press,

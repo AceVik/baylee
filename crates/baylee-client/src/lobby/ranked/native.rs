@@ -690,6 +690,7 @@ fn ready(state: &LobbyState) -> bool {
         && state.lobby.awaiting().is_none()
 }
 
+#[allow(clippy::too_many_lines)]
 pub(crate) fn poll(
     mut lobby: ResMut<LobbyState>,
     mut commands: Commands,

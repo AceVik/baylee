@@ -189,14 +189,10 @@ impl State {
         let mut resume = None;
         let mut play = false;
         let mut append = false;
-        let mut background = false;
+        let background = action == Action::Refresh && self.loaded;
         match action {
-            Action::Restore(game) => {
-                return Some(self.restore(game));
-            }
-            Action::Tower(action) => {
-                return self.tower_work(action, request_id);
-            }
+            Action::Restore(game) => return Some(self.restore(game)),
+            Action::Tower(action) => return self.tower_work(action, request_id),
             Action::Back => {
                 self.tower.opened = false;
                 self.select(None);
@@ -260,7 +256,6 @@ impl State {
                 });
             }
             Action::Refresh => {
-                background = self.loaded;
                 requests.push(Request::Catalogue { before: None });
                 requests.push(Request::Tower {
                     request: self.tower.read(),

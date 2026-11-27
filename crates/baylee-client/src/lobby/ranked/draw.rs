@@ -51,6 +51,7 @@ struct Viewport {
 }
 
 #[derive(PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)] // four independent switches of one strip
 struct Pager {
     season: String,
     browsing_seasons: bool,

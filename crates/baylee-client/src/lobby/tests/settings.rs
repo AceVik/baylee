@@ -829,7 +829,13 @@ fn discarding_a_new_profile_clears_the_profile_sheet_modal_flag() {
     press(&mut app, Press::Settings(SettingsPress::Seat(Act::Revert)));
     {
         let state = app.world().resource::<LobbyState>();
-        assert!(state.seat.panel().and_then(|p| p.selected()).is_none());
+        assert!(
+            state
+                .seat
+                .panel()
+                .and_then(baylee_client_core::llmseat::panel::SeatPanel::selected)
+                .is_none()
+        );
         assert!(
             !state.settings_view.profile_sheet,
             "discarding the unsaved profile clears the sheet's modal flag"
