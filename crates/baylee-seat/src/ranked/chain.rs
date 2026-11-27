@@ -222,3 +222,52 @@ pub fn house_at_the_end(level: String, house: AIProfile) -> Standby {
         }),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn agy(model: &str) -> SeatMind {
+        SeatMind {
+            kind: seat_mind::Kind::LlmCli as i32,
+            provider: "agy".into(),
+            model: model.into(),
+            effort: String::new(),
+            level: String::new(),
+        }
+    }
+
+    /// agy's orchestrators (1.5.18) are models of their own: an account on
+    /// one claims (gemini, the orchestrator's id, Standard), never the
+    /// model it plans with, and none is another. They take no effort
+    /// (`llmseat::clis` offers none, agy refuses `--effort`), so a profile
+    /// that names one is refused in the runner's own sentence.
+    #[test]
+    fn an_agy_orchestrator_is_its_own_model_at_its_standard() {
+        let neon = claimed(&agy("gemini-4-neon-xhigh"), None, true).unwrap();
+        assert_eq!(
+            (neon.model.as_str(), neon.effort.as_str()),
+            ("gemini-4-neon", "xhigh")
+        );
+        let orchestras: Vec<Claimed> = [
+            "gemini-pro-orchestrator-neon",
+            "gemini-pro-orchestrator",
+            "gemini-pro-orchestrator-argon",
+        ]
+        .iter()
+        .map(|id| claimed(&agy(id), None, false).unwrap())
+        .collect();
+        for (i, orchestra) in orchestras.iter().enumerate() {
+            assert_eq!(orchestra.family.as_deref(), Some("gemini"));
+            assert!(orchestra.model.starts_with("gemini-pro-orchestrator"));
+            assert_eq!(orchestra.effort, STANDARD);
+            assert!(same_model(&neon, orchestra).is_err(), "{orchestra:?}");
+            assert!(same_model(orchestra, &neon).is_err(), "{orchestra:?}");
+            for (j, other) in orchestras.iter().enumerate() {
+                assert_eq!(same_model(orchestra, other).is_ok(), i == j);
+            }
+        }
+        let why = claimed(&agy("gemini-pro-orchestrator-neon"), Some("xhigh"), false).unwrap_err();
+        assert!(why.contains("knows no efforts"), "{why}");
+    }
+}
