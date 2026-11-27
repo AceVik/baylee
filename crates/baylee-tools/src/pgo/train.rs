@@ -55,6 +55,7 @@ pub fn scenes(
     work: &Path,
     only: Option<usize>,
 ) -> Result<()> {
+    warm_up(client, work)?;
     for (at, (name, scene)) in SCENES.iter().enumerate() {
         if only.is_some_and(|only| only != at) {
             continue;
@@ -84,6 +85,68 @@ pub fn scenes(
         running.finish(CLOSING)?;
     }
     Ok(())
+}
+
+/// Frames a warming client draws before its shaders count as compiled.
+const WARM_FRAMES: u64 = 240;
+/// How long a fresh build may take to draw them.
+const WARMING: Duration = Duration::from_secs(300);
+
+/// Starts the fresh build once without a scene and waits until it draws
+/// steadily, then stops it. A new binary's first window compiles its shaders,
+/// and on a busy machine that held its first frames past the ten seconds the
+/// harness waits for an answer, so the first scene stopped before it began
+/// (27.11.2026); the scenes then find the shaders cached. Its counts are not
+/// kept: it is stopped, not closed, and writes them nowhere the merge reads.
+fn warm_up(client: &Path, work: &Path) -> Result<()> {
+    let dir = work.join("warm-up");
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir)?;
+    let port = std::net::TcpListener::bind("127.0.0.1:0")?
+        .local_addr()?
+        .port();
+    let mut child = std::process::Command::new(client)
+        .env("XDG_CONFIG_HOME", dir.join("config"))
+        .env("XDG_CACHE_HOME", dir.join("cache"))
+        .env("XDG_DATA_HOME", dir.join("data"))
+        .env("LLVM_PROFILE_FILE", dir.join("%m_%p.profraw"))
+        .env("BAYLEE_DEV_CONTROL", port.to_string())
+        .env("BAYLEE_DEV_PASSIVE", "1")
+        .env("BAYLEE_DEV_SOUND", "")
+        .env("BAYLEE_DEV_IDLE_EXIT", "60")
+        .env("BAYLEE_GATEWAY", "http://127.0.0.1:9")
+        .env("BAYLEE_UPDATE_API", "http://127.0.0.1:9/updates-disabled")
+        .stdin(std::process::Stdio::null())
+        .stdout(fs::File::create(dir.join("client.stdout.log"))?)
+        .stderr(fs::File::create(dir.join("client.stderr.log"))?)
+        .spawn()
+        .with_context(|| format!("starting {}", client.display()))?;
+    let harness = baylee_client_e2e::Devctl::new(port);
+    let started = Instant::now();
+    let warm = loop {
+        let frame = harness
+            .get("health", Duration::from_secs(2))
+            .ok()
+            .and_then(|health| health["frame"].as_u64());
+        if frame.is_some_and(|frame| frame >= WARM_FRAMES) {
+            break Ok(());
+        }
+        if let Ok(Some(status)) = child.try_wait() {
+            break Err(anyhow::anyhow!(
+                "the client exited while warming ({status})"
+            ));
+        }
+        if started.elapsed() > WARMING {
+            break Err(anyhow::anyhow!(
+                "the client drew no {WARM_FRAMES} frames within {WARMING:?}"
+            ));
+        }
+        linger(1.0);
+    };
+    let _ = child.kill();
+    let _ = child.wait();
+    println!("warmed up in {:.0} s", started.elapsed().as_secs_f32());
+    warm
 }
 
 /// What the client stood at, for a scene's failure.
