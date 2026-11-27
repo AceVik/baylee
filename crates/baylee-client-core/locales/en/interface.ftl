@@ -10548,8 +10548,8 @@ EchoesNoEnrollment = No new expedition is available right now. You can continue 
 EchoesStarterLead = Choose your commander and a playstyle. Every expedition starts fresh; your choice opens the first shop.
 # Arguments: number
 EchoesStarter = Starting deck { $number }
-# Arguments: number, revision
-EchoesConsent = Begin with starting deck { $number }? Confirm echo sharing (explanation { $revision }): your verified pre-duel builds may face other players at the same stage, played by Expert AI. Your public player identity may accompany them. You can withdraw future echo use below; private rules evidence is retained. This creates a new expedition, not a table.
+# Arguments: starter
+EchoesConsent = Begin with { $starter }? Confirm echo sharing: your verified pre-duel builds may face other players at the same stage, played by Expert AI. Your public player identity may accompany them. You can withdraw future echo use at any time on this page; private rules evidence is retained. This creates a new expedition, not a table.
 EchoesStartSharing = Choose a deck to begin a fresh run. Your verified builds and public player name may appear as Expert-AI opponents for players at the same stage. You can withdraw future echo sharing below; private rules evidence is retained.
 EchoesShopReady = Prepare your next duel
 EchoesVerifying = Your duel is being verified. Gold and the next shop appear after confirmation.
@@ -10576,6 +10576,8 @@ EchoesConflict = Your expedition changed elsewhere. Refresh to see its current s
 EchoesTerms = Accept the current account terms before continuing.
 EchoesUpdate = Update Baylee before continuing this expedition.
 EchoesUnavailable = This choice is not currently available.
+# A Tower request found the service busy or out of reach.
+EchoesUnreachable = Tower Echoes did not answer just now. Try again in a moment.
 EchoesUnsaved = Your deck has unsaved changes. Save or discard them before entering a duel.
 EchoesInspect = Select
 EchoesTiersShow = Compare upgrade tiers

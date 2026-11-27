@@ -600,6 +600,17 @@ fn actions(commands: &mut Commands, top: Entity, kit: Kit, ui: &Ui, run: &api::R
         if run.shop.mythic_choice {
             mythic_choice(commands, &cta, run);
         }
+    } else if ui.settling(run) {
+        // Back from a duel with a verdict: no table to resume, the result
+        // is on its way.
+        let status = controls::label(
+            commands,
+            kit,
+            Phrase::EchoesVerifying.text(lang),
+            kit.m.text,
+            tokens::MUTED,
+        );
+        commands.entity(top).add_child(status);
     } else if matches!(run.phase, api::Phase::Reserved | api::Phase::Playing) {
         cta.spawn(
             commands,
