@@ -269,7 +269,8 @@ pub enum Only {
     /// The cross-gateway ranked queue, game and settlement, the ranked
     /// runners included.
     Ranked,
-    /// The ranked runners: two AI accounts play each other.
+    /// The ranked runner: an AI account fills a person's search and they
+    /// play the game.
     AiPlayers,
 }
 

@@ -1404,102 +1404,141 @@ games are over.
 
 ## The ranked runner
 
-`baylee-seat ranked` (`baylee_seat::ranked`) plays Ranked as an AI account,
-the first stage of AI players (`docs/proposals/ai-players.md`
-§"Stages"). It is the same bridge with another way to its table: it signs
-in to Baylee Central as the native client does, takes its matches from a
-source, and plays each through Central's relay. Today it plays with the
-house at a fair level; a language model is a `Pilot` like any other mind,
-still to be wired up with its spend book.
+`baylee-seat ranked` (`baylee_seat::ranked`) plays Ranked as an AI player
+(`docs/proposals/ai-players.md`; Central's side is baylee-central
+`docs/ai-players.md`). It is the same bridge with another way to its
+table: it holds an AI runner token instead of a password, offers the AI
+account's decks, plays every match Central makes from those offers
+through Central's relay, and says what played to the game's record. One
+process plays one AI account (`baylee-ai@<account>.service`); a machine
+runs one per account its token lists.
 
 ```text
-baylee-seat ranked --username <AI account> --deck <its deck id>
-    (--password-file <path> | --password-key <name>)
-    [--central live|http://127.0.0.1:<port>] [--format standard] [--level expert]
-    [--accept-host <origin>]… [--games <n>] [--search-secs <n>]
-    [--min-think-ms 1500] [--transcripts <dir>]
+baylee-seat ranked --account <id | Name#tag>
+    (--token-file <path> | --token-key <name>)
+    [--central live|http://127.0.0.1:<port>]
+    [--state <dir>] [--decks <dir>] [--transcripts <dir>]
+    [--level expert] [--fallback-level expert]
+    [--accept-host <origin>]… [--facts-from <origin>]
+    [--games <n>] [--min-think-ms 1500]
 ```
 
-- **The account and its label.** An ordinary Central account. A ranked
-  host names its chairs itself (`Seat A`, `Seat B`), so the seat cannot
-  carry the `HOUSE-` prefix a lobby chair must (`docs/protocol.md` §"Who
-  answers a seat, as it says"; above, §"A language model at your
-  table"). The account carries the label instead: the runner signs in and
-  refuses to play unless the account's public name starts with `KI-`, the
-  prefix Central's design reserves for AI accounts (`KI-Haus-Expert`;
-  baylee-central `docs/ai-players.md` §6), or with its mind's own
-  (`HOUSE-Expert`). The seat is then held to the account's label rather
-  than the chair's (`BridgeConfig::labelled`, `Labelled::Account`). Once
-  Central flags AI accounts, the flag and its badge are the label.
-- **Its password** comes from the operator, never from an argument, a URL,
-  the environment or a log: a file only the runner's service can read
-  (`--password-file`, a systemd credential under `LoadCredential=`, as
-  Central's design has it), or this machine's credential store
-  (`--password-key <name>`, kept with `baylee-seat key set --key-env <name>
-  --host <central>`, the password on stdin; §"Where a key is kept"). Either
-  is read afresh at each sign-in.
-- **One session per account.** A second native sign-in ends the first and
-  the account's seats at their hosts, so one session serves every match.
-  The runner renews it every ten minutes (it lasts thirty after a renewal),
-  signs in again at a moment it plays no match once a password session is
-  eight hours old (Central ends it at twelve), and signs in again at once
-  when Central will not renew it.
-- **The sign-in is one seam** (`ranked::SignIn`): the password above is
-  today's, kept for the end-to-end test of today's Central. Central's AI
-  accounts will sign in with an AI runner token an administrator issues
-  per runner machine, exchanged at Central for an ordinary native session
-  of each AI account it may play; that is one more `SignIn`, and the queue,
-  the admission, the relay and the renewal stay as they are.
-- **The deck** is one of the account's own private decks (`--deck <id>`),
-  frozen once as the native client freezes it: notes dropped, the rows the
-  commitment binds, the mind told the same deck.
-- **Where matches come from** is a source (`ranked::Assignments`), asked
-  every two seconds while the runner wants another match; it names the
-  account's live matches, each with its deck, and the runner plays every
-  one it has not played yet as a task of its own. Today's source is the
-  person's queue (`ranked::Queue`): a match Central already holds for the
-  account comes first (a runner that restarted resumes it); else it joins
-  and waits, for `--search-secs` at most. A stopped runner leaves a search
-  that is still waiting, never a match already assigned. Central's design
-  for AI accounts replaces it with standing deck offers and a read of the
-  account's live matches, several at once (baylee-central
-  `docs/ai-players.md` §4: an AI account may not join the queue); that is
-  one more source. Three places still read the account's one queue
-  entry and must learn to name the match instead when it lands: whether a
-  match is over (`RankedLink::gone`), its receipt (`game::settled`), and
-  the native client's own seat and renewal calls in `baylee-account`
-  (`play_ranked`, `renew_ranked_replica`), which check the assignment
-  against the queue's status.
+- **The account.** An administrator creates it on Central's website:
+  a display name starting `KI-` (`KI-Haus-Expert`), its kind, its profile
+  (the runner's key for its mind, `house:expert`), its label ("Haus-KI ·
+  Expert"), `max_games`, and no password. Central badges it as an AI
+  wherever it names it, so the seat is held to the account's label
+  (`BridgeConfig::labelled`, `Labelled::Account`) rather than a chair's
+  name. `--account` is its id, or its whole public handle with the tag
+  (`KI-Haus-Expert#00ab`): Central looks a name up only with its tag.
+  The runner plays an account only with the pilot its settings name: the
+  kind and the profile Central's `Work` answers must be the pilot's
+  (`--level expert` flies `house:expert`), else it makes no offers and
+  says why (`ranked::fits`).
+- **The runner token** (`bat_` and 64 hex digits) is what an administrator
+  issues on Central's website for this machine, bound to the AI accounts
+  it may play, shown once. It comes from the operator, never from an
+  argument, a URL, the environment or a log: a file only the runner's
+  service can read, its first line (`--token-file`; under systemd
+  `LoadCredential=runner-token:/etc/baylee-ai/runner-token` and
+  `--token-file ${CREDENTIALS_DIRECTORY}/runner-token`), or this machine's
+  credential store (`--token-key <name>`, kept with `baylee-seat key set
+  --key-env <name> --host <central>`, the token on stdin; §"Where a key is
+  kept"). Either is read afresh at each exchange, and an error never
+  quotes it (`ranked::RunnerToken`).
+- **Its sessions.** The token is traded at Central for an ordinary native
+  session of the account (`Account::ai_runner`): no master key, nothing
+  restored (its library, document and chat refuse), and the terms,
+  admission and the relay work as for any native session. The runner
+  accepts Central's terms in force for the account before it offers, and
+  again when an offer says they changed. An account may hold four runner
+  sessions; the newest takes the offers and every new match, is renewed
+  every five minutes, and is replaced by a fresh one every two hours
+  (`ranked::ROLL_OVER`), well inside the ten hours of `drain_minutes`
+  Central allows, and at once when Central will not renew it. An older
+  session keeps the matches it took and is signed out once none holds it;
+  a match whose session Central ended goes on with the newest.
+- **The decks** are files on this machine, since a runner session cannot
+  read the account's library: per format the newest version in
+  `<decks>/<format>/vNNNN-<UTC stamp>.txt` (Baylee text with `# name:` and
+  `# format:`, beside its `.json` record; `deckbuild::history`) that
+  freezes and that the host would seat: checked against the host's
+  legality facts (`ranked::admit` and its blocked cards), which the runner
+  fetches as a guest from `--facts-from` (default the first
+  `--accept-host`) at start and every 30 minutes and keeps as
+  `<decks>/facts.json` (`deckbuild::facts`); a fetch that fails keeps the
+  facts saved and says why. A newer version that fails is passed over for
+  the one before it, told once. Each deck is frozen as the native client
+  freezes one, and its commitment is computed as a person's search
+  computes it (`baylee_cards::ranked::registration`); every deck the
+  runner offered stays with it, so a match made with it is played with it
+  however the directory changed.
+- **Offers and work.** While the account is switched on, its pilot fits
+  and is ready, it plays fewer matches than its `max_games` and has a deck,
+  it offers one deck per format (`Ai::Offer`), renewed every 15 s (Central
+  keeps one 45 s); otherwise it withdraws them, saying why once. Every 2 s
+  it reads Central's work (`Ai::Work`: its settings and every live match)
+  and plays each match it has not started as a task of its own, also one a
+  runner before a restart took (the link resumes it), as long as it holds
+  the deck the match was made with. `--games` stops it after that many.
 - **A match.** The relay takes the match-bound admission for the account
   (`POST /auth/ranked/login` at the host), hands the host the frozen deck
   (`POST /ranked/{match}/play`, asked again with the same admission while
   the host answers `202`), and trades the seat for a one-use ticket to
-  Central's `/v1/ranked/socket`. The runner never dials the host itself.
-  A dropped socket is replaced the same way, the host given the game's id
-  (`{"game": …}`) instead of the deck, and the seat asks for what it
-  missed. While the game runs, the admission is renewed at the
-  `renew_in` the host gave. After the game the runner reads Central's
-  receipt (the outcome, the Elo and its change), and stops after
-  `--games`.
+  Central's `/v1/ranked/socket`; the seat is claimed by its match, which
+  no queue entry holds (`Account::play_ai_seat`). The runner never dials
+  the host itself. A dropped socket is replaced the same way, the host
+  given the game's id instead of the deck, and the seat asks for what it
+  missed. While the game runs, the admission is renewed at the `renew_in`
+  the host gave. After the game the runner reads the account's standing
+  in the format (its public profile) until it counts the game: the
+  outcome, the Elo and its change (`ranked::Receipt`; none when another of
+  its matches in the format settled meanwhile).
 - **Host terms.** Central asks every participant to approve the hosts of a
   match and their terms. The runner approves only a match whose hosts are
   all on the operator's list (`--accept-host <origin>`, repeatable) and
   declines any other, which releases the match without a score.
+- **What plays: the pilot.** A `ranked::Pilot` plays one match's seat over
+  the link it is handed (`ranked::Seat`: the link, the deck, the
+  transcript, the pacing) and says what it is (`declared`, `kind`,
+  `profile`) and whether it can take a game now (`ready`); the token, the
+  sessions, the offers, the work, admission, renewal and shutdown are the
+  runner's and the same for every pilot. `ranked::HousePilot` is the house
+  at a fair level (`--level`; never `seer`), and `ranked::fly_bridge` plays
+  any mind through the bridge. A pilot that plays its own core (the trained
+  net) implements `Pilot` the same way, through the link's `Table`. One
+  that cannot go on, because a resumed socket lost observations its memory
+  needs and a snapshot cannot rebuild, answers `Piloted::HandOver(why)`:
+  the runner plays the rest of the game with the house fallback
+  (`--fallback-level`) on the same link, which declares the house to the
+  table before its first answer, so the record names the house from there
+  on, and the transcript says `handed_over` and why.
+- **Stopping.** A first ctrl-c or SIGTERM withdraws the offers and plays
+  the running matches to their end (an AI does not leave a game; give the
+  unit a `TimeoutStopSec` as long as a game); a second leaves them, and
+  the sessions are signed out.
 - **Single-host only.** Every ranked game runs on one host today, and the
   runner plays that path: ordinary seat frames, answers on the socket, and
   no presence reports (the native client sends none there either). A match
-  replicated across two hosts (certified projections, answers as journal
-  entries at Central, presence every five seconds) is refused in one
-  sentence; that link is still to be built.
+  replicated across two hosts is refused in one sentence; that link is
+  still to be built.
 - **Reports.** A ranked seat has no session at its host and the relay no
   route for reports, so a language model's reports stay in its reports
   file (`route: "none"` in the transcript).
 
-`cargo dev central integration --ai-players-only` proves it end to end:
-two synthetic AI accounts, each a runner with the house at `expert`, find
-each other in Central's queue and finish a ranked game on one verified
-host, and both runners' results agree with Central's receipts
-(`crates/baylee-gateway/tests/e2e_central/ranked/runners.rs`).
+`cargo dev central integration --ai-players-only` proves it end to end
+against the pinned Central (its crates run in the test, so the pin is the
+Central tested): an administrator creates `KI-Haus-Expert` on the website,
+switches it on and issues a runner token for it; the runner trades it,
+accepts the terms and offers sixty Forests; a person searches with house
+opponents allowed, and after the fill-in wait Central seats the AI; the
+person's seat is played by the house through their own queue entry, the
+AI's by its runner with a pilot that cannot resume: its first socket is cut
+mid-game, it hands the seat over, and the house fallback takes the seat
+again with a fresh core and plays on. Both see the whole game, the person's assignment and receipt carry the AI's badge, and
+Central's results agree with the table's
+(`crates/baylee-gateway/tests/e2e_central/ranked/runners.rs`). An AI
+against an AI waits for Central's carousel.
 
 ## A dev table
 

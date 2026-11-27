@@ -176,9 +176,10 @@ enum Central {
         /// Only the cross-gateway ranked queue, game and settlement.
         #[arg(long, conflicts_with = "challenges_only")]
         ranked_only: bool,
-        /// Only the ranked runners: two AI accounts, each a house mind,
-        /// queue against each other and finish a ranked game
-        /// (`docs/llm-seat.md` §"The ranked runner").
+        /// Only the ranked runner: an administrator creates an AI account
+        /// and its runner token, the runner fills a person's search, and
+        /// they finish a ranked game (`docs/llm-seat.md` §"The ranked
+        /// runner").
         #[arg(long, conflicts_with_all = ["challenges_only", "ranked_only"])]
         ai_players_only: bool,
         #[arg(long)]
