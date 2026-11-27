@@ -15,7 +15,7 @@ use baylee_tower::v2::{
     MAX_STAGES,
     package::{Build, Cohort},
 };
-use baylee_tower_content::{Content, HOUSE_TRIMS, Ladder, house_trimmed};
+use baylee_tower_content::{Content, HOUSE_PICKS, HOUSE_TRIMS, Ladder, house_trimmed};
 
 /// One planned duel.
 struct Match {
@@ -36,6 +36,29 @@ fn codes(sets: usize, trims: u8) -> Vec<u8> {
     codes
 }
 
+/// Around a published pick: itself, one relic more or less in the bag, two
+/// more, and the same trim of the other sets.
+fn around(pick: u8, sets: usize) -> Vec<u8> {
+    let (set, trim) = (pick / HOUSE_TRIMS, pick % HOUSE_TRIMS);
+    let sets = u8::try_from(sets).unwrap_or(1).max(1);
+    let mut codes = vec![
+        pick,
+        set * HOUSE_TRIMS + (trim + 1).min(HOUSE_TRIMS - 1),
+        set * HOUSE_TRIMS + (trim + 2).min(HOUSE_TRIMS - 1),
+        set * HOUSE_TRIMS + trim.saturating_sub(1),
+    ];
+    for other in 1..sets {
+        codes.push(((set + other) % sets) * HOUSE_TRIMS + trim);
+    }
+    let mut seen = Vec::new();
+    codes.retain(|code| {
+        let fresh = !seen.contains(code);
+        seen.push(*code);
+        fresh
+    });
+    codes
+}
+
 /// Measure every cell's candidates against `field` opponents of its stage.
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)] // one measurement, read top to bottom
 pub fn measure(
@@ -48,9 +71,19 @@ pub fn measure(
     base: u64,
     threads: usize,
     stages: &[u8],
+    relative: bool,
 ) -> serde_json::Value {
     let count = content.starters.len();
-    let codes = codes(sets.len(), trims);
+    let global = codes(sets.len(), trims);
+    // A cell's candidates, and the field it is measured against: set 0's
+    // untrimmed builds, or (relative) the published ladder itself.
+    let cell = |stage: u8, archetype: usize| -> Vec<u8> {
+        if relative {
+            around(HOUSE_PICKS[usize::from(stage) - 1][archetype], sets.len())
+        } else {
+            global.clone()
+        }
+    };
     let field = field.clamp(1, count - 1);
     let wanted: Vec<u8> = (1..=MAX_STAGES)
         .filter(|stage| stages.is_empty() || stages.contains(stage))
@@ -65,7 +98,7 @@ pub fn measure(
     let mut matches = Vec::new();
     for &stage in &wanted {
         for archetype in 0..count {
-            for candidate in 0..codes.len() {
+            for candidate in 0..cell(stage, archetype).len() {
                 for step in 0..field {
                     let opponent = (archetype + 1 + step * (count - 1) / field) % count;
                     for deal in 0..seeds {
@@ -95,12 +128,24 @@ pub fn measure(
         &matches,
         threads,
         |m| {
-            let own = build(m.stage, m.archetype, codes[m.candidate]);
-            let other = &sets[0].stages[usize::from(m.stage) - 1][m.opponent];
-            let (a, b) = if m.first {
-                (&own, other)
+            let own = build(
+                m.stage,
+                m.archetype,
+                cell(m.stage, m.archetype)[m.candidate],
+            );
+            let other = if relative {
+                build(
+                    m.stage,
+                    m.opponent,
+                    HOUSE_PICKS[usize::from(m.stage) - 1][m.opponent],
+                )
             } else {
-                (other, &own)
+                sets[0].stages[usize::from(m.stage) - 1][m.opponent].clone()
+            };
+            let (a, b) = if m.first {
+                (&own, &other)
+            } else {
+                (&other, &own)
             };
             duel::play(
                 &content.catalog,
@@ -119,7 +164,7 @@ pub fn measure(
         },
     );
     let stages_n = usize::from(MAX_STAGES);
-    let mut cells = vec![vec![vec![Tally::default(); codes.len()]; count]; stages_n];
+    let mut cells = vec![vec![vec![Tally::default(); 8]; count]; stages_n];
     for (m, played) in matches.iter().zip(&results) {
         cells[usize::from(m.stage) - 1][m.archetype][m.candidate].add(played, m.first);
     }
@@ -137,9 +182,11 @@ pub fn measure(
                 .filter_map(|(candidate, score)| score.map(|s| (candidate, (s - 0.5).abs())))
                 .min_by(|a, b| a.1.total_cmp(&b.1).then(a.0.cmp(&b.0)))
                 .map_or(0, |(candidate, _)| candidate);
+            let codes = cell(stage, archetype);
             picks[index][archetype] = codes[best];
             rows.push(serde_json::json!({
                 "starter": archetype + 1,
+                "codes": codes,
                 "scores": scores.iter().map(|s| s.map(round)).collect::<Vec<_>>(),
                 "pick": codes[best],
             }));
@@ -148,7 +195,8 @@ pub fn measure(
     }
     serde_json::json!({
         "kind": "candidates",
-        "codes": codes,
+        "relative": relative,
+        "codes": global,
         "seeds": seeds,
         "field": field,
         "duels": matches.len(),

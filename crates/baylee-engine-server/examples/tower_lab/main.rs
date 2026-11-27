@@ -66,6 +66,9 @@ enum Command {
         /// Trims of set 0 to try: 0 to this many relics unequipped.
         #[arg(long, default_value_t = 3)]
         trims: u8,
+        /// Around the published pick table instead, against the published ladder.
+        #[arg(long)]
+        relative: bool,
         /// Independent deals per opponent and chair.
         #[arg(long, default_value_t = 1)]
         seeds: u32,
@@ -148,6 +151,7 @@ fn main() -> Result<()> {
         Command::Candidates {
             sets,
             trims,
+            relative,
             seeds,
             field,
             stage,
@@ -164,6 +168,7 @@ fn main() -> Result<()> {
                 cli.seed,
                 cli.threads,
                 &stage,
+                relative,
             )
         }
         Command::Variants {
