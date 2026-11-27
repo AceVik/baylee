@@ -887,6 +887,42 @@ fn a_house_decks_history_is_read_only_and_closes_back_to_the_list() {
     assert_eq!(lobby.browse_deck_history("elsewhere"), None);
 }
 
+/// A newly created deck that autosaved in the builder already has an id before
+/// `ListDecks` refreshes `decks`: clicking History opens it right away.
+#[test]
+fn history_opens_on_a_newly_autosaved_deck_before_list_decks_catches_up() {
+    use crate::lobby::library::Request;
+    let mut lobby = seated_lobby();
+    lobby.build_deck();
+    lobby.apply(LobbyEvent::Pool {
+        cards: vec![PoolCard {
+            index: 1,
+            english_name: "Forest".to_string(),
+            name: "Forest".to_string(),
+            kinds: vec!["Land".to_string()],
+            type_line: "Basic Land — Forest".to_string(),
+            basic_land: true,
+            coverage: Coverage::Implemented,
+            ..PoolCard::default()
+        }],
+        has_text: false,
+    });
+    lobby.builder_mut().set_name("Fresh");
+    lobby.builder_mut().add(0, Zone::Main);
+    let sent = lobby.builder().draft();
+    lobby
+        .builder_mut()
+        .mark_auto_saved(&sent, Some("fresh-id"), false);
+    assert!(
+        !lobby.decks().iter().any(|d| d.id == "fresh-id"),
+        "list has not refreshed yet"
+    );
+    assert_eq!(
+        lobby.browse_history(),
+        Some(LobbyRequest::Library(Request::History("fresh-id".into())))
+    );
+}
+
 fn blocked_card(index: u32, name: &str, until: Option<&str>) -> BlockedCard {
     BlockedCard {
         index,
