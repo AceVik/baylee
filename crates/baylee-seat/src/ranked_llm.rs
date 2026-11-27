@@ -34,7 +34,7 @@ use baylee_account::ranked::ai::AiKind;
 use baylee_ai::AIProfile;
 use baylee_client_core::llmseat::keys::KeyStore;
 use baylee_client_core::say;
-use baylee_protocol::v1::{SeatMind, seat_mind};
+use baylee_protocol::v1::SeatMind;
 use baylee_seat::bridge;
 use baylee_seat::config::Paths;
 use baylee_seat::ranked::chain::{
@@ -188,9 +188,23 @@ impl LlmPilot {
                 .with_context(|| format!("the access path «{name}»"))?
                 .with_context(|| format!("the settings file names no profile «{name}»"))?;
             let declared = declare::llm(&reached.plan.settings);
-            // One path alone plays as its profile says; a second path must
-            // name the same model at the same effort as the first, both
-            // named (`same_model`), or the chain could cross models.
+            // The account's name and rating claim one model at one effort:
+            // every path names both, a lone one too, and each after the
+            // first names the first's (`same_model`). The effort is the
+            // profile's own: a provider's default is no named effort.
+            if own.effort.is_none() {
+                bail!(
+                    "the access path «{name}» names no effort; give the profile its `effort` in \
+                     the settings file (and its `model`, for a CLI `<tool>:<model>`): the \
+                     account's name and rating claim one model at one effort"
+                );
+            }
+            same_model(&declared, &declared).map_err(|why| {
+                anyhow!(
+                    "the access path «{name}»: {why}; give the profile its `model` (for a CLI \
+                     `<tool>:<model>`) and its `effort` in the settings file"
+                )
+            })?;
             if let Some(first) = paths.first() {
                 same_model(&first.declared, &declared).map_err(|why| {
                     anyhow!(
@@ -199,11 +213,6 @@ impl LlmPilot {
                         first.profile
                     )
                 })?;
-            } else if !matches!(
-                seat_mind::Kind::try_from(declared.kind),
-                Ok(seat_mind::Kind::LlmApi | seat_mind::Kind::LlmCli)
-            ) {
-                bail!("the profile «{name}» plays no language model");
             }
             if paths.iter().any(|p| p.profile == *name) {
                 bail!("the access path «{name}» is named twice in the chain");
