@@ -311,7 +311,10 @@ mod tests {
         assert!(said.starts_with(r#"{"ok":true,"frames":5,"#), "{said}");
         assert!(lobby.seeded_social && lobby.can_use_contacts());
         let machine = host.machine().expect("the seeded session's machine");
-        assert!(!machine.me().guest, "the seed's welcome makes it an account's");
+        assert!(
+            !machine.me().guest,
+            "the seed's welcome makes it an account's"
+        );
         assert!(machine.contacts().friend("1004").is_some());
     }
 }
