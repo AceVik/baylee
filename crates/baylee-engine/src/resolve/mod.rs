@@ -46,6 +46,7 @@ mod wave12a;
 mod wave13a;
 mod wave14d;
 mod wave14f;
+mod wave18c;
 pub(crate) use wave14f::finish_variable_mana;
 mod wave15b;
 mod weakest;
@@ -109,6 +110,7 @@ mod sacrifices;
 pub mod tokens;
 #[cfg(not(feature = "test-support"))]
 pub(crate) mod tokens;
+mod wave18b;
 pub(crate) mod wave3_ops;
 mod zones;
 
@@ -684,6 +686,14 @@ pub(super) fn target_mana_value(res: &Resolution, state: &GameState) -> u32 {
     target_chars(res, state).map_or(0, crate::object::Characteristics::mana_value)
 }
 
+pub(super) fn total_targets_mana_value(res: &Resolution, state: &GameState) -> u32 {
+    res.targets.iter().copied().fold(0_u32, |acc, id| {
+        acc.saturating_add(
+            target_chars_of(res, state, id).map_or(0, crate::object::Characteristics::mana_value),
+        )
+    })
+}
+
 /// The first target's characteristics, as the effect asking is entitled to
 /// see them (CR 608.2h).
 ///
@@ -701,6 +711,14 @@ fn target_chars<'a>(
     state: &'a GameState,
 ) -> Option<&'a crate::object::Characteristics> {
     let id = res.targets.first().copied()?;
+    target_chars_of(res, state, id)
+}
+
+fn target_chars_of<'a>(
+    res: &'a Resolution,
+    state: &'a GameState,
+    id: ObjectId,
+) -> Option<&'a crate::object::Characteristics> {
     let obj = state.object(id);
     let known = res
         .target_lki
@@ -880,6 +898,7 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .and_then(|c| c.toughness)
             .map_or(0, |t| t.max(0) as u32),
         Amount::TargetCmc => target_mana_value(res, state),
+        Amount::TotalTargetsManaValue => total_targets_mana_value(res, state),
         Amount::TargetManaSpentToCast => {
             let Some(id) = res.targets.first().copied() else {
                 return 0;
@@ -1875,7 +1894,10 @@ fn filter_reads_resolution_player_at(filter: &baylee_cards_dsl::Filter, depth: u
     }
     match filter {
         Filter::ControlledBy(_)
+        | Filter::OwnedBy(_)
         | Filter::ControlledByChooser
+        | Filter::CreatedBySource
+        | Filter::AttachedHostOfRemembered
         | Filter::IsRemembered
         | Filter::NotRemembered
         | Filter::SharesCardTypeWithRemembered
@@ -2040,7 +2062,21 @@ pub(super) fn matches_in_resolution_with_chars(
     }
     match filter {
         Filter::ControlledBy(rel) => players_of(*rel, state, you, res).contains(&obj.controller),
+        Filter::OwnedBy(rel) => players_of(*rel, state, you, res).contains(&obj.owner),
         Filter::ControlledByChooser => chooser == Some(obj.controller),
+        Filter::CreatedBySource => subjects::source(state, res).is_some_and(|src_ref| {
+            obj.riders
+                .contains(&crate::object::Rider::CreatedBy(src_ref))
+        }),
+        Filter::AttachedHostOfRemembered => res.subject.remembered().is_some_and(|rem| {
+            rem.iter().any(|r| {
+                state.object(r.reference.object).is_some_and(|att| {
+                    att.zone == crate::zone::Zone::Battlefield
+                        && att.version == r.reference.version
+                        && att.attached_to == Some(obj.id)
+                })
+            })
+        }),
         Filter::CmcAtMostX => res.x.is_none_or(|x| chars.mana_value() <= x),
         Filter::CmcExactlyX => res.x.is_none_or(|x| chars.mana_value() == x),
         Filter::TwiceCmcExactlyX => res
@@ -2064,6 +2100,13 @@ pub(super) fn matches_in_resolution_with_chars(
         | Filter::SharesNameWithRemembered => {
             matches_remembered_filter(filter, state, obj, chars, res.subject.remembered())
         }
+        Filter::SharesCardTypeWithReference => target_chars(res, state)
+            .or_else(|| {
+                res.event_object
+                    .and_then(|id| state.object(id))
+                    .map(GameObject::characteristics)
+            })
+            .is_some_and(|c| chars.types.intersects(c.types)),
         Filter::And(parts) => parts
             .iter()
             .all(|f| matches_in_resolution_with_chars(f, state, obj, chars, you, res, chooser)),
@@ -2736,6 +2779,7 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::SearchLibraryDistinctNames { .. }
         | Effect::SearchOpponentSplits { .. }
         | Effect::PlayerMayPayOr { .. }
+        | Effect::PlayerMayWaterbendOr { .. }
         | Effect::PlayerMayPayThen { .. }
         | Effect::PlayerMayPayThenElse { .. }
         | Effect::PlayerMayPayManaEachThenElse { .. }
@@ -2757,6 +2801,12 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::ChoosePhaseToSkipThisTurn
         | Effect::ChooseOne { .. }
         | Effect::ChooseOneRestricted { .. }
+        | Effect::PlayerMayPayOneOfCostsOr { .. }
+        | Effect::PlayersChooseMode(_)
+        | Effect::CreepingDread { .. }
+        | Effect::PhyrexianGrimoire { .. }
+        | Effect::TaintedPact
+        | Effect::SearchLibraryAttachedToEvent { .. }
         | Effect::MayBehold { .. }
         | Effect::ChooseCardName { .. }
         | Effect::ChooseCreatureType { .. }
@@ -2787,6 +2837,9 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::OwnerPutsOnTopOrBottom { .. }
         | Effect::SoulbondPair { .. }
         | Effect::Clash { .. }
+        | Effect::ChooseBasicLandType
+        | Effect::AnyPlayerMayPayManaAmount { .. }
+        | Effect::AnyPlayerMayPayCost { .. }
         | Effect::PayLifeOrEnterTapped { .. } => exec_choice(state, res, op),
         _ => exec_immediate(state, res, op),
     };

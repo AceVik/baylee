@@ -183,6 +183,9 @@ impl Tx<'_> {
             if trimmed.starts_with("DB$ NameCard") {
                 return ExtraOutcome::Handled(self.etb_name_card(svar.trim()));
             }
+            if let ExtraOutcome::Handled(res) = self.wave18b_etb_other(svar.trim()) {
+                return ExtraOutcome::Handled(res);
+            }
             if let ExtraOutcome::Handled(res) = self.wave16c_etb_other(svar.trim()) {
                 return ExtraOutcome::Handled(res);
             }
@@ -281,7 +284,7 @@ impl Tx<'_> {
     /// handles generic `AbilityDef::Ward { mana }` (`1..=10`).
     pub(super) fn try_extra_ward(&mut self, rest: &str) -> ExtraOutcome {
         let trimmed = rest.trim();
-        if trimmed.parse::<u16>().is_ok() {
+        if trimmed.parse::<u16>().is_ok() || trimmed.starts_with("Waterbend<") {
             return ExtraOutcome::Pass;
         }
         ExtraOutcome::Handled(self.ward_extra(trimmed))
@@ -883,6 +886,7 @@ impl Tx<'_> {
         Some(())
     }
 
+    #[allow(clippy::too_many_lines)]
     fn cast_with_flash(&mut self, mut p: Params) -> Option<()> {
         if Self::is_wave28c_cast_with_flash(&p) {
             return self.wave28c_cast_with_flash(p);
@@ -894,6 +898,43 @@ impl Tx<'_> {
             Some("Opponent" | "Player.Opponent") => "PlayerRel::EachOpponent",
             _ => return self.deny("static ability `S: Mode$ CastWithFlash`".to_string()),
         };
+        if p.peek("ValidSA") == Some("Activated.Loyalty")
+            && p.peek("ValidCard").is_some_and(|vc| vc != "Card.Self")
+        {
+            p.take("ValidSA");
+            let zone_arg = match p.take("EffectZone").as_deref() {
+                None | Some("Battlefield") => None,
+                Some("Command") => Some(", zone = ZoneRef::Command"),
+                Some("Battlefield,Command" | "Command,Battlefield") => {
+                    Some(", zone = ZoneRef::BattlefieldOrCommand")
+                }
+                Some(_) => return self.deny("static ability `S: Mode$ CastWithFlash`".to_string()),
+            };
+            if let Some(sec) = p.take("Secondary")
+                && sec != "True"
+            {
+                return self.deny("static ability `S: Mode$ CastWithFlash`".to_string());
+            }
+            let Some(valid_card) = p.take("ValidCard") else {
+                return self.deny("static ability `S: Mode$ CastWithFlash`".to_string());
+            };
+            let cond = self.static_conditions(&mut p, "static ability `S: Mode$ CastWithFlash`")?;
+            if !p.exhausted() {
+                return self.deny("static ability `S: Mode$ CastWithFlash`".to_string());
+            }
+            let filter = self.filter_expr(&valid_card)?;
+            let mut expr = Self::static_expr(
+                &filter,
+                &format!("Modifier::MayActivateLoyaltyAsInstant {{ who: {who} }}"),
+            );
+            if (zone_arg.is_some() || !cond.is_empty())
+                && let Some(open) = expr.strip_suffix(')')
+            {
+                expr = format!("{open}{}{cond})", zone_arg.unwrap_or_default());
+            }
+            self.body.abilities.push(expr);
+            return Some(());
+        }
         if !matches!(p.take("ValidSA").as_deref(), None | Some("Spell")) {
             return self.deny("static ability `S: Mode$ CastWithFlash`".to_string());
         }
@@ -1594,7 +1635,12 @@ impl Tx<'_> {
         {
             return ExtraOutcome::Handled(self.continuous_wave5_characteristic(p));
         }
-        if let Some(var) = p.peek("CheckSVar") {
+        if let Some(var) = p.peek("CheckSVar")
+            && !matches!(
+                p.peek("AffectedZone"),
+                Some("Stack" | "Battlefield,Stack" | "Stack,Battlefield")
+            )
+        {
             let cmp = p.peek("SVarCompare").unwrap_or("GE1");
             if let Some(first) = self
                 .svar_condition_clause(var, cmp)

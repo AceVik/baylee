@@ -70,6 +70,7 @@ const fn number_prompt_code(reason: &NumberPrompt) -> u8 {
         NumberPrompt::VariableManaPayment => 15,
         NumberPrompt::VariableEnergyPayment => 16,
         NumberPrompt::VariableLifePayment => 17,
+        NumberPrompt::Assist => 18,
     }
 }
 

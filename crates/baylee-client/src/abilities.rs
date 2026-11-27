@@ -1170,6 +1170,8 @@ fn cost_key_of(cost: &Cost) -> Option<String> {
             CostPart::UntapSelf => parts.push("{Q}".to_string()),
             CostPart::PayEnergy(n) => parts.push("{E}".repeat(usize::from(*n))),
             CostPart::PayEnergyX => parts.push("{E}".to_string()),
+            CostPart::Waterbend(n) => parts.push(format!("{{{n}}}")),
+            CostPart::WaterbendX => parts.push("{X}".to_string()),
             // Printed in words, which only the printed head can say.
             _ => {}
         }

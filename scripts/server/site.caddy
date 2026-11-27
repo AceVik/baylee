@@ -68,7 +68,7 @@ handle @baylee_site {
 	# and pictures a week. Everything is revalidated once it is stale.
 	# (`header` runs before `uri`, so these matchers see the path as asked;
 	# the Impressum is named both ways to hold if that order ever changes.)
-	@page path / /site/impressum.html /impressum.html /site/datenschutz.html /datenschutz.html
+	@page path / /site/impressum.html /impressum.html /site/datenschutz.html /datenschutz.html /site/nutzungsbedingungen.html /nutzungsbedingungen.html
 	header @page Cache-Control "no-cache"
 	# The card status (data/*.json, crates/baylee-tools/src/site/card_status.rs) is
 	# regenerated with the cards, so it is treated like the code.
@@ -85,7 +85,7 @@ handle @baylee_site {
 	}
 	header @code Cache-Control "public, max-age=3600, stale-while-revalidate=86400"
 	@assets {
-		not path / /site/impressum.html /impressum.html /site/datenschutz.html /datenschutz.html *.css *.js *.json *.txt
+		not path / /site/impressum.html /impressum.html /site/datenschutz.html /datenschutz.html /site/nutzungsbedingungen.html /nutzungsbedingungen.html *.css *.js *.json *.txt
 		not query v=*
 	}
 	header @assets Cache-Control "public, max-age=604800, stale-while-revalidate=86400"

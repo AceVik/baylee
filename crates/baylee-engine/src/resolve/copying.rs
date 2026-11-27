@@ -93,8 +93,23 @@ fn copy_ability(
     Some(id)
 }
 
+fn event_spell_or_ability(
+    state: &GameState,
+    res: &super::Resolution,
+) -> Option<baylee_core::ids::DamageSourceRef> {
+    if let Some(ability_ref) = state.object(res.on_stack).and_then(|obj| {
+        obj.riders.iter().find_map(|rider| match rider {
+            crate::object::Rider::EventAbility(reference) => Some(*reference),
+            _ => None,
+        })
+    }) {
+        return Some(ability_ref);
+    }
+    super::subjects::event(state, res)
+}
+
 pub(super) fn copy_event(state: &mut GameState, res: &mut Resolution) -> Option<Pending> {
-    let original = super::subjects::event(state, res)?;
+    let original = event_spell_or_ability(state, res)?;
     let copy = if state.source_object(original)?.kind == ObjectKind::AbilityOnStack {
         copy_ability(state, original, res.controller)?
     } else {
@@ -475,7 +490,7 @@ pub(super) fn copy_spell_or_ability(
         TargetSpec::ThisObject => {
             super::subjects::source(state, res).or_else(|| state.source_identity(res.on_stack))?
         }
-        TargetSpec::EventObject => super::subjects::event(state, res)?,
+        TargetSpec::EventObject => event_spell_or_ability(state, res)?,
         _ => {
             let &id = res.targets.first()?;
             state

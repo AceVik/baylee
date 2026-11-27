@@ -269,8 +269,10 @@ pub(super) fn event_player_for(
             .filter(|d| d.sacrificed)
             .map(|d| d.controller);
     }
-    if let (Trigger::PlayerAttacked(_), GameEvent::BecameAttacker { object, .. }) =
-        (trigger, &entry.event)
+    if let (
+        Trigger::PlayerAttacked(_) | Trigger::AttackersDeclaredAgainst { .. },
+        GameEvent::BecameAttacker { object, .. },
+    ) = (trigger, &entry.event)
     {
         return state
             .object_or_departed(*object)

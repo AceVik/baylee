@@ -421,6 +421,8 @@ pub mod jagged_barrens;
 pub mod jem_lightfoote_sky_explorer;
 #[path = "otj/jolene_plundering_pugilist.rs"]
 pub mod jolene_plundering_pugilist;
+#[path = "mh3/jolted_awake.rs"]
+pub mod jolted_awake;
 #[path = "m3c/jyoti_moag_ancient.rs"]
 pub mod jyoti_moag_ancient;
 #[path = "otc/kirri_talented_sprout.rs"]
@@ -563,10 +565,14 @@ pub mod outlaw_medic;
 pub mod outlaw_stitcher;
 #[path = "otj/overzealous_muscle.rs"]
 pub mod overzealous_muscle;
+#[path = "mh3/party_thrasher.rs"]
+pub mod party_thrasher;
 #[path = "mh3/path_of_annihilation.rs"]
 pub mod path_of_annihilation;
 #[path = "otj/patient_naturalist.rs"]
 pub mod patient_naturalist;
+#[path = "mh3/pearl_ear_imperial_advisor.rs"]
+pub mod pearl_ear_imperial_advisor;
 #[path = "otj/peerless_ropemaster.rs"]
 pub mod peerless_ropemaster;
 #[path = "mh3/perilous_landscape.rs"]
@@ -731,6 +737,8 @@ pub mod siege_gang_lieutenant;
 pub mod siege_smash;
 #[path = "otj/silver_deputy.rs"]
 pub mod silver_deputy;
+#[path = "m3c/silverquill_lecturer.rs"]
+pub mod silverquill_lecturer;
 #[path = "big/simulacrum_synthesizer.rs"]
 pub mod simulacrum_synthesizer;
 #[path = "mh3/sink_into_stupor.rs"]
@@ -783,6 +791,8 @@ pub mod stagecoach_security;
 pub mod static_prison;
 #[path = "otj/steer_clear.rs"]
 pub mod steer_clear;
+#[path = "otj/step_between_worlds.rs"]
+pub mod step_between_worlds;
 #[path = "otj/sterling_hound.rs"]
 pub mod sterling_hound;
 #[path = "otj/sterling_keykeeper.rs"]
@@ -925,6 +935,10 @@ pub mod warped_tusker;
 pub mod warren_soultrader;
 #[path = "mh3/waterlogged_teachings.rs"]
 pub mod waterlogged_teachings;
+#[path = "otc/we_ride_at_dawn.rs"]
+pub mod we_ride_at_dawn;
+#[path = "mh3/wheel_of_potential.rs"]
+pub mod wheel_of_potential;
 #[path = "mh3/white_orchid_phantom.rs"]
 pub mod white_orchid_phantom;
 #[path = "mh3/wight_of_the_reliquary.rs"]

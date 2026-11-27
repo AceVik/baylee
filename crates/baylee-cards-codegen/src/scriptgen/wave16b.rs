@@ -433,6 +433,9 @@ impl Tx<'_> {
         p.take("PumpZone");
         p.take("KW");
         p.take("IsCurse");
+        if p.peek("AILogic") == Some("ReplaySpell") {
+            p.take("AILogic");
+        }
         if modifier == "Modifier::GrantsFlashback" {
             Some(vec!["Effect::GrantFlashback".to_string()])
         } else {
@@ -456,6 +459,9 @@ impl Tx<'_> {
         p.take("PumpZone");
         p.take("KW");
         p.take("IsCurse");
+        if p.peek("AILogic") == Some("ReplaySpell") {
+            p.take("AILogic");
+        }
         let valid = p.take("ValidCards")?;
         let mut rewritten = Vec::new();
         for alt in valid.split(',').map(str::trim) {

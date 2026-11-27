@@ -23,6 +23,8 @@ pub mod aerie_ouphes;
 pub mod aethertow;
 #[path = "ala/agony_warp.rs"]
 pub mod agony_warp;
+#[path = "ala/ajani_vengeant.rs"]
+pub mod ajani_vengeant;
 #[path = "ala/akrasan_squire.rs"]
 pub mod akrasan_squire;
 #[path = "ala/algae_gharial.rs"]
@@ -431,6 +433,8 @@ pub mod fire_field_ogre;
 pub mod fire_juggler;
 #[path = "shm/fire_lit_thicket.rs"]
 pub mod fire_lit_thicket;
+#[path = "shm/firespout.rs"]
+pub mod firespout;
 #[path = "shm/fists_of_the_demigod.rs"]
 pub mod fists_of_the_demigod;
 #[path = "eve/flame_jab.rs"]
@@ -595,6 +599,8 @@ pub mod inspired_sprite;
 pub mod intimidator_initiate;
 #[path = "eve/inundate.rs"]
 pub mod inundate;
+#[path = "eve/invert_the_skies.rs"]
+pub mod invert_the_skies;
 #[path = "ala/invincible_hymn.rs"]
 pub mod invincible_hymn;
 #[path = "shm/isleback_spawn.rs"]
@@ -959,6 +965,8 @@ pub mod release_the_ants;
 pub mod relic_of_progenitus;
 #[path = "eve/rendclaw_trow.rs"]
 pub mod rendclaw_trow;
+#[path = "shm/repel_intruders.rs"]
+pub mod repel_intruders;
 #[path = "mor/research_the_deep.rs"]
 pub mod research_the_deep;
 #[path = "ala/resounding_roar.rs"]
@@ -997,6 +1005,8 @@ pub mod rip_clan_crasher;
 pub mod rise_of_the_hobgoblins;
 #[path = "shm/rite_of_consumption.rs"]
 pub mod rite_of_consumption;
+#[path = "shm/river_s_grasp.rs"]
+pub mod river_s_grasp;
 #[path = "eve/riverfall_mimic.rs"]
 pub mod riverfall_mimic;
 #[path = "mor/roar_of_the_crowd.rs"]
@@ -1219,6 +1229,8 @@ pub mod stonybrook_schoolmaster;
 pub mod stream_hopper;
 #[path = "mor/stream_of_unconsciousness.rs"]
 pub mod stream_of_unconsciousness;
+#[path = "shm/strip_bare.rs"]
+pub mod strip_bare;
 #[path = "eve/sturdy_hatchling.rs"]
 pub mod sturdy_hatchling;
 #[path = "mor/sunflare_shaman.rs"]
@@ -1295,6 +1307,8 @@ pub mod toil_to_renown;
 pub mod topan_ascetic;
 #[path = "shm/torpor_dust.rs"]
 pub mod torpor_dust;
+#[path = "shm/torrent_of_souls.rs"]
+pub mod torrent_of_souls;
 #[path = "ala/tortoise_formation.rs"]
 pub mod tortoise_formation;
 #[path = "shm/tower_above.rs"]
@@ -1319,6 +1333,8 @@ pub mod umbral_mantle;
 pub mod undead_leotau;
 #[path = "eve/unmake.rs"]
 pub mod unmake;
+#[path = "eve/unnerving_assault.rs"]
+pub mod unnerving_assault;
 #[path = "mor/unstoppable_ash.rs"]
 pub mod unstoppable_ash;
 #[path = "eve/unwilling_recruit.rs"]
@@ -1421,6 +1437,8 @@ pub mod woodlurker_mimic;
 pub mod woolly_thoctar;
 #[path = "eve/worm_harvest.rs"]
 pub mod worm_harvest;
+#[path = "shm/wort_the_raidmother.rs"]
+pub mod wort_the_raidmother;
 #[path = "shm/wound_reflection.rs"]
 pub mod wound_reflection;
 #[path = "ala/yoked_plowbeast.rs"]

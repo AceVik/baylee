@@ -444,6 +444,7 @@ pub(crate) async fn join_game(
 /// @return 403: `$ErrorBody` "The account is banned (`ban`) or must accept the terms first (`terms_required`), or the caller has no chair there (`you are not at this table`)"
 /// @return 404: `$ErrorBody` "No such game"
 /// @return 409: `$ErrorBody` "The game is over, or the chair cannot be resumed (a rematch chair not yet claimed, or a participation that ended)"
+/// @return 503: `$ErrorBody` "The running game could not be kept with its new token (`the gateway's database is unavailable`); ask again"
 pub(crate) async fn take_seat(
     State(state): State<Shared>,
     headers: HeaderMap,
@@ -451,7 +452,18 @@ pub(crate) async fn take_seat(
 ) -> Result<Json<SeatGrant>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers).await?;
     let central_session = crate::central::seat_binding(&state, &headers)?;
-    claim_seat(&state, &account_id, central_session, id, None)
+    let grant = claim_seat(&state, &account_id, central_session, id.clone(), None)?;
+    // A running game the gateway keeps across a restart (`keep`) is written
+    // with the new token before the token is handed out: a restart that
+    // brought the old one back would reopen the chair to the copy this
+    // reissue took it from.
+    state.keeper.sync(&id).await.map_err(|_| {
+        err(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "the gateway's database is unavailable",
+        )
+    })?;
+    Ok(grant)
 }
 
 /// Issue a seat capability after the caller authenticated the matching

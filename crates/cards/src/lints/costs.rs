@@ -62,7 +62,9 @@ pub(super) const fn needs_the_source(part: &CostPart) -> bool {
         | CostPart::BeholdAndExile(_)
         | CostPart::RevealFromHand(_)
         | CostPart::RevealFromHandX(_)
-        | CostPart::CollectEvidence(_) => false,
+        | CostPart::CollectEvidence(_)
+        | CostPart::Waterbend(_)
+        | CostPart::WaterbendX => false,
         CostPart::RemoveAnyCounter { filter, .. } | CostPart::RemoveAnyCounterX { filter, .. } => {
             matches!(filter, Filter::This)
         }
@@ -134,7 +136,9 @@ pub(super) const fn moves_the_source(part: &CostPart) -> bool {
         | CostPart::RevealFromHand(_)
         | CostPart::RevealFromHandX(_)
         | CostPart::RevealSelfFromHand
-        | CostPart::CollectEvidence(_) => false,
+        | CostPart::CollectEvidence(_)
+        | CostPart::Waterbend(_)
+        | CostPart::WaterbendX => false,
         CostPart::Either(a, b) => any_moves_the_source(a.parts) || any_moves_the_source(b.parts),
     }
 }

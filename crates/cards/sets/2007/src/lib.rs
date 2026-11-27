@@ -113,6 +113,8 @@ pub mod boom;
 pub mod bound_in_silence;
 #[path = "plc/braids_conjurer_adept.rs"]
 pub mod braids_conjurer_adept;
+#[path = "plc/brain_gorgers.rs"]
+pub mod brain_gorgers;
 #[path = "lrw/briarhorn.rs"]
 pub mod briarhorn;
 #[path = "lrw/brion_stoutarm.rs"]
@@ -737,6 +739,8 @@ pub mod shields_of_velis_vel;
 pub mod shimmering_grotto;
 #[path = "plc/shivan_meteor.rs"]
 pub mod shivan_meteor;
+#[path = "plc/shivan_wumpus.rs"]
+pub mod shivan_wumpus;
 #[path = "lrw/shriekmaw.rs"]
 pub mod shriekmaw;
 #[path = "lrw/silvergill_adept.rs"]
@@ -857,6 +861,8 @@ pub mod thoughtseize;
 pub mod thoughtweft_trio;
 #[path = "lrw/thundercloud_shaman.rs"]
 pub mod thundercloud_shaman;
+#[path = "lrw/tideshaper_mystic.rs"]
+pub mod tideshaper_mystic;
 #[path = "plc/tidewalker.rs"]
 pub mod tidewalker;
 #[path = "lrw/timber_protector.rs"]

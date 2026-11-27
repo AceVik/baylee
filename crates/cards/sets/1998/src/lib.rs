@@ -855,6 +855,8 @@ pub mod rabid_rats;
 pub mod rabid_wolverines;
 #[path = "p02/raiding_nightstalker.rs"]
 pub mod raiding_nightstalker;
+#[path = "p02/rain_of_daggers.rs"]
+pub mod rain_of_daggers;
 #[path = "usg/rain_of_filth.rs"]
 pub mod rain_of_filth;
 #[path = "sth/ransack.rs"]

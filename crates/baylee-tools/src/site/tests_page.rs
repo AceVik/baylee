@@ -52,10 +52,29 @@ fn test_no_card_picture_is_filtered_faded_or_blended() {
     checks::picture_css(&repo()).unwrap();
 }
 #[test]
-fn test_every_page_links_the_privacy_notice_and_the_legal_notice() {
+fn test_every_page_links_the_terms_the_privacy_notice_and_the_legal_notice() {
     for name in checks::PAGES {
         checks::page(&repo(), name, "footer").unwrap();
     }
+}
+#[test]
+fn test_the_terms_page_draws_the_gateways_text_without_markup() {
+    checks::terms(&repo()).unwrap();
+}
+#[test]
+fn test_a_terms_script_that_writes_markup_is_refused() {
+    let d = tempfile::tempdir().unwrap();
+    let site = d.path().join("web/site");
+    fs::create_dir_all(&site).unwrap();
+    fs::write(
+        site.join("nutzungsbedingungen.html"),
+        r#"<script src="/site/terms.js" defer></script><div id="terms-text"></div>"#,
+    )
+    .unwrap();
+    fs::write(site.join("terms.js"), "box.textContent = text;").unwrap();
+    checks::terms(d.path()).unwrap();
+    fs::write(site.join("terms.js"), "box.innerHTML = text;").unwrap();
+    assert!(checks::terms(d.path()).is_err());
 }
 #[test]
 fn test_every_foreign_host_the_page_may_reach_is_named_in_the_notice() {

@@ -167,6 +167,8 @@ pub mod bonds_of_mortality;
 pub mod boompile;
 #[path = "emn/boon_of_emrakul.rs"]
 pub mod boon_of_emrakul;
+#[path = "cn2/borderland_explorer.rs"]
+pub mod borderland_explorer;
 #[path = "kld/botanical_sanctum.rs"]
 pub mod botanical_sanctum;
 #[path = "ogw/boulder_salvo.rs"]
@@ -293,6 +295,8 @@ pub mod courageous_outrider;
 pub mod coveted_peacock;
 #[path = "kld/cowl_prowler.rs"]
 pub mod cowl_prowler;
+#[path = "soi/creeping_dread.rs"]
+pub mod creeping_dread;
 #[path = "emn/crop_sigil.rs"]
 pub mod crop_sigil;
 #[path = "emn/crossroads_consecrator.rs"]
@@ -487,6 +491,8 @@ pub mod essence_flux;
 pub mod eternal_scourge;
 #[path = "soi/ethereal_guidance.rs"]
 pub mod ethereal_guidance;
+#[path = "psoi/ever_after.rs"]
+pub mod ever_after;
 #[path = "c16/evolutionary_escalation.rs"]
 pub mod evolutionary_escalation;
 #[path = "ogw/expedite.rs"]
@@ -503,6 +509,8 @@ pub mod expose_evil;
 pub mod extricator_of_sin;
 #[path = "emn/exultant_cultist.rs"]
 pub mod exultant_cultist;
+#[path = "c16/faerie_artisans.rs"]
+pub mod faerie_artisans;
 #[path = "kld/failed_inspection.rs"]
 pub mod failed_inspection;
 #[path = "kld/fairgrounds_warden.rs"]
@@ -787,6 +795,8 @@ pub mod isolation_zone;
 pub mod it_of_the_horrid_swarm;
 #[path = "soi/jace_s_scrutiny.rs"]
 pub mod jace_s_scrutiny;
+#[path = "psoi/jace_unraveler_of_secrets.rs"]
+pub mod jace_unraveler_of_secrets;
 #[path = "kld/janjeet_sentry.rs"]
 pub mod janjeet_sentry;
 #[path = "cn2/jeering_homunculus.rs"]
@@ -877,6 +887,8 @@ pub mod lone_rider;
 pub mod long_finned_skywhale;
 #[path = "kld/longtusk_cub.rs"]
 pub mod longtusk_cub;
+#[path = "emn/lunar_force.rs"]
+pub mod lunar_force;
 #[path = "emn/lunarch_mantle.rs"]
 pub mod lunarch_mantle;
 #[path = "emn/lupine_prototype.rs"]
@@ -903,6 +915,8 @@ pub mod malevolent_whispers;
 pub mod malfunction;
 #[path = "soi/manic_scribe.rs"]
 pub mod manic_scribe;
+#[path = "cn2/marchesa_s_decree.rs"]
+pub mod marchesa_s_decree;
 #[path = "kld/marionette_master.rs"]
 pub mod marionette_master;
 #[path = "emn/markov_crusader.rs"]
@@ -1261,6 +1275,8 @@ pub mod sifter_of_skulls;
 pub mod sigarda_heron_s_grace;
 #[path = "emn/sigardian_priest.rs"]
 pub mod sigardian_priest;
+#[path = "c16/silas_renn_seeker_adept.rs"]
+pub mod silas_renn_seeker_adept;
 #[path = "soi/silburlind_snapper.rs"]
 pub mod silburlind_snapper;
 #[path = "soi/silent_observer.rs"]
@@ -1317,6 +1333,8 @@ pub mod sparkmage_s_gambit;
 pub mod spatial_contortion;
 #[path = "ogw/spawnbinder_mage.rs"]
 pub mod spawnbinder_mage;
+#[path = "cn2/spectral_grasp.rs"]
+pub mod spectral_grasp;
 #[path = "emn/spectral_reserves.rs"]
 pub mod spectral_reserves;
 #[path = "soi/spectral_shepherd.rs"]

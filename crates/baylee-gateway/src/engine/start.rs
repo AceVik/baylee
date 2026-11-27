@@ -11,7 +11,9 @@ use super::{Envelope, LobbyState, Shared, auth, execution, lifecycle, v1};
 /// When no agent has room, or when the game is not one that needs an engine;
 /// [`crate::admission::HELD`] while a deploy holds admission. The callers
 /// mark the game playing before they call this, so a deploy that reads
-/// `/health` after placing the hold counts every game this let through.
+/// `/health` after placing the hold counts every game this let through. A
+/// game restored after a restart (`keep`) is not a new one and is not held:
+/// it is ordered on the artifact its record names, and on nothing else.
 pub fn start_engine(state: &Shared, game_id: &str) -> Result<(), &'static str> {
     start(state, game_id, None)
 }
@@ -21,15 +23,16 @@ pub(crate) fn start_replica(state: &Shared, game_id: &str, job: &str) -> Result<
 }
 
 fn start(state: &Shared, game_id: &str, replica_job: Option<&str>) -> Result<(), &'static str> {
-    if state.admission.held() {
-        return Err(crate::admission::HELD);
-    }
+    let held = state.admission.held();
     let engine_token = auth::new_token();
     let agent_id = {
         // One short reservation critical section. No await and no hidden setup data.
         // All other users release either lock before acquiring the other one.
         let mut lobby = state.lobby.lock();
         let game = lobby.games.get_mut(game_id).ok_or("no such game")?;
+        if held && !game.restored() {
+            return Err(crate::admission::HELD);
+        }
         if game.ranked.is_some_and(|b| b.replica.is_some()) != replica_job.is_some() {
             return Err("ranked engine incarnation changed");
         }
@@ -40,7 +43,9 @@ fn start(state: &Shared, game_id: &str, replica_job: Option<&str>) -> Result<(),
         let variant = execution::standard_variant(preset.house_rules.loop_policy);
         let mut agents = state.agents.lock();
         let pinned = game.execution.as_ref().filter(|identity| {
-            game.ranked.is_some() || identity.variant == baylee_protocol::execution::Variant::Tower
+            game.ranked.is_some()
+                || game.restored()
+                || identity.variant == baylee_protocol::execution::Variant::Tower
         });
         let (id, execution) = if let Some(required) = pinned {
             if game.ranked.is_some() && required.variant != variant {

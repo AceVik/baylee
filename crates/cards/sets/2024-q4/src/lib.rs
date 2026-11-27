@@ -221,6 +221,8 @@ pub mod mossborn_hydra;
 pub mod needletooth_pack;
 #[path = "j25/ozox_the_clattering_king.rs"]
 pub mod ozox_the_clattering_king;
+#[path = "fdn/perforating_artist.rs"]
+pub mod perforating_artist;
 #[path = "j25/phantasmal_shieldback.rs"]
 pub mod phantasmal_shieldback;
 #[path = "j25/pol_jamaar_illusionist.rs"]
@@ -337,3 +339,5 @@ pub mod wardens_of_the_cycle;
 pub mod woodland_liege;
 #[path = "j25/wriggling_grub.rs"]
 pub mod wriggling_grub;
+#[path = "fdn/zul_ashur_lich_lord.rs"]
+pub mod zul_ashur_lich_lord;

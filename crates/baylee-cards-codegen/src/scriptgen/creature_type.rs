@@ -31,6 +31,9 @@ impl Tx<'_> {
                 ));
             }
         }
+        if p.peek("Type") == Some("Basic Land") {
+            return self.wave18c_choose_basic_land_type_chain(p, sub, chain);
+        }
         match p.take("Type").as_deref() {
             Some("Creature") => {}
             other => {

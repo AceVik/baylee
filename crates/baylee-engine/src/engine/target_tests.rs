@@ -598,6 +598,16 @@ const REACHES_FURTHER: &[(&str, &str)] = &[
          chosen creature becomes a copy of that creature until end of turn, except it \
          isn't legendary\": targeting Loki turns bystanding Llanowar Elves into copies",
     ),
+    (
+        "Wake of Destruction",
+        "\"Destroy target land and all other lands with the same name as that land\": \
+         targeting one land destroys bystanding Plains with the same name",
+    ),
+    (
+        "Echoing Ruin",
+        "\"Destroy target artifact and all other artifacts with the same name as that \
+         artifact\": targeting one artifact destroys bystanding Sol Rings with the same name",
+    ),
 ];
 
 /// How small the sweep may get before it has stopped measuring anything.

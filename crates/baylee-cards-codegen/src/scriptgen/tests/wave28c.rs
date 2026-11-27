@@ -516,25 +516,17 @@ fn wave28c_refusal_guards() {
          A:SP$ Draw"
     ));
 
-    // UntapOtherPlayer, CantAttack.Target$ You,Planeswalker, Propaganda Target$ You stay refused.
+    // UntapOtherPlayer, Propaganda Target$ You stay refused.
     assert!(refused_w28c(
         "Name:Seedborn Muse\nManaCost:3 G G\nTypes:Creature Spirit\nPT:2/4\n\
          S:Mode$ UntapOtherPlayer | ValidCard$ Permanent.YouCtrl"
-    ));
-    assert!(refused_w28c(
-        "Name:Vow of Duty\nManaCost:2 W\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
-         S:Mode$ CantAttack | ValidCard$ Creature.EnchantedBy | Target$ You,Planeswalker.YouCtrl"
     ));
     assert!(refused_w28c(
         "Name:Propaganda\nManaCost:2 U\nTypes:Enchantment\n\
          S:Mode$ CantAttackUnless | ValidCard$ Creature | Cost$ 2 | Target$ You"
     ));
 
-    // Wildsear Cascade, Serra Paragon shared-limit mixed play, OppOwn exile stay refused.
-    assert!(refused_w28c(
-        "Name:Wildsear\nManaCost:3 R G\nTypes:Legendary Creature Elemental Wolf\nPT:6/6\n\
-         S:Mode$ Continuous | Affected$ Enchantment.YouCtrl | AffectedZone$ Stack | AddKeyword$ Cascade"
-    ));
+    // Serra Paragon shared-limit mixed play, OppOwn exile stay refused.
     assert!(refused_w28c(
         "Name:Serra Paragon\nManaCost:2 W W\nTypes:Creature Angel\nPT:3/4\n\
          S:Mode$ Continuous | Affected$ Permanent.YouOwn+cmcLE3,Land.YouOwn | ValidAfterStack$ Spell.cmcLE3 | Condition$ PlayerTurn | MayPlay$ True | MayPlayLimit$ 1 | EffectZone$ Battlefield | AffectedZone$ Graveyard"

@@ -24,7 +24,6 @@ play = [
     "dep:central-api",
     "dep:baylee-account",
     "dep:baylee-cards-dsl",
-    "dep:baylee-driver",
     "dep:baylee-engine",
     "dep:baylee-gamehost",
     "dep:baylee-view",
@@ -43,7 +42,7 @@ play = [
 # the net's lookahead (`netplay4::search`, `eval4 --search`). Not `play`:
 # that is a default, and `cargo build-servers`/`build-client` select
 # `--workspace`, so a default of this crate unifies into every shipped binary.
-onnx = ["play", "dep:ort", "dep:baylee-ai", "dep:baylee-client-core", "dep:rustix", "baylee-driver/onnx", "baylee-gamehost/simulation"]
+onnx = ["play", "dep:ort", "dep:baylee-ai", "dep:baylee-client-core", "dep:rustix", "dep:baylee-driver", "baylee-driver/onnx", "baylee-gamehost/simulation"]
 # The same on NVIDIA GPUs (CUDA 13; the runtime finds the CUDA and cuDNN
 # libraries on LD_LIBRARY_PATH): the batch servers of `--gpu-batch` run there,
 # and `BAYLEE_EP=cpu` keeps them on the CPU. A v2/v4 player goes to the GPU only

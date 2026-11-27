@@ -45,7 +45,7 @@ game is resumed the same way:
    retries a failed write instead of giving up; a gateway that is stopped
    asks every engine for its record (`FlushRecord`, #323) and waits until it
    is stored.
-2. **The gateway keeps its tables.** Running games and waiting rooms are
+2. **The gateway keeps its tables.** Running games (later waiting rooms) are
    written to PostgreSQL as they change: seats, accounts, seat token hashes,
    the session key a chair is bound to, the execution identity, the room's
    rules. The preset is read back from the record's header, not stored twice.
@@ -121,9 +121,18 @@ Each step lands on its own, through the gate:
 
 1. Resume reproduces every seat's table (the record annotations above). Done.
 2. The record is durable: short flush bound, retrying writer, flush on stop.
-   Done: 2 s bound, 15 minutes of retries, a stop waits up to 5 s.
-3. Running games and rooms in PostgreSQL; the gateway loads them and orders
-   resuming engines; the engine's resume mode.
+   Done: 2 s bound, 15 minutes of retries, a stop waits up to 5 s and holds
+   every game it asked (`FlushRecord.hold`), so the record it stored is the
+   whole game. A finished record is compacted into one piece.
+3. a. The engine's resume mode (`GameSetup.resume_record`): it rebuilds the
+      session on its own build only, continues the record at the next piece
+      and opens the table without a curtain. Done.
+   b. Running games in PostgreSQL; the gateway loads them at start and orders
+      resuming engines. Done for a restart of the gateway (`e2e_restart`: a
+      game goes on across a stop and a kill, a reissued token outlives a
+      kill). Waiting rooms come later: a room lost in a restart costs a
+      re-invite, not a game. An engine whose link breaks while the gateway
+      runs still ends its game; resuming that is a step of its own.
 4. Protocol per game; retained engine builds; the engine-link compatibility
    test.
 5. Deploy and reboot without the drain; Caddy's retry; the client's and seat
@@ -133,8 +142,80 @@ Each step lands on its own, through the gate:
    finishes, and the whole record replays exactly. Resume time measured on
    the largest realistic record.
 
+## Step 3b: the gateway keeps its running games
+
+Only for a restart of the gateway: the agent ends its engines when its link
+to the gateway goes (`baylee-agent` `stop_all`), so after a restart every
+record has one writer and there is no old engine to fence off. An engine
+whose link breaks while the gateway runs still ends its game; resuming that
+is a later step.
+
+**What is kept.** One row per running game in `running_game`, keyed by the
+game and removed with its record. It holds only what the record cannot give:
+the room (host, name, format, list, spectators, password hash, when it was
+opened and started) and each chair (who sits there, the seat token's hash,
+the session key the chair is bound to, the seat bridge and the hosted order,
+the deck, the team, whether its participation ended). The preset and the
+engine's execution identity are read from the record's header, never stored
+twice. The row is versioned and a golden test holds its shape.
+
+- Ranked duels, Tower runs, challenges and replica jobs get no row.
+- The row is written once the record's first piece is stored, since there
+  is nothing to resume before it.
+- A seat token reissued in a running game (`POST /lobby/games/{id}/seat`,
+  the one way a running chair gets a new token; a chair is handed to a seat
+  bridge only while the room waits) is written before the route answers,
+  and the route answers `503` when the write fails. Restoring an older seat
+  token hash would reopen a chair that was taken back. A write that failed
+  is tried again at every sweep; until it goes through, a restart restores
+  the token before the reissue, which the reissue's caller never received.
+- Everything else (a participation that ended, an account deleted, a team
+  or a bridge's readiness) is written at the next sweep, at most five
+  seconds later. A deleted account is checked again at the restore, so its
+  chair never comes back.
+- One task writes the rows, the current state of a game each time, so a
+  later state is never overwritten by an earlier one.
+- The row goes when the game ends: in the same transaction that completes
+  the record, and on every other way a game ends.
+- Once the gateway is stopping, nothing is written: a link closing in the
+  stop must not delete the game it is keeping.
+
+**At start.** Before the gateway binds its port it reads every row. A row of
+an unknown version, a record without a header, a complete record, an
+execution identity this gateway does not know, or a chair whose account is
+gone ends that one game with the reason logged, and the gateway starts
+anyway. Only the header is read here; the whole record is read when the
+engine attaches.
+
+**The engine.** A restored game waits for an agent that offers its exact
+execution identity (`pick_exact`), ordered when an agent says hello. No
+agent yet, or no room, is waiting, not a failure. A game whose engine has
+not attached `RESTORE_WAIT_SECS` after the start ends with the reason said.
+On its hello the engine gets the setup with the stored record
+(`GameSetup.resume_record`, `resume_pieces`) and the record goes on at the
+next piece. A record with a gap is not sent.
+
+**What a player sees.** The seats come back by the same tickets as after a
+lost connection. A seat whose session the gateway no longer knows signs in
+again (step 5); a local account's session is in the database and survives.
+The engine starts with every seat away and the table open.
+
+**Tests.** A real gateway, agent and engine in the end-to-end harness:
+
+- A game a few answers in, the gateway stopped (`SIGTERM`) and started
+  again on the same database: both seats get the question they had, the
+  engine hash is the one before, the first new piece is the stored count,
+  the old pieces are unchanged, the game finishes and the whole record
+  replays. The same with `SIGKILL`.
+- A seat reclaimed, the gateway killed and started: the old token is
+  refused and the new one opens.
+- The table and lobby views of the game are equal before and after.
+- Ranked, Tower and challenge games leave no row; an ended game leaves none.
+- Two restarts in a row.
+
 ## Privacy and the backup
 
 The new tables hold accounts, seat token hashes and session keys of running
 games only, and lose a row when its game ends. `docs/privacy.md` names them;
-the backup keeps them only in its short-lived set.
+the backup never saves them, as it never saves sessions: after a restore they
+are there and empty.

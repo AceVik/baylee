@@ -387,6 +387,8 @@ pub mod flesh_allergy;
 pub mod flight_spellbomb;
 #[path = "roe/forked_bolt.rs"]
 pub mod forked_bolt;
+#[path = "m11/frost_titan.rs"]
+pub mod frost_titan;
 #[path = "roe/frostwind_invoker.rs"]
 pub mod frostwind_invoker;
 #[path = "som/fume_spitter.rs"]
@@ -557,6 +559,8 @@ pub mod jwari_shapeshifter;
 pub mod kabira_vindicator;
 #[path = "wwk/kalastria_highborn.rs"]
 pub mod kalastria_highborn;
+#[path = "wwk/kazuul_tyrant_of_the_cliffs.rs"]
+pub mod kazuul_tyrant_of_the_cliffs;
 #[path = "roe/keening_stone.rs"]
 pub mod keening_stone;
 #[path = "som/kemba_kha_regent.rs"]
@@ -813,6 +817,8 @@ pub mod primal_cocoon;
 pub mod primeval_titan;
 #[path = "roe/prophetic_prism.rs"]
 pub mod prophetic_prism;
+#[path = "som/prototype_portal.rs"]
+pub mod prototype_portal;
 #[path = "som/psychic_miasma.rs"]
 pub mod psychic_miasma;
 #[path = "wwk/pulse_tracker.rs"]
@@ -1011,6 +1017,8 @@ pub mod stormtide_leviathan;
 pub mod strider_harness;
 #[path = "roe/student_of_warfare.rs"]
 pub mod student_of_warfare;
+#[path = "roe/suffer_the_past.rs"]
+pub mod suffer_the_past;
 #[path = "wwk/summit_apes.rs"]
 pub mod summit_apes;
 #[path = "pm11/sun_titan.rs"]

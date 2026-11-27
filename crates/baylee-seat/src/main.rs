@@ -30,6 +30,17 @@
 //! instead (`--profile`, `--config`; `docs/llm-seat.md`), whose daily and
 //! monthly caps the spend book holds across games: a game reserves what it
 //! may spend before it sits down, and settles when it is over.
+//!
+//! ```text
+//! baylee-seat ranked --username <AI account> --deck <its deck id>
+//!     (--password-file <path> | --password-key <name>)
+//!     [--central live|http://127.0.0.1:<port>] [--level expert]
+//!     [--accept-host <origin>]… [--games <n>]
+//! ```
+//!
+//! Plays Ranked as an AI account, its password read from a file only its
+//! service can read or from the credential store (`ranked_cli`,
+//! `docs/llm-seat.md` §"The ranked runner").
 
 // Looks cards up, so this program holds the pool (`baylee-cards-pool`).
 use baylee_cards_pool as _;
@@ -95,6 +106,10 @@ enum Command {
     /// one paid answer besides. Prints one JSON line (`docs/llm-seat.md`
     /// §"A hosted seat").
     Check(CheckArgs),
+    /// Play Ranked as an AI account: sign in to Baylee Central, queue with
+    /// one of the account's decks, and play each match with the house
+    /// (`docs/llm-seat.md` §"The ranked runner").
+    Ranked(Box<ranked_cli::RankedArgs>),
 }
 
 #[derive(clap::Args)]
@@ -925,6 +940,9 @@ async fn run() -> anyhow::Result<()> {
             say!("{line}");
             Ok(())
         }
+        Command::Ranked(ranked) => {
+            ranked_cli::run(&ranked, Arc::clone(&keys), stoppers.stopped()).await
+        }
         Command::Join(join) => {
             let (mut let_go, orders, ticket) = if join.tethered {
                 let held = tether::hold(join.chair_ticket || join.host_chair);
@@ -1174,6 +1192,7 @@ async fn leave_unstarted(unstarted: &Unstarted) {
 }
 
 mod host_chair;
+mod ranked_cli;
 mod tether;
 
 /// Every signal a process can be asked to stop by, registered with the

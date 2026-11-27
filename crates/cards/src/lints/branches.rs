@@ -121,6 +121,7 @@ pub(super) fn printed_branches(ability: &AbilityDef) -> Vec<Branch> {
         AbilityDef::Unimplemented
         | AbilityDef::StartYourEngines
         | AbilityDef::Ward { .. }
+        | AbilityDef::WardWaterbend { .. }
         | AbilityDef::Toxic { .. }
         | AbilityDef::Prepared { .. }
         | AbilityDef::Echo { .. }

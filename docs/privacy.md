@@ -98,8 +98,8 @@ old gateway data is preserved during the transition. See
 | Chair ticket (hash only), with the room, chair and host account it is for | gateway memory | ≤ 120 s (`BAYLEE_CHAIR_TICKET_SECS`), or until used | use, its host leaving the room or being deleted, the ticket sweep, a restart |
 | Rate-limit keys (IP, typed login name) | gateway memory | a window (300 s), then until the next check | the limiter itself |
 | Chat devices (public keys, the OS family as a label, when added and last seen) | Postgres `social_device` | until removed | the player (Settings → Chat & privacy), or the account's deletion |
-| Friends, friend requests, blocks | Postgres `friendship`, `friend_request`, `social_block` | until changed | the player, or either account's deletion |
-| Groups (name, members, invites) | Postgres `chat_group`, `group_member`, `group_invite` | until the group is deleted | the owner; a group nobody is left in; an account's deletion removes its membership |
+| Blocks (from before Central; Central's blocks do not reach the gateway, so these still keep a blocked player's table chat away) | Postgres `social_block` | until the account's deletion | the account's deletion, or the operator on request (the client sends new blocks to Central) |
+| Friends, friend requests, groups (name, members, invites) from before Central | were Postgres `friendship`, `friend_request`, `chat_group`, `group_member`, `group_invite`; the tables stay, empty | deleted by migration 35 (`m20261125_000035_drop_old_friends`, owner 25.11.2026), with the groups' undelivered messages | — (contacts and groups are Central's) |
 | Undelivered messages (encrypted; the gateway can't read them) and who they're for | Postgres `chat_message`, `chat_delivery` | until delivered, at most `BAYLEE_SOCIAL_KEEP_DAYS` (14 unless set, 1 to 30; 1 day to a guest) | delivery, the sweep, the sender's or recipient's deletion |
 | Whisper and request settings, "show my table to friends" | Postgres `account` (`whispers_from`, `requests_open`, `share_table`) | until changed | the account's deletion |
 | Presence (status, where, which social sockets are open), table invites, chat rate limits | gateway memory | while connected, 10 minutes for an invite | disconnecting, a restart |
@@ -625,7 +625,23 @@ own.
   - a waiting table goes 2 h after it opened (`WAITING_TIMEOUT_SECS`);
   - a finished game goes 1 h after it ended (`OVER_GRACE_SECS`), unless a
     rematch room still points at it;
-  - a restart loses all of it.
+  - a restart loses all of it but the running games below.
+- **Running games across a restart** (`crates/baylee-gateway/src/keep/`,
+  `docs/proposals/games-survive-restarts.md`): a running casual game is
+  also written to gateway Postgres `running_game`, one row a game: the
+  table's fields above (host, name, password hash, format, ban list copy)
+  and per chair the account id, the seat token's hash, the key of the
+  session the chair is bound to, the deck, team and seat bridge. It is
+  written from the game's first stored record piece, at most five seconds
+  behind memory, and removed when the game ends (with the record's last
+  piece, in the same statement), when a restart cannot resume it, and with
+  its record. Ranked duels, Tower runs and challenges have no row. A
+  restart reads the rows back; a chair of an account deleted meanwhile is
+  emptied first. A chair's session key is never a bearer: it is `central:`
+  and the `sid` of the Central session that took the chair, and a local
+  account's chair has none. The backup never saves the table, as it never
+  saves sessions (§"Backups"): after a restore it is there and empty, so no
+  game and no chair comes back from a backup.
 - **Removed early:** a deleted account's chairs are emptied at every table,
   waiting, running or over (`Lobby::forget_account`), and so are the
   chairs its seat bridges sat in; its seat and lobby sockets close. A
@@ -689,8 +705,9 @@ only waits while one runs (`/run/baylee-backup/run.lock`).
   the database's TLS key and superuser password, the roles' password hashes)
   go into a bundle encrypted separately to the owner's recovery key, which
   the server does not hold.
-- **Never saved:** the rows of sessions and confirmation links
-  (`session_token`, `confirmation`; Central's `sessions`, pairings, pending
+- **Never saved:** the rows of sessions, confirmation links and running
+  games (`session_token`, `confirmation`, `running_game`; Central's
+  `sessions`, pairings, pending
   e-mail codes, push subscriptions and the like), the feedback service's
   admin sessions, the card catalogs, and any log.
 - **Encrypted before upload:** restic encrypts everything on the server;
@@ -1235,9 +1252,14 @@ to weigh, not conclusions.
    client still sends its session or seat token in a socket's address, and
    `/auth/confirm?token=` always does; whatever access log sits in front of
    the gateway sees those.
-4. **Retention of stdout logs** is not set anywhere in the repository.
-   Backups have their own (§"Backups"), set in the separate `baylee-backup`
-   repository.
+4. **Retention of stdout logs** is set on the server, not in the
+   repository. The system journal keeps 14 days (`MaxRetentionSec=14day`;
+   journald deletes whole files once their first entry is that old), and
+   the files rsyslog, fail2ban and ufw write from it rotate daily with
+   `maxage 14` (since 25.11.2026). The owner's own user journal (deploy
+   output, sudo sessions) keeps longer, by his choice (26.11.2026); it
+   holds no player data as far as checked. Backups have their own
+   (§"Backups"), set in the separate `baylee-backup` repository.
 5. **Game records** (#315) are kept without a time limit. The record names
    no account; who sat in a seat is `game_record_seat.account_id` (and
    `delegated_by` for a host's seat bridge), both `ON DELETE SET NULL`

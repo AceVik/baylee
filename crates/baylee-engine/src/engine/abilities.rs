@@ -8,7 +8,7 @@ use crate::choice::TargetPrompt;
 use baylee_cards_dsl::{ActivationLimit, ActivationZone};
 
 mod activation;
-mod costs;
+pub(super) mod costs;
 mod grants;
 mod limits;
 mod loyalty;
@@ -193,7 +193,9 @@ pub(crate) const fn paid_by_the_casting_wizard(part: &CostPart) -> bool {
         | CostPart::RevealFromHand(_)
         | CostPart::RevealFromHandX(_)
         | CostPart::RevealSelfFromHand
-        | CostPart::CollectEvidence(_) => false,
+        | CostPart::CollectEvidence(_)
+        | CostPart::Waterbend(_)
+        | CostPart::WaterbendX => false,
     }
 }
 
@@ -251,7 +253,9 @@ const fn can_refuse_part_way(part: &CostPart) -> bool {
         | CostPart::RevealFromHand(_)
         | CostPart::RevealFromHandX(_)
         | CostPart::RevealSelfFromHand
-        | CostPart::CollectEvidence(_) => true,
+        | CostPart::CollectEvidence(_)
+        | CostPart::Waterbend(_)
+        | CostPart::WaterbendX => true,
         CostPart::TapSelf
         | CostPart::UntapSelf
         | CostPart::ExertSelf

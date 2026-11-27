@@ -319,3 +319,27 @@ pub(super) fn grant_linked_exile_permission(
     }
     None
 }
+
+/// Grants `permission` on every currently remembered face-up card in exile matching `filter`.
+pub(super) fn grant_remembered_exile_permission(
+    state: &mut GameState,
+    res: &Resolution,
+    filter: &'static baylee_cards_dsl::Filter,
+    permission: baylee_cards_dsl::ExilePermission,
+) -> Option<Pending> {
+    let remembered = res.subject.remembered()?;
+    let cards: Vec<ObjectId> = remembered
+        .iter()
+        .filter_map(|rem| {
+            let obj = state.object(rem.reference.object).filter(|o| {
+                o.zone == crate::zone::Zone::Exile && o.version == rem.reference.version
+            })?;
+            super::matches_in_resolution(filter, state, obj, res.controller, res, None)
+                .then_some(obj.id)
+        })
+        .collect();
+    for card in cards {
+        grant_exile_permission(state, res, card, permission);
+    }
+    None
+}

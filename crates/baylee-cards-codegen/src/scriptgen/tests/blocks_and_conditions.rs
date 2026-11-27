@@ -445,7 +445,7 @@ fn an_unless_cost_wraps_the_line_whatever_it_says() {
     // with no target to take one from, and subs on one answer.
     for (line, reason) in [
         (
-            "DB$ Sacrifice | UnlessPayer$ Player | UnlessCost$ 2 | UnlessSwitched$ True",
+            "DB$ Sacrifice | UnlessPayer$ Player | UnlessCost$ Discard<1/Card> | UnlessSwitched$ True",
             "an unless-cost paid by `Player`",
         ),
         (

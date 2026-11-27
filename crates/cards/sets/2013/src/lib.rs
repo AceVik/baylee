@@ -473,6 +473,8 @@ pub mod gruul_guildgate;
 pub mod gruul_keyrune;
 #[path = "dgm/gruul_war_chant.rs"]
 pub mod gruul_war_chant;
+#[path = "m14/guardian_of_the_ages.rs"]
+pub mod guardian_of_the_ages;
 #[path = "gtc/guardian_of_the_gateless.rs"]
 pub mod guardian_of_the_gateless;
 #[path = "ths/guardians_of_meletis.rs"]
@@ -701,6 +703,8 @@ pub mod murder_investigation;
 pub mod murmuring_phantasm;
 #[path = "dgm/mutant_s_prey.rs"]
 pub mod mutant_s_prey;
+#[path = "gtc/mystic_genesis.rs"]
+pub mod mystic_genesis;
 #[path = "gtc/nav_squad_commandos.rs"]
 pub mod nav_squad_commandos;
 #[path = "c13/nekusar_the_mindrazer.rs"]
@@ -791,6 +795,8 @@ pub mod phytoburst;
 pub mod pilfered_plans;
 #[path = "gtc/pit_fight.rs"]
 pub mod pit_fight;
+#[path = "dgm/plasm_capture.rs"]
+pub mod plasm_capture;
 #[path = "dgm/pontiff_of_blight.rs"]
 pub mod pontiff_of_blight;
 #[path = "ths/portent_of_betrayal.rs"]
@@ -859,6 +865,8 @@ pub mod reaper_of_the_wilds;
 pub mod regathan_firecat;
 #[path = "dgm/renounce_the_guilds.rs"]
 pub mod renounce_the_guilds;
+#[path = "ths/rescue_from_the_underworld.rs"]
+pub mod rescue_from_the_underworld;
 #[path = "c13/restore.rs"]
 pub mod restore;
 #[path = "dgm/restore_the_peace.rs"]
@@ -1147,6 +1155,8 @@ pub mod triad_of_fates;
 pub mod triton_fortune_hunter;
 #[path = "ths/triton_shorethief.rs"]
 pub mod triton_shorethief;
+#[path = "ths/triton_tactics.rs"]
+pub mod triton_tactics;
 #[path = "pdgm/trostani_s_summoner.rs"]
 pub mod trostani_s_summoner;
 #[path = "c13/true_name_nemesis.rs"]

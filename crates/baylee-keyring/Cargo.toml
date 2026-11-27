@@ -10,16 +10,16 @@ description = "Shared native credential-store adapter with fail-closed Linux Sec
 workspace = true
 
 [target.'cfg(any(windows, target_os = "macos"))'.dependencies]
-keyring-core = "=1.0.1"
+keyring-core = "=1.1.0"
 
 [target.'cfg(windows)'.dependencies]
 windows-native-keyring-store = "=1.1.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]
-apple-native-keyring-store = { version = "=1.0.2", features = ["keychain"] }
+apple-native-keyring-store = { version = "=1.0.3", features = ["keychain"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 libsecret = "=0.9.0"
-glib = "=0.22.10"
+glib = "=0.22.11"
 futures-util.workspace = true
 zeroize.workspace = true

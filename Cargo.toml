@@ -27,7 +27,6 @@ license = "AGPL-3.0-only"
 # every binary and the client draws it.
 authors = ["Viktor Machnik"]
 repository = "https://github.com/AceVik/baylee"
-description = "An unofficial, non-commercial fan implementation of a trading card game"
 
 # Dependency policy: newest stable, pinned here once for the whole workspace.
 # Refresh with `cargo upgrade` (cargo-edit) + full CI run.
@@ -40,16 +39,16 @@ unic-langid = "0.9"
 baylee-account = { path = "crates/baylee-account" }
 baylee-challenges = { path = "crates/baylee-challenges" }
 baylee-client-e2e = { path = "crates/baylee-client-e2e" }
-central-api = { git = "https://github.com/AceVik/baylee-central.git", rev = "10f565b3ac80c5a5ddd06ab8afa2e0a7f05a45e4" }
-central-client = { git = "https://github.com/AceVik/baylee-central.git", rev = "10f565b3ac80c5a5ddd06ab8afa2e0a7f05a45e4" }
-central-crypto = { git = "https://github.com/AceVik/baylee-central.git", rev = "10f565b3ac80c5a5ddd06ab8afa2e0a7f05a45e4" }
+central-api = { git = "https://github.com/AceVik/baylee-central.git", rev = "e96792ffd170a62fe038444fb7fe1a14a85f6e35" }
+central-client = { git = "https://github.com/AceVik/baylee-central.git", rev = "e96792ffd170a62fe038444fb7fe1a14a85f6e35" }
+central-crypto = { git = "https://github.com/AceVik/baylee-central.git", rev = "e96792ffd170a62fe038444fb7fe1a14a85f6e35" }
 # Central's server side, for the gateway's integration tests and the local
 # stack's provisioning helper only: no shipped binary links these.
-central-http = { git = "https://github.com/AceVik/baylee-central.git", rev = "10f565b3ac80c5a5ddd06ab8afa2e0a7f05a45e4" }
-central-identity = { git = "https://github.com/AceVik/baylee-central.git", rev = "10f565b3ac80c5a5ddd06ab8afa2e0a7f05a45e4" }
-central-migration = { git = "https://github.com/AceVik/baylee-central.git", rev = "10f565b3ac80c5a5ddd06ab8afa2e0a7f05a45e4" }
-central-policy = { git = "https://github.com/AceVik/baylee-central.git", rev = "10f565b3ac80c5a5ddd06ab8afa2e0a7f05a45e4" }
-central-postgres = { git = "https://github.com/AceVik/baylee-central.git", rev = "10f565b3ac80c5a5ddd06ab8afa2e0a7f05a45e4" }
+central-http = { git = "https://github.com/AceVik/baylee-central.git", rev = "e96792ffd170a62fe038444fb7fe1a14a85f6e35" }
+central-identity = { git = "https://github.com/AceVik/baylee-central.git", rev = "e96792ffd170a62fe038444fb7fe1a14a85f6e35" }
+central-migration = { git = "https://github.com/AceVik/baylee-central.git", rev = "e96792ffd170a62fe038444fb7fe1a14a85f6e35" }
+central-policy = { git = "https://github.com/AceVik/baylee-central.git", rev = "e96792ffd170a62fe038444fb7fe1a14a85f6e35" }
+central-postgres = { git = "https://github.com/AceVik/baylee-central.git", rev = "e96792ffd170a62fe038444fb7fe1a14a85f6e35" }
 baylee-core = { path = "crates/baylee-core" }
 baylee-cardtext = { path = "crates/baylee-cardtext" }
 baylee-deckio = { path = "crates/baylee-deckio" }
@@ -106,8 +105,8 @@ bytes = "1"
 unicode-normalization = "0.1"
 futures-util = "0.3"
 rustc-hash = "2"
-# Public layout/camera types cross directly into Bevy 0.20.1 (glam 0.33.2).
-glam = "=0.33.2"
+# Public layout/camera types cross directly into Bevy 0.20.1, which takes any glam 0.33 from 0.33.2 on.
+glam = "=0.33.12"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 rand_chacha = "0.10"
 rand_core = "0.10"
@@ -151,7 +150,7 @@ hyper-rustls = { version = "0.27", default-features = false, features = ["http1"
 hyper-util = { version = "0.1", default-features = false, features = ["client-legacy", "http1", "tokio"] }
 # The optional workstation monitor: no GPU context, no process commands,
 # and no parallel process scan competing with the training workers.
-sysinfo = { version = "0.40.1", default-features = false, features = ["system"] }
+sysinfo = { version = "0.40.4", default-features = false, features = ["system"] }
 nvml-wrapper = "0.13"
 argon2 = "0.6"
 getrandom = "0.4"

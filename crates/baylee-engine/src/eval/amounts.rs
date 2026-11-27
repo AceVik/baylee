@@ -500,6 +500,7 @@ pub(crate) fn amount_with_version(
         | Amount::TargetPower
         | Amount::TargetToughness
         | Amount::TargetCmc
+        | Amount::TotalTargetsManaValue
         | Amount::TargetManaSpentToCast
         | Amount::EventLastToughness
         | Amount::EventPower

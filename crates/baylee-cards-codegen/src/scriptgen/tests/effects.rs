@@ -1721,11 +1721,16 @@ fn extravagant_spirit_food_chain_flailing_and_haunted_crossroads_shapes_read() {
         body.abilities[0]
     );
 
-    assert!(refused(
+    let hammer_mage = read(
         "Name:Hammer Mage\nManaCost:1 R\nTypes:Creature Human Spellshaper\nPT:1/1\n\
          A:AB$ DestroyAll | Cost$ X R T Discard<1/Card> | ValidCards$ Artifact.cmcLEX\n\
-         SVar:X:Count$xPaid"
-    ));
+         SVar:X:Count$xPaid",
+    );
+    assert!(
+        hammer_mage.abilities[0].contains("Effect::destroy_all(&"),
+        "{}",
+        hammer_mage.abilities[0]
+    );
 }
 
 #[test]

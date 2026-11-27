@@ -33,7 +33,7 @@ zip.workspace = true
 time = { workspace = true, features = ["formatting"] }
 getrandom.workspace = true
 regex.workspace = true
-libloading = "0.9.0"
+libloading = "0.9.1"
 ctrlc.workspace = true
 # Native Finder layout and the bundled OFL font rasteriser, tools only.
 ab_glyph.workspace = true

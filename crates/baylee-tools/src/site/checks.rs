@@ -11,7 +11,12 @@ use serde_json::Value;
 
 use super::{bulk, html, impressum, stamp};
 
-pub(super) const PAGES: [&str; 3] = ["index.html", "impressum.html", "datenschutz.html"];
+pub(super) const PAGES: [&str; 4] = [
+    "index.html",
+    "impressum.html",
+    "datenschutz.html",
+    "nutzungsbedingungen.html",
+];
 pub(super) const EMAIL: &str = r"[\w.+-]+@[\w-]+\.[\w.-]+";
 pub(super) const DIGITS: &str = r"\d{6,}";
 
@@ -98,10 +103,42 @@ pub(super) fn page(root: &Path, name: &str, check: &str) -> Result<()> {
             .map(|n| n.attr("href"))
             .collect();
         ensure!(
-            hrefs.contains("/site/datenschutz.html") && hrefs.contains("/site/impressum.html"),
+            hrefs.contains("/site/nutzungsbedingungen.html")
+                && hrefs.contains("/site/datenschutz.html")
+                && hrefs.contains("/site/impressum.html"),
             "{name}: footer lacks legal pages"
         );
     }
+    Ok(())
+}
+
+/// The terms page draws a text the gateway sends: `terms.js` builds it from
+/// text nodes and never writes markup, and the page loads that script.
+pub(super) fn terms(root: &Path) -> Result<()> {
+    let script = read(root, "terms.js")?;
+    for sink in [
+        "innerHTML",
+        "outerHTML",
+        "insertAdjacentHTML",
+        "document.write",
+        "createContextualFragment",
+        "DOMParser",
+        "eval(",
+        "Function(",
+    ] {
+        ensure!(!script.contains(sink), "terms.js writes markup ({sink})");
+    }
+    let tree = html::parse(&read(root, "nutzungsbedingungen.html")?)?;
+    ensure!(
+        tree.nodes
+            .iter()
+            .any(|n| n.tag == "script" && n.attr("src").starts_with("/site/terms.js")),
+        "nutzungsbedingungen.html does not load terms.js"
+    );
+    ensure!(
+        tree.nodes.iter().any(|n| n.attr("id") == "terms-text"),
+        "nutzungsbedingungen.html lacks the box terms.js draws into"
+    );
     Ok(())
 }
 
@@ -485,6 +522,7 @@ pub(super) fn run(root: &Path) -> Result<()> {
         }
     }
     picture_css(root)?;
+    terms(root)?;
     for check in ["hosts", "cookie", "log", "controller"] {
         privacy(root, check)?;
     }

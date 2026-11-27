@@ -636,7 +636,9 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // and 214 total non-mana activations across newly harvested cards.
     // Wave 17 + Wave 29 (+465 generated cards, +35 promoted stubs) adds 71 read
     // and 117 total non-mana activations across newly harvested cards.
-    assert_eq!((read, of), (6098, 7977), "activated/loyalty reader census");
+    // Wave 18 + Wave 30 (+282 generated cards, +29 promoted stubs) adds 44 read
+    // and 81 total non-mana activations across newly harvested cards.
+    assert_eq!((read, of), (6142, 8058), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [

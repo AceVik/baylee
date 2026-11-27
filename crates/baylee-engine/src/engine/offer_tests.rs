@@ -1447,6 +1447,7 @@ fn payment_ability_effects(
         AbilityDef::Unimplemented
         | AbilityDef::StartYourEngines
         | AbilityDef::Ward { .. }
+        | AbilityDef::WardWaterbend { .. }
         | AbilityDef::Toxic { .. }
         | AbilityDef::Prepared { .. }
         | AbilityDef::Echo { .. }
@@ -1470,6 +1471,7 @@ fn payment_in_effects(effects: &'static [baylee_cards_dsl::Effect]) -> bool {
         found |= matches!(
             effect,
             baylee_cards_dsl::Effect::PlayerMayPayOr { .. }
+                | baylee_cards_dsl::Effect::PlayerMayWaterbendOr { .. }
                 | baylee_cards_dsl::Effect::PlayerMayPayThen { .. }
                 | baylee_cards_dsl::Effect::PlayerMayPayManaOr { .. }
                 | baylee_cards_dsl::Effect::PlayerMayPayManaThen { .. }

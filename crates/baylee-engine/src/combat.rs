@@ -556,6 +556,19 @@ impl CombatState {
         self.blockers.push(BlockerInfo { blocker, attacker });
     }
 
+    /// Marks an attacking creature blocked without assigning blockers (e.g. Fog Patch).
+    /// Returns `true` if the creature transitioned from unblocked to blocked.
+    pub fn mark_blocked(&mut self, attacker: ObjectId) -> bool {
+        for info in &mut self.attackers {
+            if info.creature == attacker {
+                let became_blocked = !info.blocked;
+                info.blocked = true;
+                return became_blocked;
+            }
+        }
+        false
+    }
+
     /// Whether every block `attacker` has met this combat was `blocker`'s:
     /// "had become blocked by only that creature this combat" (False
     /// Orders). A blocker that came and went still counts.

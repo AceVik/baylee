@@ -1265,9 +1265,9 @@ fn wave28d_p2_refusals() {
         "Name:ShedWeaknessLike\nManaCost:G\nTypes:Instant\n\
          A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +2 | NumDef$ +2 | SubAbility$ DBRem\n\
          SVar:DBRem:DB$ RemoveCounter | Defined$ Targeted | CounterType$ M1M1 | CounterNum$ 1",
-        // GainControl with LoseControl$ UntilTheEndOfYourNextTurn -> MUST refuse!
+        // GainControl with unsupported LoseControl$ Never -> MUST refuse!
         "Name:TreasureNabberLike\nManaCost:2 R\nTypes:Sorcery\n\
-         A:SP$ GainControl | ValidTgts$ Artifact | LoseControl$ UntilTheEndOfYourNextTurn",
+         A:SP$ GainControl | ValidTgts$ Artifact | LoseControl$ Never",
         // Radiating Lightning (DamageAll Creature.TargetedPlayerCtrl) -> MUST refuse!
         "Name:RadiatingLike\nManaCost:3 R\nTypes:Instant\n\
          A:SP$ DealDamage | ValidTgts$ Player | NumDmg$ 3 | SubAbility$ DBAll\n\

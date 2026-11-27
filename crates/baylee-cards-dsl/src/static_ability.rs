@@ -1839,6 +1839,77 @@ pub enum Modifier {
     /// *Brokkos, Apex of Forever*, *Tenacious Underdog*, *Timeline Culler*,
     /// *Ninja Teen*). Appended to preserve replay identities.
     MayCastFromGraveyardUsingAlt(GraveyardAltKind),
+    /// Affinity for objects matching `filter` (`CR 702.41a`; granted on the
+    /// stack by *Mycosynth Golem*, *Pearl-Ear, Imperial Advisor*, *Sami, Wildcat
+    /// Captain*, *Tezzeret, Master of the Bridge*, *Witherbloom, the Balancer*).
+    /// Appended to preserve replay identities.
+    GrantAffinity(&'static Filter),
+    /// Cascade (`CR 702.85a`) granted on the stack with `count` instances
+    /// (*Abaddon*, *Flamekin Herald*, *Imoti*, *Maelstrom Nexus*, *Quandrix*,
+    /// *The First Sliver*, *Wild-Magic Sorcerer*, *Wildsear*, *Zhulodok*).
+    /// Appended to preserve replay identities.
+    GrantCascade(u8),
+    /// Casualty `N` (`CR 702.153a`) granted on the stack (*Anhelo*, *Ashad*,
+    /// *Silverquill, the Disputant*). Appended to preserve replay identities.
+    GrantCasualty(u8),
+    /// Replicate (`CR 702.56a`) with replicate cost equal to the spell's mana
+    /// cost, granted on the stack (*Djinn Illuminatus*, *Hatchery Sliver*,
+    /// *Ian Chesterton*). Appended to preserve replay identities.
+    GrantReplicateCardManaCost,
+    /// Ripple `N` (`CR 702.63a`) granted on the stack (*Thrumming Stone*).
+    /// Appended to preserve replay identities.
+    GrantRipple(u8),
+    /// Blitz (`CR 702.152a`) with blitz cost equal to the spell's mana cost
+    /// (*Henzie "Toolbox" Torre*). Appended to preserve replay identities.
+    GrantBlitzCardManaCost,
+    /// Prowl (`CR 702.76a`) with alternative cost (`ManaCost`), granted on the
+    /// stack (*Hunting Velociraptor*). Appended to preserve replay identities.
+    GrantProwl(baylee_core::mana::ManaCost),
+    /// Freerunning (`CR 702.173a`) with alternative cost (`ManaCost`), granted
+    /// on the stack. Appended to preserve replay identities.
+    GrantFreerunning(baylee_core::mana::ManaCost),
+    /// Harmonize (`CR 702.183a` / Tarkir) with harmonize cost equal to the
+    /// spell's mana cost (*Songcrafter Mage*). Appended to preserve replay
+    /// identities.
+    GrantsHarmonizeManaCost,
+    /// Affected creatures can't attack `you` (the effect's controller) or
+    /// planeswalkers `you` control (`CR 508.1`; *Assault Suit*, *Vow* cycle,
+    /// *Eriette of the Charmed Apple*, *Sandwurm Convergence*, etc.). Appended
+    /// to preserve replay identities.
+    CantAttackYouOrYourPlaneswalkers,
+    /// Affected permanent (e.g. a planeswalker or battle on the battlefield)
+    /// can't be attacked by creatures matching `attacker_filter` (`CR 508.1`;
+    /// *The Aetherspark*). Appended to preserve replay identities.
+    CantBeAttackedBy(&'static Filter),
+    /// Players matching `who` may activate loyalty abilities of affected
+    /// planeswalkers on any player's turn any time they could cast an instant
+    /// (`CR 606.3`, *Teferi's Talent* emblem). Appended to preserve replay
+    /// identities.
+    MayActivateLoyaltyAsInstant {
+        /// Which activating player(s) gain instant-speed loyalty timing.
+        who: crate::effect::PlayerRel,
+    },
+    /// The affected card in a graveyard may be cast by the effect's controller
+    /// this turn (`Heiko`, `Norika`, `Silas Renn`, `Vohar`, `Zul Ashur`,
+    /// `Havengul Lich`, `Sins of the Past`, `Mavinda`). Appended to preserve
+    /// replay identities.
+    MayCastFromGraveyardTargeted {
+        /// When `true`, cast without paying its mana cost (*Sins of the Past*).
+        free: bool,
+        /// When `true`, if the spell would be put into a graveyard, exile it
+        /// instead (*Vohar*, *Mavinda*, *Sins of the Past*).
+        exile_instead_of_graveyard: bool,
+    },
+    /// Affected spell costs `{generic}` more to cast unless it targets at
+    /// least one object matching `filter` (*Mavinda, Students' Advocate*: costs
+    /// `{8}` more unless it targets a creature you control). Appended to
+    /// preserve replay identities.
+    CastCostIncreaseUnlessTargets {
+        /// Filter matched against at least one chosen spell target.
+        filter: &'static Filter,
+        /// Generic mana tax added if no chosen target matches `filter`.
+        generic: u8,
+    },
 }
 
 /// Keyword alternative-cost modes opened from a graveyard by
@@ -2161,6 +2232,15 @@ impl Modifier {
             | Self::GrantsUnearth(_)
             | Self::GrantsScavengeManaCost
             | Self::GrantsDredge(_)
+            | Self::GrantsHarmonizeManaCost
+            | Self::GrantAffinity(_)
+            | Self::GrantCascade(_)
+            | Self::GrantCasualty(_)
+            | Self::GrantReplicateCardManaCost
+            | Self::GrantRipple(_)
+            | Self::GrantBlitzCardManaCost
+            | Self::GrantProwl(_)
+            | Self::GrantFreerunning(_)
             | Self::Sneak(_)
             | Self::CantActivateArtifacts
             // CR 613.1f is the whole argument for these two: "Layer 6:
@@ -2385,7 +2465,12 @@ impl Modifier {
             | Self::ForetellActionCostsLess { .. }
             | Self::MayForetellAnyTurn { .. }
             | Self::UnlockCostsLess { .. }
-            | Self::MayCastFromGraveyardUsingAlt(_) => Layer::Text,
+            | Self::MayCastFromGraveyardUsingAlt(_)
+            | Self::CantAttackYouOrYourPlaneswalkers
+            | Self::CantBeAttackedBy(_)
+            | Self::MayActivateLoyaltyAsInstant { .. }
+            | Self::MayCastFromGraveyardTargeted { .. }
+            | Self::CastCostIncreaseUnlessTargets { .. } => Layer::Text,
         }
     }
 }
@@ -2517,6 +2602,8 @@ pub enum Duration {
         /// The affected object's power must not exceed the source's power.
         power_limited: bool,
     },
+    /// Lasts until the cleanup step of the effect controller's next turn.
+    UntilEndOfYourNextTurn,
 }
 
 impl Duration {
@@ -3164,6 +3251,21 @@ mod tests {
             ),
             (Modifier::GrantsScavengeManaCost, Layer::Ability),
             (Modifier::GrantsDredge(2), Layer::Ability),
+            (Modifier::GrantsHarmonizeManaCost, Layer::Ability),
+            (Modifier::GrantAffinity(&Filter::ARTIFACT), Layer::Ability),
+            (Modifier::GrantCascade(1), Layer::Ability),
+            (Modifier::GrantCasualty(2), Layer::Ability),
+            (Modifier::GrantReplicateCardManaCost, Layer::Ability),
+            (Modifier::GrantRipple(4), Layer::Ability),
+            (Modifier::GrantBlitzCardManaCost, Layer::Ability),
+            (
+                Modifier::GrantProwl(baylee_core::mana::ManaCost::ZERO),
+                Layer::Ability,
+            ),
+            (
+                Modifier::GrantFreerunning(baylee_core::mana::ManaCost::ZERO),
+                Layer::Ability,
+            ),
             (
                 Modifier::CharacteristicPT {
                     count: PtCount::CardTypesInAllGraveyards,
@@ -3581,6 +3683,19 @@ mod tests {
                 amount: 1,
             },
             Modifier::MayCastFromGraveyardUsingAlt(GraveyardAltKind::Blitz),
+            Modifier::CantAttackYouOrYourPlaneswalkers,
+            Modifier::CantBeAttackedBy(&Filter::CREATURE),
+            Modifier::MayActivateLoyaltyAsInstant {
+                who: crate::PlayerRel::You,
+            },
+            Modifier::MayCastFromGraveyardTargeted {
+                free: false,
+                exile_instead_of_graveyard: true,
+            },
+            Modifier::CastCostIncreaseUnlessTargets {
+                filter: &Filter::YOUR_CREATURE,
+                generic: 8,
+            },
         ] {
             assert_eq!(
                 modifier.layer(),

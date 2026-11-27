@@ -38,11 +38,17 @@ GRANT SELECT, INSERT ON central_identity.audit_events TO central_runtime;
 GRANT SELECT, INSERT, UPDATE, DELETE ON central_identity.social_contacts TO central_runtime;
 GRANT SELECT, INSERT, DELETE ON central_identity.social_blocks TO central_runtime;
 GRANT SELECT, INSERT, UPDATE ON central_identity.social_budgets TO central_runtime;
+-- Friend invites: runtime creates single-use invites and updates reservation, redemption or revocation.
+GRANT SELECT, INSERT ON central_identity.friend_invites TO central_runtime;
+GRANT UPDATE (pending_account_id, pending_until, redeemed_by, redeemed_at, revoked_at)
+  ON central_identity.friend_invites TO central_runtime;
 -- Encrypted chat: immutable public keys, signed ciphertext and delivery wraps.
 GRANT SELECT, INSERT, DELETE ON central_identity.chat_devices, central_identity.chat_messages,
   central_identity.chat_deliveries TO central_runtime;
 GRANT USAGE ON SEQUENCE central_identity.chat_deliveries_seq_seq TO central_runtime;
 GRANT SELECT, INSERT, UPDATE, DELETE ON central_identity.chat_groups, central_identity.chat_members TO central_runtime;
+GRANT SELECT, INSERT, DELETE ON central_identity.chat_group_pictures TO central_runtime;
+GRANT UPDATE (key, avif, png, sequence, sha256, side, set_at) ON central_identity.chat_group_pictures TO central_runtime;
 -- Pairings (Baylee's deep links): the runtime starts, claims, approves and
 -- redeems them, and deletes each when it is used or over.
 GRANT SELECT, INSERT, UPDATE, DELETE ON central_identity.pairings TO central_runtime;
@@ -168,3 +174,5 @@ GRANT SELECT, DELETE, INSERT (proof,account_id,gateway_id,sid,game,seat,sleeve,p
       UPDATE (confirmed,expires_at) ON central_identity.advent_table_looks TO central_runtime;
 GRANT SELECT, DELETE, INSERT (account_id,gateway_id,game,seat,stream,sleeve,playmat)
   ON central_identity.advent_table_outfits TO central_runtime;
+-- Public card catalog (operator-ingested, read-only at runtime).
+GRANT SELECT ON central_identity.card_printings, central_identity.card_search_names TO central_runtime;

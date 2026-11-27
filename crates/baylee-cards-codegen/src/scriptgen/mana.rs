@@ -917,8 +917,11 @@ impl Tx<'_> {
             if self.in_delayed {
                 match def {
                     "Spawner>Sacrificed$CardPower"
+                    | "TriggerRemembered$CardPower"
                     | "DelayTriggerRemembered$CardPower"
-                    | "DelayTriggerRememberedLKI$CardPower" => {
+                    | "DelayTriggerRememberedLKI$CardPower"
+                    | "Spawner>TriggeredCard$CardPower"
+                    | "Spawner>TriggeredCardLKICopy$CardPower" => {
                         return Some("Amount::EventPower".to_string());
                     }
                     "Spawner>Sacrificed$CardToughness"
@@ -951,6 +954,9 @@ impl Tx<'_> {
                     Some("RolledDie" | "RolledDieOnce")
                 )
             {
+                return Some("Amount::EventAmount".to_string());
+            }
+            if def == "TriggerCount$ScryNum" && self.trigger_mode.as_deref() == Some("Scry") {
                 return Some("Amount::EventAmount".to_string());
             }
             if def == "Count$LastDieRoll" {
@@ -1257,6 +1263,9 @@ impl Tx<'_> {
         }
         if def == "Count$LifeOppsLostThisTurn" {
             return Some("Amount::OpponentsLifeLostThisTurn".to_string());
+        }
+        if def == "Count$TotalCommanderCastFromCommandZone" {
+            return Some("Amount::CommanderCasts(PlayerRel::You)".to_string());
         }
         if matches!(def, "Count$YourPoisonCounters" | "Count$YourCountersPoison") {
             return Some("Amount::CountersOnYou(CounterKind::Poison)".to_string());
@@ -1979,6 +1988,9 @@ impl Tx<'_> {
         if def == "Count$xPaid" && can_read_x {
             return Some("Amount::X".to_string());
         }
+        if def == "Count$RememberedNumber" && self.remembered_cmc {
+            return Some("Amount::TargetCmc".to_string());
+        }
         if (matches!(def, "Count$TotalManaSpent" | "Count$CastTotalManaSpent")
             && (self.on_a_spell || self.is_etb_self_trigger))
             || (def == "TriggeredCard$CastTotalManaSpent" && self.is_etb_self_trigger)
@@ -2286,7 +2298,13 @@ impl Tx<'_> {
         if trimmed.starts_with("AF") && trimmed.len() > 2 && def.trim() == "Number$0" {
             return None;
         }
+        if def.trim() == "Count$RememberedNumber" && self.remembered_cmc {
+            return Some("Amount::TargetCmc".to_string());
+        }
         if matches!(def.trim(), "Remembered$Amount" | "Count$RememberedSize") {
+            if self.countered_this_way {
+                return Some("Amount::ThisWay(ThisWay::Countered)".to_string());
+            }
             if self.capture_scope.is_some() {
                 return Some("Amount::RememberedCount".to_string());
             }
@@ -2510,6 +2528,8 @@ impl Tx<'_> {
                 parts.extend(self.parse_reveal_cost_token(token, true)?);
             } else if token == "Forage" {
                 parts.push("Forage".to_string());
+            } else if token.starts_with("Waterbend<") {
+                parts.push(self.wave18b_waterbend_cost_token(token)?);
             } else if token.starts_with("PayLife<")
                 || token.starts_with("PayEnergy<")
                 || token.starts_with("ExileFromTop<")
@@ -2519,9 +2539,10 @@ impl Tx<'_> {
             } else if token.chars().all(|c| c.is_ascii_digit())
                 || matches!(token, "W" | "U" | "B" | "R" | "G" | "C" | "S")
                 || (token == "X"
-                    && self.has_x
-                    && self.svars.get("X").map(String::as_str) == Some("Count$xPaid")
-                    && !self.oracle.to_ascii_lowercase().contains("x is "))
+                    && (self.allow_defined_cost_x
+                        || (self.has_x
+                            && self.svars.get("X").map(String::as_str) == Some("Count$xPaid")
+                            && !self.oracle.to_ascii_lowercase().contains("x is "))))
             {
                 mana.push('{');
                 mana.push_str(token);
@@ -3056,6 +3077,7 @@ fn dynamic_filter_scalar_atom(def: &str) -> Option<String> {
         match def {
             "Count$LifeYouGainedThisTurn" => "Amount::LifeGainedThisTurn(PlayerRel::You)",
             "Count$LifeOppsLostThisTurn" => "Amount::OpponentsLifeLostThisTurn",
+            "Count$TotalCommanderCastFromCommandZone" => "Amount::CommanderCasts(PlayerRel::You)",
             "Count$YourLifeTotal" => "Amount::LifeTotal(PlayerRel::You)",
             "Count$CardsInYourHand" | "Count$ValidHand Card.YouOwn" => {
                 "Amount::HandSize(PlayerRel::You)"

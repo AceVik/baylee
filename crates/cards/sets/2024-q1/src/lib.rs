@@ -59,6 +59,8 @@ pub mod ballroom;
 pub mod barbed_servitor;
 #[path = "mkm/basilica_stalker.rs"]
 pub mod basilica_stalker;
+#[path = "pip/battle_of_hoover_dam.rs"]
+pub mod battle_of_hoover_dam;
 #[path = "mkm/behind_the_mask.rs"]
 pub mod behind_the_mask;
 #[path = "mkm/benthic_criminologists.rs"]
@@ -137,6 +139,8 @@ pub mod convenient_target;
 pub mod cornered_crook;
 #[path = "clu/corporeal_projection.rs"]
 pub mod corporeal_projection;
+#[path = "mkc/counterpoint.rs"]
+pub mod counterpoint;
 #[path = "clu/covetous_elegy.rs"]
 pub mod covetous_elegy;
 #[path = "mkm/crime_novelist.rs"]
@@ -193,6 +197,8 @@ pub mod ed_e_lonesome_eyebot;
 pub mod elder_arthur_maxson;
 #[path = "pip/elder_owyn_lyons.rs"]
 pub mod elder_owyn_lyons;
+#[path = "pip/electrosiphon.rs"]
+pub mod electrosiphon;
 #[path = "mkm/elegant_parlor.rs"]
 pub mod elegant_parlor;
 #[path = "mkm/eliminate_the_impossible.rs"]
@@ -313,6 +319,8 @@ pub mod kraul_whipcracker;
 pub mod krenko_baron_of_tin_street;
 #[path = "mkm/krovod_haunch.rs"]
 pub mod krovod_haunch;
+#[path = "mkm/kylox_visionary_inventor.rs"]
+pub mod kylox_visionary_inventor;
 #[path = "clu/lavinia_foil_to_conspiracy.rs"]
 pub mod lavinia_foil_to_conspiracy;
 #[path = "mkm/lead_pipe.rs"]
@@ -373,6 +381,8 @@ pub mod mistway_spy;
 pub mod morska_undersea_sleuth;
 #[path = "mkm/museum_nightwatch.rs"]
 pub mod museum_nightwatch;
+#[path = "pip/mutational_advantage.rs"]
+pub mod mutational_advantage;
 #[path = "mkm/neighborhood_guardian.rs"]
 pub mod neighborhood_guardian;
 #[path = "pip/nerd_rage.rs"]
@@ -409,6 +419,8 @@ pub mod paladin_danse_steel_maverick;
 pub mod paladin_elizabeth_taggerdy;
 #[path = "mkc/panoptic_projektor.rs"]
 pub mod panoptic_projektor;
+#[path = "mkm/perimeter_enforcer.rs"]
+pub mod perimeter_enforcer;
 #[path = "mkm/person_of_interest.rs"]
 pub mod person_of_interest;
 #[path = "mkm/persuasive_interrogators.rs"]
@@ -419,6 +431,8 @@ pub mod pick_your_poison;
 pub mod pip_boy_3000;
 #[path = "pip/piper_wright_publick_reporter.rs"]
 pub mod piper_wright_publick_reporter;
+#[path = "mkm/polygraph_orb.rs"]
+pub mod polygraph_orb;
 #[path = "pip/powder_ganger.rs"]
 pub mod powder_ganger;
 #[path = "pip/power_fist.rs"]
@@ -429,16 +443,22 @@ pub mod pre_war_formalwear;
 pub mod preston_garvey_minuteman;
 #[path = "mkm/presumed_dead.rs"]
 pub mod presumed_dead;
+#[path = "mkc/prisoner_s_dilemma.rs"]
+pub mod prisoner_s_dilemma;
 #[path = "mkm/private_eye.rs"]
 pub mod private_eye;
 #[path = "mkm/proft_s_eidetic_memory.rs"]
 pub mod proft_s_eidetic_memory;
+#[path = "mkm/projektor_inspector.rs"]
+pub mod projektor_inspector;
 #[path = "mkm/public_thoroughfare.rs"]
 pub mod public_thoroughfare;
 #[path = "pip/radstorm.rs"]
 pub mod radstorm;
 #[path = "mkm/raucous_theater.rs"]
 pub mod raucous_theater;
+#[path = "mkm/reasonable_doubt.rs"]
+pub mod reasonable_doubt;
 #[path = "mkm/reckless_detective.rs"]
 pub mod reckless_detective;
 #[path = "pip/recon_craft_theta.rs"]
@@ -451,6 +471,8 @@ pub mod red_herring;
 pub mod redemption_arc;
 #[path = "mkm/reenact_the_crime.rs"]
 pub mod reenact_the_crime;
+#[path = "mkm/relive_the_past.rs"]
+pub mod relive_the_past;
 #[path = "mkm/repeat_offender.rs"]
 pub mod repeat_offender;
 #[path = "mkm/repulsive_mutation.rs"]

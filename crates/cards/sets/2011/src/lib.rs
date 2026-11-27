@@ -49,6 +49,8 @@ pub mod animar_soul_of_elements;
 pub mod arachnus_web;
 #[path = "m12/arbalest_elite.rs"]
 pub mod arbalest_elite;
+#[path = "cmd/archangel_of_strife.rs"]
+pub mod archangel_of_strife;
 #[path = "mbs/ardent_recruit.rs"]
 pub mod ardent_recruit;
 #[path = "nph/argent_mutation.rs"]
@@ -177,6 +179,8 @@ pub mod charmbreaker_devils;
 pub mod chasm_drake;
 #[path = "mbs/choking_fumes.rs"]
 pub mod choking_fumes;
+#[path = "m12/circle_of_flame.rs"]
+pub mod circle_of_flame;
 #[path = "isd/civilized_scholar.rs"]
 pub mod civilized_scholar;
 #[path = "isd/claustrophobia.rs"]
@@ -807,6 +811,8 @@ pub mod rebuke;
 pub mod reckless_waif;
 #[path = "nph/remember_the_fallen.rs"]
 pub mod remember_the_fallen;
+#[path = "cmd/riddlekeeper.rs"]
+pub mod riddlekeeper;
 #[path = "cmd/riku_of_two_reflections.rs"]
 pub mod riku_of_two_reflections;
 #[path = "isd/riot_devils.rs"]
@@ -931,6 +937,8 @@ pub mod spare_from_evil;
 pub mod spectral_flight;
 #[path = "isd/spectral_rider.rs"]
 pub mod spectral_rider;
+#[path = "cmd/spell_crumple.rs"]
+pub mod spell_crumple;
 #[path = "mbs/sphere_of_the_suns.rs"]
 pub mod sphere_of_the_suns;
 #[path = "m12/sphinx_of_uthuun.rs"]
@@ -1041,6 +1049,8 @@ pub mod travel_preparations;
 pub mod traveler_s_amulet;
 #[path = "mbs/treasure_mage.rs"]
 pub mod treasure_mage;
+#[path = "isd/trepanation_blade.rs"]
+pub mod trepanation_blade;
 #[path = "nph/trespassing_souleater.rs"]
 pub mod trespassing_souleater;
 #[path = "isd/tribute_to_hunger.rs"]
@@ -1121,6 +1131,16 @@ pub mod voiceless_spirit;
 pub mod volt_charge;
 #[path = "nph/vorinclex_voice_of_hunger.rs"]
 pub mod vorinclex_voice_of_hunger;
+#[path = "cmd/vow_of_duty.rs"]
+pub mod vow_of_duty;
+#[path = "cmd/vow_of_flight.rs"]
+pub mod vow_of_flight;
+#[path = "cmd/vow_of_lightning.rs"]
+pub mod vow_of_lightning;
+#[path = "cmd/vow_of_malice.rs"]
+pub mod vow_of_malice;
+#[path = "cmd/vow_of_wildness.rs"]
+pub mod vow_of_wildness;
 #[path = "nph/vulshok_refugee.rs"]
 pub mod vulshok_refugee;
 #[path = "isd/walking_corpse.rs"]

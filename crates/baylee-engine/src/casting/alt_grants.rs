@@ -33,6 +33,9 @@ pub struct AltCastGrantRoute {
     pub extra_cost: Option<baylee_cards_dsl::Cost>,
     pub life: Option<u32>,
     pub exile_as_flashback: bool,
+    pub exile_instead_of_graveyard: bool,
+    pub harmonize: bool,
+    pub is_flashback_grant: bool,
 }
 
 fn is_linked_to_source(state: &GameState, effect: &ContinuousEffect, obj: &GameObject) -> bool {
@@ -202,6 +205,65 @@ fn flashback_cost_matches_face(
     Some(cost)
 }
 
+fn harmonize_cost_matches_face(
+    state: &GameState,
+    player: PlayerId,
+    effect: &ContinuousEffect,
+    obj: &GameObject,
+    def: &'static CardDef,
+    face: usize,
+) -> Option<ManaCost> {
+    let Modifier::GrantsHarmonizeManaCost = effect.modifier else {
+        return None;
+    };
+    if obj.zone != Zone::Graveyard
+        || obj.zone_owner != Some(player)
+        || !def.faces[face]
+            .types
+            .intersects(TypeSet::INSTANT.union(TypeSet::SORCERY))
+        || !crate::effects::applies_to(state, effect, obj)
+        || !super::has_a_printed_cost(&def.faces[face].mana_cost)
+    {
+        return None;
+    }
+    Some(def.faces[face].mana_cost)
+}
+
+fn targeted_gy_grant_matches_face(
+    state: &GameState,
+    player: PlayerId,
+    effect: &ContinuousEffect,
+    obj: &GameObject,
+    def: &'static CardDef,
+    face: usize,
+) -> bool {
+    let Modifier::MayCastFromGraveyardTargeted { .. } = effect.modifier else {
+        return false;
+    };
+    !def.faces[face].types.contains(TypeSet::LAND)
+        && player == effect.controller
+        && obj.zone == Zone::Graveyard
+        && crate::effects::applies_to(state, effect, obj)
+}
+
+/// Maximum projected power among untapped creatures `player` controls for
+/// Harmonize (`CR 702.183a`).
+#[must_use]
+pub(crate) fn harmonize_max_power(state: &GameState, player: PlayerId) -> u32 {
+    state
+        .battlefield_seen()
+        .filter_map(|id| state.object(id))
+        .filter(|o| {
+            o.controller == player
+                && o.characteristics().types.contains(TypeSet::CREATURE)
+                && !o.status.contains(crate::object::Status::TAPPED)
+        })
+        .filter_map(|o| o.characteristics().power)
+        .map(|p| u32::try_from(p.max(0)).unwrap_or(u32::MAX))
+        .max()
+        .unwrap_or(0)
+}
+
 fn effect_matches_land_object(
     state: &GameState,
     effect: &ContinuousEffect,
@@ -342,13 +404,15 @@ pub(crate) fn alt_cast_face_open(
     };
     face < def.faces.len()
         && state.effects.iter().any(|effect| {
-            matches!(
+            (matches!(
                 effect.modifier,
                 Modifier::MayCastWithAltCost {
                     grant_zone_permission: true,
                     ..
                 }
-            ) && grant_matches_face(state, player, effect, obj, def, face)
+            ) && grant_matches_face(state, player, effect, obj, def, face))
+                || targeted_gy_grant_matches_face(state, player, effect, obj, def, face)
+                || harmonize_cost_matches_face(state, player, effect, obj, def, face).is_some()
         })
 }
 
@@ -406,19 +470,28 @@ pub(crate) fn alt_cast_zone_spell_open(
     };
     let face_up = super::playable_exile_projection(state, player, raw);
     let obj: &GameObject = &face_up;
-    state.effects.iter().any(|effect| {
-        let Modifier::MayCastWithAltCost {
+    state.effects.iter().any(|effect| match effect.modifier {
+        Modifier::MayCastWithAltCost {
             who,
             zones,
             grant_zone_permission: true,
             once_per_turn,
             ..
-        } = effect.modifier
-        else {
-            return false;
-        };
-        effect_allows_player(state, effect, player, who, once_per_turn)
-            && zone_matches_grant(state, player, effect, obj, zones)
+        } => {
+            effect_allows_player(state, effect, player, who, once_per_turn)
+                && zone_matches_grant(state, player, effect, obj, zones)
+        }
+        Modifier::MayCastFromGraveyardTargeted { .. } => {
+            obj.zone == Zone::Graveyard
+                && player == effect.controller
+                && crate::effects::applies_to(state, effect, obj)
+        }
+        Modifier::GrantsHarmonizeManaCost => {
+            obj.zone == Zone::Graveyard
+                && obj.zone_owner == Some(player)
+                && crate::effects::applies_to(state, effect, obj)
+        }
+        _ => false,
     })
 }
 
@@ -447,6 +520,8 @@ pub(crate) fn has_alt_cast_grant(
                 .any(|face| grant_matches_face(state, player, effect, obj, def, face)))
             || (0..def.faces.len()).any(|face| {
                 flashback_cost_matches_face(state, player, effect, obj, def, face).is_some()
+                    || harmonize_cost_matches_face(state, player, effect, obj, def, face).is_some()
+                    || targeted_gy_grant_matches_face(state, player, effect, obj, def, face)
             })
     })
 }
@@ -502,41 +577,117 @@ fn collect_effect_grant_options(
     life_short: &mut bool,
     out: &mut Vec<(CastModeDesc, AltCastGrantRoute)>,
 ) {
-    let (grant_zone_permission, with_flash, once_per_turn, price, exile_as_flashback) =
-        match effect.modifier {
-            Modifier::MayCastWithAltCost {
-                grant_zone_permission,
-                with_flash,
-                once_per_turn,
-                price,
-                ..
-            } => (
-                grant_zone_permission,
-                with_flash,
-                once_per_turn,
-                price,
-                false,
-            ),
-            Modifier::GrantsFlashbackCost(cost) => {
-                if !(0..def.faces.len()).any(|face| {
-                    flashback_cost_matches_face(state, player, effect, obj, def, face).is_some()
-                }) {
-                    return;
-                }
-                (true, false, false, AltCastPrice::Mana(cost), true)
+    let (
+        grant_zone_permission,
+        with_flash,
+        once_per_turn,
+        price,
+        exile_as_flashback,
+        exile_instead_of_graveyard,
+        harmonize,
+        is_flashback_grant,
+    ) = match effect.modifier {
+        Modifier::MayCastWithAltCost {
+            grant_zone_permission,
+            with_flash,
+            once_per_turn,
+            price,
+            ..
+        } => (
+            grant_zone_permission,
+            with_flash,
+            once_per_turn,
+            price,
+            false,
+            false,
+            false,
+            false,
+        ),
+        Modifier::GrantsFlashbackCost(cost) => {
+            if !(0..def.faces.len()).any(|face| {
+                flashback_cost_matches_face(state, player, effect, obj, def, face).is_some()
+            }) {
+                return;
             }
-            _ => return,
-        };
-    if !exile_as_flashback
+            (
+                true,
+                false,
+                false,
+                AltCastPrice::Mana(cost),
+                true,
+                false,
+                false,
+                true,
+            )
+        }
+        Modifier::GrantsHarmonizeManaCost => {
+            if !(0..def.faces.len()).any(|face| {
+                harmonize_cost_matches_face(state, player, effect, obj, def, face).is_some()
+            }) {
+                return;
+            }
+            (
+                true,
+                false,
+                false,
+                AltCastPrice::Normal,
+                true,
+                false,
+                true,
+                false,
+            )
+        }
+        Modifier::MayCastFromGraveyardTargeted {
+            free,
+            exile_instead_of_graveyard,
+            ..
+        } => {
+            if !(0..def.faces.len())
+                .any(|face| targeted_gy_grant_matches_face(state, player, effect, obj, def, face))
+            {
+                return;
+            }
+            let p = if free {
+                AltCastPrice::Mana(ManaCost::ZERO)
+            } else {
+                AltCastPrice::Normal
+            };
+            (
+                true,
+                false,
+                false,
+                p,
+                false,
+                exile_instead_of_graveyard,
+                false,
+                false,
+            )
+        }
+        _ => return,
+    };
+    let is_targeted_gy = matches!(
+        effect.modifier,
+        Modifier::MayCastFromGraveyardTargeted { .. }
+    );
+    if !is_flashback_grant
+        && !harmonize
+        && !is_targeted_gy
         && !(0..def.faces.len())
             .any(|face| grant_matches_face(state, player, effect, obj, def, face))
     {
         return;
     }
-    let (basis, base_mana, extra_cost, is_alt_cost) = price_basis(price, with_flash);
+    let (basis, base_mana, extra_cost, mut is_alt_cost) = price_basis(price, with_flash);
+    if harmonize {
+        is_alt_cost = true;
+    }
     for choice in replaced_cost_options(state, lookup, player, card, paying, basis) {
-        let face_ok = if exile_as_flashback {
+        let face_ok = if is_flashback_grant {
             flashback_cost_matches_face(state, player, effect, obj, def, choice.face).is_some()
+        } else if harmonize {
+            harmonize_cost_matches_face(state, player, effect, obj, def, choice.face).is_some()
+        } else if is_targeted_gy {
+            targeted_gy_grant_matches_face(state, player, effect, obj, def, choice.face)
         } else {
             grant_matches_face(state, player, effect, obj, def, choice.face)
         };
@@ -569,7 +720,31 @@ fn collect_effect_grant_options(
         {
             continue;
         }
-        if !choice.mana_ready {
+        let harmonize_ok = harmonize && paying != Paying::DuringTheCast && {
+            let max_tap = harmonize_max_power(state, player);
+            max_tap > 0 && {
+                let what = if choice.face == 0 {
+                    super::SpendFor::Spell(card)
+                } else {
+                    super::SpendFor::SpellOnFace(card, choice.face)
+                };
+                let restricted = super::planning_pool(state, player, what, 0);
+                let pool = restricted
+                    .as_ref()
+                    .unwrap_or(&state.players[usize::from(player.get())].mana_pool);
+                let reduced = choice.cost.with_x(0).with_less_generic(max_tap);
+                super::source_affordable(
+                    state,
+                    player,
+                    what,
+                    pool,
+                    &reduced,
+                    &[],
+                    Some(super::live_allowance(state, player, what).reduced(max_tap)),
+                )
+            }
+        };
+        if !choice.mana_ready && !harmonize_ok {
             *mana_short = true;
             continue;
         }
@@ -602,6 +777,9 @@ fn collect_effect_grant_options(
                 extra_cost,
                 life: mv_life,
                 exile_as_flashback,
+                exile_instead_of_graveyard,
+                harmonize,
+                is_flashback_grant,
             },
         ));
     }
@@ -684,8 +862,15 @@ pub(crate) fn alt_cast_route_still_open(
         .iter()
         .find(|fx| fx.id == route.effect_id)
         .is_some_and(|effect| {
-            if route.exile_as_flashback {
+            if route.is_flashback_grant {
                 flashback_cost_matches_face(state, player, effect, obj, def, route.face).is_some()
+            } else if route.harmonize {
+                harmonize_cost_matches_face(state, player, effect, obj, def, route.face).is_some()
+            } else if matches!(
+                effect.modifier,
+                Modifier::MayCastFromGraveyardTargeted { .. }
+            ) {
+                targeted_gy_grant_matches_face(state, player, effect, obj, def, route.face)
             } else {
                 grant_matches_face(state, player, effect, obj, def, route.face)
             }

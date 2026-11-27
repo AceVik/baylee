@@ -396,7 +396,8 @@ fn choice_noun(reason: ChoicePrompt) -> Phrase {
         ChoicePrompt::CostTap
         | ChoicePrompt::CostTapExactlyOrNone { .. }
         | ChoicePrompt::CostCrew { .. }
-        | ChoicePrompt::CostSaddle { .. } => Phrase::NounPermanentsToTap,
+        | ChoicePrompt::CostSaddle { .. }
+        | ChoicePrompt::Waterbend => Phrase::NounPermanentsToTap,
         ChoicePrompt::CostReturn => Phrase::NounPermanentsToReturn,
         ChoicePrompt::CostExile | ChoicePrompt::CollectEvidence { .. } => Phrase::NounCardsToExile,
         ChoicePrompt::CostRemoveCounter => Phrase::NounPermanentsToRemoveCounter,
@@ -639,7 +640,9 @@ fn number_line(
                 |target| Phrase::ChooseCountersNamed.fill(lang, &[&label, &target, &min, &max]),
             )
         }
-        NumberPrompt::X | NumberPrompt::Choice => Phrase::ChooseNumberIn.fill(lang, &[&min, &max]),
+        NumberPrompt::X | NumberPrompt::Choice | NumberPrompt::Assist => {
+            Phrase::ChooseNumberIn.fill(lang, &[&min, &max])
+        }
         NumberPrompt::ManaPayment { preventable_damage } => {
             Phrase::ChooseManaPayment.fill(lang, &[&min, &max, &preventable_damage.to_string()])
         }
@@ -1014,7 +1017,9 @@ fn yes_no_line(
         YesNoPrompt::PayLife { amount, permanent } => {
             pay_life_line(lang, amount, permanent, whose, statics, name)
         }
-        YesNoPrompt::PayTax { mana } => Phrase::PayTax.fill(lang, &[&mana.to_string()]),
+        YesNoPrompt::PayTax { mana } | YesNoPrompt::PayWaterbend { mana } => {
+            Phrase::PayTax.fill(lang, &[&mana.to_string()])
+        }
         YesNoPrompt::PayMana { cost } => Phrase::PayMana.fill(lang, &[&cost.to_string()]),
         YesNoPrompt::PayManaAndLife { cost, life } => {
             Phrase::PayManaAndLife.fill(lang, &[&cost.to_string(), &life.to_string()])
@@ -1077,7 +1082,7 @@ fn yes_no_line(
             guessed_in_hand,
             ..
         } => reveal_hand_for_guess_line(lang, statics, guesser, guessed_in_hand),
-        YesNoPrompt::Generic => Phrase::YesOrNo.text(lang).to_string(),
+        YesNoPrompt::Generic | YesNoPrompt::Assist => Phrase::YesOrNo.text(lang).to_string(),
     }
 }
 

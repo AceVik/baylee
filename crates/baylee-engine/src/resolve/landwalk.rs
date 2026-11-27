@@ -61,6 +61,9 @@ pub fn resume_with_subtype(
     res: &mut Resolution,
     subtype: SubtypeId,
 ) -> Flow {
+    if matches!(res.awaiting, Some(AwaitingOp::ChooseBasicLandType)) {
+        return super::wave18c::resume_basic_land(state, res, subtype);
+    }
     if matches!(res.awaiting, Some(AwaitingOp::ChooseCreatureType { .. })) {
         return super::creature_type::resume(state, res, subtype);
     }

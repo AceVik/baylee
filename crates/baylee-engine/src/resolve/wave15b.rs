@@ -210,7 +210,7 @@ fn has_reconfigure<'a>(mut abilities: impl Iterator<Item = &'a AbilityDef>) -> b
 /// Check whether card `id` (which may currently be outside the battlefield) can
 /// legally become attached to `host` when controlled by `controller`
 /// (CR 303.4f–g, CR 301.5c, CR 301.6, CR 702.16c–d).
-fn card_can_attach_as(
+pub(super) fn card_can_attach_as(
     state: &mut GameState,
     id: ObjectId,
     controller: PlayerId,
@@ -645,7 +645,7 @@ fn finish_current_put_attached(
 /// CR 303.4f–g: an Aura without a legal host never leaves its prior zone.
 /// CR 301.5c / CR 301.6: Equipment and Fortifications enter even without a
 /// legal host, and attach once on the battlefield if `host` is legal.
-fn enter_card_attached(
+pub(super) fn enter_card_attached(
     state: &mut GameState,
     card: DamageSourceRef,
     entering_ctrl: PlayerId,

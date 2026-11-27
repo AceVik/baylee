@@ -615,6 +615,7 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
             creature: source, ..
         }
         | Rider::GrantedSource(source)
+        | Rider::DelvedCard(source)
         | Rider::CraftMaterial(source)
         | Rider::SpellCostExile(source)
         | Rider::BeheldCostPower(Some(source), _, _)
@@ -733,6 +734,8 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::EncoreAbility
         | Rider::CastOriginZone(_)
         | Rider::MayhemPaid
-        | Rider::UnearthAbility => None,
+        | Rider::UnearthAbility
+        | Rider::ChosenMode(_)
+        | Rider::PlayerChosenMode(_, _) => None,
     }
 }

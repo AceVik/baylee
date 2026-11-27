@@ -1,7 +1,7 @@
 //! Okk — {1}{R} — Creature — Goblin
 //! Oracle: This creature can't attack unless a creature with greater power also attacks.
 //! Oracle: This creature can't block unless a creature with greater power also blocks.
-//! Set: USG #204 — Urza's Saga | Scryfall ID: 5fecbdbc-dcfb-42ee-956c-a508db6eaafa | Oracle ID: f835a8d3-e117-4669-9952-6e9ce13b35fa
+//! Set: 8ED #206 — Eighth Edition | Scryfall ID: 42641800-e209-4326-ae28-77ec83ac4b75 | Oracle ID: f835a8d3-e117-4669-9952-6e9ce13b35fa
 // GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
 
 // Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
@@ -12,7 +12,7 @@ use baylee_core::generated::subtypes;
 card!(
     index = index::OKK,
     oracle_id = "f835a8d3-e117-4669-9952-6e9ce13b35fa",
-    scryfall_id = "5fecbdbc-dcfb-42ee-956c-a508db6eaafa",
+    scryfall_id = "42641800-e209-4326-ae28-77ec83ac4b75",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     faces = &[face!(
         name = "Okk",

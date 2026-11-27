@@ -51,16 +51,45 @@ pub(super) fn matches(
         ),
         Filter::ControlledBy(rel) => crate::resolve::players_of(*rel, state, res.controller, res)
             .contains(&object.controller),
+        Filter::CmcAtMostX => res
+            .x
+            .is_none_or(|x| object.characteristics().mana_value() <= x),
+        Filter::CmcExactlyX => res
+            .x
+            .is_none_or(|x| object.characteristics().mana_value() == x),
+        Filter::TwiceCmcExactlyX => res
+            .x
+            .is_none_or(|x| object.characteristics().mana_value().saturating_mul(2) == x),
+        Filter::CmcAtMostAmount(amt)
+        | Filter::CmcEqualsAmount(amt)
+        | Filter::PowerAtMostAmount(amt)
+        | Filter::PowerAtLeastAmount(amt)
+        | Filter::PowerEqualsAmount(amt)
+        | Filter::ToughnessEqualsAmount(amt) => {
+            let Some(_guard) = crate::eval::DynamicFilterDepthGuard::enter() else {
+                return false;
+            };
+            let mag = crate::resolve::amount2(amt, state, res.controller, res);
+            crate::eval::match_dynamic_amount_filter(
+                filter,
+                object.characteristics(),
+                mag,
+                amt.is_negative(),
+            )
+        }
+        Filter::OwnedBy(rel) => {
+            crate::resolve::players_of(*rel, state, res.controller, res).contains(&object.owner)
+        }
+        Filter::AttachedTo(inner) => object
+            .attached_to
+            .and_then(|host| state.object(host))
+            .is_some_and(|host_obj| matches(inner, state, host_obj, res)),
         Filter::And(parts) => parts.iter().all(|part| matches(part, state, object, res)),
         Filter::Or(parts) => parts.iter().any(|part| matches(part, state, object, res)),
         Filter::Not(part) => !matches(part, state, object, res),
-        _ => crate::eval::matches_with_context(
-            filter,
-            state,
-            object,
-            res.controller,
-            res.rule_context(),
-        ),
+        _ => {
+            crate::resolve::matches_in_resolution(filter, state, object, res.controller, res, None)
+        }
     }
 }
 

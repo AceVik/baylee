@@ -252,7 +252,7 @@ pub fn encode_ability_def(ab: &AbilityDef) -> [f32; ABILITY_DSL_WIDTH] {
             ch.tokens_create += 1.0;
             ch.blink_copy_control += 1.0;
         }
-        AbilityDef::Ward { mana } => {
+        AbilityDef::Ward { mana } | AbilityDef::WardWaterbend { mana } => {
             out[6] = 1.0;
             out[21] = unit(f32::from(*mana), 6.0);
         }
@@ -359,6 +359,14 @@ fn encode_cost_into(cost: &Cost, dst: &mut [f32]) {
             | CostPart::PutCounterOnOther { .. }
             | CostPart::PayEnergy(_)
             | CostPart::PayEnergyX => dst[7] = 1.0,
+            CostPart::Waterbend(n) => {
+                dst[0] = (dst[0] + unit(f32::from(*n), 6.0)).clamp(0.0, 1.0);
+                dst[1] = 1.0;
+            }
+            CostPart::WaterbendX => {
+                dst[0] = 1.0;
+                dst[1] = 1.0;
+            }
             CostPart::PayAttachedManaCost => dst[10] = (dst[10] + 0.5).clamp(0.0, 1.0),
             CostPart::Either(a, b) => {
                 encode_cost_into(a, dst);
@@ -453,6 +461,7 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
         | Trigger::Sacrificed { .. }
         | Trigger::Exploited { .. }
         | Trigger::ChangesZoneAll { .. }
+        | Trigger::LeavesGraveyard(_)
         | Trigger::PlayerAttacked(_)
         | Trigger::Plotted { .. }
         | Trigger::GaveGift(_)

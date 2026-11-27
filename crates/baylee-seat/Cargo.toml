@@ -42,6 +42,10 @@ baylee-cards-index.workspace = true
 baylee-cards-dsl.workspace = true
 # A deck file in any of the four formats a player can export.
 baylee-deckio.workspace = true
+# Baylee Central as the native client reaches it, for the ranked runner
+# (`ranked`): the sign-in, the queue, the relay's admission, seat and
+# renewal, the account's private decks (`docs/llm-seat.md` §"The ranked runner").
+baylee-account = { workspace = true, features = ["client"] }
 anyhow.workspace = true
 clap.workspace = true
 futures-util.workspace = true
@@ -55,6 +59,10 @@ tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 ureq.workspace = true
+# The relay socket's address, checked as the client checks it.
+url.workspace = true
+# The account's password, wiped when dropped.
+zeroize.workspace = true
 # A session directory's name, unguessable and random (v4: no clock, no game
 # id), for an agent CLI's process (`cli`), and a managed session's label.
 uuid = { workspace = true, features = ["v4"] }

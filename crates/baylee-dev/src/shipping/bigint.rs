@@ -7,7 +7,7 @@ use anyhow::{Context, Result, ensure};
 use serde_json::Value;
 use std::{collections::BTreeSet, process::Command, time::Instant};
 
-const CENTRAL_REV: &str = "10f565b3ac80c5a5ddd06ab8afa2e0a7f05a45e4";
+const CENTRAL_REV: &str = "e96792ffd170a62fe038444fb7fe1a14a85f6e35";
 const REGISTRY: &str = "registry+https://github.com/rust-lang/crates.io-index";
 
 /// Checks the immutable sources and every possible consumer of the exception.

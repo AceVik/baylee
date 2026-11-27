@@ -90,7 +90,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         total = convoked;
         let reduction = u32::try_from(wizard.delve_exiles.len() + wizard.convoke_taps.len())
             .unwrap_or(u32::MAX)
-            .saturating_sub(colored);
+            .saturating_sub(colored)
+            .saturating_add(wizard.harmonize_reduction(&self.state))
+            .saturating_add(wizard.assist_paid);
         if reduction > 0 {
             total = reduce_generic(&total, reduction);
         }
@@ -162,15 +164,22 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .graveyard_allowances_used
                 .push((player, route.effect_id));
         }
+        let mut delved: SmallVec<[ObjectId; 8]> = SmallVec::new();
         for &card in &wizard.delve_exiles {
-            let _ = self.state.move_object(
+            delved.push(self.state.move_object(
                 card,
                 ZoneLocation::Exile(player),
                 ZonePosition::Top,
                 Cause::Cost,
-            )?;
+            )?);
         }
-        let convoked_count = if face.convoke {
+        let convoked_count = if crate::casting::has_convoke(
+            &self.state,
+            wizard.card,
+            face,
+            player,
+            wizard.face_index(),
+        ) {
             u16::try_from(
                 wizard
                     .convoke_taps
@@ -190,6 +199,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         };
         for &creature in &wizard.convoke_taps {
             self.state.set_tapped(creature, true);
+        }
+        if let Some(harmonized) = wizard.harmonize_tap {
+            self.state.set_tapped(harmonized, true);
         }
         // One ordered answer stream feeds both the selected alternative cost
         // and any mandatory additional costs. No object can pay two parts.
@@ -431,6 +443,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::ExileFromGraveyardX(_)
                 | CostPart::CraftMaterials { .. }
                 | CostPart::Either(_, _)
+                | CostPart::Waterbend(_)
+                | CostPart::WaterbendX
                 | CostPart::PayLifeX => {}
             }
         }
@@ -722,16 +736,18 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         }
                     }
                 }
-                CostPart::TapX(_) => {
-                    for _ in 0..wizard.x {
-                        let chosen =
-                            cost_objects
-                                .next()
-                                .copied()
-                                .ok_or(EngineError::IllegalAction(
-                                    "the cast did not choose every tap",
-                                ))?;
-                        super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
+                CostPart::TapX(_) | CostPart::Waterbend(_) | CostPart::WaterbendX => {
+                    if let CostPart::TapX(_) = part {
+                        for _ in 0..wizard.x {
+                            let chosen =
+                                cost_objects
+                                    .next()
+                                    .copied()
+                                    .ok_or(EngineError::IllegalAction(
+                                        "the cast did not choose every tap",
+                                    ))?;
+                            super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
+                        }
                     }
                 }
                 CostPart::TapN { count, .. } => {
@@ -1297,6 +1313,39 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let cast_origin_zone = self.state.object(card).map(|o| o.zone);
         self.state
             .move_object(card, ZoneLocation::Stack, ZonePosition::Top, Cause::Spell)?;
+        // The cards delve exiled to pay this spell's cost are exiled with it:
+        // a permanent's "cards exiled with [this object]" refers to exactly
+        // those cards of the spell that became it (CR 607.2q; Murktide
+        // Regent). Keep the exact exiles on the spell so their links can
+        // follow it when it resolves, including replacement effects on entry.
+        if !delved.is_empty()
+            && let Some(version) = self
+                .state
+                .object(card)
+                .map(crate::object::Rider::version_of)
+        {
+            for &exiled in &delved {
+                if let Some(object) = self
+                    .state
+                    .object_mut(exiled)
+                    .filter(|o| o.zone == crate::zone::Zone::Exile)
+                {
+                    object.riders.push(crate::object::Rider::ExiledWith {
+                        host: card,
+                        version,
+                    });
+                    let exile = baylee_core::ids::DamageSourceRef {
+                        object: exiled,
+                        version: object.version,
+                    };
+                    self.state
+                        .object_mut(card)
+                        .expect("the spell on the stack")
+                        .riders
+                        .push(crate::object::Rider::DelvedCard(exile));
+                }
+            }
+        }
         if let Some(turn) = foretold_turn {
             self.state
                 .object_mut(card)
@@ -1304,7 +1353,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .riders
                 .push(crate::object::Rider::Foretold { turn });
         }
-        if wizard.exile_instead_of_graveyard {
+        if wizard.exile_instead_of_graveyard
+            || wizard
+                .selected_alt_grant()
+                .is_some_and(|r| r.exile_instead_of_graveyard)
+        {
             self.state
                 .object_mut(card)
                 .expect("cast spell")

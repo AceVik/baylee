@@ -802,6 +802,20 @@ pub enum Condition {
     /// resolving from the stack while it remains on the battlefield. Appended
     /// to preserve replay identities.
     MayhemCostPaid,
+    /// No earlier spell matching `filter` was cast by `you` earlier this turn
+    /// (`Count$ThisTurnCast_<Filter> == 0`), excluding `this` spell itself
+    /// when evaluated for a stack static ability (*Anhelo, the Painter*,
+    /// *Ashad, the Lone Cyberman*, *Maelstrom Nexus*, *Peri Brown*, *The
+    /// Fifteenth Doctor*, *The Twelfth Doctor*, *Wild-Magic Sorcerer*).
+    /// Appended to preserve replay identities.
+    FirstMatchingSpellThisTurn(&'static Filter),
+    /// Mode `u8` was chosen as this permanent entered (`EnterModifier::ChooseMode`).
+    ChosenMode(u8),
+    /// The innermost enclosing [`crate::Effect::CaptureAffected`] / [`crate::Effect::CaptureMatching`]
+    /// remembered at least `u32` objects.
+    CapturedCountAtLeast(u32),
+    /// At least one object remembered by the innermost enclosing capture satisfies `filter`.
+    CapturedMatches(&'static Filter),
 }
 
 /// Trigger conditions for triggered abilities.
@@ -1446,6 +1460,38 @@ pub enum Trigger {
         /// `false` for whole-table ("Whenever one or more players discard one or more…").
         per_player: bool,
     },
+    /// "Whenever a [filter] is turned face up" (CR 701.34 / CR 708.8).
+    TurnedFaceUpMatching(&'static Filter),
+    /// Once per combat when `attacker` declares one or more attackers
+    /// attacking `attacked` (*Cunning Rhetoric*, *Ever-Watching Threshold*;
+    /// CR 508.1m, CR 508.3c). Binds `EventPlayer` to the attacking player.
+    /// Appended to preserve replay identities.
+    AttackersDeclaredAgainst {
+        /// Which attacking player(s) qualify.
+        attacker: crate::effect::PlayerRel,
+        /// What defender kind must be attacked by at least one declared attacker.
+        attacked: AttackedTargetKind,
+    },
+    /// A player matching `who` activates a loyalty ability (`CR 606.2`) of a
+    /// permanent matching `filter` (*Elspeth's Talent*, *Rowan's Talent*).
+    /// Binds `EventObject` to the planeswalker, `EventPlayer` to the activator,
+    /// and `EventAbility` to the activated loyalty ability on the stack.
+    /// Appended to preserve replay identities.
+    LoyaltyAbilityActivated {
+        /// Filter matched against the source permanent of the loyalty ability.
+        filter: &'static Filter,
+        /// Which activating player(s) qualify.
+        who: crate::effect::PlayerRel,
+    },
+    /// "Whenever a [filter] card leaves your graveyard" (*Murktide Regent*:
+    /// `Filter::And(&[Filter::INSTANT_OR_SORCERY, Filter::OwnedByYou])`),
+    /// once for each card, wherever it goes: cast from there, returned,
+    /// exiled to pay a cost. A card is always in its owner's graveyard
+    /// (CR 400.3), so "your" is ownership, said in the filter. Collected
+    /// from the battlefield like any other trigger, so a permanent spell
+    /// whose own cost exiles the cards (delve) does not see them leave.
+    /// Appended to preserve replay identities.
+    LeavesGraveyard(&'static Filter),
 }
 
 impl Trigger {
@@ -1855,6 +1901,13 @@ pub enum AbilityDef {
         /// Whether the same mode may be chosen more than once (CR 700.2d).
         can_repeat_modes: bool,
     },
+    /// Ward—Waterbend {N} (`CR 702.21a`, `CR 701.67a`; *The Unagi of Kyoshi
+    /// Island*). Engine-level keyword trigger. Appended to preserve replay
+    /// identities.
+    WardWaterbend {
+        /// Generic waterbend mana to pay.
+        mana: u16,
+    },
 }
 
 impl core::hash::Hash for AbilityDef {
@@ -1933,6 +1986,7 @@ impl core::hash::Hash for AbilityDef {
                 }
             }
             Self::Ward { mana } => mana.hash(state),
+            Self::WardWaterbend { mana } => (255_u8, 505_u16, mana).hash(state),
             Self::Toxic { poison } => poison.hash(state),
             Self::ActivatedConditional {
                 cost,

@@ -164,8 +164,12 @@ pub fn effect_benefit(effect: &Effect, x: u32) -> Option<i32> {
         | Effect::ChangeController { .. }
         | Effect::CounterTargetSpell
         | Effect::CounterTargetSpellToExile
+        | Effect::CounterTargetSpellTo(_)
         | Effect::CounterTargetAbility
         | Effect::CounterTargetSpellOrAbility
+        | Effect::DestroyTargetAndSameName { .. }
+        | Effect::DestroyAllAttachedToTarget { .. }
+        | Effect::BecomesBlocked(_)
         | Effect::DealDamage { .. }
         | Effect::TargetDealsDamageToController { .. }
         | Effect::DamagePermanentAndController { .. }
@@ -260,8 +264,12 @@ fn hurts(effect: &Effect, x: u32) -> bool {
         }
         | Effect::CounterTargetSpell
         | Effect::CounterTargetSpellToExile
+        | Effect::CounterTargetSpellTo(_)
         | Effect::CounterTargetAbility
         | Effect::CounterTargetSpellOrAbility
+        | Effect::DestroyTargetAndSameName { .. }
+        | Effect::DestroyAllAttachedToTarget { .. }
+        | Effect::BecomesBlocked(_)
         | Effect::PhaseOutUntilSourceLeaves { .. } => true,
         Effect::DealDamage { amount: n, .. }
         | Effect::DealDamageEvenly { amount: n, .. }
@@ -485,7 +493,9 @@ pub fn aura_side(abilities: &[AbilityDef]) -> Option<TargetSide> {
                     | Modifier::GrantTriggeredDefinition(AbilityDef::Triggered {
                         effects, ..
                     }) => granted_trigger_sign(effects)?,
-                    Modifier::CantAttack | Modifier::CantBlock(_) => -1,
+                    Modifier::CantAttack
+                    | Modifier::CantBlock(_)
+                    | Modifier::CantAttackYouOrYourPlaneswalkers => -1,
                     Modifier::Goaded | Modifier::MustAttackPlayer(_) => -2,
                     _ => return None,
                 };
@@ -495,7 +505,9 @@ pub fn aura_side(abilities: &[AbilityDef]) -> Option<TargetSide> {
                     Modifier::ModifyPT(power, toughness) => {
                         (i32::from(*power) + i32::from(*toughness)).signum()
                     }
-                    Modifier::CantAttack | Modifier::CantBlock(_) => -1,
+                    Modifier::CantAttack
+                    | Modifier::CantBlock(_)
+                    | Modifier::CantAttackYouOrYourPlaneswalkers => -1,
                     _ => 0,
                 };
             }

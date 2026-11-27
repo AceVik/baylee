@@ -8,6 +8,7 @@ mod blocks_and_conditions;
 mod costs_and_refusals;
 mod creature_type;
 mod cycling;
+mod delve;
 mod dig;
 mod divided_damage;
 mod dredge;
@@ -26,6 +27,9 @@ mod wave16c;
 mod wave17a;
 mod wave17b;
 mod wave17c;
+mod wave18a;
+mod wave18b;
+mod wave18c;
 mod wave24a;
 mod wave24b;
 mod wave24c;
@@ -55,6 +59,10 @@ mod wave29a;
 mod wave29b;
 mod wave29c;
 mod wave29d;
+mod wave30a;
+mod wave30b;
+mod wave30c;
+mod wave30d;
 
 fn cats() -> SubtypeCatalogs {
     let mut c = SubtypeCatalogs {

@@ -515,6 +515,9 @@ pub enum ChoicePrompt {
     },
     /// Find one card when the library and graveyard are both being searched.
     SearchLibraryOrGraveyard,
+    /// Waterbend (`CR 701.67a`): tap any number of untapped artifacts and/or
+    /// creatures you control, each paying for `{1}` of the waterbend cost.
+    Waterbend,
 }
 
 /// What a [`Pending::ChooseNumber`] counts (UI hint).
@@ -558,6 +561,8 @@ pub enum NumberPrompt {
     /// or the X of a counter cost.
     #[default]
     X,
+    /// Generic mana another player pays toward a spell with assist (`CR 702.132a`).
+    Assist,
     /// How many times to pay a spell's replicate cost (CR 702.56a). The
     /// maximum is the most the caster's floating mana pays for, and the
     /// spell is copied once for each.
@@ -795,6 +800,8 @@ pub enum YesNoPrompt {
     },
     /// Use one North Star permission for this spell’s mana cost.
     ManaAnyType,
+    /// Choose whether another player may pay generic mana for assist (`CR 702.132a`).
+    Assist,
     /// Optionally enter tapped and receive the displayed player counters.
     EnterTappedForCounters {
         /// Player counter kind.
@@ -822,6 +829,11 @@ pub enum YesNoPrompt {
     /// "Pay {N}?" for a tax trigger (Rhystic Study & co.).
     PayTax {
         /// Generic mana to pay.
+        mana: u16,
+    },
+    /// "Waterbend {N}?" for a resolving tax/ward/unless choice (`CR 701.67a`).
+    PayWaterbend {
+        /// Generic waterbend mana to pay.
         mana: u16,
     },
     /// "Pay {U}?" for a tax or price with colour in it
@@ -1136,7 +1148,9 @@ impl YesNoPrompt {
             | Self::KickerOption { .. }
             | Self::Buyback { .. }
             | Self::ManaAnyType
+            | Self::Assist
             | Self::PayTax { .. }
+            | Self::PayWaterbend { .. }
             | Self::PayMana { .. }
             | Self::PayManaAndLife { .. }
             | Self::PayLife { .. }

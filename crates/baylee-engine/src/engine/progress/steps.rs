@@ -256,7 +256,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             self.enter_combat_or_skip()
         } else {
             self.saga_precombat_main_counters();
-            self.queue_main_phase_delayed();
+            self.queue_main_phase_delayed(true);
             (Phase::FirstMain, Step::Main)
         }
     }
@@ -283,7 +283,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             self.queue_end_step_delayed();
             (Phase::Ending, Step::End)
         } else {
-            self.queue_main_phase_delayed();
+            self.queue_main_phase_delayed(false);
             (Phase::SecondMain, Step::Main)
         }
     }
@@ -294,7 +294,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 Phase::FirstMain => {
                     if !self.state.per_turn.skip_main_phases {
                         self.saga_precombat_main_counters();
-                        self.queue_main_phase_delayed();
+                        self.queue_main_phase_delayed(true);
                         return (Phase::FirstMain, Step::Main);
                     }
                 }
@@ -312,7 +312,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 }
                 Phase::SecondMain => {
                     if !self.state.per_turn.skip_main_phases {
-                        self.queue_main_phase_delayed();
+                        self.queue_main_phase_delayed(false);
                         return (Phase::SecondMain, Step::Main);
                     }
                 }

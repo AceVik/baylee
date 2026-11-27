@@ -527,6 +527,7 @@ const EVENT_OBJECT_READ: &[&str] = &[
     "DoublePT { subject: EventObject,",
     "ExileLinked { target: EventObject,",
     "EventPower }, target: EventObject",
+    "OwnerPutsOnTopOrBottom { target: EventObject",
 ];
 
 /// The same census for `EventObject`, which is the **second** implicit spec
