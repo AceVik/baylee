@@ -240,7 +240,7 @@ pub fn run_card(index: CardIndex) -> Result<Card, Error> {
 /// is read from the card registry; the house's `PICKS` and the measured
 /// balance hold only for this content, and the production publication
 /// refuses any other.
-pub const CALIBRATED: &str = "";
+pub const CALIBRATED: &str = "e73066537b36170fda824321f69938fd8b495af58ecfeb640882971738c7abc1";
 
 /// SHA-256 over the canonical JSON of `content`'s catalog and starters, each
 /// card's printing left out: that is the image a client shows (a card wave
