@@ -198,6 +198,16 @@ send. Gateway registration retries independently, and outstanding game sends are
 bounded. Old gateway group deliveries addressed to the current identity can be
 archived read-only using gateway pins, with encrypted publication before ACK.
 
+Only a refused inbox read ends the session. Contacts and groups are read beside
+it, and Central's types refuse a field they do not know, so a newer Central
+answers an older build in a shape it cannot read (group administrators did this
+in November 2026). When that read is refused and the inbox beside it is served,
+the session stands: chat goes on with the contacts read last, the inbox is still
+read, contacts are asked for again a minute on, and the client logs a warning
+(`social/central/worker.rs`, `Metadata::Unreadable`). Until 27.11.2026 an
+account's first group ended its chat on such a build for good, a new sign-in
+included.
+
 Existing archived histories and identity records are preserved. This change does
 not silently turn old gateway friendships or memberships into Central relationships:
 participants request/accept contacts and group invitations in Central. Unread old
@@ -233,7 +243,8 @@ Account deletion, recovery UI, decks and replays are outside this transport chan
   simultaneous directory fetches, retained cursor isolation, former-group history,
   wrong send receipts, account identity migration and real browser/native ciphertext.
 - Bridge regressions: queue bounds, late/locked inbox responses, disconnected worker
-  recovery, session revocation and exclusion of gateway personal metadata.
+  recovery, contacts this build cannot read, session revocation and exclusion of
+  gateway personal metadata.
 - Native regression: Central deletion cannot dispatch the password to a gateway;
   the bounded snapshot collector refuses incomplete or unexpected local namespaces;
   ACKs wait for the complete corresponding snapshot and survive failed socket sends.
