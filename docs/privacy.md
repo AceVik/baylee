@@ -755,8 +755,12 @@ only waits while one runs (`/run/baylee-backup/run.lock`).
   (`DELETE /admin/accounts/{id}`); on Central through its own operator
   erasure (`central-service --erase-accounts-stdin`) and on the Tower
   through its admin action `erase_accounts`, each where the installed
-  service has it, else the program names the ids and the step for a
-  person. When a deleted account's Tower data is erased at all is in
+  service has it, else the program names the step for a person and the ids
+  stay in the deletion list on the server until it is done. Tower erasures
+  are kept apart in that list, because the Tower uses Central's account
+  ids: a Central deletion never erases Tower data, and a Tower erasure never
+  deletes a Central account. When a deleted account's Tower data is erased
+  at all is in
   §"Tower authority personal bests". Until a restore, a deleted account
   stays in older backups as long as they are kept (above).
 - **A replaced database on the server:** a restore of a snapshot older
