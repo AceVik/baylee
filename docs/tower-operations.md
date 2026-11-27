@@ -209,7 +209,29 @@ field (196 duels each), and replacement commanders of the same colours where
 no variant came near. The chosen variant is the third value in `LEADERS`;
 Lyra Dawnbringer, Giada, Dwynen and Eutropia gave way to Soraya the Falconer,
 Loran of the Third Path, Eladamri and Sab-Sunen. Measured again on fresh deals
-(another 49,000 duels): 37.8 % (Talrand) to 61.9 % (Elas il-Kor).
+(another 49,000 duels): 37.8 % (Talrand) to 61.9 % (Elas il-Kor). A third
+round moved Talrand, Arasta, Hapatra and Rishkar to other variants and
+replaced Elas il-Kor and Arvad with Neva, Stalked by Nightmares and Selenia,
+Dark Angel. The final field, on fresh deals (24,500 duels, 980 per starter):
+every starter between 40.1 % (Samut) and 59.6 % (Ayara), all fifty inside
+the band; the 95 % intervals are about ±3 points. The human chair wins 45.8 %
+of all duels.
+
+**House.** Built from the second round's starters and measured before any
+cell was touched (33,800 duels), the ladder rose at every stage (each stage's
+builds beat the stage below 50–67 %), but within a stage the builds ranged
+from 2 % to 100 %, with 9 to 28 of 50 outside the band per stage. The
+winners were creature and token decks whose relics pump the whole team
+(Banner and Bulwark recipes, Swarm Banner, Grove, Dawn Aegis); the losers
+were spell decks, whose relic options do much less for them. That is the
+relic catalogue's balance as much as the house's, and players meet it too.
+The house is calibrated cell by cell instead: `PICKS` gives each of the 600
+cells the candidate that came closest to even against its stage's field,
+out of its own build, one to three of its most valuable relics left in the
+bag, and the builds of two further shop runs (86,400 duels). Measured again
+on fresh deals (33,800 duels): every stage still beats the one below
+(53–70 %); outside the band per stage 1 (stage 1), 6–14 (stages 2–9) and
+17–19 (stages 10–12), with the extremes at 9 % and 97 %.
 
 ## Runtime grants
 

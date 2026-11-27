@@ -1,0 +1,2995 @@
+{
+  "duels": 33800,
+  "kind": "ladder",
+  "rise": 4,
+  "seeds": 1,
+  "stages": [
+    {
+      "against_stage_below": null,
+      "loadout": {
+        "common": 272,
+        "decks_changed": 0,
+        "mean_items": 5.46,
+        "mythic": 0,
+        "potions": 14,
+        "rare": 0,
+        "uncommon": 1
+      },
+      "stage": 1,
+      "within": {
+        "max": 0.776,
+        "median": 0.51,
+        "min": 0.316,
+        "outside_30_70": [
+          {
+            "commander": "Maja, Bretagard Protector",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.683,
+                0.847
+              ],
+              "losses": 22,
+              "mean_seconds": 0.189,
+              "mean_turns": 16.776,
+              "refused": 0,
+              "score": 0.776,
+              "unfinished": 0,
+              "wins": 76
+            },
+            "starter": 43
+          }
+        ],
+        "unfinished": 2
+      }
+    },
+    {
+      "against_stage_below": {
+        "draws": 0,
+        "interval": [
+          0.651,
+          0.74
+        ],
+        "losses": 121,
+        "mean_seconds": 0.231,
+        "mean_turns": 18.655,
+        "refused": 0,
+        "score": 0.698,
+        "unfinished": 0,
+        "wins": 279
+      },
+      "loadout": {
+        "common": 223,
+        "decks_changed": 33,
+        "mean_items": 5.58,
+        "mythic": 0,
+        "potions": 13,
+        "rare": 1,
+        "uncommon": 55
+      },
+      "stage": 2,
+      "within": {
+        "max": 0.837,
+        "median": 0.51,
+        "min": 0.143,
+        "outside_30_70": [
+          {
+            "commander": "Neva, Stalked by Nightmares",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.629,
+                0.803
+              ],
+              "losses": 27,
+              "mean_seconds": 0.168,
+              "mean_turns": 15.367,
+              "refused": 0,
+              "score": 0.724,
+              "unfinished": 0,
+              "wins": 71
+            },
+            "starter": 2
+          },
+          {
+            "commander": "Talrand, Sky Summoner",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.197,
+                0.371
+              ],
+              "losses": 71,
+              "mean_seconds": 0.165,
+              "mean_turns": 16.276,
+              "refused": 0,
+              "score": 0.276,
+              "unfinished": 0,
+              "wins": 27
+            },
+            "starter": 3
+          },
+          {
+            "commander": "Radha, Heir to Keld",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.751,
+                0.897
+              ],
+              "losses": 16,
+              "mean_seconds": 0.34,
+              "mean_turns": 18.653,
+              "refused": 0,
+              "score": 0.837,
+              "unfinished": 0,
+              "wins": 82
+            },
+            "starter": 6
+          },
+          {
+            "commander": "Sram, Senior Edificer",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.087,
+                0.226
+              ],
+              "losses": 84,
+              "mean_seconds": 0.215,
+              "mean_turns": 17.571,
+              "refused": 0,
+              "score": 0.143,
+              "unfinished": 0,
+              "wins": 14
+            },
+            "starter": 8
+          },
+          {
+            "commander": "Kykar, Wind's Fury",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.188,
+                0.36
+              ],
+              "losses": 72,
+              "mean_seconds": 0.219,
+              "mean_turns": 18.082,
+              "refused": 0,
+              "score": 0.265,
+              "unfinished": 0,
+              "wins": 26
+            },
+            "starter": 12
+          },
+          {
+            "commander": "Samut, Voice of Dissent",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.607,
+                0.785
+              ],
+              "losses": 29,
+              "mean_seconds": 0.344,
+              "mean_turns": 21.531,
+              "refused": 0,
+              "score": 0.704,
+              "unfinished": 0,
+              "wins": 69
+            },
+            "starter": 24
+          }
+        ],
+        "unfinished": 6
+      }
+    },
+    {
+      "against_stage_below": {
+        "draws": 0,
+        "interval": [
+          0.617,
+          0.709
+        ],
+        "losses": 134,
+        "mean_seconds": 0.245,
+        "mean_turns": 18.053,
+        "refused": 0,
+        "score": 0.665,
+        "unfinished": 0,
+        "wins": 266
+      },
+      "loadout": {
+        "common": 163,
+        "decks_changed": 44,
+        "mean_items": 5.72,
+        "mythic": 0,
+        "potions": 11,
+        "rare": 2,
+        "uncommon": 121
+      },
+      "stage": 3,
+      "within": {
+        "max": 0.898,
+        "median": 0.48,
+        "min": 0.173,
+        "outside_30_70": [
+          {
+            "commander": "Neva, Stalked by Nightmares",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.607,
+                0.785
+              ],
+              "losses": 29,
+              "mean_seconds": 0.166,
+              "mean_turns": 15.429,
+              "refused": 0,
+              "score": 0.704,
+              "unfinished": 0,
+              "wins": 69
+            },
+            "starter": 2
+          },
+          {
+            "commander": "Talrand, Sky Summoner",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.162,
+                0.328
+              ],
+              "losses": 75,
+              "mean_seconds": 0.307,
+              "mean_turns": 21.184,
+              "refused": 0,
+              "score": 0.235,
+              "unfinished": 0,
+              "wins": 23
+            },
+            "starter": 3
+          },
+          {
+            "commander": "Slimefoot, the Stowaway",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.215,
+                0.393
+              ],
+              "losses": 69,
+              "mean_seconds": 0.196,
+              "mean_turns": 15.908,
+              "refused": 0,
+              "score": 0.296,
+              "unfinished": 0,
+              "wins": 29
+            },
+            "starter": 4
+          },
+          {
+            "commander": "Radha, Heir to Keld",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.822,
+                0.944
+              ],
+              "losses": 10,
+              "mean_seconds": 0.171,
+              "mean_turns": 13.561,
+              "refused": 0,
+              "score": 0.898,
+              "unfinished": 0,
+              "wins": 88
+            },
+            "starter": 6
+          },
+          {
+            "commander": "Sram, Senior Edificer",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.111,
+                0.26
+              ],
+              "losses": 81,
+              "mean_seconds": 0.197,
+              "mean_turns": 16.296,
+              "refused": 0,
+              "score": 0.173,
+              "unfinished": 0,
+              "wins": 17
+            },
+            "starter": 8
+          },
+          {
+            "commander": "Judith, the Scourge Diva",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.206,
+                0.382
+              ],
+              "losses": 70,
+              "mean_seconds": 0.151,
+              "mean_turns": 15.265,
+              "refused": 0,
+              "score": 0.286,
+              "unfinished": 0,
+              "wins": 28
+            },
+            "starter": 11
+          },
+          {
+            "commander": "Samut, Voice of Dissent",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.215,
+                0.393
+              ],
+              "losses": 69,
+              "mean_seconds": 0.202,
+              "mean_turns": 15.653,
+              "refused": 0,
+              "score": 0.296,
+              "unfinished": 0,
+              "wins": 29
+            },
+            "starter": 24
+          },
+          {
+            "commander": "Linden, the Steadfast Queen",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.65,
+                0.821
+              ],
+              "losses": 25,
+              "mean_seconds": 0.194,
+              "mean_turns": 15.48,
+              "refused": 0,
+              "score": 0.745,
+              "unfinished": 0,
+              "wins": 73
+            },
+            "starter": 34
+          },
+          {
+            "commander": "Sab-Sunen, Luxa Embodied",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.197,
+                0.371
+              ],
+              "losses": 71,
+              "mean_seconds": 0.191,
+              "mean_turns": 14.939,
+              "refused": 0,
+              "score": 0.276,
+              "unfinished": 0,
+              "wins": 27
+            },
+            "starter": 36
+          },
+          {
+            "commander": "Saryth, the Viper's Fang",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.751,
+                0.897
+              ],
+              "losses": 16,
+              "mean_seconds": 0.209,
+              "mean_turns": 14.714,
+              "refused": 0,
+              "score": 0.837,
+              "unfinished": 0,
+              "wins": 82
+            },
+            "starter": 47
+          },
+          {
+            "commander": "Mahadi, Emporium Master",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.728,
+                0.881
+              ],
+              "losses": 18,
+              "mean_seconds": 0.156,
+              "mean_turns": 13.939,
+              "refused": 0,
+              "score": 0.816,
+              "unfinished": 0,
+              "wins": 80
+            },
+            "starter": 48
+          }
+        ],
+        "unfinished": 0
+      }
+    },
+    {
+      "against_stage_below": {
+        "draws": 0,
+        "interval": [
+          0.534,
+          0.63
+        ],
+        "losses": 167,
+        "mean_seconds": 0.245,
+        "mean_turns": 17.07,
+        "refused": 0,
+        "score": 0.583,
+        "unfinished": 0,
+        "wins": 233
+      },
+      "loadout": {
+        "common": 112,
+        "decks_changed": 46,
+        "mean_items": 5.6,
+        "mythic": 0,
+        "potions": 11,
+        "rare": 28,
+        "uncommon": 140
+      },
+      "stage": 4,
+      "within": {
+        "max": 0.969,
+        "median": 0.51,
+        "min": 0.184,
+        "outside_30_70": [
+          {
+            "commander": "Talrand, Sky Summoner",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.153,
+                0.317
+              ],
+              "losses": 76,
+              "mean_seconds": 0.422,
+              "mean_turns": 24.214,
+              "refused": 0,
+              "score": 0.224,
+              "unfinished": 0,
+              "wins": 22
+            },
+            "starter": 3
+          },
+          {
+            "commander": "Pia and Kiran Nalaar",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.68,
+                0.845
+              ],
+              "losses": 22,
+              "mean_seconds": 0.553,
+              "mean_turns": 25.732,
+              "refused": 0,
+              "score": 0.773,
+              "unfinished": 1,
+              "wins": 75
+            },
+            "starter": 5
+          },
+          {
+            "commander": "Tatyova, Benthic Druid",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.64,
+                0.812
+              ],
+              "losses": 26,
+              "mean_seconds": 0.46,
+              "mean_turns": 18.867,
+              "refused": 0,
+              "score": 0.735,
+              "unfinished": 0,
+              "wins": 72
+            },
+            "starter": 10
+          },
+          {
+            "commander": "Alela, Artful Provocateur",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.695,
+                0.855
+              ],
+              "losses": 21,
+              "mean_seconds": 0.189,
+              "mean_turns": 14.561,
+              "refused": 0,
+              "score": 0.786,
+              "unfinished": 0,
+              "wins": 77
+            },
+            "starter": 13
+          },
+          {
+            "commander": "Eladamri, Lord of Leaves",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.197,
+                0.371
+              ],
+              "losses": 71,
+              "mean_seconds": 0.309,
+              "mean_turns": 18.837,
+              "refused": 0,
+              "score": 0.276,
+              "unfinished": 0,
+              "wins": 27
+            },
+            "starter": 20
+          },
+          {
+            "commander": "Yahenni, Undying Partisan",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.119,
+                0.272
+              ],
+              "losses": 80,
+              "mean_seconds": 0.247,
+              "mean_turns": 16.939,
+              "refused": 0,
+              "score": 0.184,
+              "unfinished": 0,
+              "wins": 18
+            },
+            "starter": 23
+          },
+          {
+            "commander": "Samut, Voice of Dissent",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.128,
+                0.283
+              ],
+              "losses": 79,
+              "mean_seconds": 0.303,
+              "mean_turns": 18.673,
+              "refused": 0,
+              "score": 0.194,
+              "unfinished": 0,
+              "wins": 19
+            },
+            "starter": 24
+          },
+          {
+            "commander": "Vona, Butcher of Magan",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.629,
+                0.803
+              ],
+              "losses": 27,
+              "mean_seconds": 0.294,
+              "mean_turns": 16.694,
+              "refused": 0,
+              "score": 0.724,
+              "unfinished": 0,
+              "wins": 71
+            },
+            "starter": 26
+          },
+          {
+            "commander": "Muldrotha, the Gravetide",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.914,
+                0.99
+              ],
+              "losses": 3,
+              "mean_seconds": 0.24,
+              "mean_turns": 15.255,
+              "refused": 0,
+              "score": 0.969,
+              "unfinished": 0,
+              "wins": 95
+            },
+            "starter": 30
+          },
+          {
+            "commander": "Sab-Sunen, Luxa Embodied",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.215,
+                0.393
+              ],
+              "losses": 69,
+              "mean_seconds": 0.21,
+              "mean_turns": 14.776,
+              "refused": 0,
+              "score": 0.296,
+              "unfinished": 0,
+              "wins": 29
+            },
+            "starter": 36
+          },
+          {
+            "commander": "Emiel the Blessed",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.206,
+                0.382
+              ],
+              "losses": 70,
+              "mean_seconds": 0.34,
+              "mean_turns": 18.714,
+              "refused": 0,
+              "score": 0.286,
+              "unfinished": 0,
+              "wins": 28
+            },
+            "starter": 39
+          },
+          {
+            "commander": "Galazeth Prismari",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.672,
+                0.838
+              ],
+              "losses": 23,
+              "mean_seconds": 0.28,
+              "mean_turns": 19.153,
+              "refused": 0,
+              "score": 0.765,
+              "unfinished": 0,
+              "wins": 75
+            },
+            "starter": 44
+          },
+          {
+            "commander": "Mahadi, Emporium Master",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.188,
+                0.36
+              ],
+              "losses": 72,
+              "mean_seconds": 0.211,
+              "mean_turns": 15.755,
+              "refused": 0,
+              "score": 0.265,
+              "unfinished": 0,
+              "wins": 26
+            },
+            "starter": 48
+          }
+        ],
+        "unfinished": 10
+      }
+    },
+    {
+      "against_stage_below": {
+        "draws": 0,
+        "interval": [
+          0.486,
+          0.583
+        ],
+        "losses": 186,
+        "mean_seconds": 0.284,
+        "mean_turns": 17.265,
+        "refused": 0,
+        "score": 0.535,
+        "unfinished": 0,
+        "wins": 214
+      },
+      "loadout": {
+        "common": 77,
+        "decks_changed": 47,
+        "mean_items": 5.58,
+        "mythic": 0,
+        "potions": 17,
+        "rare": 41,
+        "uncommon": 161
+      },
+      "stage": 5,
+      "within": {
+        "max": 0.796,
+        "median": 0.51,
+        "min": 0.255,
+        "outside_30_70": [
+          {
+            "commander": "Pia and Kiran Nalaar",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.683,
+                0.847
+              ],
+              "losses": 22,
+              "mean_seconds": 0.181,
+              "mean_turns": 14.235,
+              "refused": 0,
+              "score": 0.776,
+              "unfinished": 0,
+              "wins": 76
+            },
+            "starter": 5
+          },
+          {
+            "commander": "Radha, Heir to Keld",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.197,
+                0.371
+              ],
+              "losses": 71,
+              "mean_seconds": 0.128,
+              "mean_turns": 11.204,
+              "refused": 0,
+              "score": 0.276,
+              "unfinished": 0,
+              "wins": 27
+            },
+            "starter": 6
+          },
+          {
+            "commander": "Loran of the Third Path",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.197,
+                0.371
+              ],
+              "losses": 71,
+              "mean_seconds": 0.304,
+              "mean_turns": 18.745,
+              "refused": 0,
+              "score": 0.276,
+              "unfinished": 0,
+              "wins": 27
+            },
+            "starter": 15
+          },
+          {
+            "commander": "Thrun, the Last Troll",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.197,
+                0.371
+              ],
+              "losses": 71,
+              "mean_seconds": 0.345,
+              "mean_turns": 20.888,
+              "refused": 0,
+              "score": 0.276,
+              "unfinished": 0,
+              "wins": 27
+            },
+            "starter": 17
+          },
+          {
+            "commander": "Derevi, Empyrial Tactician",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.188,
+                0.36
+              ],
+              "losses": 72,
+              "mean_seconds": 0.243,
+              "mean_turns": 16.0,
+              "refused": 0,
+              "score": 0.265,
+              "unfinished": 0,
+              "wins": 26
+            },
+            "starter": 18
+          },
+          {
+            "commander": "Samut, Voice of Dissent",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.206,
+                0.382
+              ],
+              "losses": 70,
+              "mean_seconds": 0.156,
+              "mean_turns": 13.663,
+              "refused": 0,
+              "score": 0.286,
+              "unfinished": 0,
+              "wins": 28
+            },
+            "starter": 24
+          },
+          {
+            "commander": "Vona, Butcher of Magan",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.215,
+                0.393
+              ],
+              "losses": 69,
+              "mean_seconds": 0.148,
+              "mean_turns": 12.337,
+              "refused": 0,
+              "score": 0.296,
+              "unfinished": 0,
+              "wins": 29
+            },
+            "starter": 26
+          },
+          {
+            "commander": "Muldrotha, the Gravetide",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.179,
+                0.35
+              ],
+              "losses": 73,
+              "mean_seconds": 0.144,
+              "mean_turns": 13.367,
+              "refused": 0,
+              "score": 0.255,
+              "unfinished": 0,
+              "wins": 25
+            },
+            "starter": 30
+          },
+          {
+            "commander": "Ayara, First of Locthwain",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.706,
+                0.864
+              ],
+              "losses": 20,
+              "mean_seconds": 0.236,
+              "mean_turns": 15.592,
+              "refused": 0,
+              "score": 0.796,
+              "unfinished": 0,
+              "wins": 78
+            },
+            "starter": 32
+          },
+          {
+            "commander": "Emry, Lurker of the Loch",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.607,
+                0.785
+              ],
+              "losses": 29,
+              "mean_seconds": 0.161,
+              "mean_turns": 12.327,
+              "refused": 0,
+              "score": 0.704,
+              "unfinished": 0,
+              "wins": 69
+            },
+            "starter": 33
+          },
+          {
+            "commander": "Ghen, Arcanum Weaver",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.215,
+                0.393
+              ],
+              "losses": 69,
+              "mean_seconds": 0.141,
+              "mean_turns": 12.806,
+              "refused": 0,
+              "score": 0.296,
+              "unfinished": 0,
+              "wins": 29
+            },
+            "starter": 41
+          },
+          {
+            "commander": "Mahadi, Emporium Master",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.695,
+                0.855
+              ],
+              "losses": 21,
+              "mean_seconds": 0.15,
+              "mean_turns": 12.224,
+              "refused": 0,
+              "score": 0.786,
+              "unfinished": 0,
+              "wins": 77
+            },
+            "starter": 48
+          }
+        ],
+        "unfinished": 0
+      }
+    },
+    {
+      "against_stage_below": {
+        "draws": 0,
+        "interval": [
+          0.551,
+          0.647
+        ],
+        "losses": 160,
+        "mean_seconds": 0.245,
+        "mean_turns": 16.04,
+        "refused": 0,
+        "score": 0.6,
+        "unfinished": 0,
+        "wins": 240
+      },
+      "loadout": {
+        "common": 46,
+        "decks_changed": 47,
+        "mean_items": 5.7,
+        "mythic": 0,
+        "potions": 18,
+        "rare": 85,
+        "uncommon": 154
+      },
+      "stage": 6,
+      "within": {
+        "max": 0.796,
+        "median": 0.48,
+        "min": 0.163,
+        "outside_30_70": [
+          {
+            "commander": "Pia and Kiran Nalaar",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.607,
+                0.785
+              ],
+              "losses": 29,
+              "mean_seconds": 0.28,
+              "mean_turns": 17.429,
+              "refused": 0,
+              "score": 0.704,
+              "unfinished": 0,
+              "wins": 69
+            },
+            "starter": 5
+          },
+          {
+            "commander": "Radha, Heir to Keld",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.215,
+                0.393
+              ],
+              "losses": 69,
+              "mean_seconds": 0.141,
+              "mean_turns": 11.469,
+              "refused": 0,
+              "score": 0.296,
+              "unfinished": 0,
+              "wins": 29
+            },
+            "starter": 6
+          },
+          {
+            "commander": "Rishkar, Peema Renegade",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.683,
+                0.847
+              ],
+              "losses": 22,
+              "mean_seconds": 0.403,
+              "mean_turns": 20.531,
+              "refused": 0,
+              "score": 0.776,
+              "unfinished": 0,
+              "wins": 76
+            },
+            "starter": 7
+          },
+          {
+            "commander": "Hapatra, Vizier of Poisons",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.607,
+                0.785
+              ],
+              "losses": 29,
+              "mean_seconds": 0.131,
+              "mean_turns": 11.327,
+              "refused": 0,
+              "score": 0.704,
+              "unfinished": 0,
+              "wins": 69
+            },
+            "starter": 9
+          },
+          {
+            "commander": "Tatyova, Benthic Druid",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.111,
+                0.26
+              ],
+              "losses": 81,
+              "mean_seconds": 0.21,
+              "mean_turns": 13.837,
+              "refused": 0,
+              "score": 0.173,
+              "unfinished": 0,
+              "wins": 17
+            },
+            "starter": 10
+          },
+          {
+            "commander": "Eladamri, Lord of Leaves",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.618,
+                0.794
+              ],
+              "losses": 28,
+              "mean_seconds": 0.348,
+              "mean_turns": 18.286,
+              "refused": 0,
+              "score": 0.714,
+              "unfinished": 0,
+              "wins": 70
+            },
+            "starter": 20
+          },
+          {
+            "commander": "Kambal, Consul of Allocation",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.629,
+                0.803
+              ],
+              "losses": 27,
+              "mean_seconds": 0.158,
+              "mean_turns": 13.082,
+              "refused": 0,
+              "score": 0.724,
+              "unfinished": 0,
+              "wins": 71
+            },
+            "starter": 21
+          },
+          {
+            "commander": "Selenia, Dark Angel",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.136,
+                0.294
+              ],
+              "losses": 78,
+              "mean_seconds": 0.257,
+              "mean_turns": 17.724,
+              "refused": 0,
+              "score": 0.204,
+              "unfinished": 0,
+              "wins": 20
+            },
+            "starter": 27
+          },
+          {
+            "commander": "Garna, the Bloodflame",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.162,
+                0.328
+              ],
+              "losses": 75,
+              "mean_seconds": 0.326,
+              "mean_turns": 19.633,
+              "refused": 0,
+              "score": 0.235,
+              "unfinished": 0,
+              "wins": 23
+            },
+            "starter": 28
+          },
+          {
+            "commander": "Muldrotha, the Gravetide",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.103,
+                0.249
+              ],
+              "losses": 82,
+              "mean_seconds": 0.137,
+              "mean_turns": 11.551,
+              "refused": 0,
+              "score": 0.163,
+              "unfinished": 0,
+              "wins": 16
+            },
+            "starter": 30
+          },
+          {
+            "commander": "Saryth, the Viper's Fang",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.179,
+                0.35
+              ],
+              "losses": 73,
+              "mean_seconds": 0.263,
+              "mean_turns": 15.357,
+              "refused": 0,
+              "score": 0.255,
+              "unfinished": 0,
+              "wins": 25
+            },
+            "starter": 47
+          },
+          {
+            "commander": "Mahadi, Emporium Master",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.672,
+                0.838
+              ],
+              "losses": 23,
+              "mean_seconds": 0.113,
+              "mean_turns": 10.194,
+              "refused": 0,
+              "score": 0.765,
+              "unfinished": 0,
+              "wins": 75
+            },
+            "starter": 48
+          },
+          {
+            "commander": "Ertai Resurrected",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.706,
+                0.864
+              ],
+              "losses": 20,
+              "mean_seconds": 0.139,
+              "mean_turns": 10.582,
+              "refused": 0,
+              "score": 0.796,
+              "unfinished": 0,
+              "wins": 78
+            },
+            "starter": 49
+          },
+          {
+            "commander": "Tura Kennerüd, Skyknight",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.64,
+                0.812
+              ],
+              "losses": 26,
+              "mean_seconds": 0.2,
+              "mean_turns": 14.051,
+              "refused": 0,
+              "score": 0.735,
+              "unfinished": 0,
+              "wins": 72
+            },
+            "starter": 50
+          }
+        ],
+        "unfinished": 4
+      }
+    },
+    {
+      "against_stage_below": {
+        "draws": 0,
+        "interval": [
+          0.496,
+          0.593
+        ],
+        "losses": 182,
+        "mean_seconds": 0.243,
+        "mean_turns": 15.39,
+        "refused": 0,
+        "score": 0.545,
+        "unfinished": 0,
+        "wins": 218
+      },
+      "loadout": {
+        "common": 23,
+        "decks_changed": 50,
+        "mean_items": 5.56,
+        "mythic": 0,
+        "potions": 16,
+        "rare": 108,
+        "uncommon": 147
+      },
+      "stage": 7,
+      "within": {
+        "max": 0.827,
+        "median": 0.49,
+        "min": 0.153,
+        "outside_30_70": [
+          {
+            "commander": "Talrand, Sky Summoner",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.197,
+                0.371
+              ],
+              "losses": 71,
+              "mean_seconds": 0.157,
+              "mean_turns": 11.571,
+              "refused": 0,
+              "score": 0.276,
+              "unfinished": 0,
+              "wins": 27
+            },
+            "starter": 3
+          },
+          {
+            "commander": "Radha, Heir to Keld",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.095,
+                0.237
+              ],
+              "losses": 83,
+              "mean_seconds": 0.122,
+              "mean_turns": 10.153,
+              "refused": 0,
+              "score": 0.153,
+              "unfinished": 0,
+              "wins": 15
+            },
+            "starter": 6
+          },
+          {
+            "commander": "Kykar, Wind's Fury",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.717,
+                0.872
+              ],
+              "losses": 19,
+              "mean_seconds": 0.532,
+              "mean_turns": 20.796,
+              "refused": 0,
+              "score": 0.806,
+              "unfinished": 0,
+              "wins": 79
+            },
+            "starter": 12
+          },
+          {
+            "commander": "Kess, Dissident Mage",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.119,
+                0.272
+              ],
+              "losses": 80,
+              "mean_seconds": 0.118,
+              "mean_turns": 11.041,
+              "refused": 0,
+              "score": 0.184,
+              "unfinished": 0,
+              "wins": 18
+            },
+            "starter": 25
+          },
+          {
+            "commander": "Emry, Lurker of the Loch",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.629,
+                0.803
+              ],
+              "losses": 27,
+              "mean_seconds": 0.161,
+              "mean_turns": 12.378,
+              "refused": 0,
+              "score": 0.724,
+              "unfinished": 0,
+              "wins": 71
+            },
+            "starter": 33
+          },
+          {
+            "commander": "Emiel the Blessed",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.74,
+                0.889
+              ],
+              "losses": 17,
+              "mean_seconds": 0.159,
+              "mean_turns": 10.51,
+              "refused": 0,
+              "score": 0.827,
+              "unfinished": 0,
+              "wins": 81
+            },
+            "starter": 39
+          },
+          {
+            "commander": "Maja, Bretagard Protector",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.65,
+                0.821
+              ],
+              "losses": 25,
+              "mean_seconds": 0.291,
+              "mean_turns": 16.418,
+              "refused": 0,
+              "score": 0.745,
+              "unfinished": 0,
+              "wins": 73
+            },
+            "starter": 43
+          },
+          {
+            "commander": "Saryth, the Viper's Fang",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.215,
+                0.393
+              ],
+              "losses": 69,
+              "mean_seconds": 0.175,
+              "mean_turns": 12.367,
+              "refused": 0,
+              "score": 0.296,
+              "unfinished": 0,
+              "wins": 29
+            },
+            "starter": 47
+          }
+        ],
+        "unfinished": 0
+      }
+    },
+    {
+      "against_stage_below": {
+        "draws": 0,
+        "interval": [
+          0.541,
+          0.637
+        ],
+        "losses": 164,
+        "mean_seconds": 0.272,
+        "mean_turns": 15.41,
+        "refused": 0,
+        "score": 0.59,
+        "unfinished": 0,
+        "wins": 236
+      },
+      "loadout": {
+        "common": 18,
+        "decks_changed": 50,
+        "mean_items": 5.5,
+        "mythic": 0,
+        "potions": 19,
+        "rare": 130,
+        "uncommon": 127
+      },
+      "stage": 8,
+      "within": {
+        "max": 0.827,
+        "median": 0.52,
+        "min": 0.133,
+        "outside_30_70": [
+          {
+            "commander": "Talrand, Sky Summoner",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.087,
+                0.226
+              ],
+              "losses": 84,
+              "mean_seconds": 0.342,
+              "mean_turns": 19.143,
+              "refused": 0,
+              "score": 0.143,
+              "unfinished": 0,
+              "wins": 14
+            },
+            "starter": 3
+          },
+          {
+            "commander": "Radha, Heir to Keld",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.672,
+                0.838
+              ],
+              "losses": 23,
+              "mean_seconds": 0.1,
+              "mean_turns": 8.153,
+              "refused": 0,
+              "score": 0.765,
+              "unfinished": 0,
+              "wins": 75
+            },
+            "starter": 6
+          },
+          {
+            "commander": "Rishkar, Peema Renegade",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.618,
+                0.794
+              ],
+              "losses": 28,
+              "mean_seconds": 0.313,
+              "mean_turns": 15.827,
+              "refused": 0,
+              "score": 0.714,
+              "unfinished": 0,
+              "wins": 70
+            },
+            "starter": 7
+          },
+          {
+            "commander": "Sram, Senior Edificer",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.145,
+                0.305
+              ],
+              "losses": 77,
+              "mean_seconds": 0.158,
+              "mean_turns": 12.837,
+              "refused": 0,
+              "score": 0.214,
+              "unfinished": 0,
+              "wins": 21
+            },
+            "starter": 8
+          },
+          {
+            "commander": "Tatyova, Benthic Druid",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.695,
+                0.855
+              ],
+              "losses": 21,
+              "mean_seconds": 0.379,
+              "mean_turns": 15.918,
+              "refused": 0,
+              "score": 0.786,
+              "unfinished": 0,
+              "wins": 77
+            },
+            "starter": 10
+          },
+          {
+            "commander": "Judith, the Scourge Diva",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.128,
+                0.283
+              ],
+              "losses": 79,
+              "mean_seconds": 0.435,
+              "mean_turns": 20.133,
+              "refused": 0,
+              "score": 0.194,
+              "unfinished": 0,
+              "wins": 19
+            },
+            "starter": 11
+          },
+          {
+            "commander": "Kykar, Wind's Fury",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.145,
+                0.305
+              ],
+              "losses": 77,
+              "mean_seconds": 0.21,
+              "mean_turns": 15.622,
+              "refused": 0,
+              "score": 0.214,
+              "unfinished": 0,
+              "wins": 21
+            },
+            "starter": 12
+          },
+          {
+            "commander": "Soraya the Falconer",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.74,
+                0.889
+              ],
+              "losses": 17,
+              "mean_seconds": 0.462,
+              "mean_turns": 18.684,
+              "refused": 0,
+              "score": 0.827,
+              "unfinished": 0,
+              "wins": 81
+            },
+            "starter": 29
+          },
+          {
+            "commander": "Chevill, Bane of Monsters",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.079,
+                0.214
+              ],
+              "losses": 85,
+              "mean_seconds": 0.219,
+              "mean_turns": 13.561,
+              "refused": 0,
+              "score": 0.133,
+              "unfinished": 0,
+              "wins": 13
+            },
+            "starter": 37
+          },
+          {
+            "commander": "Maja, Bretagard Protector",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.695,
+                0.855
+              ],
+              "losses": 21,
+              "mean_seconds": 0.259,
+              "mean_turns": 15.082,
+              "refused": 0,
+              "score": 0.786,
+              "unfinished": 0,
+              "wins": 77
+            },
+            "starter": 43
+          }
+        ],
+        "unfinished": 8
+      }
+    },
+    {
+      "against_stage_below": {
+        "draws": 0,
+        "interval": [
+          0.532,
+          0.629
+        ],
+        "losses": 167,
+        "mean_seconds": 0.345,
+        "mean_turns": 17.043,
+        "refused": 0,
+        "score": 0.581,
+        "unfinished": 1,
+        "wins": 232
+      },
+      "loadout": {
+        "common": 9,
+        "decks_changed": 49,
+        "mean_items": 5.36,
+        "mythic": 0,
+        "potions": 29,
+        "rare": 164,
+        "uncommon": 95
+      },
+      "stage": 9,
+      "within": {
+        "max": 0.888,
+        "median": 0.5,
+        "min": 0.163,
+        "outside_30_70": [
+          {
+            "commander": "Emmara, Soul of the Accord",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.81,
+                0.936
+              ],
+              "losses": 11,
+              "mean_seconds": 0.464,
+              "mean_turns": 18.224,
+              "refused": 0,
+              "score": 0.888,
+              "unfinished": 0,
+              "wins": 87
+            },
+            "starter": 1
+          },
+          {
+            "commander": "Talrand, Sky Summoner",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.215,
+                0.393
+              ],
+              "losses": 69,
+              "mean_seconds": 0.392,
+              "mean_turns": 16.388,
+              "refused": 0,
+              "score": 0.296,
+              "unfinished": 0,
+              "wins": 29
+            },
+            "starter": 3
+          },
+          {
+            "commander": "Tatyova, Benthic Druid",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.672,
+                0.838
+              ],
+              "losses": 23,
+              "mean_seconds": 0.376,
+              "mean_turns": 15.663,
+              "refused": 0,
+              "score": 0.765,
+              "unfinished": 0,
+              "wins": 75
+            },
+            "starter": 10
+          },
+          {
+            "commander": "Alela, Artful Provocateur",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.65,
+                0.821
+              ],
+              "losses": 25,
+              "mean_seconds": 0.815,
+              "mean_turns": 25.531,
+              "refused": 0,
+              "score": 0.745,
+              "unfinished": 0,
+              "wins": 73
+            },
+            "starter": 13
+          },
+          {
+            "commander": "Vona, Butcher of Magan",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.128,
+                0.283
+              ],
+              "losses": 79,
+              "mean_seconds": 0.136,
+              "mean_turns": 9.918,
+              "refused": 0,
+              "score": 0.194,
+              "unfinished": 0,
+              "wins": 19
+            },
+            "starter": 26
+          },
+          {
+            "commander": "Garna, the Bloodflame",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.188,
+                0.36
+              ],
+              "losses": 72,
+              "mean_seconds": 0.453,
+              "mean_turns": 21.316,
+              "refused": 0,
+              "score": 0.265,
+              "unfinished": 0,
+              "wins": 26
+            },
+            "starter": 28
+          },
+          {
+            "commander": "Linden, the Steadfast Queen",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.215,
+                0.393
+              ],
+              "losses": 69,
+              "mean_seconds": 0.461,
+              "mean_turns": 18.765,
+              "refused": 0,
+              "score": 0.296,
+              "unfinished": 0,
+              "wins": 29
+            },
+            "starter": 34
+          },
+          {
+            "commander": "Sab-Sunen, Luxa Embodied",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.17,
+                0.339
+              ],
+              "losses": 74,
+              "mean_seconds": 0.193,
+              "mean_turns": 11.602,
+              "refused": 0,
+              "score": 0.245,
+              "unfinished": 0,
+              "wins": 24
+            },
+            "starter": 36
+          },
+          {
+            "commander": "Chevill, Bane of Monsters",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.145,
+                0.305
+              ],
+              "losses": 77,
+              "mean_seconds": 0.214,
+              "mean_turns": 13.48,
+              "refused": 0,
+              "score": 0.214,
+              "unfinished": 0,
+              "wins": 21
+            },
+            "starter": 37
+          },
+          {
+            "commander": "Ashaya, Soul of the Wild",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.717,
+                0.872
+              ],
+              "losses": 19,
+              "mean_seconds": 0.329,
+              "mean_turns": 15.204,
+              "refused": 0,
+              "score": 0.806,
+              "unfinished": 0,
+              "wins": 79
+            },
+            "starter": 40
+          },
+          {
+            "commander": "Ghen, Arcanum Weaver",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.103,
+                0.249
+              ],
+              "losses": 82,
+              "mean_seconds": 0.187,
+              "mean_turns": 12.653,
+              "refused": 0,
+              "score": 0.163,
+              "unfinished": 0,
+              "wins": 16
+            },
+            "starter": 41
+          },
+          {
+            "commander": "Maja, Bretagard Protector",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.677,
+                0.844
+              ],
+              "losses": 22,
+              "mean_seconds": 0.406,
+              "mean_turns": 16.844,
+              "refused": 0,
+              "score": 0.771,
+              "unfinished": 2,
+              "wins": 74
+            },
+            "starter": 43
+          },
+          {
+            "commander": "Saryth, the Viper's Fang",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.763,
+                0.905
+              ],
+              "losses": 15,
+              "mean_seconds": 0.678,
+              "mean_turns": 21.888,
+              "refused": 0,
+              "score": 0.847,
+              "unfinished": 0,
+              "wins": 83
+            },
+            "starter": 47
+          },
+          {
+            "commander": "Mahadi, Emporium Master",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.695,
+                0.855
+              ],
+              "losses": 21,
+              "mean_seconds": 0.378,
+              "mean_turns": 18.041,
+              "refused": 0,
+              "score": 0.786,
+              "unfinished": 0,
+              "wins": 77
+            },
+            "starter": 48
+          }
+        ],
+        "unfinished": 18
+      }
+    },
+    {
+      "against_stage_below": {
+        "draws": 0,
+        "interval": [
+          0.492,
+          0.59
+        ],
+        "losses": 183,
+        "mean_seconds": 0.41,
+        "mean_turns": 17.644,
+        "refused": 0,
+        "score": 0.541,
+        "unfinished": 1,
+        "wins": 216
+      },
+      "loadout": {
+        "common": 4,
+        "decks_changed": 50,
+        "mean_items": 5.22,
+        "mythic": 0,
+        "potions": 32,
+        "rare": 181,
+        "uncommon": 76
+      },
+      "stage": 10,
+      "within": {
+        "max": 0.825,
+        "median": 0.521,
+        "min": 0.102,
+        "outside_30_70": [
+          {
+            "commander": "Emmara, Soul of the Accord",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.737,
+                0.888
+              ],
+              "losses": 17,
+              "mean_seconds": 0.647,
+              "mean_turns": 20.979,
+              "refused": 0,
+              "score": 0.825,
+              "unfinished": 1,
+              "wins": 80
+            },
+            "starter": 1
+          },
+          {
+            "commander": "Talrand, Sky Summoner",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.188,
+                0.36
+              ],
+              "losses": 72,
+              "mean_seconds": 0.333,
+              "mean_turns": 14.745,
+              "refused": 0,
+              "score": 0.265,
+              "unfinished": 0,
+              "wins": 26
+            },
+            "starter": 3
+          },
+          {
+            "commander": "Sram, Senior Edificer",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.188,
+                0.36
+              ],
+              "losses": 72,
+              "mean_seconds": 0.144,
+              "mean_turns": 10.367,
+              "refused": 0,
+              "score": 0.265,
+              "unfinished": 0,
+              "wins": 26
+            },
+            "starter": 8
+          },
+          {
+            "commander": "Tatyova, Benthic Druid",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.64,
+                0.812
+              ],
+              "losses": 26,
+              "mean_seconds": 0.502,
+              "mean_turns": 18.673,
+              "refused": 0,
+              "score": 0.735,
+              "unfinished": 0,
+              "wins": 72
+            },
+            "starter": 10
+          },
+          {
+            "commander": "Judith, the Scourge Diva",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.625,
+                0.801
+              ],
+              "losses": 27,
+              "mean_seconds": 0.426,
+              "mean_turns": 18.155,
+              "refused": 0,
+              "score": 0.722,
+              "unfinished": 1,
+              "wins": 70
+            },
+            "starter": 11
+          },
+          {
+            "commander": "Alela, Artful Provocateur",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.672,
+                0.838
+              ],
+              "losses": 23,
+              "mean_seconds": 0.672,
+              "mean_turns": 23.235,
+              "refused": 0,
+              "score": 0.765,
+              "unfinished": 0,
+              "wins": 75
+            },
+            "starter": 13
+          },
+          {
+            "commander": "Titania, Protector of Argoth",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.056,
+                0.178
+              ],
+              "losses": 88,
+              "mean_seconds": 0.161,
+              "mean_turns": 11.194,
+              "refused": 0,
+              "score": 0.102,
+              "unfinished": 0,
+              "wins": 10
+            },
+            "starter": 19
+          },
+          {
+            "commander": "Samut, Voice of Dissent",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.206,
+                0.382
+              ],
+              "losses": 70,
+              "mean_seconds": 0.314,
+              "mean_turns": 15.827,
+              "refused": 0,
+              "score": 0.286,
+              "unfinished": 0,
+              "wins": 28
+            },
+            "starter": 24
+          },
+          {
+            "commander": "Kess, Dissident Mage",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.145,
+                0.305
+              ],
+              "losses": 77,
+              "mean_seconds": 0.124,
+              "mean_turns": 9.622,
+              "refused": 0,
+              "score": 0.214,
+              "unfinished": 0,
+              "wins": 21
+            },
+            "starter": 25
+          },
+          {
+            "commander": "Muldrotha, the Gravetide",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.197,
+                0.371
+              ],
+              "losses": 71,
+              "mean_seconds": 0.174,
+              "mean_turns": 12.245,
+              "refused": 0,
+              "score": 0.276,
+              "unfinished": 0,
+              "wins": 27
+            },
+            "starter": 30
+          },
+          {
+            "commander": "Emry, Lurker of the Loch",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.629,
+                0.803
+              ],
+              "losses": 27,
+              "mean_seconds": 0.288,
+              "mean_turns": 15.112,
+              "refused": 0,
+              "score": 0.724,
+              "unfinished": 0,
+              "wins": 71
+            },
+            "starter": 33
+          },
+          {
+            "commander": "Linden, the Steadfast Queen",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.647,
+                0.819
+              ],
+              "losses": 25,
+              "mean_seconds": 0.543,
+              "mean_turns": 20.536,
+              "refused": 0,
+              "score": 0.742,
+              "unfinished": 1,
+              "wins": 72
+            },
+            "starter": 34
+          },
+          {
+            "commander": "Arasta of the Endless Web",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.618,
+                0.794
+              ],
+              "losses": 28,
+              "mean_seconds": 0.444,
+              "mean_turns": 17.796,
+              "refused": 0,
+              "score": 0.714,
+              "unfinished": 0,
+              "wins": 70
+            },
+            "starter": 35
+          },
+          {
+            "commander": "Chevill, Bane of Monsters",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.111,
+                0.26
+              ],
+              "losses": 81,
+              "mean_seconds": 0.198,
+              "mean_turns": 11.969,
+              "refused": 0,
+              "score": 0.173,
+              "unfinished": 0,
+              "wins": 17
+            },
+            "starter": 37
+          },
+          {
+            "commander": "Ashaya, Soul of the Wild",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.636,
+                0.81
+              ],
+              "losses": 26,
+              "mean_seconds": 0.632,
+              "mean_turns": 22.711,
+              "refused": 0,
+              "score": 0.732,
+              "unfinished": 1,
+              "wins": 71
+            },
+            "starter": 40
+          },
+          {
+            "commander": "Saryth, the Viper's Fang",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.087,
+                0.226
+              ],
+              "losses": 84,
+              "mean_seconds": 0.146,
+              "mean_turns": 10.786,
+              "refused": 0,
+              "score": 0.143,
+              "unfinished": 0,
+              "wins": 14
+            },
+            "starter": 47
+          },
+          {
+            "commander": "Ertai Resurrected",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.103,
+                0.249
+              ],
+              "losses": 82,
+              "mean_seconds": 0.148,
+              "mean_turns": 10.5,
+              "refused": 0,
+              "score": 0.163,
+              "unfinished": 0,
+              "wins": 16
+            },
+            "starter": 49
+          }
+        ],
+        "unfinished": 24
+      }
+    },
+    {
+      "against_stage_below": {
+        "draws": 0,
+        "interval": [
+          0.497,
+          0.595
+        ],
+        "losses": 180,
+        "mean_seconds": 0.375,
+        "mean_turns": 16.489,
+        "refused": 0,
+        "score": 0.547,
+        "unfinished": 3,
+        "wins": 217
+      },
+      "loadout": {
+        "common": 5,
+        "decks_changed": 50,
+        "mean_items": 5.3,
+        "mythic": 0,
+        "potions": 32,
+        "rare": 201,
+        "uncommon": 59
+      },
+      "stage": 11,
+      "within": {
+        "max": 0.929,
+        "median": 0.495,
+        "min": 0.092,
+        "outside_30_70": [
+          {
+            "commander": "Talrand, Sky Summoner",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.179,
+                0.35
+              ],
+              "losses": 73,
+              "mean_seconds": 0.287,
+              "mean_turns": 13.582,
+              "refused": 0,
+              "score": 0.255,
+              "unfinished": 0,
+              "wins": 25
+            },
+            "starter": 3
+          },
+          {
+            "commander": "Radha, Heir to Keld",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.751,
+                0.897
+              ],
+              "losses": 16,
+              "mean_seconds": 0.201,
+              "mean_turns": 10.214,
+              "refused": 0,
+              "score": 0.837,
+              "unfinished": 0,
+              "wins": 82
+            },
+            "starter": 6
+          },
+          {
+            "commander": "Hapatra, Vizier of Poisons",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.706,
+                0.864
+              ],
+              "losses": 20,
+              "mean_seconds": 0.206,
+              "mean_turns": 11.408,
+              "refused": 0,
+              "score": 0.796,
+              "unfinished": 0,
+              "wins": 78
+            },
+            "starter": 9
+          },
+          {
+            "commander": "Tatyova, Benthic Druid",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.822,
+                0.944
+              ],
+              "losses": 10,
+              "mean_seconds": 0.317,
+              "mean_turns": 12.347,
+              "refused": 0,
+              "score": 0.898,
+              "unfinished": 0,
+              "wins": 88
+            },
+            "starter": 10
+          },
+          {
+            "commander": "Alela, Artful Provocateur",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.706,
+                0.864
+              ],
+              "losses": 20,
+              "mean_seconds": 0.269,
+              "mean_turns": 13.0,
+              "refused": 0,
+              "score": 0.796,
+              "unfinished": 0,
+              "wins": 78
+            },
+            "starter": 13
+          },
+          {
+            "commander": "Loran of the Third Path",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.194,
+                0.371
+              ],
+              "losses": 69,
+              "mean_seconds": 0.462,
+              "mean_turns": 17.663,
+              "refused": 0,
+              "score": 0.274,
+              "unfinished": 3,
+              "wins": 26
+            },
+            "starter": 15
+          },
+          {
+            "commander": "Kambal, Consul of Allocation",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.672,
+                0.838
+              ],
+              "losses": 23,
+              "mean_seconds": 0.275,
+              "mean_turns": 13.592,
+              "refused": 0,
+              "score": 0.765,
+              "unfinished": 0,
+              "wins": 75
+            },
+            "starter": 21
+          },
+          {
+            "commander": "Samut, Voice of Dissent",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.188,
+                0.36
+              ],
+              "losses": 72,
+              "mean_seconds": 0.216,
+              "mean_turns": 13.276,
+              "refused": 0,
+              "score": 0.265,
+              "unfinished": 0,
+              "wins": 26
+            },
+            "starter": 24
+          },
+          {
+            "commander": "Kess, Dissident Mage",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.049,
+                0.165
+              ],
+              "losses": 89,
+              "mean_seconds": 0.109,
+              "mean_turns": 9.51,
+              "refused": 0,
+              "score": 0.092,
+              "unfinished": 0,
+              "wins": 9
+            },
+            "starter": 25
+          },
+          {
+            "commander": "Vona, Butcher of Magan",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.179,
+                0.35
+              ],
+              "losses": 73,
+              "mean_seconds": 0.114,
+              "mean_turns": 8.969,
+              "refused": 0,
+              "score": 0.255,
+              "unfinished": 0,
+              "wins": 25
+            },
+            "starter": 26
+          },
+          {
+            "commander": "Selenia, Dark Angel",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.607,
+                0.785
+              ],
+              "losses": 29,
+              "mean_seconds": 0.398,
+              "mean_turns": 17.306,
+              "refused": 0,
+              "score": 0.704,
+              "unfinished": 0,
+              "wins": 69
+            },
+            "starter": 27
+          },
+          {
+            "commander": "Garna, the Bloodflame",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.188,
+                0.36
+              ],
+              "losses": 72,
+              "mean_seconds": 0.289,
+              "mean_turns": 15.255,
+              "refused": 0,
+              "score": 0.265,
+              "unfinished": 0,
+              "wins": 26
+            },
+            "starter": 28
+          },
+          {
+            "commander": "Arasta of the Endless Web",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.614,
+                0.792
+              ],
+              "losses": 28,
+              "mean_seconds": 0.486,
+              "mean_turns": 17.887,
+              "refused": 0,
+              "score": 0.711,
+              "unfinished": 1,
+              "wins": 69
+            },
+            "starter": 35
+          },
+          {
+            "commander": "Ashaya, Soul of the Wild",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.86,
+                0.965
+              ],
+              "losses": 7,
+              "mean_seconds": 0.133,
+              "mean_turns": 8.204,
+              "refused": 0,
+              "score": 0.929,
+              "unfinished": 0,
+              "wins": 91
+            },
+            "starter": 40
+          },
+          {
+            "commander": "Ghen, Arcanum Weaver",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.197,
+                0.371
+              ],
+              "losses": 71,
+              "mean_seconds": 0.347,
+              "mean_turns": 17.827,
+              "refused": 0,
+              "score": 0.276,
+              "unfinished": 0,
+              "wins": 27
+            },
+            "starter": 41
+          },
+          {
+            "commander": "Birgi, God of Storytelling",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.215,
+                0.393
+              ],
+              "losses": 69,
+              "mean_seconds": 0.339,
+              "mean_turns": 17.929,
+              "refused": 0,
+              "score": 0.296,
+              "unfinished": 0,
+              "wins": 29
+            },
+            "starter": 42
+          },
+          {
+            "commander": "Maja, Bretagard Protector",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.65,
+                0.821
+              ],
+              "losses": 25,
+              "mean_seconds": 0.217,
+              "mean_turns": 11.327,
+              "refused": 0,
+              "score": 0.745,
+              "unfinished": 0,
+              "wins": 73
+            },
+            "starter": 43
+          },
+          {
+            "commander": "Saryth, the Viper's Fang",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.706,
+                0.864
+              ],
+              "losses": 20,
+              "mean_seconds": 0.336,
+              "mean_turns": 13.122,
+              "refused": 0,
+              "score": 0.796,
+              "unfinished": 0,
+              "wins": 78
+            },
+            "starter": 47
+          },
+          {
+            "commander": "Ertai Resurrected",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.17,
+                0.339
+              ],
+              "losses": 74,
+              "mean_seconds": 0.241,
+              "mean_turns": 13.061,
+              "refused": 0,
+              "score": 0.245,
+              "unfinished": 0,
+              "wins": 24
+            },
+            "starter": 49
+          }
+        ],
+        "unfinished": 12
+      }
+    },
+    {
+      "against_stage_below": {
+        "draws": 0,
+        "interval": [
+          0.504,
+          0.601
+        ],
+        "losses": 177,
+        "mean_seconds": 0.339,
+        "mean_turns": 15.293,
+        "refused": 0,
+        "score": 0.553,
+        "unfinished": 4,
+        "wins": 219
+      },
+      "loadout": {
+        "common": 3,
+        "decks_changed": 50,
+        "mean_items": 5.34,
+        "mythic": 0,
+        "potions": 58,
+        "rare": 225,
+        "uncommon": 39
+      },
+      "stage": 12,
+      "within": {
+        "max": 0.929,
+        "median": 0.515,
+        "min": 0.133,
+        "outside_30_70": [
+          {
+            "commander": "Talrand, Sky Summoner",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.136,
+                0.294
+              ],
+              "losses": 78,
+              "mean_seconds": 0.323,
+              "mean_turns": 14.643,
+              "refused": 0,
+              "score": 0.204,
+              "unfinished": 0,
+              "wins": 20
+            },
+            "starter": 3
+          },
+          {
+            "commander": "Slimefoot, the Stowaway",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.153,
+                0.317
+              ],
+              "losses": 76,
+              "mean_seconds": 0.247,
+              "mean_turns": 14.194,
+              "refused": 0,
+              "score": 0.224,
+              "unfinished": 0,
+              "wins": 22
+            },
+            "starter": 4
+          },
+          {
+            "commander": "Radha, Heir to Keld",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.629,
+                0.803
+              ],
+              "losses": 27,
+              "mean_seconds": 0.29,
+              "mean_turns": 14.888,
+              "refused": 0,
+              "score": 0.724,
+              "unfinished": 0,
+              "wins": 71
+            },
+            "starter": 6
+          },
+          {
+            "commander": "Sram, Senior Edificer",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.17,
+                0.339
+              ],
+              "losses": 74,
+              "mean_seconds": 0.137,
+              "mean_turns": 9.806,
+              "refused": 0,
+              "score": 0.245,
+              "unfinished": 0,
+              "wins": 24
+            },
+            "starter": 8
+          },
+          {
+            "commander": "Judith, the Scourge Diva",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.136,
+                0.294
+              ],
+              "losses": 78,
+              "mean_seconds": 0.314,
+              "mean_turns": 16.469,
+              "refused": 0,
+              "score": 0.204,
+              "unfinished": 0,
+              "wins": 20
+            },
+            "starter": 11
+          },
+          {
+            "commander": "Alela, Artful Provocateur",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.81,
+                0.936
+              ],
+              "losses": 11,
+              "mean_seconds": 0.203,
+              "mean_turns": 10.878,
+              "refused": 0,
+              "score": 0.888,
+              "unfinished": 0,
+              "wins": 87
+            },
+            "starter": 13
+          },
+          {
+            "commander": "Glissa, the Traitor",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.079,
+                0.214
+              ],
+              "losses": 85,
+              "mean_seconds": 0.218,
+              "mean_turns": 13.663,
+              "refused": 0,
+              "score": 0.133,
+              "unfinished": 0,
+              "wins": 13
+            },
+            "starter": 16
+          },
+          {
+            "commander": "Thrun, the Last Troll",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.629,
+                0.803
+              ],
+              "losses": 27,
+              "mean_seconds": 0.286,
+              "mean_turns": 13.469,
+              "refused": 0,
+              "score": 0.724,
+              "unfinished": 0,
+              "wins": 71
+            },
+            "starter": 17
+          },
+          {
+            "commander": "Titania, Protector of Argoth",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.847,
+                0.958
+              ],
+              "losses": 8,
+              "mean_seconds": 0.296,
+              "mean_turns": 12.622,
+              "refused": 0,
+              "score": 0.918,
+              "unfinished": 0,
+              "wins": 90
+            },
+            "starter": 19
+          },
+          {
+            "commander": "Eladamri, Lord of Leaves",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.798,
+                0.929
+              ],
+              "losses": 12,
+              "mean_seconds": 0.166,
+              "mean_turns": 9.949,
+              "refused": 0,
+              "score": 0.878,
+              "unfinished": 0,
+              "wins": 86
+            },
+            "starter": 20
+          },
+          {
+            "commander": "Kess, Dissident Mage",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.136,
+                0.294
+              ],
+              "losses": 78,
+              "mean_seconds": 0.126,
+              "mean_turns": 9.163,
+              "refused": 0,
+              "score": 0.204,
+              "unfinished": 0,
+              "wins": 20
+            },
+            "starter": 25
+          },
+          {
+            "commander": "Vona, Butcher of Magan",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.717,
+                0.872
+              ],
+              "losses": 19,
+              "mean_seconds": 0.174,
+              "mean_turns": 10.347,
+              "refused": 0,
+              "score": 0.806,
+              "unfinished": 0,
+              "wins": 79
+            },
+            "starter": 26
+          },
+          {
+            "commander": "Garna, the Bloodflame",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.087,
+                0.226
+              ],
+              "losses": 84,
+              "mean_seconds": 0.127,
+              "mean_turns": 9.48,
+              "refused": 0,
+              "score": 0.143,
+              "unfinished": 0,
+              "wins": 14
+            },
+            "starter": 28
+          },
+          {
+            "commander": "Muldrotha, the Gravetide",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.215,
+                0.393
+              ],
+              "losses": 69,
+              "mean_seconds": 0.159,
+              "mean_turns": 10.694,
+              "refused": 0,
+              "score": 0.296,
+              "unfinished": 0,
+              "wins": 29
+            },
+            "starter": 30
+          },
+          {
+            "commander": "Ayara, First of Locthwain",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.672,
+                0.838
+              ],
+              "losses": 23,
+              "mean_seconds": 0.432,
+              "mean_turns": 16.867,
+              "refused": 0,
+              "score": 0.765,
+              "unfinished": 0,
+              "wins": 75
+            },
+            "starter": 32
+          },
+          {
+            "commander": "Emiel the Blessed",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.087,
+                0.226
+              ],
+              "losses": 84,
+              "mean_seconds": 0.26,
+              "mean_turns": 14.653,
+              "refused": 0,
+              "score": 0.143,
+              "unfinished": 0,
+              "wins": 14
+            },
+            "starter": 39
+          },
+          {
+            "commander": "Maja, Bretagard Protector",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.86,
+                0.965
+              ],
+              "losses": 7,
+              "mean_seconds": 0.231,
+              "mean_turns": 10.776,
+              "refused": 0,
+              "score": 0.929,
+              "unfinished": 0,
+              "wins": 91
+            },
+            "starter": 43
+          },
+          {
+            "commander": "Grist, the Hunger Tide",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.179,
+                0.35
+              ],
+              "losses": 73,
+              "mean_seconds": 0.221,
+              "mean_turns": 12.541,
+              "refused": 0,
+              "score": 0.255,
+              "unfinished": 0,
+              "wins": 25
+            },
+            "starter": 45
+          },
+          {
+            "commander": "Ertai Resurrected",
+            "result": {
+              "draws": 0,
+              "interval": [
+                0.206,
+                0.382
+              ],
+              "losses": 70,
+              "mean_seconds": 0.256,
+              "mean_turns": 13.265,
+              "refused": 0,
+              "score": 0.286,
+              "unfinished": 0,
+              "wins": 28
+            },
+            "starter": 49
+          }
+        ],
+        "unfinished": 26
+      }
+    }
+  ]
+}
