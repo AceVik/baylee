@@ -3658,10 +3658,11 @@ seat4 ranked --model <export dir> --central live --account <id | Name#tag> --tok
 - **Pace.** A real decision is not answered sooner than `--min-think-ms` after the frame that completed its question, so a person can
   follow; a pass, a step of paying mana and a forced answer go at once (`LiveSeat4::paced`).
 - **What it says.** Nothing to the table: the wire has no kind for a trained net (`v1::SeatMind`), and none is borrowed. People see
-  Baylee AI through Central's badge. Each match's transcript (the runner's, under `--state`) gets one line `{"net": …}` and standard
-  output one line `{"phase": "ranked-game", …}`: the export, its digest, the catalog binding, how the flight ended, turns, the answers
-  by source (the policy raw or under its tactical layer, forced, the runtime's own fallbacks by reason), the rule references left out, and the cards of its own deck the export does not read
-  as trained.
+  Baylee AI through Central's badge. Each match's transcript (the runner's, under `--state`) keeps every answer as the bridge keeps
+  them (`answered`, by `mind`, `forced` or `house`, its action and the time the net took) and the end (`over`, with the result), then
+  one line `{"net": …}`, which standard output repeats as `{"phase": "ranked-game", …}`: the export, its digest, the catalog binding,
+  how the flight ended, turns, the answers by source (the policy raw or under its tactical layer, forced, the runtime's own fallbacks
+  by reason), the rule references left out, and the cards of its own deck the export does not read as trained.
 - **Never training data.** The ranked path keeps no journal, no decision audit and no report file, and writes only beneath `--state`;
   no game with a person enters a corpus from here.
 - **Its decks.** `card_structure4 --check-model <export dir> --unread-cards <file>` writes the name of every card this build has that the
