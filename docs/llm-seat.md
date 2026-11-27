@@ -1551,15 +1551,24 @@ the other.
   26.11.2026: "primär A, dann B, dann C"): the settings file's profile
   (`--config`, default `<state>/llm-seat.json`) and the profiles its
   `fallback` names, in order, such as the model on a subscription's CLI,
-  on another subscription, and behind the provider's API. Unlike a
-  `join`'s chain, a CLI may be one of the fallbacks, and every path must
-  play the same model at the same effort (`ranked::chain::same_model`):
-  each names its effort and its model (a CLI's own default can change
-  under it), two paths of one kind name the same model, and a CLI's name
-  for it is the API's id or a word of it (`claude:haiku` and
-  `claude-haiku-4-5`). A chain that crosses models is refused before any
-  offer: the account's name and rating are the model's. Central's profile
-  for the account is `model:<profile>`.
+  on another subscription, and behind the provider's API; most models have
+  the one path alone, the house behind it. Unlike a `join`'s chain, a CLI
+  may be one of the fallbacks, and every path must play the same model at
+  the same effort. Each path is read as what it claims
+  (`ranked::chain::claimed`: the model's family, the model, the effort):
+  it names its model (a CLI's own default can change under it, so
+  `<tool>:<model>`); `agy`'s tier in its id is its effort
+  (`agy:claude-sonnet-5-5-low` is Sonnet 5.5 at low, unless `effort` names
+  another); a model whose efforts this build knows names one in its
+  profile, and one whose efforts it does not know (DeepSeek) names none
+  and plays at its Standard (an account labelled `KI-DeepSeek-Flash ·
+  Standard`). Two paths are one model (`ranked::chain::same_model`) where
+  their efforts are equal, their families too where both are known, and
+  their models equal or one a word of the other: Claude Code's `sonnet`,
+  `agy`'s `claude-sonnet-5-5-low` and the API's `claude-sonnet-5-5`, each
+  at low. A chain that crosses models or efforts is refused before any
+  offer, saying what to change: the account's name and rating are the
+  model's. Central's profile for the account is `model:<profile>`.
   - Before a game the pilot is ready while a path is not held back; with
     every path held back the account makes no offer. A path that was rate
     limited sits out new games until its limit lifts (as the provider
