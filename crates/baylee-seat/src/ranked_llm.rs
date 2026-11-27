@@ -34,7 +34,7 @@ use baylee_account::ranked::ai::AiKind;
 use baylee_ai::AIProfile;
 use baylee_client_core::llmseat::keys::KeyStore;
 use baylee_client_core::say;
-use baylee_protocol::v1::SeatMind;
+use baylee_protocol::v1::{SeatMind, seat_mind};
 use baylee_seat::bridge;
 use baylee_seat::config::Paths;
 use baylee_seat::ranked::chain::{
@@ -188,6 +188,9 @@ impl LlmPilot {
                 .with_context(|| format!("the access path «{name}»"))?
                 .with_context(|| format!("the settings file names no profile «{name}»"))?;
             let declared = declare::llm(&reached.plan.settings);
+            // One path alone plays as its profile says; a second path must
+            // name the same model at the same effort as the first, both
+            // named (`same_model`), or the chain could cross models.
             if let Some(first) = paths.first() {
                 same_model(&first.declared, &declared).map_err(|why| {
                     anyhow!(
@@ -196,8 +199,11 @@ impl LlmPilot {
                         first.profile
                     )
                 })?;
-            } else {
-                same_model(&declared, &declared).map_err(anyhow::Error::msg)?;
+            } else if !matches!(
+                seat_mind::Kind::try_from(declared.kind),
+                Ok(seat_mind::Kind::LlmApi | seat_mind::Kind::LlmCli)
+            ) {
+                bail!("the profile «{name}» plays no language model");
             }
             if paths.iter().any(|p| p.profile == *name) {
                 bail!("the access path «{name}» is named twice in the chain");

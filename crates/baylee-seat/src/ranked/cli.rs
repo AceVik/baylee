@@ -143,9 +143,22 @@ pub fn set_up_process() {
 /// A Central or a fallback level that cannot be, no deck directory, a
 /// refused token, or an account that cannot be found.
 pub async fn run(args: &RankedArgs, pilot: Arc<dyn Pilot>) -> anyhow::Result<()> {
+    play(args, pilot, report)
+        .await
+        .map(|played| say!("played {played} matches"))
+}
+
+/// [`run`], each match told to `each` as it ends: how many it played.
+///
+/// # Errors
+/// As [`run`].
+pub async fn play(
+    args: &RankedArgs,
+    pilot: Arc<dyn Pilot>,
+    each: impl FnMut(anyhow::Result<MatchReport>) + Send,
+) -> anyhow::Result<u32> {
     let mut stoppers = Stoppers::arm();
     set_up_process();
-    let keys = crate::keys::store(&|name: &str| std::env::var(name).ok());
     let endpoint = args.endpoint()?;
     let decks = args
         .beneath(args.decks.as_ref(), "decks")
@@ -157,7 +170,12 @@ pub async fn run(args: &RankedArgs, pilot: Arc<dyn Pilot>) -> anyhow::Result<()>
     let fallback: Arc<dyn Pilot> = Arc::new(HousePilot::new(&args.fallback_level)?);
     let token = match (&args.token_file, &args.token_key) {
         (Some(path), _) => RunnerToken::from_file(path.clone()),
-        (None, Some(name)) => RunnerToken::from_store(&endpoint, name.clone(), keys),
+        // The store is opened only where the token is kept there.
+        (None, Some(name)) => RunnerToken::from_store(
+            &endpoint,
+            name.clone(),
+            crate::keys::store(&|name: &str| std::env::var(name).ok()),
+        ),
         (None, None) => bail!("--token-file or --token-key says where the runner token is"),
     };
     let account = super::resolve(&endpoint, &args.account).await?;
@@ -196,7 +214,7 @@ pub async fn run(args: &RankedArgs, pilot: Arc<dyn Pilot>) -> anyhow::Result<()>
     let (stop, stopping) = tokio::sync::watch::channel(Stop::Run);
     let done = {
         let runner = super::run(
-            &player, &mut shelf, pilot, fallback, &settings, stopping, report,
+            &player, &mut shelf, pilot, fallback, &settings, stopping, each,
         );
         tokio::pin!(runner);
         let mut asked = Stop::Run;
@@ -221,7 +239,7 @@ pub async fn run(args: &RankedArgs, pilot: Arc<dyn Pilot>) -> anyhow::Result<()>
     };
     drop(alive);
     player.sign_out().await;
-    done.map(|played| say!("played {played} matches"))
+    done
 }
 
 /// Says how a match went, in a line.

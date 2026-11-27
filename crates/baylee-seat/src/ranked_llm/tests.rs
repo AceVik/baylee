@@ -1,6 +1,5 @@
 use super::*;
 use baylee_client_core::llmseat::keys::{KeyEntry, MemoryKeys};
-use baylee_protocol::v1::seat_mind;
 use baylee_seat::bridge::{Limit, Standby};
 use std::sync::Mutex;
 
@@ -100,6 +99,9 @@ fn settings(dir: &std::path::Path) -> PathBuf {
             "sonnet-api": {
                 "provider": "anthropic", "model": "claude-sonnet-4-5", "effort": "high",
                 "key_env": "TEST_RANKED_KEY"
+            },
+            "solo": {
+                "provider": "cli", "model": "claude", "command": program
             },
             "Upper": {
                 "provider": "cli", "model": "claude:haiku", "effort": "high",
@@ -251,4 +253,21 @@ fn a_path_that_keeps_failing_before_its_games_is_held_back_ever_longer() {
         pilot.failed("haiku-api", "TEST: never");
     }
     assert!(left(&pilot) <= MOST_HOLD);
+}
+
+/// Most models have one access path: the profile alone, no fallback, the
+/// declared house behind it. It starts and is ready, naming its model and
+/// effort or not.
+#[test]
+fn a_model_with_one_access_path_starts_with_the_house_behind_it() {
+    let dir = Scratch::new("solo");
+    for (profile, model) in [("solo", ""), ("haiku-api", "claude-haiku-4-5")] {
+        let pilot = LlmPilot::new(&setup(&dir, profile), keys()).unwrap();
+        assert_eq!(pilot.paths.len(), 1, "{profile}");
+        assert_eq!(pilot.profile(), format!("model:{profile}"));
+        assert_eq!(pilot.declared().model, model);
+        assert_eq!(pilot.ready(), Ok(()));
+        pilot.failed(profile, "TEST: the only path is down");
+        assert!(pilot.ready().is_err(), "no path left: no offer");
+    }
 }
