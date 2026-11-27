@@ -26,6 +26,7 @@ async fn runtime_connection(sandbox: &Sandbox, role: &str, password: &str) -> Da
 }
 
 #[tokio::test]
+#[allow(clippy::too_many_lines)] // one run's whole path under the grants, in order
 async fn a_whole_run_plays_under_the_runtime_grants_and_administration_is_refused() {
     let sandbox = Sandbox::open().await;
     let role = format!("t_tower_runtime_{}", Uuid::now_v7().simple());

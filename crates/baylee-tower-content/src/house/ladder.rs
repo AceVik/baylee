@@ -73,21 +73,59 @@ impl Ladder {
     }
 }
 
-/// Which of the scripted runs' variants each published cell takes:
-/// `PICKS[stage - 1][archetype - 1]`, 0 for the run the private seed starts
-/// itself. Chosen with the Tower lab's `candidates` (`baylee-engine-server` example `tower_lab`), each cell the
-/// variant whose build came closest to even against its stage's field, and
-/// then measured again as the whole ladder (`docs/tower-operations.md`
-/// §"Calibration"). The table holds indices, never a build.
+/// What each published cell takes, `PICKS[stage - 1][archetype - 1]`: the set
+/// of scripted runs `pick / TRIMS` (0 is the one the private seed starts
+/// itself) and how many of its most valuable equipped relics the house leaves
+/// in its bag, `pick % TRIMS` (an unequipped relic is a state every player can
+/// reach). Chosen with the Tower lab's `candidates` (`baylee-engine-server`
+/// example `tower_lab`): each cell the candidate whose build came closest to
+/// even against its stage's field, then the whole ladder measured again
+/// (`docs/tower-operations.md` §"Calibration"). Indices only, never a build.
 pub const PICKS: [[u8; 50]; 12] = [[0; 50]; 12];
 
-/// The published ladder: each cell from the scripted-run variant [`PICKS`]
+/// Trims per set in a [`PICKS`] code.
+pub const TRIMS: u8 = 8;
+
+/// `build` with its `trim` most valuable equipped relics unequipped, the rest
+/// in their slot order.
+#[must_use]
+pub fn trimmed(build: &Build, trim: u8) -> Build {
+    let deck = worth::Deck::of(&build.deck);
+    let mut ranked: Vec<(usize, f64)> = build
+        .active
+        .iter()
+        .enumerate()
+        .map(|(slot, item)| (slot, worth::of(*item, &deck)))
+        .collect();
+    ranked.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
+    let dropped: Vec<usize> = ranked
+        .iter()
+        .take(usize::from(trim))
+        .map(|(slot, _)| *slot)
+        .collect();
+    let mut next = build.clone();
+    next.active = build
+        .active
+        .iter()
+        .enumerate()
+        .filter(|(slot, _)| !dropped.contains(slot))
+        .map(|(_, item)| *item)
+        .collect();
+    next
+}
+
+/// The published ladder: each cell as [`PICKS`] names it, all under the
 /// names, all under the private `seed`.
 /// # Errors
 /// A run the real machine refuses, which is a defect here, never a balance result.
 pub fn ladder(content: &Content, seed: &[u8; 32]) -> Result<Ladder, Error> {
-    let variants = PICKS.iter().flatten().copied().max().unwrap_or(0);
-    let candidates = candidates(content, seed, variants + 1)?;
+    let sets = PICKS
+        .iter()
+        .flatten()
+        .map(|pick| pick / TRIMS)
+        .max()
+        .unwrap_or(0);
+    let candidates = candidates(content, seed, sets + 1)?;
     if content.starters.len() != PICKS[0].len() {
         return Err(Error::House("the pick table does not match the starters"));
     }
@@ -98,7 +136,10 @@ pub fn ladder(content: &Content, seed: &[u8; 32]) -> Result<Ladder, Error> {
                 .iter()
                 .enumerate()
                 .map(|(archetype, pick)| {
-                    candidates[usize::from(*pick)].stages[stage][archetype].clone()
+                    trimmed(
+                        &candidates[usize::from(pick / TRIMS)].stages[stage][archetype],
+                        pick % TRIMS,
+                    )
                 })
                 .collect(),
         );

@@ -149,7 +149,7 @@ pub fn play(
     })
 }
 
-/// An independent stream per purpose from one job seed (SplitMix64 finaliser).
+/// An independent stream per purpose from one job seed (`SplitMix64` finaliser).
 #[must_use]
 pub const fn mix(seed: u64, stream: u64) -> u64 {
     let mut z = seed ^ stream.wrapping_mul(0x9e37_79b9_7f4a_7c15);

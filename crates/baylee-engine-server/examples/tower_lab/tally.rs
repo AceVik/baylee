@@ -78,6 +78,7 @@ impl Tally {
 
     /// Report form: counts, score and interval.
     #[must_use]
+    #[allow(clippy::cast_precision_loss)] // sums of turns and milliseconds, far below 2^52
     pub fn report(&self) -> serde_json::Value {
         let decided = self.decided();
         serde_json::json!({

@@ -29,7 +29,7 @@ struct Candidate {
 /// variants `0..salts`, and every archetype of each replacement `commanders`.
 /// # Errors
 /// The starter is unknown; a candidate the builder cannot make is reported, not fatal.
-#[allow(clippy::too_many_arguments)] // the measurement's complete inputs
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // one measurement, read top to bottom
 pub fn measure(
     content: &Content,
     starter: usize,
@@ -85,7 +85,8 @@ pub fn measure(
                 }
             }
             Err(error) => {
-                failed.push(serde_json::json!({"candidate": candidate, "error": error.to_string()}))
+                failed
+                    .push(serde_json::json!({"candidate": candidate, "error": error.to_string()}));
             }
         }
     }

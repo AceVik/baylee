@@ -13,8 +13,9 @@ mod presentation;
 mod starters;
 pub use expeditions::{Workshop, expeditions};
 pub use house::{
-    Ladder, PATH as HOUSE_PATH, PICKS as HOUSE_PICKS, candidates as house_candidates,
-    check as check_ladder, development_house, ladder,
+    Ladder, PATH as HOUSE_PATH, PICKS as HOUSE_PICKS, TRIMS as HOUSE_TRIMS,
+    candidates as house_candidates, check as check_ladder, development_house, ladder,
+    trimmed as house_trimmed,
 };
 pub use presentation::runic;
 

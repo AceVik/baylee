@@ -63,6 +63,9 @@ enum Command {
         /// Independent sets of scripted runs (set 0 is the plain seed's).
         #[arg(long, default_value_t = 3)]
         sets: u8,
+        /// Trims of set 0 to try: 0 to this many relics unequipped.
+        #[arg(long, default_value_t = 3)]
+        trims: u8,
         /// Independent deals per opponent and chair.
         #[arg(long, default_value_t = 1)]
         seeds: u32,
@@ -144,6 +147,7 @@ fn main() -> Result<()> {
         Command::Leaders { identity } => leaders(&identity),
         Command::Candidates {
             sets,
+            trims,
             seeds,
             field,
             stage,

@@ -22,7 +22,7 @@ type Match = ((u8, usize), (u8, usize), u64);
 
 /// Measure `ladder`; `seeds` deals per ordered pair within a stage, and
 /// `rise` opponents from the stage below per build.
-#[allow(clippy::too_many_arguments)] // the measurement's complete inputs
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // one measurement, read top to bottom
 pub fn measure(
     content: &Content,
     cohort: &Cohort,
@@ -93,13 +93,13 @@ pub fn measure(
     let mut cells = vec![vec![Tally::default(); count]; stages_n];
     let mut rising = vec![Tally::default(); stages_n];
     for (&(first, second, _), played) in matches.iter().zip(&results) {
-        if first.0 == second.0 {
-            cells[usize::from(first.0) - 1][first.1].add(played, true);
-            cells[usize::from(second.0) - 1][second.1].add(played, false);
-        } else if first.0 > second.0 {
-            rising[usize::from(first.0) - 1].add(played, true);
-        } else {
-            rising[usize::from(second.0) - 1].add(played, false);
+        match first.0.cmp(&second.0) {
+            std::cmp::Ordering::Equal => {
+                cells[usize::from(first.0) - 1][first.1].add(played, true);
+                cells[usize::from(second.0) - 1][second.1].add(played, false);
+            }
+            std::cmp::Ordering::Greater => rising[usize::from(first.0) - 1].add(played, true),
+            std::cmp::Ordering::Less => rising[usize::from(second.0) - 1].add(played, false),
         }
     }
     let mut report = Vec::new();
@@ -166,7 +166,10 @@ pub fn measure(
             },
             "against_stage_below": (stage > 1).then(|| rising[index].report()),
             "loadout": {
-                "mean_items": round(items.iter().sum::<usize>() as f64 / builds.len() as f64),
+                "mean_items": round(
+                    f64::from(u32::try_from(items.iter().sum::<usize>()).unwrap_or(u32::MAX))
+                        / f64::from(u32::try_from(builds.len()).unwrap_or(u32::MAX)),
+                ),
                 "common": rarity(Rarity::Common),
                 "uncommon": rarity(Rarity::Uncommon),
                 "rare": rarity(Rarity::Rare),
