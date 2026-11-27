@@ -158,6 +158,30 @@ unchanged, and Central's own source check pins the crate's new fingerprint
 follows to `hyper` 1.13.0 and `sha2` 0.11.2; the native shipping gate checks
 the all-feature reverse dependency graph at this pin.
 
+The AI players' pin of 27.11.2026 moves Central to
+`16ed416e60916eb9e7f50e118515cc6491abbe58` (Central's branch
+`claude/ai-players`, pull request 98, not merged yet). The `central-crypto`
+Git tree is unchanged (`fecfee3b4b4433a4bfd5a57ae9b1fb4154c141f8`), and so is
+Central's own lock file, so this review stands; only the `central-*` entries
+of Baylee's lock file moved.
+
+## Central's protocol
+
+Every native request to Central names the protocol it speaks in the
+`Baylee-Central-Protocol` header (`central_api::PROTOCOL_HEADER`), and the
+client, the gateway, the Tower service and the ranked runner all send
+`central_api::PROTOCOL_VERSION`, so the pin decides it. Since the pin above
+Baylee speaks Central protocol **3**: it reads AI players' badges (the
+`ai` and `opponent_ai` fields), a search says which AI opponents it accepts
+(`SeatRequest::Join.ai`, `AiOpponents::None` until the search card asks),
+and a board says whom it lists (`Request::Board.players`). Central serves 2
+and 3 (`central_api::PROTOCOL_VERSIONS`) and leaves out of a caller of 2's
+replies what 3 added, so a client of 2 is never seated against an AI
+(baylee-central `docs/ai-players.md` §6). This is not the game protocol:
+Central's relay names that one itself (`GAME_PROTOCOL` in central-http's
+`ranked_socket/upstream.rs`, 70, the same as `baylee_protocol::PROTOCOL_VERSION`),
+and a step of either needs the other repository in the same move.
+
 The SDK that opens ranked seats with game protocol 70 pinned Central to
 `10f565b3ac80c5a5ddd06ab8afa2e0a7f05a45e4`. From the Advent and division
 cosmetics pin `fa3c1475cce4db0002af42ed93eefc00d8f9a332` it differs in the

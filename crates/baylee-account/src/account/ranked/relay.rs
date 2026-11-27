@@ -301,6 +301,7 @@ mod tests {
             seat: 0,
             deck: [0; 32],
             game: state.game,
+            opponent_ai: None,
         };
         assert!(check_assignment(&a, &state, a.account).is_ok());
         assert!(check_assignment(&a, &state, [9; 16]).is_err());

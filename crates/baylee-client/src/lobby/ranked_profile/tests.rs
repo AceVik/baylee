@@ -53,6 +53,7 @@ fn full_public_handle_must_match_both_name_and_tag() {
         tag: Some(0x12),
         formats: vec![],
         awards: vec![],
+        ai: None,
     };
     assert!(model::valid_handle("Sam#0012"));
     assert!(!model::valid_handle("Sam"));
@@ -76,6 +77,7 @@ fn published_account_id_resolves_an_unnamed_row_only_for_that_account() {
         tag: None,
         formats: vec![],
         awards: vec![],
+        ai: None,
     };
     assert_eq!(
         model::target(&key),

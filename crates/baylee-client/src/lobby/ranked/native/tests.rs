@@ -26,6 +26,7 @@ fn assigned(key: Id) -> QueueState {
             seat: 1,
             deck: [1; 32],
             game: None,
+            opponent_ai: None,
         },
     }
 }
@@ -256,6 +257,7 @@ fn inline_play_presses_freeze_the_chosen_deck_once_and_cancel_the_joined_ticket(
                     key,
                     format: Format::Highlander,
                     queued_at: 3,
+                    ai_fill_in_at: None,
                 }),
             ),
         );

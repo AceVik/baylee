@@ -229,6 +229,7 @@ mod tests {
             seat: 1,
             deck: [9; 32],
             game: None,
+            opponent_ai: None,
         };
         let seat = RankedSeat {
             game_id: Uuid::now_v7(),
@@ -313,6 +314,7 @@ mod tests {
             seat: 0,
             deck: [7; 32],
             game: None,
+            opponent_ai: None,
         };
         let consent = RankedConsent {
             key,

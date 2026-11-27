@@ -46,7 +46,14 @@ pub(super) fn read(
 ) -> Result<Route, Error> {
     let queue = match request {
         Request::Join { key, format, deck } => {
-            match account.replica(SeatRequest::Join { key, format, deck })? {
+            match account.replica(SeatRequest::Join {
+                key,
+                format,
+                deck,
+                // TODO(ai-players client): the search card's "Nur Menschen" switch;
+                // until it is shown, a person's search meets people only.
+                ai: baylee_account::ranked::ai::AiOpponents::None,
+            })? {
                 SeatResponse::Queue { state } => state,
                 _ => return Err(Error::Rejected),
             }
