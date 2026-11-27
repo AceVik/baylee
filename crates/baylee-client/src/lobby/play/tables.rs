@@ -196,11 +196,12 @@ pub(super) fn tables(
                 orders::item(commands, c, &orders::PLAY, "chips", chip as usize);
                 commands.entity(chips).add_child(c);
             }
-            let sort = parts::menu_button(
+            let sort = parts::menu_button_open(
                 commands,
                 kit,
                 &Phrase::PlaySortBy.fill(lang, &[state.play.sort.phrase().text(lang)]),
                 Weight::Ghost,
+                state.menu == Some(ShellMenu::TableSort),
                 Press::Shared(SharedPress::OpenMenu(ShellMenu::TableSort)),
             );
             orders::stop(commands, sort, &orders::PLAY, "sort");
@@ -327,6 +328,7 @@ fn finish_tables(
         commands.entity(list).add_child(skeleton);
     } else if order.is_empty() {
         let hunt = lobby.field(Field::Search).trim();
+        let filtered = state.play.filter != TableFilter::default();
         let (said, action) = if offline {
             (Phrase::OfflineReadyToPlay.text(lang).to_string(), None)
         } else if !hunt.is_empty() {
@@ -337,13 +339,18 @@ fn finish_tables(
                     Press::Play(PlayPress::ClearSearch),
                 )),
             )
-        } else {
+        } else if filtered {
             (
-                Phrase::ShellNoOneWaiting.text(lang).to_string(),
-                starts_off(state, lang)
-                    .is_none()
-                    .then_some((Phrase::CreateTable, Press::Play(PlayPress::CreateTable))),
+                Phrase::NoTableMatchesFilters.text(lang).to_string(),
+                Some((
+                    Phrase::PlayClearFilters,
+                    Press::Play(PlayPress::ClearFilters),
+                )),
             )
+        } else {
+            // The panel header already holds the primary Create table button
+            // when online and not a guest; do not repeat a second one here.
+            (Phrase::ShellNoOneWaiting.text(lang).to_string(), None)
         };
         let action = action.map(|(phrase, press)| {
             controls::button(
@@ -357,7 +364,7 @@ fn finish_tables(
             )
         });
         let empty =
-            crate::shellkit::states::empty(commands, kit, crate::hud::glyph::HOUSE, &said, action);
+            crate::shellkit::states::empty(commands, kit, crate::hud::glyph::CHAIR, &said, action);
         // With no row to start from the top, the one thing the panel says
         // stands in its middle, not under its heading with a screen of
         // nothing below it.

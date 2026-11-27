@@ -137,6 +137,8 @@ pub(crate) enum PlayPress {
     ClearSearch,
     /// Clear the table search from the search field's inline tail button.
     ClearSearchField,
+    /// Clear the active table filter chips from the filtered empty state.
+    ClearFilters,
     /// Take the chair kept for this player at a listed rematch room.
     PlayAgain(usize),
 }
@@ -967,10 +969,20 @@ impl PlayPress {
                     state.lobby.focus_on(Field::Search);
                 }
             }
-            PlayPress::ClearSearch | PlayPress::ClearSearchField => {
+            PlayPress::ClearSearch => {
+                state.play.filter = TableFilter::default();
                 state.lobby.set_field(Field::Search, "");
                 let request = state.lobby.search_again();
                 dispatch(state, mailbox, request);
+            }
+            PlayPress::ClearSearchField => {
+                state.lobby.set_field(Field::Search, "");
+                let request = state.lobby.search_again();
+                dispatch(state, mailbox, request);
+            }
+            PlayPress::ClearFilters => {
+                state.play.filter = TableFilter::default();
+                scrolled.set(List::Games, 0.0);
             }
             PlayPress::PlayAgain(index) => {
                 let game = state.lobby.games().get(index).map(|g| g.id.clone());

@@ -1122,3 +1122,89 @@ fn a_named_gateway_keeps_its_name_and_address_in_the_connection_popover() {
     assert_eq!(said(&mut app, "The Back Room"), 1);
     assert_eq!(said(&mut app, address), 1);
 }
+
+/// Active filter chips hiding every table show the filter empty state with a
+/// clear-filters action, use the chair glyph, avoid a duplicate Create table
+/// button, and capitalise the search no-match sentence.
+#[test]
+fn filtered_tables_empty_state_offers_clear_filters_and_no_second_create_table() {
+    use baylee_client_core::lobby::play::{Chip, TableFilter};
+
+    let mut app = headless();
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.apply(LobbyEvent::LoggedIn {
+            token: "tok".into(),
+            username: None,
+        });
+        state.lobby.apply(LobbyEvent::Decks(Vec::new()));
+        state
+            .lobby
+            .apply(LobbyEvent::Games(GameListing::of(vec![GameSummary {
+                id: "0123456789abcdef".to_string(),
+                state: "waiting".to_string(),
+                seats: vec![
+                    GameSeat {
+                        seat: 0,
+                        taken: true,
+                        ..GameSeat::default()
+                    },
+                    GameSeat {
+                        seat: 1,
+                        taken: false,
+                        ..GameSeat::default()
+                    },
+                ],
+                ..GameSummary::default()
+            }])));
+    }
+    app.update();
+
+    press(&mut app, Press::Play(PlayPress::Chip(Chip::Commander)));
+    app.update();
+    let shown = labels(&mut app);
+    assert!(
+        shown.contains(&Phrase::NoTableMatchesFilters.text(Lang::En).to_owned()),
+        "filtered empty state should say no table matches these filters: {shown:?}"
+    );
+    assert!(
+        !shown.contains(&Phrase::ShellNoOneWaiting.text(Lang::En).to_owned()),
+        "filtered empty state must not claim no one is waiting"
+    );
+    assert!(
+        !shown.contains(&crate::hud::glyph::HOUSE.to_string()),
+        "tables empty state must not use the robot icon"
+    );
+    assert!(shown.contains(&crate::hud::glyph::CHAIR.to_string()));
+    let drawn = presses(&mut app);
+    assert!(drawn.contains(&Press::Play(PlayPress::ClearFilters)));
+    assert_eq!(
+        drawn
+            .iter()
+            .filter(|p| **p == Press::Play(PlayPress::CreateTable))
+            .count(),
+        1,
+        "only the header Create table button should appear"
+    );
+
+    press(&mut app, Press::Play(PlayPress::ClearFilters));
+    app.update();
+    assert_eq!(
+        app.world().resource::<LobbyState>().play.filter,
+        TableFilter::default()
+    );
+    assert!(
+        !labels(&mut app).contains(&Phrase::NoTableMatchesFilters.text(Lang::En).to_owned()),
+        "clearing filters brings the waiting table back"
+    );
+    assert!(
+        Phrase::NoTableMatches
+            .fill(Lang::En, &["Abend"])
+            .starts_with("No table matches")
+    );
+    assert!(
+        Phrase::NoTableMatches
+            .fill(Lang::De, &["Abend"])
+            .starts_with("Kein Tisch passt")
+    );
+}
