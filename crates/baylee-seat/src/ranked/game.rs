@@ -93,6 +93,13 @@ pub struct MatchReport {
     pub receipt: Option<Receipt>,
     /// Admissions renewed during the game.
     pub renewals: u32,
+    /// The match's format.
+    pub format: Format,
+    /// The commitment of the deck it was played with.
+    pub deck: [u8; 32],
+    /// The opponent's AI label, where the opponent is an AI; never a
+    /// person's name.
+    pub opponent: Option<String>,
 }
 
 /// Plays `game` for `player` with `pilot` to its end, `fallback` taking the
@@ -111,6 +118,11 @@ pub async fn play_match(
     options: &MatchOptions,
 ) -> anyhow::Result<MatchReport> {
     let (match_id, format) = (game.assignment.match_id, game.assignment.format);
+    let opponent = game
+        .assignment
+        .opponent_ai
+        .as_ref()
+        .map(|badge| badge.label.clone());
     let before = standing(player, format).await;
     let mut link = RankedLink::new(
         player.clone(),
@@ -163,12 +175,24 @@ pub async fn play_match(
     transcript.write_value(&serde_json::json!({ "summary": played.stats }));
     transcript.flush();
     let receipt = settled(player, &link, before, options.settle).await;
+    if let Some(r) = &receipt {
+        // Central says no result per match to an AI account: this one is
+        // read from its public standing, and the record says so.
+        transcript.write_value(&serde_json::json!({ "receipt": {
+            "outcome": format!("{:?}", r.outcome), "seat": r.seat, "elo": r.elo,
+            "delta": r.delta, "inferred": "from the account's public standing",
+        }}));
+        transcript.flush();
+    }
     Ok(MatchReport {
         match_id,
         played,
         handed_over,
         receipt,
         renewals: link.renewals(),
+        format,
+        deck: game.deck.digest,
+        opponent,
     })
 }
 

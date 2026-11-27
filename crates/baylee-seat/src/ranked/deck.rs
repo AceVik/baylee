@@ -195,6 +195,12 @@ pub struct Shelf {
     /// Whether it was read once: a format with no deck is told the first
     /// time, and again only when it loses the deck it offered.
     refreshed: bool,
+    /// Each deck version read from the directory, by its commitment: what
+    /// a match's record names.
+    versions: HashMap<[u8; 32], u32>,
+    /// The decks a host would not seat at a match, by commitment: offered
+    /// no more.
+    refused: HashSet<[u8; 32]>,
 }
 
 impl Shelf {
@@ -270,6 +276,14 @@ impl Shelf {
                         }
                     },
                 };
+                if self.refused.contains(&deck.digest) {
+                    told(format!(
+                        "passing over {}: a host would not seat it at a match",
+                        version.deck.display()
+                    ));
+                    self.passed_over.insert(key);
+                    continue;
+                }
                 if let Some(Err(why)) = facts.map(|f| deck.admitted(f)) {
                     told(format!(
                         "passing over {}: the host would not seat it: {why}",
@@ -278,6 +292,7 @@ impl Shelf {
                     self.passed_over.insert(key);
                     continue;
                 }
+                self.versions.insert(deck.digest, version.number);
                 chosen = Some((version.deck, deck));
                 break;
             }
@@ -330,13 +345,37 @@ impl Shelf {
     /// where no version has it (or the shelf has no directory).
     pub fn recall(&mut self, format: Format, digest: &[u8; 32]) -> Option<Arc<Frozen>> {
         let dir = self.dir.clone()?;
-        let found = history::versions(&dir, format)
-            .into_iter()
-            .rev()
-            .filter_map(|version| Frozen::from_file(&version.deck, format).ok())
-            .find(|frozen| frozen.digest == *digest)
-            .map(Arc::new)?;
+        let (number, found) =
+            history::versions(&dir, format)
+                .into_iter()
+                .rev()
+                .find_map(|version| {
+                    let frozen = Frozen::from_file(&version.deck, format).ok()?;
+                    (frozen.digest == *digest).then_some((version.number, frozen))
+                })?;
+        let found = Arc::new(found);
+        self.versions.insert(found.digest, number);
         self.kept.insert(found.digest, Arc::clone(&found));
         Some(found)
+    }
+
+    /// The directory's version number of the deck under `digest`, where it
+    /// was read from there.
+    #[must_use]
+    pub fn version_of(&self, digest: &[u8; 32]) -> Option<u32> {
+        self.versions.get(digest).copied()
+    }
+
+    /// A host would not seat the deck under `digest` at a match: it is
+    /// offered no more (the version before it is, at the next
+    /// [`Shelf::refresh`]). The decks of a shelf with no directory stay.
+    pub fn refuse(&mut self, digest: [u8; 32]) {
+        if self.dir.is_none() {
+            return;
+        }
+        self.refused.insert(digest);
+        self.offered.retain(|_, deck| deck.digest != digest);
+        self.read
+            .retain(|format, _| self.offered.contains_key(format));
     }
 }

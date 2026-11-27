@@ -36,7 +36,7 @@ mod token;
 
 pub use deck::{Frozen, Shelf};
 pub use game::{Match, MatchOptions, MatchReport, Receipt, play_match};
-pub use link::{LinkOptions, RankedLink, socket_url};
+pub use link::{DeckRefused, LinkOptions, RankedLink, socket_url};
 pub use pilot::{Flight, HousePilot, Pilot, Piloted, Seat, fly_bridge};
 pub use player::{Player, ROLL_OVER, Session, resolve};
 pub use token::RunnerToken;
@@ -188,7 +188,9 @@ pub async fn run(
         tokio::select! {
             Some(joined) = rounds.playing.join_next(), if !rounds.playing.is_empty() => {
                 rounds.done += 1;
-                each(joined.unwrap_or_else(|e| Err(anyhow!("the match's task ended: {e}"))));
+                let report = joined.unwrap_or_else(|e| Err(anyhow!("the match's task ended: {e}")));
+                rounds.after(&report);
+                each(report);
             }
             _ = stop.changed() => {}
             () = tokio::time::sleep(settings.poll) => {}
@@ -335,6 +337,53 @@ impl Rounds<'_> {
             Some("no deck to offer".to_owned())
         } else {
             None
+        }
+    }
+
+    /// What a finished match leaves: its game in the deck's chronicle
+    /// (`<decks>/<format>/games.jsonl`, which the deck builder reads), and
+    /// a deck the host would not seat offered no more.
+    fn after(&mut self, report: &anyhow::Result<MatchReport>) {
+        match report {
+            Ok(m) => {
+                let (Some(dir), Some(version)) = (self.shelf.dir(), self.shelf.version_of(&m.deck))
+                else {
+                    return;
+                };
+                let result = match m.receipt.map(|r| r.won()) {
+                    Some(Some(true)) => "won",
+                    Some(Some(false)) => "lost",
+                    Some(None) => "draw",
+                    None => "unrated",
+                };
+                let mut notes = Vec::new();
+                if m.receipt.is_some() {
+                    notes.push("result inferred from the account's public standing".to_owned());
+                }
+                if let Some(why) = &m.handed_over {
+                    notes.push(format!("the house took the seat over: {why}"));
+                }
+                let game = crate::deckbuild::history::Game {
+                    at: facts::now_utc(),
+                    version,
+                    result: result.into(),
+                    turns: Some(m.played.stats.turns),
+                    elo: m.receipt.map(|r| r.elo),
+                    delta: m.receipt.and_then(|r| r.delta),
+                    opponent: m.opponent.clone(),
+                    note: (!notes.is_empty()).then(|| notes.join("; ")),
+                };
+                if let Err(e) = crate::deckbuild::history::record_game(dir, m.format, &game) {
+                    tracing::warn!(error = %e, "the match was not written to the deck's chronicle");
+                }
+            }
+            Err(e) => {
+                if let Some(refused) = e.chain().find_map(|c| c.downcast_ref::<DeckRefused>()) {
+                    tracing::warn!("{refused}");
+                    self.shelf.refuse(refused.digest);
+                    self.reread = None;
+                }
+            }
         }
     }
 

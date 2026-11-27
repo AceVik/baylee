@@ -291,3 +291,34 @@ fn a_commander_deck_file_freezes_with_its_commander() {
     let main: u32 = frozen.bridge.list.main.iter().map(|c| c.count).sum();
     assert_eq!(main, 99, "the commander is not among the main deck's cards");
 }
+
+#[test]
+fn a_deck_the_host_refused_is_offered_no_more_and_the_one_before_it_is() {
+    let scratch = Scratch::new();
+    write_version(&scratch.0, 1, "60 Forest\n");
+    write_version(&scratch.0, 2, "20 Forest\n40 Grizzly Bears\n");
+    let mut shelf = Shelf::directory(scratch.0.clone(), vec![Format::Standard]);
+    shelf.refresh(None, |_| {});
+    let newest = shelf.offers()[0].deck;
+    assert_eq!(
+        shelf.version_of(&newest),
+        Some(2),
+        "the record names version 2"
+    );
+    shelf.refuse(newest);
+    assert!(shelf.offers().is_empty(), "withdrawn at once");
+    let mut said = Vec::new();
+    shelf.refresh(None, |line| said.push(line));
+    let before = shelf.offers()[0].deck;
+    assert_ne!(before, newest);
+    assert_eq!(shelf.version_of(&before), Some(1));
+    assert!(
+        said.iter()
+            .any(|l| l.contains("would not seat it at a match")),
+        "{said:?}"
+    );
+    assert!(
+        shelf.by_digest(&newest).is_some(),
+        "a match made with it still plays"
+    );
+}
