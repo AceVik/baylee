@@ -24,6 +24,7 @@
 //! resume hands the seat to the declared house fallback.
 
 pub mod chain;
+pub mod cli;
 mod deck;
 mod game;
 mod link;
@@ -89,6 +90,9 @@ pub struct Settings {
     /// fetched as a guest ([`facts::fetch`]) and kept beside them; `None`
     /// fetches none and uses what is kept there.
     pub facts_from: Option<String>,
+    /// Legality facts the operator keeps, read and never written; beside
+    /// fetched ones, the fresher of the two counts.
+    pub facts_file: Option<std::path::PathBuf>,
     /// How often the facts are fetched again.
     pub refetch_facts: Duration,
     /// How each match is played.
@@ -103,6 +107,7 @@ impl Default for Settings {
             renew_offers: Duration::from_secs(15),
             reread_decks: Duration::from_secs(60),
             facts_from: None,
+            facts_file: None,
             refetch_facts: Duration::from_mins(30),
             play: MatchOptions::default(),
         }
@@ -221,11 +226,7 @@ impl Rounds<'_> {
             .reread
             .is_none_or(|at| at.elapsed() >= self.settings.reread_decks)
         {
-            let kept = self.shelf.dir().map(facts::path_in).and_then(|path| {
-                facts::load(&path)
-                    .map_err(|why| tracing::info!(why = %why, "no legality facts beside the decks"))
-                    .ok()
-            });
+            let kept = self.facts();
             self.shelf
                 .refresh(kept.as_ref(), |line| tracing::info!("{line}"));
             self.reread = Some(Instant::now());
@@ -334,6 +335,30 @@ impl Rounds<'_> {
             Some("no deck to offer".to_owned())
         } else {
             None
+        }
+    }
+
+    /// The legality facts the decks are checked against: the fresher of
+    /// the operator's file and the fetched ones beside the decks. Best
+    /// effort: with none, every deck that freezes is offered, and the
+    /// host's own check at seating is what stands.
+    fn facts(&self) -> Option<facts::Facts> {
+        let read = |path: std::path::PathBuf| {
+            facts::load(&path)
+                .map_err(
+                    |why| tracing::debug!(why = %why, path = %path.display(), "no legality facts"),
+                )
+                .ok()
+        };
+        let given = self.settings.facts_file.clone().and_then(read);
+        let fetched = self.shelf.dir().map(facts::path_in).and_then(read);
+        match (given, fetched) {
+            (Some(given), Some(fetched)) => Some(if fetched.fetched > given.fetched {
+                fetched
+            } else {
+                given
+            }),
+            (given, fetched) => given.or(fetched),
         }
     }
 

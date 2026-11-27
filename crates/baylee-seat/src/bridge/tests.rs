@@ -1789,12 +1789,14 @@ async fn a_ranked_chain_fails_down_to_the_declared_house() {
         .map(|f| f.label.as_str())
         .collect();
     assert_eq!(labels, ["haiku-api", "house:expert"]);
-    let held = held.lock().unwrap();
-    assert!(
-        held.contains_key("haiku-cli"),
-        "the first path is held back"
-    );
-    assert!(held.contains_key("haiku-api"), "and the one after it");
+    {
+        let held = held.lock().unwrap();
+        assert!(
+            held.contains_key("haiku-cli"),
+            "the first path is held back"
+        );
+        assert!(held.contains_key("haiku-api"), "and the one after it");
+    }
     assert_eq!(
         api_seen.lock().unwrap().asked.len(),
         1,
