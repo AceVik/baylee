@@ -191,3 +191,90 @@ pub fn same_contract(model: &Forest, catalog: &Forest) -> bool {
         && model.tags.first().map(String::as_str) == Some("Unknown")
         && catalog.tags.first().map(String::as_str) == Some("Unknown")
 }
+
+/// A model's catalog beside this build's: both forests and how they relate.
+pub struct Compared {
+    /// The catalog the model was exported with.
+    pub model: Forest,
+    /// This build's.
+    pub compiled: Forest,
+    /// How they relate.
+    pub report: Superset,
+}
+
+/// Reads the catalog of the model at `path` (its `card_structure.json`, or
+/// the directory holding it) and compares it with this build's.
+///
+/// # Errors
+/// An unreadable file, or catalogs of different structure contracts.
+pub fn compare(path: &std::path::Path) -> anyhow::Result<Compared> {
+    let path = if path.is_dir() {
+        path.join("card_structure.json")
+    } else {
+        path.to_owned()
+    };
+    let model: Forest = serde_json::from_slice(&std::fs::read(&path)?)?;
+    let cards = baylee_cards::all()
+        .map(|c| c.index.get())
+        .collect::<Vec<_>>();
+    let compiled = super::catalog(&cards)?;
+    anyhow::ensure!(
+        same_contract(&model, &compiled),
+        "the structure contract differs; the catalogs cannot be compared"
+    );
+    let report = superset(&model, &compiled);
+    Ok(Compared {
+        model,
+        compiled,
+        report,
+    })
+}
+
+/// The cards of this build a model does not read as it was trained, by
+/// index: those drift withdraws (their rules changed since the export) and
+/// those appended since (the model never saw them). Each is read by its
+/// public features and DSL summary alone; every other card reads its own
+/// rule tree, bit for bit as in training. Tokens and reserved abilities are
+/// left out: no deck holds them.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Unread {
+    /// Cards whose rules changed since the export.
+    pub withdrawn: std::collections::BTreeSet<u32>,
+    /// Cards the export does not have.
+    pub appended: std::collections::BTreeSet<u32>,
+}
+
+impl Unread {
+    /// What `compared` says of the model's cards.
+    #[must_use]
+    pub fn of(compared: &Compared) -> Self {
+        let cards = |owners: Vec<String>| {
+            owners
+                .iter()
+                .filter_map(|owner| owner.strip_prefix("card/")?.parse().ok())
+                .collect()
+        };
+        Self {
+            withdrawn: cards(withdrawn(&compared.report, &compared.model)),
+            appended: cards(appended(&compared.report, &compared.model)),
+        }
+    }
+
+    /// Whether the model reads `card` otherwise than it was trained.
+    #[must_use]
+    pub fn contains(&self, card: u32) -> bool {
+        self.withdrawn.contains(&card) || self.appended.contains(&card)
+    }
+
+    /// Every such card's name in this build, sorted, each once.
+    #[must_use]
+    pub fn names(&self) -> Vec<String> {
+        let names: std::collections::BTreeSet<String> = self
+            .withdrawn
+            .iter()
+            .chain(&self.appended)
+            .filter_map(|card| owner_name(&format!("card/{card}")))
+            .collect();
+        names.into_iter().collect()
+    }
+}

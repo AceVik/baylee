@@ -6,7 +6,7 @@
 
 // Looks cards up, so this program holds the pool (`baylee-cards-pool`).
 use baylee_cards_pool as _;
-use baylee_train::cardstructure::{Forest, catalog, compat, digest, labels};
+use baylee_train::cardstructure::{catalog, compat, digest, labels};
 use clap::Parser;
 use std::{fs, path::PathBuf};
 
@@ -21,6 +21,14 @@ struct Args {
     /// what drift would withdraw is printed either way).
     #[arg(long, conflicts_with_all = ["out", "labels"])]
     check_model: Option<PathBuf>,
+    /// With `--check-model`: write the name of every card this build has
+    /// that the model does not read as it was trained, one a line, sorted:
+    /// those drift withdraws and those appended since the export
+    /// (`compat::Unread`). A deck for the model without them reads all its
+    /// own cards as in training. Written, it is the answer: the program then
+    /// succeeds whether or not the strict superset holds.
+    #[arg(long, requires = "check_model")]
+    unread_cards: Option<PathBuf>,
     /// Write the card-stage targets of this build's catalog here, keyed by
     /// its `c/<card>/<face>` roots and bound to its digest.
     #[arg(long, conflicts_with = "out")]
@@ -61,18 +69,12 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
     let path = args.check_model.expect("clap requires one mode");
-    let path = if path.is_dir() {
-        path.join("card_structure.json")
-    } else {
-        path
-    };
-    let model: Forest = serde_json::from_slice(&fs::read(&path)?)?;
-    let compiled = catalog(&cards)?;
-    anyhow::ensure!(
-        compat::same_contract(&model, &compiled),
-        "the structure contract differs; the catalogs cannot be compared"
-    );
-    let report = compat::superset(&model, &compiled);
+    let compared = compat::compare(&path)?;
+    let compat::Compared {
+        model,
+        compiled,
+        report,
+    } = &compared;
     println!(
         "{}",
         serde_json::to_string_pretty(&serde_json::json!({
@@ -84,8 +86,8 @@ fn main() -> anyhow::Result<()> {
             "catalog_roots": report.catalog_roots,
             "new_roots": report.new_roots.len(),
             "new_tags": report.new_tags,
-            "appended": compat::appended(&report, &model).len(),
-            "withdrawn_under_drift": compat::withdrawn(&report, &model)
+            "appended": compat::appended(report, model).len(),
+            "withdrawn_under_drift": compat::withdrawn(report, model)
                 .iter()
                 .map(|owner| format!("{owner} {}", compat::owner_name(owner).unwrap_or_default()))
                 .collect::<Vec<_>>(),
@@ -94,6 +96,20 @@ fn main() -> anyhow::Result<()> {
             "superset": report.holds(),
         }))?
     );
+    if let Some(out) = &args.unread_cards {
+        let unread = compat::Unread::of(&compared);
+        let mut text = unread.names().join("\n");
+        text.push('\n');
+        fs::write(out, text)?;
+        eprintln!(
+            "{} cards the model does not read as trained ({} withdrawn, {} appended): {}",
+            unread.names().len(),
+            unread.withdrawn.len(),
+            unread.appended.len(),
+            out.display()
+        );
+        return Ok(());
+    }
     anyhow::ensure!(
         report.holds(),
         "{} rules the model knows changed and {} are gone",
