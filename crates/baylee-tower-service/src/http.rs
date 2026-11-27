@@ -31,7 +31,7 @@ impl From<baylee_tower_store::Error> for Failure {
                 Refusal::Stale | Refusal::Unavailable | Refusal::Gold | Refusal::Capacity,
             ) => Self::Conflict,
             Error::Refused(Refusal::Invalid) => Self::Invalid,
-            Error::Schema | Error::Unavailable => Self::Unavailable,
+            Error::Schema | Error::Unavailable | Error::Privileged => Self::Unavailable,
         }
     }
 }
