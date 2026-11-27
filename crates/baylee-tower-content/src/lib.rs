@@ -260,5 +260,10 @@ pub fn fingerprint(content: &Content) -> Result<String, Error> {
         .chain_update(b"baylee/tower/calibrated-content/v2\0")
         .chain_update(bytes)
         .finalize();
-    Ok(digest.iter().map(|byte| format!("{byte:02x}")).collect())
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    Ok(digest
+        .iter()
+        .flat_map(|byte| [HEX[usize::from(byte >> 4)], HEX[usize::from(byte & 15)]])
+        .map(char::from)
+        .collect())
 }
