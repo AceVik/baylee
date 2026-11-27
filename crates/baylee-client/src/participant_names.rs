@@ -1,13 +1,33 @@
 //! The authenticated participant's local presentation of a ranked duel. The
 //! original `GameStatic` stays untouched for gameplay, diagnostics and records.
+//!
+//! Central says two things of a ranked game's seats that the host does not:
+//! whose published handle each is, and which is an AI player and what kind
+//! (`Roster`). Both are drawn from here only, and never written into the
+//! roster the game itself reads.
 use crate::Duel;
+use baylee_client_core::aiplayers::AiBadge;
+use baylee_core::ids::PlayerId;
 use baylee_view::GameStatic;
 
 type Handles = [Option<String>; 2];
+/// Central's AI badges for the two seats, in seat order.
+pub(crate) type Badges = [Option<AiBadge>; 2];
+
+/// What Central says of one ranked game's two seats.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct Roster {
+    /// The game it is about.
+    pub(crate) game: String,
+    /// Each seat's published handle.
+    pub(crate) handles: Handles,
+    /// Each seat's AI badge, where it is an AI.
+    pub(crate) ai: Badges,
+}
 
 #[derive(Default)]
 pub(super) struct Names {
-    source: Option<(String, Handles)>,
+    source: Option<Roster>,
     display: Option<GameStatic>,
     revision: u64,
 }
@@ -16,11 +36,7 @@ impl Names {
     /// Only host static messages and a new Central answer refresh this snapshot.
     /// All UI frames borrow it. Reports and replays continue to read the raw one.
     pub(super) fn refresh(&mut self, raw: &GameStatic) {
-        let Some((_, handles)) = self
-            .source
-            .as_ref()
-            .filter(|(game, _)| *game == raw.game_id)
-        else {
+        let Some(roster) = self.source.as_ref().filter(|r| r.game == raw.game_id) else {
             self.forget_display();
             return;
         };
@@ -34,7 +50,14 @@ impl Names {
         }
         let mut shown = raw.clone();
         for s in &mut shown.seats {
-            if let Some(handle) = &handles[usize::from(s.player.get())] {
+            let seat = usize::from(s.player.get());
+            // An AI player is called by its badge's label wherever text
+            // names the seat (the log, the prompts, the result's verdict),
+            // as its badge says it; its mark goes where a mark can stand.
+            if let Some(badge) = &roster.ai[seat] {
+                s.display_name =
+                    baylee_client_core::aiplayers::label(badge, baylee_client_core::i18n::Lang::En);
+            } else if let Some(handle) = &roster.handles[seat] {
                 s.display_name.clone_from(handle);
             }
         }
@@ -66,12 +89,28 @@ impl Duel {
         Some(raw)
     }
 
+    /// The AI badge Central gave `player`'s seat in this ranked game, for
+    /// the reader's own table; none for a person, a watcher or a replay.
+    pub(crate) fn ai_badge(&self, player: PlayerId) -> Option<&AiBadge> {
+        let raw = self.statics.as_ref()?;
+        if self.watching || self.replay.is_some() {
+            return None;
+        }
+        self.participant_names.display.as_ref()?;
+        let roster = self
+            .participant_names
+            .source
+            .as_ref()
+            .filter(|r| r.game == raw.game_id)?;
+        roster.ai.get(usize::from(player.get()))?.as_ref()
+    }
+
     pub(crate) fn roster_revision(&self) -> u64 {
         self.participant_names.revision
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    pub(crate) fn participant_labels(&mut self, source: Option<(String, Handles)>) {
+    pub(crate) fn participant_labels(&mut self, source: Option<Roster>) {
         let names = &mut self.participant_names;
         if names.source == source {
             return;
@@ -113,6 +152,14 @@ mod tests {
         }
     }
 
+    fn named(game: &str) -> Roster {
+        Roster {
+            game: game.into(),
+            handles: [Some("Laurel#1234".into()), None],
+            ai: [None, None],
+        }
+    }
+
     #[test]
     fn ranked_participant_names_stay_off_the_wire_and_follow_the_authenticated_game() {
         let game = uuid::Uuid::now_v7().to_string();
@@ -121,7 +168,7 @@ mod tests {
             statics: Some(roster(&game)),
             ..Duel::default()
         };
-        duel.participant_labels(Some((game.clone(), [Some("Laurel#1234".into()), None])));
+        duel.participant_labels(Some(named(&game)));
         assert_eq!(
             duel.display_statics().unwrap().seat_name(player),
             "Laurel#1234"
@@ -149,8 +196,85 @@ mod tests {
         duel.participant_labels(None);
         duel.statics = Some(roster(&game));
         assert_eq!(duel.display_statics().unwrap().seat_name(player), "Seat 0");
-        duel.participant_labels(Some((game, [Some("Laurel#1234".into()), None])));
+        duel.participant_labels(Some(named(&game)));
         duel.rewind();
         assert_eq!(duel.display_statics().unwrap().seat_name(player), "Seat 0");
+    }
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod badge_tests {
+    use super::*;
+    use baylee_client_core::aiplayers::AiKind;
+    use baylee_view::SeatIdentity;
+
+    fn statics(game: &str) -> GameStatic {
+        GameStatic {
+            view_version: baylee_view::VIEW_VERSION,
+            game_id: game.into(),
+            your_seat: PlayerId::new(0),
+            seats: [0u8, 1]
+                .map(|n| SeatIdentity {
+                    player: PlayerId::new(n),
+                    display_name: format!("Seat {n}"),
+                    is_ai: false,
+                    away: false,
+                    team: None,
+                    guest: false,
+                })
+                .into(),
+            prints: Vec::new(),
+            decision_secs: None,
+            reconnect_secs: None,
+            table_seed: 0,
+        }
+    }
+
+    fn house() -> AiBadge {
+        AiBadge {
+            kind: AiKind::House,
+            label: "Haus-KI · Expert".into(),
+        }
+    }
+
+    #[test]
+    fn an_ai_seat_wears_its_badge_only_at_its_own_game_and_never_on_the_wire() {
+        let game = uuid::Uuid::now_v7().to_string();
+        let mut duel = Duel {
+            statics: Some(statics(&game)),
+            ..Duel::default()
+        };
+        let before = duel.roster_revision();
+        duel.participant_labels(Some(Roster {
+            game: game.clone(),
+            handles: [None, Some("KI-Haus-Expert#0002".into())],
+            ai: [None, Some(house())],
+        }));
+        assert_ne!(duel.roster_revision(), before, "the bars redraw for it");
+        assert_eq!(duel.ai_badge(PlayerId::new(1)), Some(&house()));
+        assert_eq!(duel.ai_badge(PlayerId::new(0)), None);
+        // Text names the seat by its badge, never by the bare account name.
+        assert_eq!(
+            duel.display_statics().unwrap().seat_name(PlayerId::new(1)),
+            "Haus-KI · Expert"
+        );
+        // The roster the game reads is untouched: the seat stays a remote
+        // seat, and no badge is written into what a report or record keeps.
+        let raw = duel.statics.as_ref().unwrap();
+        assert!(!raw.seats.iter().any(|s| s.is_ai));
+        assert!(!serde_json::to_string(raw).unwrap().contains("Haus-KI"));
+        // The same answer again changes nothing.
+        let settled = duel.roster_revision();
+        duel.participant_labels(Some(Roster {
+            game: game.clone(),
+            handles: [None, Some("KI-Haus-Expert#0002".into())],
+            ai: [None, Some(house())],
+        }));
+        assert_eq!(duel.roster_revision(), settled);
+        duel.watching = true;
+        assert_eq!(duel.ai_badge(PlayerId::new(1)), None);
+        duel.watching = false;
+        duel.statics = Some(statics(&uuid::Uuid::now_v7().to_string()));
+        assert_eq!(duel.ai_badge(PlayerId::new(1)), None, "another game");
     }
 }

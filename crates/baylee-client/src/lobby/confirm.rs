@@ -31,6 +31,14 @@ pub(crate) enum Destructive {
     // Constructed by `lobby::links`; `baylee:` deep links are native-only.
     #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     AddGateway(String),
+    /// Whom a ranked search may accept, asked before an account's first
+    /// search (`ranked::choice`), with the option picked so far: none until
+    /// the person picks one, and nothing kept until Search. Not destructive,
+    /// but asked the same way; Cancel, `Esc` and a tap beside it search
+    /// nothing. Carried out by the press itself, which has the settings.
+    // Constructed by `lobby::ranked`, which is native-only.
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
+    RankedOpponents(Option<baylee_client_core::aiplayers::Opponents>),
 }
 
 impl Destructive {
@@ -45,6 +53,7 @@ impl Destructive {
             Destructive::SignOutGuest { .. } => "sign-out-guest",
             Destructive::LeaveHosting(_) => "leave-hosting",
             Destructive::AddGateway(_) => "add-gateway",
+            Destructive::RankedOpponents(_) => "ranked-opponents",
         }
     }
 }
@@ -87,7 +96,9 @@ pub(super) fn accept(state: &mut LobbyState) -> Option<LobbyRequest> {
             state.forget_gateway(&url);
             None
         }
-        Destructive::SignOutGuest { .. } | Destructive::AddGateway(_) => None,
+        Destructive::SignOutGuest { .. }
+        | Destructive::AddGateway(_)
+        | Destructive::RankedOpponents(_) => None,
         Destructive::LeaveHosting(game) => state.lobby.leave_table(&game),
     }
 }
@@ -114,6 +125,13 @@ pub(super) fn draw(
     let lang = state.lobby.lang();
     if let Destructive::AddGateway(url) = action {
         draw_proposal(commands, root, state, fonts, metrics, url);
+        return;
+    }
+    if let Destructive::RankedOpponents(picked) = action {
+        #[cfg(not(target_arch = "wasm32"))]
+        draw_opponents(commands, root, state, fonts, metrics, *picked);
+        #[cfg(target_arch = "wasm32")]
+        let _ = picked;
         return;
     }
     let mut chosen = String::new();
@@ -165,6 +183,7 @@ pub(super) fn draw(
             Phrase::LeaveHostingHint,
         ),
         Destructive::AddGateway(_) => unreachable!("drawn by `draw_proposal`"),
+        Destructive::RankedOpponents(_) => unreachable!("drawn by `draw_opponents`"),
     };
     let panel = modal(
         commands,
@@ -285,6 +304,226 @@ fn draw_proposal(
     commands
         .entity(panel)
         .add_children(&[head, hint, list, actions]);
+}
+
+/// An account's first ranked search asks whom it may accept (the AI
+/// players, `docs/proposals/ai-players.md`): why it asks, the three choices
+/// with the one plain line each that says what it means (for "All AIs",
+/// that a language model's provider receives the moves), none of them
+/// picked, then Cancel and Search. Search stays grey until one is picked,
+/// and only Search keeps the choice and searches (`ranked::choice`).
+#[cfg(not(target_arch = "wasm32"))]
+fn draw_opponents(
+    commands: &mut Commands,
+    root: Entity,
+    state: &LobbyState,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    picked: Option<client_core::aiplayers::Opponents>,
+) {
+    let lang = state.lobby.lang();
+    let panel = modal(
+        commands,
+        root,
+        metrics,
+        Press::Shared(SharedPress::CancelDestructive),
+        DialogKind::Choice,
+    );
+    let head = dialog_header(
+        commands,
+        fonts,
+        metrics,
+        Phrase::RankedOpponentsQuestion.text(lang),
+        None,
+        DialogKind::Choice,
+    );
+    let intro = dialog_body(
+        commands,
+        fonts,
+        metrics,
+        Phrase::RankedOpponentsIntro.text(lang),
+    );
+    let options = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                flex_direction: FlexDirection::Column,
+                row_gap: px(8),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    for choice in client_core::aiplayers::Opponents::ALL {
+        let row = opponents_option(
+            commands,
+            fonts,
+            metrics,
+            lang,
+            choice,
+            picked == Some(choice),
+        );
+        commands.entity(options).add_child(row);
+    }
+    let cancel = split_button(
+        commands,
+        fonts,
+        metrics,
+        Phrase::ActCancel.text(lang),
+        Press::Shared(SharedPress::CancelDestructive),
+        SplitTone::Neutral,
+        true,
+    );
+    let search = split_button(
+        commands,
+        fonts,
+        metrics,
+        Phrase::RankedOpponentsSearch.text(lang),
+        Press::Shared(SharedPress::ConfirmDestructive),
+        SplitTone::Accent,
+        picked.is_some(),
+    );
+    if picked.is_none() {
+        commands.entity(search).insert(super::hint::HoverHint(
+            Phrase::RankedOpponentsUnset.text(lang).to_string(),
+        ));
+    }
+    let actions = dialog_actions(commands, &[cancel, search]);
+    commands
+        .entity(panel)
+        .add_children(&[head, intro, options, actions]);
+}
+
+/// One choice on the sheet: its mark, its name and what it means, and a
+/// round mark on the right that fills when it is picked. Picked and not
+/// picked are the same size, so picking moves nothing.
+#[cfg(not(target_arch = "wasm32"))]
+fn opponents_option(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    lang: Lang,
+    choice: client_core::aiplayers::Opponents,
+    on: bool,
+) -> Entity {
+    use client_core::aiplayers::Opponents;
+    let (ground, rim) = if on {
+        (tokens::SELECTED, tokens::ACCENT.with_alpha(0.75))
+    } else {
+        (Color::srgba(0.018, 0.038, 0.068, 0.46), tokens::BORDER)
+    };
+    let mark = match choice {
+        Opponents::People => crate::hud::glyph::PERSON,
+        Opponents::Local => crate::hud::glyph::HOUSE,
+        Opponents::Any => crate::hud::glyph::AI_MODEL,
+    };
+    let press = Press::Ranked(super::ranked::Action::PickOpponents(choice));
+    let row = commands
+        .spawn((
+            Role::Button,
+            Node {
+                width: percent(100),
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: px(12),
+                min_height: px(metrics.tap.max(44.0)),
+                padding: UiRect::axes(px(14), px(10)),
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
+                ..default()
+            },
+            BackgroundColor(ground),
+            BorderColor::all(rim),
+            Feel::tinting_to(ground, crate::ambience::lighter(ground, 0.10)),
+            FeelBorder {
+                rest: rim,
+                hot: tokens::ACCENT.with_alpha(0.65),
+                press: tokens::ACCENT.with_alpha(0.45),
+            },
+            press,
+        ))
+        .id();
+    let icon = commands
+        .spawn((
+            Text::new(mark.to_string()),
+            crate::hud::icon_tf(fonts, metrics.head * 0.9),
+            TextColor(if on { tokens::ACCENT } else { tokens::MUTED }),
+            Node {
+                width: px(26),
+                justify_content: JustifyContent::Center,
+                flex_shrink: 0.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let words = commands
+        .spawn((
+            Node {
+                flex_grow: 1.0,
+                flex_basis: px(0),
+                flex_direction: FlexDirection::Column,
+                row_gap: px(2),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let title = commands
+        .spawn((
+            Text::new(choice.title().text(lang)),
+            tf_bold(fonts, metrics.text),
+            TextColor(tokens::INK),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let meaning = commands
+        .spawn((
+            Text::new(choice.meaning().text(lang)),
+            tf(fonts, metrics.small),
+            TextColor(tokens::MUTED),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(words).add_children(&[title, meaning]);
+    let dot = option_dot(commands, fonts, metrics, on);
+    commands.entity(row).add_children(&[icon, words, dot]);
+    row
+}
+
+/// The round mark at an option's right: an empty ring, or filled with a
+/// check once picked; the same size either way.
+#[cfg(not(target_arch = "wasm32"))]
+fn option_dot(commands: &mut Commands, fonts: &UiFonts, metrics: Metrics, on: bool) -> Entity {
+    let dot = commands
+        .spawn((
+            Node {
+                width: px(20),
+                height: px(20),
+                flex_shrink: 0.0,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border: UiRect::all(px_fixed(1.5)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
+                ..default()
+            },
+            BackgroundColor(if on { tokens::ACCENT } else { Color::NONE }),
+            BorderColor::all(if on { tokens::ACCENT } else { tokens::MUTED }),
+            Pickable::IGNORE,
+        ))
+        .id();
+    if on {
+        let check = commands
+            .spawn((
+                Text::new(crate::hud::glyph::CHECK.to_string()),
+                crate::hud::icon_tf(fonts, metrics.small * 0.8),
+                TextColor(tokens::INK_ON_LIGHT),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(dot).add_child(check);
+    }
+    dot
 }
 
 /// The sign-in from baylee.app (`central::pairing`), over Central's sign-in:
@@ -466,6 +705,10 @@ enum DialogKind {
     Destructive,
     Proposal,
     Warning,
+    /// A question with several answers and no wrong one (whom a ranked
+    /// search accepts): the proposal's rims, the robot as its mark.
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
+    Choice,
 }
 
 #[derive(Clone, Copy)]
@@ -487,12 +730,12 @@ fn modal(
     use bevy::ui::{ColorStop, InterpolationColorSpace};
     let top_rim = match kind {
         DialogKind::Destructive => tokens::DANGER.with_alpha(0.54),
-        DialogKind::Proposal => Color::srgba(0.86, 0.78, 0.62, 0.48),
+        DialogKind::Proposal | DialogKind::Choice => Color::srgba(0.86, 0.78, 0.62, 0.48),
         DialogKind::Warning => tokens::GOLD.with_alpha(0.54),
     };
     let side_rim = match kind {
         DialogKind::Destructive => tokens::DANGER.with_alpha(0.34),
-        DialogKind::Proposal => Color::srgba(0.58, 0.66, 0.76, 0.34),
+        DialogKind::Proposal | DialogKind::Choice => Color::srgba(0.58, 0.66, 0.76, 0.34),
         DialogKind::Warning => tokens::GOLD.with_alpha(0.34),
     };
     let panel = commands
@@ -563,6 +806,12 @@ fn dialog_header(
             tokens::GOLD.with_alpha(0.46),
             tokens::GOLD,
             "\u{f071}",
+        ),
+        DialogKind::Choice => (
+            tokens::PRIMARY.with_alpha(0.55),
+            tokens::PRIMARY_EDGE.with_alpha(0.65),
+            tokens::ACCENT,
+            "\u{f544}",
         ),
     };
     let head = commands

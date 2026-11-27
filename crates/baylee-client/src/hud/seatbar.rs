@@ -570,6 +570,7 @@ pub fn sync_seat_bars(
                 duel.display_statics(),
                 seat,
                 role_of(&duel, seat.player),
+                duel.ai_badge(seat.player),
                 &orders,
                 &fonts,
             );

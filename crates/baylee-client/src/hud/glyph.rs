@@ -60,6 +60,16 @@ pub const INFINITY: char = '\u{f534}';
 pub const COMMANDER_DAMAGE: char = '\u{f3ed}';
 /// Robot (a chair the house plays, on a player's button, #264).
 pub const HOUSE: char = '\u{f544}';
+/// A speech bubble with three dots: an AI player that is a language model
+/// (`aibadge`). One bubble, not the chat's two ([`CHAT`]): a single voice.
+pub const AI_MODEL: char = '\u{f4ad}';
+/// Linked circles (`circle-nodes`, Font Awesome 6): an AI player that is the
+/// trained net, Baylee AI (`aibadge`).
+pub const AI_NET: char = '\u{e4e2}';
+/// A microchip: an AI player of a kind this build does not know yet.
+pub const AI_OTHER: char = '\u{f2db}';
+/// A person: a search that waits for people only.
+pub const PERSON: char = '\u{f007}';
 /// Person walking (a player who stepped away, whose chair is held).
 pub const AWAY: char = '\u{f554}';
 /// Times (close a panel). The text font has no U+2715, so the cross has

@@ -5,7 +5,7 @@
 //! unfolds and pushes the tiles under it down.
 use super::{
     Action, Cx, Format, Hub, Kit, Lang, League, LobbyRequest, LobbyState, OwnRank, Phrase, api,
-    draw, format_name, join, native, orders, queue,
+    choice, draw, format_name, join, native, orders, queue,
 };
 use crate::{
     lobby::{Mailbox, ranked_profile::Book},
@@ -51,7 +51,7 @@ pub(super) fn follow_format(state: &mut LobbyState, format: Format) {
 fn locked(state: &LobbyState) -> bool {
     state.ranked_net.busy
         || matches!(
-            state.ranked_net.queue,
+            state.ranked_net.shown_queue(),
             api::QueueState::Waiting { .. } | api::QueueState::Assigned { .. }
         )
 }
@@ -67,6 +67,8 @@ pub(super) fn owns(action: Action) -> bool {
             | Action::Join
             | Action::Cancel
             | Action::Resume
+            | Action::Opponents(_)
+            | Action::PickOpponents(_)
     )
 }
 
@@ -100,6 +102,28 @@ pub(super) fn escape(state: &mut LobbyState) -> bool {
 pub(super) fn press(action: Action, cx: Cx<'_, '_, '_, '_, '_>) {
     if cx.state.hub != Hub::Ranked || !cx.state.has_central_account() {
         return;
+    }
+    // The sheet that asks whom a search accepts is the shell's, drawn from
+    // a real change of the lobby's state.
+    match action {
+        Action::PickOpponents(choice) => {
+            choice::pick(cx.state, choice);
+            return;
+        }
+        Action::Join if !locked(cx.state) || cx.state.ranked_net.needs_deck => {
+            // Read for whoever is signed in now: another account's choice
+            // never searches for this one.
+            choice::recall(cx.state.bypass_change_detection(), cx.settings.as_deref());
+            if !choice::chosen(cx.state) {
+                choice::ask(cx.state);
+                return;
+            }
+        }
+        Action::Opponents(choice) => {
+            choice::choose(cx.state.bypass_change_detection(), cx.settings, choice);
+            return;
+        }
+        _ => {}
     }
     let state = cx.state.bypass_change_detection();
     #[cfg(feature = "dev-control")]
@@ -200,7 +224,7 @@ pub(super) struct Painted {
 /// account's standing in the queue's format, else what the mode is.
 fn caption(state: &LobbyState, own: Option<OwnRank>) -> String {
     let lang = state.lobby.lang();
-    match state.ranked_net.queue {
+    match *state.ranked_net.shown_queue() {
         api::QueueState::Waiting { format, .. } => {
             return Phrase::RankedSearching.fill(lang, &[format_name(format, lang)]);
         }
