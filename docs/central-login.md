@@ -145,7 +145,18 @@ reaches Central, so nobody's load can cost another account its session.
 
 ## Bigint advisory scope
 
-The dependency upgrade of 25.11.2026 pins Central to
+The open-beta release of 27.11.2026 pins Central to
+`8d6ac023040b2e3c31189df4c3fa4903b2333056`: Central's pull requests 92 to 103
+on top of the pin below, without 95 and 98 (minimum age 13, the `bgt_` token
+prefix, feedback report tokens, erasure after a restore, Rust 1.100, the ranked
+privacy texts and terms, ranked data in the account download, pruned queue
+tickets and the friend-invite link). Its `central-crypto` Git tree is still
+`fecfee3b4b4433a4bfd5a57ae9b1fb4154c141f8` and Central's lock file is
+unchanged, so the advisory scope below holds as it is. Baylee's lock file
+moves only the Central crates' source revision, and the gateway's copy of
+Central's runtime grants follows its `ops/grants.sql` (report tokens).
+
+The dependency upgrade of 25.11.2026 pinned Central to
 `e96792ffd170a62fe038444fb7fe1a14a85f6e35` (Central's pull request 91 on top
 of its test pull request 90). Against the ranked-seat pin below, the
 `central-crypto` Git tree (now `fecfee3b4b4433a4bfd5a57ae9b1fb4154c141f8`)

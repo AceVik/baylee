@@ -63,6 +63,11 @@ GRANT SELECT, INSERT, DELETE ON central_identity.report_parts, central_identity.
 GRANT SELECT, INSERT ON central_identity.report_audit TO central_runtime;
 GRANT SELECT, INSERT, DELETE ON central_identity.report_views TO central_runtime;
 GRANT UPDATE (query) ON central_identity.report_views TO central_runtime;
+-- Report tokens (docs/reports.md, "Report tokens"): stored by digest, with
+-- the rights they keep; afterwards only their revocation and last use change,
+-- and none is deleted.
+GRANT SELECT, INSERT (name, digest, file, read, triage, purge, created_by, created_at, expires_at),
+  UPDATE (revoked_at, revoked_by, last_used_at) ON central_identity.report_tokens TO central_runtime;
 -- The legacy store (docs/operations.md §"The legacy store"): its own role,
 -- which reads its accounts, deletes a row when its move closes and counts the
 -- lockout, and nothing else; the runtime role gets nothing in the schema.
