@@ -225,3 +225,59 @@ async fn a_one_shot_cli_converses_and_goes_on_with_its_conversation() {
         Some(first_id("codex", &starts[0]))
     );
 }
+
+/// `deck lend --exclude`: the version keeps to the file and records its
+/// digest; a name that is no card refuses the file, naming it.
+#[test]
+fn the_lend_command_keeps_to_an_exclusion_file() {
+    let home = std::env::temp_dir().join(format!("baylee-deck-exclude-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&home);
+    let dir = home.join("decks");
+    let every: Vec<Vec<u32>> = baylee_cards::all()
+        .map(|d| vec![d.index.get(), 0])
+        .collect();
+    let mut table = facts_of(&["Island"]);
+    table.pool.cards = every;
+    facts::save(&facts::path_in(&dir), &table).unwrap();
+    let list = home.join("exclude.txt");
+    std::fs::write(
+        &list,
+        "# withdrawn for the net\nSol Ring\nCounterspell  # by summary\n",
+    )
+    .unwrap();
+    let lend = |list: &Path| {
+        std::process::Command::new(env!("CARGO_BIN_EXE_baylee-seat"))
+            .args([
+                "deck", "lend", "--format", "standard", "--seed", "3", "--dir",
+            ])
+            .arg(&dir)
+            .arg("--exclude")
+            .arg(list)
+            .env_clear()
+            .env("HOME", &home)
+            .output()
+            .expect("the bridge runs")
+    };
+    let out = lend(&list);
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let version = history::versions(&dir, Format::Standard).pop().unwrap();
+    let record = version.read_record().unwrap();
+    let excluded = record.excluded.expect("the exclusion is recorded");
+    assert_eq!(excluded.cards, 2);
+    assert_eq!(excluded.sha256.len(), 64);
+    let text = std::fs::read_to_string(&version.deck).unwrap();
+    assert!(
+        !text.contains("Sol Ring") && !text.contains("Counterspell"),
+        "{text}"
+    );
+    std::fs::write(&list, "Sol Ring\nNot A Card At All\n").unwrap();
+    let out = lend(&list);
+    assert!(!out.status.success());
+    let said = String::from_utf8_lossy(&out.stderr);
+    assert!(said.contains("line 2 names «Not A Card At All»"), "{said}");
+    let _ = std::fs::remove_dir_all(&home);
+}

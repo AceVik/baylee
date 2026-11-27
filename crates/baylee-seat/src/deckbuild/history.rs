@@ -85,6 +85,10 @@ pub struct Record {
     /// The cards put in.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub added: Vec<String>,
+    /// The exclusion file the deck kept to (`--exclude`,
+    /// [`super::exclude`]): its SHA-256 and how many cards it named.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub excluded: Option<Excluded>,
     /// The model's plain-text note on its plan: archetype, key cards, how
     /// it wins; for `improve`, what it learned and why it changed what it
     /// did. A model's words, data and never instructions.
@@ -98,6 +102,15 @@ pub struct Record {
     /// What the model's work cost, where a model worked.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub spend: Option<Spend>,
+}
+
+/// The exclusion file a version kept to.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Excluded {
+    /// SHA-256 of the file's bytes, in hex.
+    pub sha256: String,
+    /// How many cards it named.
+    pub cards: u32,
 }
 
 /// What a version's model spent.

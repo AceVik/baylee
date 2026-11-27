@@ -18,6 +18,7 @@ use baylee_seat::cli::{Brief, CliMind, Limits};
 use baylee_seat::config::{self, Overrides, Paths, Plan};
 use baylee_seat::deckbuild::brief::{self, Job};
 use baylee_seat::deckbuild::check::{self, Checker, Rows};
+use baylee_seat::deckbuild::exclude;
 use baylee_seat::deckbuild::facts::{self, Facts};
 use baylee_seat::deckbuild::file;
 use baylee_seat::deckbuild::history::{self, Record, Spend};
@@ -74,6 +75,11 @@ struct Where {
     /// The legality facts [default: `<dir>/facts.json`].
     #[arg(long)]
     facts: Option<PathBuf>,
+    /// Cards the deck may never hold, one exact name a line (`#` starts a
+    /// comment): a pilot's own limit, such as the cards the trained net
+    /// does not read exactly.
+    #[arg(long)]
+    exclude: Option<PathBuf>,
 }
 
 #[derive(clap::Args)]
@@ -167,6 +173,23 @@ fn load_facts(at: &Where) -> anyhow::Result<Facts> {
     facts::load(&path).map_err(anyhow::Error::msg)
 }
 
+/// The exclusion file `at` names, read; none without one.
+fn load_exclusion(at: &Where) -> anyhow::Result<Option<exclude::Exclusion>> {
+    at.exclude
+        .as_deref()
+        .map(exclude::load)
+        .transpose()
+        .map_err(anyhow::Error::msg)
+}
+
+/// What a version records of `exclusion`.
+fn excluded(exclusion: Option<&exclude::Exclusion>) -> Option<history::Excluded> {
+    exclusion.map(|e| history::Excluded {
+        sha256: e.sha256.clone(),
+        cards: u32::try_from(e.cards.len()).unwrap_or(u32::MAX),
+    })
+}
+
 /// Runs `deck …`.
 pub async fn run(
     args: &DeckArgs,
@@ -227,7 +250,8 @@ fn check_file(args: &CheckArgs) -> anyhow::Result<()> {
 fn lend_deck(args: &LendArgs) -> anyhow::Result<()> {
     let format = format_of(&args.at.format)?;
     let facts = load_facts(&args.at)?;
-    let checker = Checker::new(&facts);
+    let exclusion = load_exclusion(&args.at)?;
+    let checker = Checker::new(&facts).excluding(&exclusion.clone().unwrap_or_default().cards);
     let now = facts::now_utc();
     let pool = Pool::of(&checker, format, &now);
     let lent = lend::lend(&checker, &pool, format, args.seed, &now).map_err(anyhow::Error::msg)?;
@@ -236,6 +260,7 @@ fn lend_deck(args: &LendArgs) -> anyhow::Result<()> {
         name: lent.rows.name.clone(),
         how: "lend".into(),
         seed: Some(args.seed),
+        excluded: excluded(exclusion.as_ref()),
         generated: Some(lent.generated.clone()),
         note: format!(
             "Lent without a model: the deck generator's {} from the {} pool of {} cards.",
@@ -558,7 +583,8 @@ async fn model_deck(
 ) -> anyhow::Result<()> {
     let format = format_of(&args.at.format)?;
     let facts = load_facts(&args.at)?;
-    let checker = Checker::new(&facts);
+    let exclusion = load_exclusion(&args.at)?;
+    let checker = Checker::new(&facts).excluding(&exclusion.clone().unwrap_or_default().cards);
     let now = facts::now_utc();
     let pool = Pool::of(&checker, format, &now);
     anyhow::ensure!(
@@ -616,6 +642,7 @@ async fn model_deck(
         parent,
         removed: made.removed.clone(),
         added: made.added.clone(),
+        excluded: excluded(exclusion.as_ref()),
         note: made.note.clone(),
         spend: Some(Spend {
             rounds: made.rounds,
