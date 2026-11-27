@@ -48,8 +48,11 @@ jobs:
     runs-on: ${{ inputs.source-run != '' && 'ubuntu-24.04' || (matrix.mac && vars.MACOS_RUNNER == 'self-hosted' && (github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')) && fromJSON('["self-hosted","macOS","ARM64","baylee-vm"]') || matrix.os }}
     # A build's p95 ×1.5 (06.–08.10.2026, before the build was narrowed to the
     # three shipped binaries). A promotion verifies and copies in 2–3 minutes,
-    # so 15 is its bound, not a build's.
-    timeout-minutes: ${{ inputs.source-run != '' && 15 || matrix.timeout }}
+    # so 15 is its bound, not a build's. Those bounds are `package-check`'s: a
+    # release builds `dist` cold (no release writes a cache), which took the
+    # Windows arm row past its 60 minutes (0.2.0-beta.o1, 27.11.2026: 48 of
+    # them building), so a release has 300.
+    timeout-minutes: ${{ inputs.source-run != '' && 15 || inputs.release && 300 || matrix.timeout }}
     strategy:
       fail-fast: false
       matrix:
