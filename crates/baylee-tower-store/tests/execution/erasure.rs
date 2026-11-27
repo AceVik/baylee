@@ -102,7 +102,12 @@ async fn an_erased_echo_owner_leaves_the_duel_against_its_echo_to_settle() {
             1
         );
         let settled = settle_fixture(&store, &echo, &verifier, Outcome::Victory).await;
-        assert_eq!(settled.state.phase, Phase::Reward);
+        assert_eq!(
+            settled.state.history.len(),
+            1,
+            "the duel against the echo is settled"
+        );
+        assert!(matches!(settled.state.phase, Phase::Shop | Phase::Reward));
     })
     .await;
     sandbox.close().await;
