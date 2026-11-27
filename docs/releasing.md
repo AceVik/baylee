@@ -334,13 +334,23 @@ GitHub's own CodeQL workflow names its actions by tag and still runs.
 
 ### The macOS runner
 
-The two macOS package rows can build on the owner's MacBook (M1 Max, ten
+The three macOS package rows can build on the owner's MacBook (M1 Max, ten
 cores, 64 GB) instead of GitHub's three-core macOS image. While the
 repository variable `MACOS_RUNNER` is `self-hosted`, a **push to main** (or a
 dispatch, which only someone with write access can start) sends them to the
-label `baylee-vm`. Every other run, a `ci:full` pull request included, and
-the other macOS job (the nightly `build` row) stays on GitHub; with any
-other value, nothing differs from before.
+label `baylee-vm`; while `MACOS_RELEASE_RUNNER` is `self-hosted`, a **`v*`
+tag** does, which only an admin can push (the ruleset on `refs/tags/v*`).
+Every other run, a `ci:full` pull request included, and the other macOS job
+(the nightly `build` row) stays on GitHub; with any other value, nothing
+differs from before.
+
+Releases build there since 27.11.2026: a tag builds every row fresh in `dist`
+(§"The client's profile"), and on GitHub's image (three cores, 7 GB) that
+step took 3 h 50 min (x86_64), 4 h 02 (x86_64-v2) and 4 h 52 (aarch64, which
+then ran out of its 300 minutes while packing) for `0.2.2-beta.o1`, against
+33–78 minutes for the Linux and Windows rows. Main pushes build the quicker
+`package-check` and stay on GitHub (11–29 minutes a Mac row), so the switch
+for them is a variable of its own.
 
 Since 30.10.2026 the variable is `github` (owner): with GitHub Pro's larger
 cache the rows no longer start cold, and the runner's cargo lock had kept
@@ -364,8 +374,10 @@ Each job runs in a throwaway Tart VM (`crates/baylee-runner`):
   contributors** (set 22.10.2026). Approve a fork's run only after reading it,
   and never one that changes `.github/` unread. Since 29.10.2026 two more
   checks stand behind it: the runner counts only this repository's pushes
-  to main and its dispatches when it decides to start a VM, and every VM runs
-  a job-started hook that fails any other job before its first step.
+  to main, its dispatches and (since 27.11.2026) its `release.yml` runs of a
+  `v*` tag when it decides to start a VM, and every VM runs a job-started hook
+  that fails any other job before its first step (`push` of
+  `refs/tags/v*` is the one tag it admits).
 - **No secrets.** The package jobs hold only the read-only `github.token`, and
   release signing stays on GitHub's Ubuntu runner, so no key touches the Mac.
   The runner registers with a fine-grained token of its own (this repository;
@@ -401,14 +413,18 @@ Each job runs in a throwaway Tart VM (`crates/baylee-runner`):
   together both stayed offline for twelve minutes, while the second one,
   started once the first reached github.com, had the network in two seconds
   (measured 29.10.2026).
-- **Release trust.** The macOS archives a dry run promotes were built on that
-  Mac; a tag builds on GitHub's runner. `release verify-run` checks that they come from a main push run, not
-  where the run built them.
+- **Release trust.** The macOS archives a dry run promotes were built where
+  that main push built them; `release verify-run` checks that they come from
+  a main push run, not where the run built them. A tag's macOS archives are
+  built on that Mac while `MACOS_RELEASE_RUNNER` is `self-hosted`, in the same
+  throwaway VM from the image pinned by digest, and are signed afterwards on
+  GitHub's Ubuntu runner like every other row.
 
-When the Mac is away, `gh variable delete MACOS_RUNNER`. A job already queued
-for `baylee-vm` keeps waiting (up to 24 hours, and a push run is never
-cancelled), so cancel the run and re-run it: a re-run reads the variable anew.
-Back with `gh variable set MACOS_RUNNER --body self-hosted`.
+When the Mac is away, `gh variable delete MACOS_RUNNER` (and
+`MACOS_RELEASE_RUNNER` before a tag). A job already queued for `baylee-vm`
+keeps waiting (up to 24 hours, and a push run is never cancelled), so cancel
+the run and re-run it: a re-run reads the variable anew. Back with
+`gh variable set MACOS_RUNNER --body self-hosted`.
 
 Setting it up, once: `brew trust --formula openai/tools/softnet && brew install
 openai/tools/tart`; Softnet's SUID bit (`sudo chown root:wheel` and `chmod
