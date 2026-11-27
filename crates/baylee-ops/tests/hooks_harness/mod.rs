@@ -229,7 +229,8 @@ exit 0"#,
         stub(
             stubs,
             "systemctl",
-            r#"[ "$1 $2" = "cat baylee-feedback" ] && exit 1; exit 0"#,
+            r#"[ "$1 $2" = "cat baylee-tower" ] && { [ -e "$CTL/tower" ] && exit 0; exit 1; }
+[ "$1 $2" = "cat baylee-feedback" ] && exit 1; exit 0"#,
         );
         stub(
             stubs,
@@ -238,6 +239,9 @@ exit 0"#,
                 r#"{NEXT}
 url=${{!#}}
 case "$url" in
+    */tower-health)
+        [ -e "$CTL/tower" ] && echo ready
+        ;;
     */health)
         mode=$(next admission honours)
         [ "$mode" = down ] && exit 7
@@ -324,6 +328,21 @@ exec "$@""#,
         std::fs::set_permissions(dir.join(name), std::fs::Permissions::from_mode(0o755)).unwrap();
     }
 
+    /// Makes this a server with the Tower authority (`deploy/tower.rs`): its
+    /// unit, its root-only documents, the release's Tower binaries, and a
+    /// `/health` that answers `ready`.
+    pub fn with_tower(&self) {
+        std::fs::write(self.ctl.join("tower"), b"").unwrap();
+        let documents = self.root.join("tower/etc");
+        std::fs::create_dir_all(&documents).unwrap();
+        for name in ["service.json", "migrate.json", "grants.json"] {
+            std::fs::write(documents.join(name), b"{}").unwrap();
+        }
+        for binary in ["baylee-tower-service", "baylee-tower-provision"] {
+            std::fs::write(self.root.join("src/target/release").join(binary), b"").unwrap();
+        }
+    }
+
     /// Sets a `ctl` answer (several lines: one per question, the last kept).
     pub fn set(&self, name: &str, value: &str) {
         std::fs::write(self.ctl.join(name), format!("{value}\n")).unwrap();
@@ -372,6 +391,10 @@ exec "$@""#,
             )
             .env("BAYLEE_DEPLOY_TRUSTED_UID", rustix_free_euid().to_string())
             .env("BAYLEE_DEPLOY_INFO_TRIES", "2")
+            .env(
+                "BAYLEE_DEPLOY_TOWER_HEALTH",
+                "http://127.0.0.1:9/tower-health",
+            )
             .env("CARGO", self.stubs.join("cargo"))
             .env("RUSTC", self.stubs.join("rustc"))
             .env("NPM", self.scratch.join("no-such-npm"))
