@@ -68,7 +68,7 @@ install -o root -g root -m 0755 ./10-example /etc/baylee/deploy-hooks.d/10-examp
 | phase | when | what is guaranteed |
 | --- | --- | --- |
 | `prepare` | the target is resolved to its full commit and built; nothing has been staged, stopped or installed | the old system runs untouched and keeps admitting games |
-| `before-switch` | admission is held, the agent is stopped, and **no game is running on any agent** (unless the deploy was forced) | the old gateway still runs; the new seat bridge, gateway and browser client are not installed yet |
+| `before-switch` | admission is held, the agent is stopped, and **no game is running on any agent** (unless the deploy was forced); a deploy that keeps games (§"Keeping games across a deploy") has stopped the gateway too, with every running game stored | the old gateway still runs (keeping games: is stopped, and starts again if the hook stops the deploy); the new seat bridge, gateway and browser client are not installed yet |
 | `after-switch` | the new gateway answers `/info` with the target commit and `dirty: false` | admission is still held; the agent and the seat agents have not started; nothing is recorded as deployed |
 
 After `after-switch` passes, the hold comes down, the agent starts, every
@@ -159,6 +159,52 @@ Replay jobs (`docs/protocol.md` §"Replays") are no games: the drain does not
 wait for them, so a deploy that replaces the engine binary can end a
 projection in flight, and that request is answered `502` (a client retries
 once). The hold refuses new jobs as it refuses new games (`503`).
+
+## Keeping games across a deploy
+
+Off unless set (`crates/baylee-ops/src/deploy/keep.rs`,
+`docs/proposals/games-survive-restarts.md`). A gateway that stops stores every
+running game's record and keeps the game in its database, and started again
+resumes each on the engine build that began it. With `BAYLEE_DEPLOY_KEEP_GAMES=1`
+in `/etc/baylee/deploy.env`, and an agent unit that reads
+`/etc/baylee/agent-engines.env` (`EnvironmentFile=-/etc/baylee/agent-engines.env`;
+the deploy asks `systemctl show baylee-agent` and keeps no game without it), a
+deploy does not wait for running games while every one is kept:
+
+- **When.** `/health` counts every running game, on any agent, as kept
+  (`games.kept` equals `games.running`), none with a seat bridge
+  (`games.bridged`, since bridges are replaced with the release and speak its
+  protocol), each on the deployed build or one still kept in
+  `/opt/baylee/engines/<rev>/`, each an ancestor of the release (a rollback
+  keeps nothing: the older agent would refuse a newer engine and start none),
+  and the current build and the kept ones fit the agent's sixteen engines.
+  Otherwise it waits as before and says why. Waiting
+  rooms are not kept: they hold the deploy as before, for at most
+  `BAYLEE_DEPLOY_ROOM_GRACE` minutes.
+- **Order.** It copies the engines now installed to
+  `/opt/baylee/engines/<deployed rev>/` when a game plays on them (the two
+  standard ones: a Tower run is never kept, and an older Tower build beside
+  the current one could be given a new run), checks the stage, stops the
+  gateway first (so the games are stored before the agent's engines go), then
+  the agent, installs the release, writes `agent-engines.env`
+  (`BAYLEE_ENGINE_BINS`: this release's two siblings of `baylee-engine-server`
+  and every kept build's two), starts the gateway, which restores the
+  games, and the agent, which resumes them. Once the switch passed it removes
+  every kept build no game plays on.
+- **With hooks.** `before-switch` runs with the gateway and the agent stopped
+  and the games stored, before anything is installed. A hook that stops the
+  deploy (or answers `75`) has the old gateway and agent start again, and the
+  games go on where they were; so does a failure while the agent is
+  replaced. The release then waits for its games as without keeping, so the
+  gateway is not stopped again every minute. After the switch nothing goes back: an
+  `after-switch` that fails leaves the agent off as always, and the kept games
+  wait for it `RESTORE_WAIT_SECS` (5 minutes) and then end. The wait is longer
+  than `after-switch` may take, so a deploy that goes through starts the agent
+  in time.
+- **`baylee-reboot`** reads the same setting: while every running game is
+  kept it does not wait for them, and stops the gateway before it reboots.
+- `--force` keeps nothing it would not have kept: it ends what is running,
+  as before.
 
 ## Retries and recovery
 

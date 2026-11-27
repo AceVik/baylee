@@ -17,9 +17,11 @@ use std::io::Read as _;
 
 /// How long a restored game waits for its engine to attach, in seconds:
 /// longer than the agent waits between dials (30 s), and an engine's start,
-/// several times over. A game still without an engine then ends, as every
-/// game did at a restart before games were kept.
-pub(crate) const RESTORE_WAIT_SECS: u64 = 180;
+/// several times over, and longer than a deploy that keeps games takes from
+/// starting the gateway to starting the agent (its `after-switch` hooks have
+/// 120 s, `docs/deploy-hooks.md`). A game still without an engine then ends,
+/// as every game did at a restart before games were kept.
+pub(crate) const RESTORE_WAIT_SECS: u64 = 300;
 
 /// The most a record's header may unpack to: a preset of four seats' decks
 /// and printings is far less.

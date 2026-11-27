@@ -13,6 +13,11 @@
 //! The reboot follows only after a fresh held-admission health response counts
 //! no local game. Closing the window removes only this command's own hold.
 //!
+//! With `BAYLEE_DEPLOY_KEEP_GAMES=1` in `deploy.env`, running games do not
+//! hold the reboot while every one is kept (`all_kept`): the gateway is
+//! stopped first, so it stores them before the agent's engines go, and
+//! resumes them after the reboot. Waiting rooms still hold it as before.
+//!
 //! A backup run (the separate `baylee-backup` service) holds
 //! `/run/baylee-backup/run.lock` while it dumps, uploads, prunes or restores.
 //! The reboot waits for it as it waits for a deploy, before it claims an
@@ -72,7 +77,8 @@ pub fn main(_args: &[String]) -> i32 {
         sh::log(TAG, "gateway health unavailable; owner agent left running");
         return 0;
     }
-    let quiet = running == Some(0) && waiting == Some(0);
+    let kept = || all_kept(&etc, &deploy_lock);
+    let quiet = (running == Some(0) || kept()) && waiting == Some(0);
     if !(drained.exists() || quiet) && age_days < drain_days {
         return 0;
     }
@@ -118,13 +124,14 @@ pub fn main(_args: &[String]) -> i32 {
         );
         return 0;
     }
-    if !draining && (running != Some(0) || waiting != Some(0)) {
+    let keeping = running != Some(0) && kept();
+    if !draining && ((running != Some(0) && !keeping) || waiting != Some(0)) {
         undrain(Some(&admission), &drained);
         return 0;
     }
-    if running == Some(0) && (waiting == Some(0) || draining) {
+    if (running == Some(0) || keeping) && (waiting == Some(0) || draining) {
         let _ = std::fs::remove_file(&drained);
-        reboot(&run);
+        reboot(&run, keeping);
         return 0;
     }
     sh::log(
@@ -138,7 +145,16 @@ pub fn main(_args: &[String]) -> i32 {
     0
 }
 
-fn reboot(run: &Path) {
+/// Reboots; `keeping` running games, stops the gateway first, before
+/// systemd stops the agent whose engines hold them.
+fn reboot(run: &Path, keeping: bool) {
+    if keeping {
+        sh::log(
+            TAG,
+            "stopping the gateway first: it keeps the running games",
+        );
+        sh::ok(Command::new("systemctl").args(["stop", "baylee-gateway"]));
+    }
     let packages = std::fs::read_to_string(run.join("reboot-required.pkgs")).map_or_else(
         |_| "updates".to_owned(),
         |t| t.lines().collect::<Vec<_>>().join(" ") + " ",
@@ -201,6 +217,32 @@ fn age_secs(path: &Path) -> u64 {
         .ok()
         .and_then(|m| m.elapsed().ok())
         .map_or(0, |d| d.as_secs())
+}
+
+/// Whether every running game is kept across a restart and comes back after
+/// the reboot: the setting is on, none has a seat bridge, and each plays on
+/// the deployed build or on an older one the agent's list names
+/// (`deploy/keep.rs`). A gateway that does not say is not taken for one that
+/// keeps everything.
+fn all_kept(etc: &Path, deploy_lock: &Path) -> bool {
+    if settings::last(&[&etc.join("deploy.env")], "BAYLEE_DEPLOY_KEEP_GAMES").as_deref()
+        != Some("1")
+    {
+        return false;
+    }
+    let Some(games) = gateway::fetch("health", 5).and_then(|body| gateway::kept(&body)) else {
+        return false;
+    };
+    let deployed = deploy_lock
+        .parent()
+        .and_then(|state| std::fs::read_to_string(state.join("deployed")).ok())
+        .unwrap_or_default();
+    let listed = std::fs::read_to_string(etc.join("agent-engines.env")).unwrap_or_default();
+    games.kept == games.running
+        && games.bridged == 0
+        && games.revisions.iter().all(|revision| {
+            revision == deployed.trim() || listed.contains(&format!("/{revision}/"))
+        })
 }
 
 /// The `/health` count that names this machine's games: the local one where

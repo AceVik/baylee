@@ -65,6 +65,7 @@ use std::{
 };
 
 mod engine;
+mod keep;
 mod maintenance;
 
 const TAG: &str = "baylee-deploy";
@@ -102,6 +103,13 @@ struct Paths {
     /// Build-time settings for the clients built here (`/etc/baylee/deploy.env`,
     /// e.g. `BAYLEE_FEEDBACK_PUBLIC_URL`; no secrets).
     build_env: Vec<(String, String)>,
+    /// Whether a deploy keeps the running games instead of waiting for them
+    /// (`BAYLEE_DEPLOY_KEEP_GAMES=1` in `deploy.env`; `keep.rs`). Off unless set.
+    keep_games: bool,
+    /// Where the engine builds kept for running games are (`engines/<rev>/`).
+    engines: PathBuf,
+    /// The agent's list of them (`BAYLEE_ENGINE_BINS`), which its unit reads.
+    agent_engines_env: PathBuf,
 }
 
 impl Paths {
@@ -120,6 +128,12 @@ impl Paths {
             PathBuf::from("/etc/sudoers.d/baylee-deploy-hooks"),
         );
         let (mut trusted_uid, mut info_tries) = (0, 20);
+        let keep_games = var("BAYLEE_DEPLOY_KEEP_GAMES")
+            .or_else(|| {
+                crate::settings::last(&[&etc.join("deploy.env")], "BAYLEE_DEPLOY_KEEP_GAMES")
+            })
+            .is_some_and(|value| value == "1");
+        let agent_engines_env = etc.join("agent-engines.env");
         if testing {
             // Only for the deploy tests, which run in a scratch tree as
             // whoever runs them; the dispatcher's own checks have no switch.
@@ -154,6 +168,9 @@ impl Paths {
             trunk: tool("TRUNK", ".cargo/bin/trunk"),
             rustup: tool("RUSTUP", ".cargo/bin/rustup"),
             build_env: crate::settings::read(Path::new("/etc/baylee/deploy.env")),
+            keep_games,
+            engines: root.join("engines"),
+            agent_engines_env,
         }
     }
 
@@ -765,6 +782,9 @@ impl Deploy {
         let (running, waiting) = health
             .as_ref()
             .map_or((None, None), |h| (Some(h.0), Some(h.1)));
+        // Kept across the switch instead of waited for (`keep.rs`).
+        let keeps = !force && self.keeps_games();
+        let keeping = if keeps { self.keeping(&rev) } else { None };
         if !force {
             match &health {
                 Some((_, _, admission)) if admission == "held" => {}
@@ -783,8 +803,9 @@ impl Deploy {
                 }
             }
             // Every game, on any agent: a hook may stop what a remote
-            // engine's game or a local seat's bridge needs.
-            if running != Some(0) {
+            // engine's game or a local seat's bridge needs. Kept games are
+            // stored when the gateway stops, before the hook runs.
+            if running != Some(0) && keeping.is_none() {
                 say(&format!(
                     "waiting for {}: {} game(s) running, {} waiting",
                     short(&rev),
@@ -805,8 +826,25 @@ impl Deploy {
             }
         }
 
-        self.install_agent(&rev)?;
-        match self.run_hooks("before-switch", &rev) {
+        // Keeping games, the gateway stops first and stores them, then the
+        // agent; nothing is installed until the hook passed, so a hook that
+        // stops the deploy has the old gateway and agent start again and
+        // resume the games.
+        if let Some(revisions) = &keeping {
+            self.owner_staged()?;
+            self.before_keeping(revisions, &rev)?;
+            if let Err(stop) = must(&mut self.sudo(&["systemctl", "stop", "baylee-agent"])) {
+                self.resume_where_it_was();
+                return Err(stop);
+            }
+        } else {
+            self.install_agent(&rev)?;
+        }
+        let before = self.run_hooks("before-switch", &rev);
+        if before != 0 && keeping.is_some() {
+            self.resume_where_it_was();
+        }
+        match before {
             0 => {}
             75 => return Ok(()),
             _ => {
@@ -820,6 +858,22 @@ impl Deploy {
                 ));
             }
         }
+        let replaced = if keeping.is_some() {
+            self.install_agent(&rev)
+        } else {
+            Ok(())
+        }
+        .and_then(|()| {
+            if keeps {
+                self.name_engines(keeping.as_deref().unwrap_or_default(), &rev)
+            } else {
+                Ok(())
+            }
+        });
+        if replaced.is_err() && keeping.is_some() {
+            self.resume_where_it_was();
+        }
+        replaced?;
         txn.phase = "switching".into();
         self.txn_save(&txn)?;
         // The bridge a seat agent starts has to speak the new gateway's
@@ -866,6 +920,9 @@ impl Deploy {
             .stderr(std::process::Stdio::null())
             .status();
         self.install_dispatcher()?;
+        if keeps {
+            self.prune_engines(keeping.as_deref().unwrap_or_default());
+        }
         self.deployed(&rev)?;
         let _ = fs::remove_file(&self.p.txn);
         say(&format!(
@@ -1294,8 +1351,11 @@ impl Deploy {
         let games = self.open_games();
         let since: u64 = read_trim(&self.p.staged("since")).parse().unwrap_or(0);
         let (running, waiting) = (games.map(|g| g.0), games.map(|g| g.1));
+        // Kept across the switch instead of waited for (`keep.rs`).
+        let keeps = !force && self.keeps_games();
+        let keeping = if keeps { self.keeping(&rev) } else { None };
         if !force {
-            if running != Some(0) {
+            if running != Some(0) && keeping.is_none() {
                 say(&format!(
                     "waiting for {}: {} game(s) running here, {} waiting",
                     short(&rev),
@@ -1315,7 +1375,23 @@ impl Deploy {
                 return Ok(());
             }
         }
-        self.install_agent(&rev)?;
+        if let Some(revisions) = &keeping {
+            self.owner_staged()?;
+            self.before_keeping(revisions, &rev)?;
+        }
+        // Kept games: what goes wrong before the new gateway is installed has
+        // the old gateway and agent start again, and the games go on.
+        let replaced = self.install_agent(&rev).and_then(|()| {
+            if keeps {
+                self.name_engines(keeping.as_deref().unwrap_or_default(), &rev)
+            } else {
+                Ok(())
+            }
+        });
+        if replaced.is_err() && keeping.is_some() {
+            self.resume_where_it_was();
+        }
+        replaced?;
         self.install_staged(&["baylee-gateway", "baylee-catalog"])?;
         self.play_install()?;
         must(&mut self.sudo(&["systemctl", "restart", "baylee-gateway"]))?;
@@ -1336,6 +1412,9 @@ impl Deploy {
         self.forget_transaction()?;
         if !hold.is_empty() {
             self.lift_hold(&hold)?;
+        }
+        if keeps {
+            self.prune_engines(keeping.as_deref().unwrap_or_default());
         }
         self.deployed(&rev)?;
         say(&format!(

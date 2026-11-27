@@ -384,6 +384,18 @@ async fn a_game_that_ends_is_let_go() {
     let (game, _, mut ws, _) = a_game(gw.port, &token).await;
     kept_soon(&gw, &game).await;
     assert!(probe.hash.borrow().is_some());
+    let health = |gw: &Gateway| -> serde_json::Value {
+        let (status, body) = http(gw.port, "GET", "/health", None, "");
+        assert_eq!(status, 200, "{body}");
+        serde_json::from_str(&body).unwrap()
+    };
+    let games = &health(&gw)["games"];
+    assert_eq!(games["kept"], 1, "a restart brings it back: {games}");
+    assert_eq!(
+        games["engine_revisions"],
+        serde_json::json!([baylee_build::COMMIT]),
+        "and it plays on this build: {games}"
+    );
     say(&mut ws, &PlayerAction::Concede).await;
     for _ in 0..common::WAIT_TRIES {
         if kept(&gw, &game) == 0 {
@@ -392,6 +404,7 @@ async fn a_game_that_ends_is_let_go() {
         tokio::time::sleep(common::WAIT_STEP).await;
     }
     assert_eq!(kept(&gw, &game), 0, "a game that ended is let go");
+    assert_eq!(health(&gw)["games"]["kept"], 0);
     assert_eq!(
         gw.scalar("SELECT count(*) FROM running_game"),
         0,

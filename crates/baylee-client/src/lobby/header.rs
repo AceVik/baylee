@@ -1678,6 +1678,30 @@ pub(super) fn keep_the_bearer(
 /// How often a Central session asks for a later gateway token, in seconds.
 const REFRESH_EVERY: f32 = 600.0;
 
+/// Renews the bearer at once when the table refuses this seat's ticket
+/// (`401`, `DuelHost::ticket_refusals`). A gateway that restarted under a
+/// game holds the game and its chairs again, but not the sessions, and a
+/// chair bound to a Central session opens only once its session is back
+/// (`docs/proposals/games-survive-restarts.md`): the renewal finds the
+/// session gone and signs in again with a later gateway token
+/// (`central::refresh_gateway`), so the seat's next dial is let in, rather
+/// than one at the renewal's own time, a minute or two on. A refusal that
+/// is the chair's own (taken back on another device) costs a renewal per
+/// dial, which the reconnect schedule spaces. A local or guest session is in
+/// the gateway's database and comes back by itself; its chair is bound to no
+/// session, so nothing is renewed for it.
+pub(super) fn renew_when_a_seat_is_refused(
+    host: Option<Res<crate::InstalledHost>>,
+    mut state: ResMut<LobbyState>,
+    mut seen: Local<u32>,
+) {
+    let refused = host.map_or(0, |host| host.0.ticket_refusals());
+    if refused > *seen && state.lobby.token().is_some() && state.lobby.central_bound() {
+        state.bypass_change_detection().lobby.renew_the_bearer_now();
+    }
+    *seen = refused;
+}
+
 /// Rings the bell for what changed at the player's waiting table between
 /// two listings.
 pub(super) fn ring_the_bell(
@@ -2282,6 +2306,7 @@ pub(super) fn install(app: &mut App) {
             (
                 bearer_news_at_a_table.run_if(not(in_state(DuelPhase::Closed))),
                 keep_the_bearer,
+                renew_when_a_seat_is_refused.run_if(not(in_state(DuelPhase::Closed))),
             )
                 .chain(),
         )

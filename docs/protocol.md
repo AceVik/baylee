@@ -399,13 +399,21 @@ secret back in under another spelling.
   "catalog": { "state": "ready", "cards": true, "projection": true },
   "agents": { "connected": 1, "games": 2 },
   "admission": "open",
-  "games": { "players_online": 3, "running": 2, "local_running": 2, "waiting": 0, "seats_awaiting_engine": 0 },
+  "games": { "players_online": 3, "running": 2, "local_running": 2, "kept": 2, "bridged": 0, "engine_revisions": ["257eed7a28df650934f50d4ff2557933d25ad713"], "waiting": 0, "seats_awaiting_engine": 0 },
   "version": "0.1.0+build.1057 (257eed7a28)",
   "commit": "257eed7a28df650934f50d4ff2557933d25ad713",
   "built_at": "2026-09-19T15:58:27Z",
   "dirty": false
 }
 ```
+
+`games.kept` counts the running games a restart of the gateway brings back
+(`keep::resumable`: kept in its database, their engine attached or awaited),
+`games.bridged` those with a chair a seat bridge or a hosted model sits
+in, and `games.engine_revisions` names the source revisions of the engine builds
+the running games play on, sorted: a deploy that keeps games
+(`docs/deploy-hooks.md`) goes on while every running game is kept and none
+is bridged, and keeps those builds installed.
 
 **The status code carries exactly one question: the database.** `200` when
 `ping` succeeds, `503` when it does not, and nothing else moves it.
@@ -2661,7 +2669,7 @@ hold stands, and its `GameSetup` carries the stored record whole
 plays it again on its own build only (another build ends the game with
 `the stored record does not resume on this engine`), checks every hash,
 opens the table without a curtain with every seat away, and goes on at
-piece `resume_pieces`. An engine that has not attached three minutes after
+piece `resume_pieces`. An engine that has not attached five minutes after
 the start ends its game (`keep::RESTORE_WAIT_SECS`). The attached engine's
 link takes messages up to 72 MiB, room for the largest record the gateway
 stores. A seat comes back as after a lost connection, with its token and a
