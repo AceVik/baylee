@@ -226,11 +226,20 @@ fn a_model_account_flies_its_chain_and_refuses_one_that_crosses_models() {
         );
         assert!(refused.contains(why), "{profile}: {refused}");
     }
-    // A path whose key is nowhere cannot be reached: refused before any
-    // offer.
-    let why =
-        LlmPilot::new(&setup(&dir, "sonnet-low"), Arc::new(MemoryKeys::default())).unwrap_err();
-    assert!(format!("{why:#}").contains("sonnet-api"), "{why:#}");
+    // A path whose key is not kept yet cannot be reached: the account still
+    // starts, that path held back as a failing check is, and retried.
+    let pilot = LlmPilot::new(&setup(&dir, "sonnet-low"), Arc::new(MemoryKeys::default())).unwrap();
+    let live: Vec<&str> = pilot
+        .live(Instant::now())
+        .iter()
+        .map(|p| p.profile.as_str())
+        .collect();
+    assert_eq!(live, ["sonnet-low", "sonnet-agy"]);
+    assert_eq!(pilot.ready(), Ok(()));
+    assert!(pilot.held.lock().unwrap().contains_key("sonnet-api"));
+    // With no path reachable at all, it starts and offers nothing.
+    let pilot = LlmPilot::new(&setup(&dir, "sonnet-api"), Arc::new(MemoryKeys::default())).unwrap();
+    assert!(pilot.ready().is_err());
 }
 
 /// `DeepSeek`'s efforts this build does not know: it plays at its Standard,

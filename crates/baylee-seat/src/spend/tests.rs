@@ -291,3 +291,54 @@ fn a_settle_that_cannot_write_says_so_and_the_reservation_stays() {
     std::mem::forget(booked);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// A game with no budget of its own reserves nothing where no cap holds its
+/// unit: a killed one leaves nothing counted as spent, a played one settles
+/// with what it spent, and the book never holds a budget nobody set. Under a
+/// cap it is reserved as any game is.
+#[test]
+fn an_unbudgeted_game_is_counted_and_never_reserved_where_no_cap_holds() {
+    let dir = scratch("unbudgeted");
+    let book = Book::new(dir.join("llm-spend.json"));
+    let lifted = || {
+        let mut settings = Settings::new(&Spec::parse("anthropic").unwrap().unwrap());
+        settings.budget(None, Some(1_000_000.0), None).unwrap();
+        settings
+    };
+    // Killed: nothing counted, not a lifted budget.
+    std::mem::forget(
+        reserve_or_count(&book, &Caps::default(), &mut lifted(), None, NOW, true).unwrap(),
+    );
+    let ledger = read(&book);
+    assert_eq!(ledger.games[0].reserved_usd, Some(0.0));
+    assert!(ledger.on_day("2026-09-30").usd.abs() < 1e-9);
+    // Played: settles with what it spent, above what it reserved.
+    let mut settings = lifted();
+    let mut booked =
+        reserve_or_count(&book, &Caps::default(), &mut settings, None, NOW, true).unwrap();
+    assert!(
+        booked.sat_down().starts_with("nothing reserved"),
+        "{}",
+        booked.sat_down()
+    );
+    assert!(!settings.hard_limit, "no budget held against the game");
+    booked.watch(Arc::new(Mutex::new(Tally {
+        usd: Some(0.42),
+        ..Tally::default()
+    })));
+    drop(booked);
+    let ledger = read(&book);
+    assert!((ledger.games[1].spent_usd.unwrap() - 0.42).abs() < 1e-6);
+    assert!((ledger.on_day("2026-09-30").usd - 0.42).abs() < 1e-6);
+    // Under a day's cap the game reserves what is left of it.
+    let caps = Caps {
+        day_usd: Some(3.0),
+        ..Caps::default()
+    };
+    let mut settings = lifted();
+    let capped = reserve_or_count(&book, &caps, &mut settings, None, NOW, true).unwrap();
+    assert!(settings.hard_limit);
+    assert!(matches!(capped.grant().budget, Budget::Usd(usd) if (usd - 2.58).abs() < 1e-6));
+    drop(capped);
+    let _ = std::fs::remove_dir_all(&dir);
+}

@@ -1572,22 +1572,31 @@ the other.
   - Before a game the pilot is ready while a path is not held back; with
     every path held back the account makes no offer. A path that was rate
     limited sits out new games until its limit lifts (as the provider
-    said, else 30 minutes), one that failed for 10 minutes, one that
-    cannot be reached (its key or program gone) likewise. A game starts
-    on the first path not held back, the others standing by in order.
+    said, else 30 minutes); one that failed, or whose free check (a
+    model's entry, a CLI's login) fails before a game, for 10 minutes,
+    doubled with each failure in a row up to 4 hours; one that cannot be
+    reached (its key not kept yet, its program gone) likewise, from the
+    start: the account starts whatever paths it can reach, and refuses to
+    start only for a chain that is wrong (crossing models or efforts, a
+    model or effort not named). A game starts on the first path not held
+    back, the others standing by in order.
   - Mid-game the bridge hands the question down the chain at once on a
     limit or a failure (§"A fallback profile"), each path declaring its
     model to the table before its first answer, and past the last path
     the declared house (`--fallback-level`) plays the rest of the game
     (`ranked::chain::house_at_the_end`), so a ranked seat never leaves its
     table because its model is gone, and the record says what played.
-  - Each path's game is reserved in the spend book (`--ledger`, default
-    `<state>/llm-spend.json`) as `join` reserves one, and settles at the
-    game's end. By the owner's decision of 27.11.2026 nothing is capped:
-    the file's day and month caps stay the mechanism and are absent unless
+  - Each path's game is in the spend book (`--ledger`, default
+    `<state>/llm-spend.json`) and settles at the game's end with what it
+    spent. By the owner's decision of 27.11.2026 nothing is capped: the
+    file's day and month caps stay the mechanism and are absent unless
     written, and a profile that names no `game_usd`, `game_tokens` or
-    `game_calls` plays without one (`ranked_llm::UNLIMITED_*`), not with
-    the bridge's defaults of $5 and 500 CLI calls.
+    `game_calls` plays without one, not with the bridge's defaults of $5
+    and 500 CLI calls. Such a game is counted and never reserved where no
+    cap holds its unit (`spend::reserve_or_count`: its entry reserves
+    nothing, so a game killed outright leaves no budget it never had in
+    the book); under a cap it reserves what is left of the cap, as any
+    game does.
   - A second subscription of the same CLI needs that path to sign in as
     another account; a profile has no field for a CLI's own config
     directory yet, so today the second path is another program (its
