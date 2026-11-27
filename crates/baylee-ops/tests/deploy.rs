@@ -1021,7 +1021,15 @@ fn a_tower_here_is_built_and_switched_right_after_the_gateway() {
 #[test]
 fn without_a_tower_unit_nothing_of_it_is_built_or_touched() {
     let (_, ran, _) = stage_on(Server::with_trunk(Trunk::Absent, false));
-    assert!(!ran.contains("baylee-tower"), "{ran}");
+    // Only the question whether its unit is there.
+    for touched in [
+        "-p baylee-tower",
+        "baylee-tower-service.next",
+        "stop baylee-tower",
+        "start baylee-tower",
+    ] {
+        assert!(!ran.contains(touched), "{touched}: {ran}");
+    }
 }
 
 /// A Tower that cannot switch says why and leaves the deploy to go on: the
