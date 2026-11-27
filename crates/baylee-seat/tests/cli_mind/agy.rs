@@ -137,3 +137,49 @@ async fn a_running_count_of_usage_is_booked_by_its_differences_per_process() {
         "the new process's first reading is its own call, whole"
     );
 }
+
+/// agy's login check is its read-only `/quota` (no model call): signed out
+/// is not ready, signed in is, and the check is what was run.
+#[tokio::test]
+async fn agy_is_ready_exactly_while_its_quota_check_passes() {
+    let rig = Rig::new(
+        "agy-quota",
+        json!({"provider": "cli", "model": "agy", "command": fake()}),
+        &json!({"logged_in": false}),
+    );
+    let mind = rig.mind(Limits::default());
+    assert!(mind.check().await.is_err(), "signed out");
+    rig.script(&json!({"logged_in": true}));
+    assert_eq!(mind.check().await, Ok(()));
+    let probe = rig.starts().last().unwrap()["argv"].clone();
+    assert_eq!(
+        probe,
+        json!([fake(), "-p", "/quota", "--output-format", "json"])
+    );
+}
+
+/// agy 1.5.18 offers every agent `manage_task` whatever its `tools` say:
+/// a step that uses it takes the mind off the table, as any tool but
+/// `finish` does, and no answer of that reply is taken.
+#[tokio::test]
+async fn agy_manage_task_takes_the_mind_off_the_table() {
+    let base = a_priority().await;
+    let mut tool = pass(1, "");
+    tool["kind"] = json!("tool");
+    tool["tool"] = json!("manage_task");
+    let rig = Rig::new(
+        "agy-manage-task",
+        json!({"provider": "cli", "model": "agy", "command": fake()}),
+        &json!({"steps": [tool]}),
+    );
+    let mind = rig.mind(Limits::default());
+    let error = mind
+        .decide(ask(&base, 1, base.view.turn, 20))
+        .await
+        .unwrap_err();
+    assert!(
+        matches!(&error, MindError::Unavailable(why) if why.contains("manage_task")),
+        "{error:?}"
+    );
+    assert!(!mind.ready().await);
+}
