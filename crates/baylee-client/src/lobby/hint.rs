@@ -12,6 +12,15 @@ use super::*;
 #[derive(Component, Clone, PartialEq, Eq)]
 pub(crate) struct HoverHint(pub(crate) String);
 
+/// A mark whose hint was dismissed by pressing it; it stays quiet until the
+/// pointer leaves that mark (or its in-place rebuild replacement).
+#[derive(Clone, PartialEq, Eq)]
+struct Dismissed {
+    entity: Entity,
+    text: String,
+    seen_in_hover_map: bool,
+}
+
 /// The mark the pointer or keyboard focus is over, and where the pointer was.
 #[derive(Resource, Default)]
 pub(super) struct Hinted {
@@ -20,6 +29,7 @@ pub(super) struct Hinted {
     at: Vec2,
     by_focus: bool,
     by_hover_map: bool,
+    dismissed: Option<Dismissed>,
     /// Bumped whenever either changes, so the panel knows to redraw.
     epoch: u64,
 }
@@ -47,8 +57,12 @@ const HINT_WIDTH: f32 = 300.0;
     clippy::type_complexity
 )]
 pub(super) fn hint_hovers(
-    mut overs: MessageReader<PointerOver>,
-    mut outs: MessageReader<PointerOut>,
+    (mut overs, mut outs, presses, clicks): (
+        MessageReader<PointerOver>,
+        MessageReader<PointerOut>,
+        Option<MessageReader<bevy::picking::events::PointerPress>>,
+        Option<MessageReader<bevy::picking::events::PointerClick>>,
+    ),
     hints: Query<(&HoverHint, Has<crate::hud::Hint>)>,
     disabled: Query<(), With<crate::shellkit::controls::Disabled>>,
     parents: Query<&ChildOf>,
@@ -69,15 +83,23 @@ pub(super) fn hint_hovers(
     if in_duel && !over_table && !report_open {
         overs.clear();
         outs.clear();
+        if let Some(mut presses) = presses {
+            presses.clear();
+        }
+        if let Some(mut clicks) = clicks {
+            clicks.clear();
+        }
         if hinted.text.is_some()
             || hinted.source.is_some()
             || hinted.by_focus
             || hinted.by_hover_map
+            || hinted.dismissed.is_some()
         {
             hinted.text = None;
             hinted.source = None;
             hinted.by_focus = false;
             hinted.by_hover_map = false;
+            hinted.dismissed = None;
             hinted.epoch = hinted.epoch.wrapping_add(1);
         }
         return;
@@ -88,6 +110,7 @@ pub(super) fn hint_hovers(
     let mut at = hinted.at;
     let mut by_focus = hinted.by_focus;
     let mut by_hover_map = hinted.by_hover_map;
+    let mut dismissed = hinted.dismissed.clone();
     // A rebuild takes the mark away under a still pointer, and no `Out`
     // says so.
     if source.is_some_and(|entity| {
@@ -108,31 +131,6 @@ pub(super) fn hint_hovers(
         source = None;
         by_focus = false;
     }
-    for out in outs.read() {
-        if lineage(out.entity, &hints, &parents, in_duel).is_some_and(|e| Some(e) == source) {
-            text = None;
-            source = None;
-            by_focus = false;
-            by_hover_map = false;
-        }
-    }
-    for over in overs.read() {
-        if let Some(entity) = lineage(over.entity, &hints, &parents, in_duel)
-            && let Ok((hint, _)) = hints.get(entity)
-        {
-            let trimmed = hint.0.trim();
-            if trimmed.is_empty() {
-                text = None;
-                source = None;
-            } else {
-                source = Some(entity);
-                text = Some(trimmed.to_owned());
-                at = over.pointer.position;
-            }
-            by_focus = false;
-            by_hover_map = false;
-        }
-    }
     let hover_map_entity = hovers.as_deref().and_then(|map| {
         map.values()
             .flat_map(|m| m.iter())
@@ -140,6 +138,112 @@ pub(super) fn hint_hovers(
             .min_by(|a, b| a.1.total_cmp(&b.1))
             .map(|(h, _)| h)
     });
+    let out_entities: Vec<Entity> = outs
+        .read()
+        .filter_map(|out| lineage(out.entity, &hints, &parents, in_duel))
+        .collect();
+    let over_events: Vec<(Entity, Vec2)> = overs
+        .read()
+        .filter_map(|over| {
+            lineage(over.entity, &hints, &parents, in_duel)
+                .map(|entity| (entity, over.pointer.position))
+        })
+        .collect();
+
+    if let Some(d) = dismissed.as_mut() {
+        let alive = hints
+            .get(d.entity)
+            .is_ok_and(|(_, has_hud_hint)| !(in_duel && has_hud_hint));
+        if !alive {
+            // Pressing a control that rebuilds the tree (such as the builder's
+            // trash menu) replaces its entity under a still pointer. Keep the
+            // hint dismissed on the replacement until the pointer leaves it.
+            let replacement = hover_map_entity
+                .or_else(|| over_events.last().map(|(e, _)| *e))
+                .filter(|&e| {
+                    hints
+                        .get(e)
+                        .is_ok_and(|(h, _)| h.0.trim() == d.text.as_str())
+                });
+            if let Some(new_entity) = replacement {
+                d.entity = new_entity;
+                d.seen_in_hover_map = hover_map_entity == Some(new_entity);
+            } else {
+                dismissed = None;
+            }
+        }
+    }
+    if let Some(d) = dismissed.as_mut() {
+        if hover_map_entity == Some(d.entity) {
+            d.seen_in_hover_map = true;
+        } else if d.seen_in_hover_map
+            || (out_entities.contains(&d.entity)
+                && !over_events.iter().any(|(e, _)| *e == d.entity))
+            || over_events.iter().any(|(e, _)| *e != d.entity)
+        {
+            dismissed = None;
+        }
+    }
+
+    for entity in &out_entities {
+        if Some(*entity) == source {
+            text = None;
+            source = None;
+            by_focus = false;
+            by_hover_map = false;
+        }
+    }
+    for (entity, position) in over_events {
+        if dismissed.as_ref().is_some_and(|d| d.entity == entity) {
+            continue;
+        }
+        if let Ok((hint, _)) = hints.get(entity) {
+            let trimmed = hint.0.trim();
+            if trimmed.is_empty() {
+                text = None;
+                source = None;
+            } else {
+                source = Some(entity);
+                text = Some(trimmed.to_owned());
+                at = position;
+            }
+            by_focus = false;
+            by_hover_map = false;
+        }
+    }
+    let mut pressed_entities = Vec::new();
+    if let Some(mut presses) = presses {
+        for press in presses.read() {
+            if let Some(entity) = lineage(press.entity, &hints, &parents, in_duel) {
+                pressed_entities.push(entity);
+            }
+        }
+    }
+    if let Some(mut clicks) = clicks {
+        for click in clicks.read() {
+            if let Some(entity) = lineage(click.entity, &hints, &parents, in_duel) {
+                pressed_entities.push(entity);
+            }
+        }
+    }
+    for entity in pressed_entities {
+        if let Ok((hint, _)) = hints.get(entity) {
+            let trimmed = hint.0.trim();
+            if !trimmed.is_empty() {
+                dismissed = Some(Dismissed {
+                    entity,
+                    text: trimmed.to_owned(),
+                    seen_in_hover_map: hover_map_entity == Some(entity),
+                });
+            }
+        }
+        if source == Some(entity) {
+            text = None;
+            source = None;
+            by_focus = false;
+            by_hover_map = false;
+        }
+    }
     if by_hover_map && hover_map_entity != source {
         text = None;
         source = None;
@@ -147,6 +251,7 @@ pub(super) fn hint_hovers(
     }
     if source.is_none()
         && let Some(entity) = hover_map_entity
+        && dismissed.as_ref().is_none_or(|d| d.entity != entity)
         && let Ok((hint, _)) = hints.get(entity)
     {
         let trimmed = hint.0.trim();
@@ -160,6 +265,7 @@ pub(super) fn hint_hovers(
     if source.is_none()
         && let Some(entity) = focused
         && disabled.contains(entity)
+        && dismissed.as_ref().is_none_or(|d| d.entity != entity)
         && let Ok((hint, has_hud_hint)) = hints.get(entity)
         && !(in_duel && has_hud_hint)
     {
@@ -184,17 +290,20 @@ pub(super) fn hint_hovers(
             text = Some(trimmed.to_owned());
         }
     }
-    if text != hinted.text
+    let display_changed = text != hinted.text
         || source != hinted.source
         || by_focus != hinted.by_focus
-        || by_hover_map != hinted.by_hover_map
-    {
+        || by_hover_map != hinted.by_hover_map;
+    if display_changed || dismissed != hinted.dismissed {
         hinted.text = text;
         hinted.source = source;
         hinted.at = at;
         hinted.by_focus = by_focus;
         hinted.by_hover_map = by_hover_map;
-        hinted.epoch = hinted.epoch.wrapping_add(1);
+        hinted.dismissed = dismissed;
+        if display_changed {
+            hinted.epoch = hinted.epoch.wrapping_add(1);
+        }
     }
 }
 
@@ -523,6 +632,140 @@ mod tests {
         assert!(
             app.world().resource::<Hinted>().source.is_none(),
             "dual HoverHint + hud::Hint control defers to HUD tooltip in duels"
+        );
+    }
+
+    #[test]
+    #[allow(clippy::too_many_lines)]
+    fn press_dismisses_hint_until_pointer_leaves_mark() {
+        use bevy::picking::backend::HitData;
+        use bevy::picking::events::{PointerClick, PointerPress};
+        use bevy::picking::hover::HoverMap;
+        use bevy::picking::pointer::{Location, PointerButton, PointerId};
+
+        fn aim_at<E: crate::test_pointer::Aim>(entity: Entity, event: E) -> E::Event {
+            crate::test_pointer::aim(
+                PointerId::Mouse,
+                Location {
+                    target: bevy::camera::NormalizedRenderTarget::Window(
+                        bevy::window::WindowRef::Entity(Entity::PLACEHOLDER)
+                            .normalize(None)
+                            .unwrap(),
+                    ),
+                    position: Vec2::new(1120.0, 24.0),
+                },
+                event,
+                entity,
+            )
+        }
+
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .init_resource::<Hinted>()
+            .init_resource::<HoverMap>()
+            .add_message::<PointerOver>()
+            .add_message::<PointerOut>()
+            .add_message::<PointerPress>()
+            .add_message::<PointerClick>()
+            .add_systems(Update, hint_hovers);
+
+        let bell = app
+            .world_mut()
+            .spawn(HoverHint("Notifications".to_string()))
+            .id();
+        let hit = HitData::new(Entity::PLACEHOLDER, 0.0, None, None);
+
+        // Hovering the mark shows its hint.
+        app.world_mut()
+            .resource_mut::<HoverMap>()
+            .0
+            .entry(PointerId::Mouse)
+            .or_default()
+            .insert(bell, hit.clone());
+        app.world_mut()
+            .write_message(aim_at(bell, crate::test_pointer::Over { hit: hit.clone() }));
+        app.update();
+        assert_eq!(app.world().resource::<Hinted>().source, Some(bell));
+        assert_eq!(
+            app.world().resource::<Hinted>().text.as_deref(),
+            Some("Notifications")
+        );
+
+        // Pressing the mark dismisses the hint immediately.
+        app.world_mut().write_message(aim_at(
+            bell,
+            crate::test_pointer::Press {
+                button: PointerButton::Primary,
+                hit: hit.clone(),
+                count: 1,
+            },
+        ));
+        app.update();
+        assert!(app.world().resource::<Hinted>().source.is_none());
+        assert!(app.world().resource::<Hinted>().text.is_none());
+
+        // HoverMap still holding the same mark on later frames must not bring
+        // the hint back, and resting frames must not mutate `Hinted`.
+        let rest_tick = app
+            .world()
+            .get_resource_ref::<Hinted>()
+            .map(|r| r.last_changed());
+        app.update();
+        assert!(app.world().resource::<Hinted>().source.is_none());
+        assert!(app.world().resource::<Hinted>().text.is_none());
+        assert_eq!(
+            app.world()
+                .get_resource_ref::<Hinted>()
+                .map(|r| r.last_changed()),
+            rest_tick,
+            "still pointer over dismissed mark writes nothing at rest"
+        );
+
+        // Rebuilding the mark in place under the still pointer keeps the hint
+        // dismissed until the pointer leaves the replacement too.
+        app.world_mut().despawn(bell);
+        let bell_rebuilt = app
+            .world_mut()
+            .spawn(HoverHint("Notifications".to_string()))
+            .id();
+        {
+            let mut map = app.world_mut().resource_mut::<HoverMap>();
+            map.0.clear();
+            map.0
+                .entry(PointerId::Mouse)
+                .or_default()
+                .insert(bell_rebuilt, hit.clone());
+        }
+        app.world_mut().write_message(aim_at(
+            bell_rebuilt,
+            crate::test_pointer::Over { hit: hit.clone() },
+        ));
+        app.update();
+        assert!(app.world().resource::<Hinted>().source.is_none());
+        assert!(app.world().resource::<Hinted>().text.is_none());
+
+        // Leaving the mark clears dismissal; re-entering brings the hint back.
+        app.world_mut().resource_mut::<HoverMap>().0.clear();
+        app.world_mut().write_message(aim_at(
+            bell_rebuilt,
+            crate::test_pointer::Out { hit: hit.clone() },
+        ));
+        app.update();
+        assert!(app.world().resource::<Hinted>().source.is_none());
+
+        app.world_mut()
+            .resource_mut::<HoverMap>()
+            .0
+            .entry(PointerId::Mouse)
+            .or_default()
+            .insert(bell_rebuilt, hit.clone());
+        app.world_mut()
+            .write_message(aim_at(bell_rebuilt, crate::test_pointer::Over { hit }));
+        app.update();
+        assert_eq!(app.world().resource::<Hinted>().source, Some(bell_rebuilt));
+        assert_eq!(
+            app.world().resource::<Hinted>().text.as_deref(),
+            Some("Notifications")
         );
     }
 }
