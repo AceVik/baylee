@@ -12,6 +12,11 @@ use super::*;
 #[derive(Component, Clone, PartialEq, Eq)]
 pub(crate) struct HoverHint(pub(crate) String);
 
+/// Marks a header-control cluster outside `Role::Header` (such as the front
+/// door's top-right tools) so its marks stay quiet while a popover is open.
+#[derive(Component, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HeaderHintScope;
+
 /// A mark whose hint was dismissed by pressing it; it stays quiet until the
 /// pointer leaves that mark (or its in-place rebuild replacement).
 #[derive(Clone, PartialEq, Eq)]
@@ -63,9 +68,16 @@ pub(super) fn hint_hovers(
         Option<MessageReader<bevy::picking::events::PointerPress>>,
         Option<MessageReader<bevy::picking::events::PointerClick>>,
     ),
-    hints: Query<(&HoverHint, Has<crate::hud::Hint>)>,
-    disabled: Query<(), With<crate::shellkit::controls::Disabled>>,
-    parents: Query<&ChildOf>,
+    (hints, disabled, header_scopes, parents): (
+        Query<(&HoverHint, Has<crate::hud::Hint>)>,
+        Query<(), With<crate::shellkit::controls::Disabled>>,
+        Query<(
+            Option<&crate::shellkit::Role>,
+            Has<crate::shellkit::header::HeaderTrigger>,
+            Has<HeaderHintScope>,
+        )>,
+        Query<&ChildOf>,
+    ),
     hovers: Option<Res<bevy::picking::hover::HoverMap>>,
     focus: Option<Res<bevy::input_focus::InputFocus>>,
     (phase, lobby_state, report): (
@@ -105,6 +117,10 @@ pub(super) fn hint_hovers(
         return;
     }
 
+    let suppress_header_hints = header_hints_suppressed(lobby_state.as_deref());
+    let suppressed =
+        |entity: Entity| suppress_header_hints && is_header_mark(entity, &header_scopes, &parents);
+
     let mut text = hinted.text.clone();
     let mut source = hinted.source;
     let mut at = hinted.at;
@@ -117,6 +133,7 @@ pub(super) fn hint_hovers(
         !hints
             .get(entity)
             .is_ok_and(|(_, has_hud_hint)| !(in_duel && has_hud_hint))
+            || suppressed(entity)
     }) {
         text = None;
         source = None;
@@ -194,7 +211,7 @@ pub(super) fn hint_hovers(
         }
     }
     for (entity, position) in over_events {
-        if dismissed.as_ref().is_some_and(|d| d.entity == entity) {
+        if suppressed(entity) || dismissed.as_ref().is_some_and(|d| d.entity == entity) {
             continue;
         }
         if let Ok((hint, _)) = hints.get(entity) {
@@ -251,6 +268,7 @@ pub(super) fn hint_hovers(
     }
     if source.is_none()
         && let Some(entity) = hover_map_entity
+        && !suppressed(entity)
         && dismissed.as_ref().is_none_or(|d| d.entity != entity)
         && let Ok((hint, _)) = hints.get(entity)
     {
@@ -264,6 +282,7 @@ pub(super) fn hint_hovers(
     }
     if source.is_none()
         && let Some(entity) = focused
+        && !suppressed(entity)
         && disabled.contains(entity)
         && dismissed.as_ref().is_none_or(|d| d.entity != entity)
         && let Ok((hint, has_hud_hint)) = hints.get(entity)
@@ -305,6 +324,39 @@ pub(super) fn hint_hovers(
             hinted.epoch = hinted.epoch.wrapping_add(1);
         }
     }
+}
+
+/// Whether any header popover or shell menu is open, so header marks keep
+/// their hover hints out of the way.
+fn header_hints_suppressed(lobby_state: Option<&LobbyState>) -> bool {
+    lobby_state.is_some_and(|state| {
+        state.header_menu.is_some()
+            || state.front_menu
+            || state.menu.is_some()
+            || (matches!(state.lobby.screen(), Screen::Build) && state.build.menu.is_some())
+    })
+}
+
+/// Whether `entity` belongs to a header bar or front-door header cluster.
+fn is_header_mark(
+    entity: Entity,
+    header_scopes: &Query<(
+        Option<&crate::shellkit::Role>,
+        Has<crate::shellkit::header::HeaderTrigger>,
+        Has<HeaderHintScope>,
+    )>,
+    parents: &Query<&ChildOf>,
+) -> bool {
+    let mut current = Some(entity);
+    while let Some(e) = current {
+        if let Ok((role, is_trigger, is_scope)) = header_scopes.get(e)
+            && (role == Some(&crate::shellkit::Role::Header) || is_trigger || is_scope)
+        {
+            return true;
+        }
+        current = parents.get(e).ok().map(ChildOf::parent);
+    }
+    false
 }
 
 /// The nearest entity at or above this one that carries a shell hint.
@@ -663,16 +715,30 @@ mod tests {
         app.add_plugins(MinimalPlugins)
             .init_resource::<Hinted>()
             .init_resource::<HoverMap>()
+            .insert_resource(LobbyState::from_settings(
+                crate::settings::ClientSettings::default(),
+            ))
             .add_message::<PointerOver>()
             .add_message::<PointerOut>()
             .add_message::<PointerPress>()
             .add_message::<PointerClick>()
             .add_systems(Update, hint_hovers);
 
+        let header = app.world_mut().spawn(crate::shellkit::Role::Header).id();
         let bell = app
             .world_mut()
-            .spawn(HoverHint("Notifications".to_string()))
+            .spawn((HoverHint("Notifications".to_string()), ChildOf(header)))
             .id();
+        let friends = app
+            .world_mut()
+            .spawn((HoverHint("Contacts".to_string()), ChildOf(header)))
+            .id();
+        let front_cluster = app.world_mut().spawn(HeaderHintScope).id();
+        let front_lang = app
+            .world_mut()
+            .spawn((HoverHint("Language".to_string()), ChildOf(front_cluster)))
+            .id();
+        let outside = app.world_mut().spawn(HoverHint("Outside".to_string())).id();
         let hit = HitData::new(Entity::PLACEHOLDER, 0.0, None, None);
 
         // Hovering the mark shows its hint.
@@ -726,7 +792,7 @@ mod tests {
         app.world_mut().despawn(bell);
         let bell_rebuilt = app
             .world_mut()
-            .spawn(HoverHint("Notifications".to_string()))
+            .spawn((HoverHint("Notifications".to_string()), ChildOf(header)))
             .id();
         {
             let mut map = app.world_mut().resource_mut::<HoverMap>();
@@ -759,13 +825,170 @@ mod tests {
             .entry(PointerId::Mouse)
             .or_default()
             .insert(bell_rebuilt, hit.clone());
-        app.world_mut()
-            .write_message(aim_at(bell_rebuilt, crate::test_pointer::Over { hit }));
+        app.world_mut().write_message(aim_at(
+            bell_rebuilt,
+            crate::test_pointer::Over { hit: hit.clone() },
+        ));
         app.update();
         assert_eq!(app.world().resource::<Hinted>().source, Some(bell_rebuilt));
         assert_eq!(
             app.world().resource::<Hinted>().text.as_deref(),
             Some("Notifications")
+        );
+
+        // Opening a header popover clears the active header hint immediately
+        // and keeps both the same mark (after re-hover) and neighbouring header
+        // marks silent while the popover stays open.
+        app.world_mut().resource_mut::<LobbyState>().header_menu =
+            Some(super::super::header::HeaderMenu::Bell);
+        app.update();
+        assert!(app.world().resource::<Hinted>().source.is_none());
+        assert!(app.world().resource::<Hinted>().text.is_none());
+
+        // Move off bell and onto neighbouring header mark `friends`.
+        {
+            let mut map = app.world_mut().resource_mut::<HoverMap>();
+            map.0.clear();
+            map.0
+                .entry(PointerId::Mouse)
+                .or_default()
+                .insert(friends, hit.clone());
+        }
+        app.world_mut().write_message(aim_at(
+            bell_rebuilt,
+            crate::test_pointer::Out { hit: hit.clone() },
+        ));
+        app.world_mut().write_message(aim_at(
+            friends,
+            crate::test_pointer::Over { hit: hit.clone() },
+        ));
+        app.update();
+        assert!(
+            app.world().resource::<Hinted>().source.is_none(),
+            "neighbouring header mark stays quiet while header popover is open"
+        );
+        let popover_rest = app
+            .world()
+            .get_resource_ref::<Hinted>()
+            .map(|r| r.last_changed());
+        app.update();
+        assert_eq!(
+            app.world()
+                .get_resource_ref::<Hinted>()
+                .map(|r| r.last_changed()),
+            popover_rest,
+            "resting over a suppressed header mark writes nothing"
+        );
+
+        // Re-hovering the original trigger while the popover is still open
+        // must not bring its hint back either.
+        {
+            let mut map = app.world_mut().resource_mut::<HoverMap>();
+            map.0.clear();
+            map.0
+                .entry(PointerId::Mouse)
+                .or_default()
+                .insert(bell_rebuilt, hit.clone());
+        }
+        app.world_mut().write_message(aim_at(
+            friends,
+            crate::test_pointer::Out { hit: hit.clone() },
+        ));
+        app.world_mut().write_message(aim_at(
+            bell_rebuilt,
+            crate::test_pointer::Over { hit: hit.clone() },
+        ));
+        app.update();
+        assert!(
+            app.world().resource::<Hinted>().source.is_none(),
+            "re-hovering trigger stays quiet while header popover is open"
+        );
+
+        // Front-door / quick-settings menu suppresses both Role::Header and
+        // HeaderHintScope marks.
+        {
+            let mut lobby = app.world_mut().resource_mut::<LobbyState>();
+            lobby.header_menu = None;
+            lobby.front_menu = true;
+        }
+        {
+            let mut map = app.world_mut().resource_mut::<HoverMap>();
+            map.0.clear();
+            map.0
+                .entry(PointerId::Mouse)
+                .or_default()
+                .insert(front_lang, hit.clone());
+        }
+        app.world_mut().write_message(aim_at(
+            front_lang,
+            crate::test_pointer::Over { hit: hit.clone() },
+        ));
+        app.update();
+        assert!(
+            app.world().resource::<Hinted>().source.is_none(),
+            "front header cluster stays quiet while front menu is open"
+        );
+
+        // An open shell menu also suppresses header marks while leaving
+        // non-header marks unaffected.
+        {
+            let mut lobby = app.world_mut().resource_mut::<LobbyState>();
+            lobby.front_menu = false;
+            lobby.menu = Some(super::super::menus::ShellMenu::TableSort);
+        }
+        {
+            let mut map = app.world_mut().resource_mut::<HoverMap>();
+            map.0.clear();
+            map.0
+                .entry(PointerId::Mouse)
+                .or_default()
+                .insert(friends, hit.clone());
+        }
+        app.world_mut().write_message(aim_at(
+            friends,
+            crate::test_pointer::Over { hit: hit.clone() },
+        ));
+        app.update();
+        assert!(
+            app.world().resource::<Hinted>().source.is_none(),
+            "header marks stay quiet while a shell menu is open"
+        );
+        {
+            let mut map = app.world_mut().resource_mut::<HoverMap>();
+            map.0.clear();
+            map.0
+                .entry(PointerId::Mouse)
+                .or_default()
+                .insert(outside, hit.clone());
+        }
+        app.world_mut().write_message(aim_at(
+            outside,
+            crate::test_pointer::Over { hit: hit.clone() },
+        ));
+        app.update();
+        assert_eq!(app.world().resource::<Hinted>().source, Some(outside));
+
+        // Closing all menus lets header hints show normally again.
+        app.world_mut().resource_mut::<LobbyState>().menu = None;
+        {
+            let mut map = app.world_mut().resource_mut::<HoverMap>();
+            map.0.clear();
+            map.0
+                .entry(PointerId::Mouse)
+                .or_default()
+                .insert(friends, hit.clone());
+        }
+        app.world_mut().write_message(aim_at(
+            outside,
+            crate::test_pointer::Out { hit: hit.clone() },
+        ));
+        app.world_mut()
+            .write_message(aim_at(friends, crate::test_pointer::Over { hit }));
+        app.update();
+        assert_eq!(app.world().resource::<Hinted>().source, Some(friends));
+        assert_eq!(
+            app.world().resource::<Hinted>().text.as_deref(),
+            Some("Contacts")
         );
     }
 }
