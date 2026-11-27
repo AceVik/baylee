@@ -115,7 +115,7 @@ pub(crate) fn close_on_escape(
         || state.settings.capturing_shell().is_some()
         || state.settings_view.profile_sheet
         || state.confirmation.is_some()
-        || (state.lobby.focus() == Field::SettingsSearch && !state.settings_query().is_empty());
+        || !state.settings_query().is_empty();
     if inner {
         return;
     }

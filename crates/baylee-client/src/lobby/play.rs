@@ -50,6 +50,9 @@ pub(crate) struct PlayUi {
     /// The Create-table sheet, when it is up; `true` beside it when it
     /// edits the room this client hosts (**Apply**) rather than opening one.
     pub(crate) sheet: Option<(TableDraft, bool)>,
+    /// The stop that opened the Create-table sheet, so focus returns there
+    /// when it closes.
+    pub(crate) sheet_opener: Option<crate::shellkit::focus::Stop>,
     /// The deck picker sheet (Change deck) is up.
     pub(crate) picker: bool,
     /// Stable room identity while its password prompt is open.
@@ -64,6 +67,7 @@ impl Default for PlayUi {
             // `steady`: the one-tap game's own, as before the caret.
             difficulty: 2,
             sheet: None,
+            sheet_opener: None,
             picker: false,
             password_for: None,
         }
@@ -767,6 +771,7 @@ pub(super) fn open_sheet(
     scrolled: &mut Scrolled,
     draft: TableDraft,
     editing: bool,
+    opener: crate::shellkit::focus::Stop,
 ) {
     scrolled.set(List::TableRules, 0.0);
     if !editing {
@@ -784,6 +789,7 @@ pub(super) fn open_sheet(
         state.lobby.set_field(Field::RoomPassword, "");
     }
     state.lobby.focus_on(Field::RoomName);
+    state.play.sheet_opener = Some(opener);
     state.play.sheet = Some((draft, editing));
 }
 
@@ -807,7 +813,13 @@ impl PlayPress {
             PlayPress::Difficulty(at) => state.play.difficulty = at,
             PlayPress::CreateTable => {
                 if starts_off(state, state.lobby.lang()).is_none() {
-                    open_sheet(state, scrolled, TableDraft::default(), false);
+                    open_sheet(
+                        state,
+                        scrolled,
+                        TableDraft::default(),
+                        false,
+                        crate::shellkit::focus::Stop::new(orders::PLAY.name, "create"),
+                    );
                 }
             }
             PlayPress::ChangeDeck => state.play.picker = true,
@@ -897,7 +909,17 @@ impl PlayPress {
                 } else {
                     Template::Commander
                 };
-                open_sheet(state, scrolled, TableDraft::of(template, chairs), false);
+                open_sheet(
+                    state,
+                    scrolled,
+                    TableDraft::of(template, chairs),
+                    false,
+                    crate::shellkit::focus::Stop::item(
+                        orders::PLAY.name,
+                        "recent",
+                        u8::try_from(2 * at + 1).unwrap_or(u8::MAX),
+                    ),
+                );
             }
             PlayPress::Players(n) => {
                 if let Some((draft, _)) = state.play.sheet.as_mut() {
@@ -955,9 +977,9 @@ impl PlayPress {
                     // Refused (the status line says why): the sheet stays.
                     state.play.sheet = Some((draft, editing));
                 } else {
-                    // The name box is gone with the sheet; the caret must
-                    // not stay in a field nothing draws.
-                    state.lobby.focus_on(Field::Search);
+                    // The name box is gone with the sheet; park the caret so
+                    // focus returns to the opener without trapping shortcuts.
+                    state.lobby.park_caret();
                 }
                 dispatch(state, mailbox, request);
             }
@@ -966,7 +988,7 @@ impl PlayPress {
                 state.play.picker = false;
                 state.play.password_for = None;
                 if matches!(state.lobby.focus(), Field::RoomName | Field::RoomPassword) {
-                    state.lobby.focus_on(Field::Search);
+                    state.lobby.park_caret();
                 }
             }
             PlayPress::ClearSearch => {
@@ -1045,7 +1067,7 @@ pub(super) fn follow_the_room(mut state: ResMut<LobbyState>) {
         state.lobby.awaiting().is_some() || !state.lobby.games().iter().any(|game| &game.id == id)
     }) {
         state.play.password_for = None;
-        state.lobby.focus_on(Field::Search);
+        state.lobby.park_caret();
     }
     if state.lobby.awaiting().is_some() {
         return;

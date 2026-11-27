@@ -281,30 +281,32 @@ pub(super) fn keyboard(
             state.settings_view.profile_sheet = false;
             return;
         }
-        // The search, a lobby field like the username (owner, 09.10.2026):
-        // its keys, and Esc empties it before it closes anything.
-        if state.lobby.typing_here() && state.lobby.focus() == Field::SettingsSearch {
-            if codes.just_pressed(KeyCode::Escape) && !state.settings_query().is_empty() {
-                keys.clear();
-                state.set_settings_query(String::new());
-                return;
+        // A search with words in it: Esc clears it before closing anything,
+        // whether the caret is still in the box or was parked by Tab.
+        if codes.just_pressed(KeyCode::Escape) && !state.settings_query().is_empty() {
+            keys.clear();
+            state.set_settings_query(String::new());
+            return;
+        }
+        // The search, a lobby field like the username (owner, 09.10.2026).
+        if state.lobby.typing_here()
+            && state.lobby.focus() == Field::SettingsSearch
+            && !codes.just_pressed(KeyCode::Escape)
+        {
+            if !keys.is_empty() && !SoftKeyboard::owns_typing() {
+                text_field_keys(
+                    &mut keys,
+                    &codes,
+                    &mut state,
+                    &mut prefs,
+                    &mailbox,
+                    Form::Settings,
+                    clipboard.as_deref_mut(),
+                    &mut form_paste,
+                );
             }
-            if !codes.just_pressed(KeyCode::Escape) {
-                if !keys.is_empty() && !SoftKeyboard::owns_typing() {
-                    text_field_keys(
-                        &mut keys,
-                        &codes,
-                        &mut state,
-                        &mut prefs,
-                        &mailbox,
-                        Form::Settings,
-                        clipboard.as_deref_mut(),
-                        &mut form_paste,
-                    );
-                }
-                keys.clear();
-                return;
-            }
+            keys.clear();
+            return;
         }
         // Opened from the front door, no header stands over it: Esc is its
         // way back (signed in, the nav is).
@@ -525,7 +527,7 @@ fn shell_layer_keys(codes: &ButtonInput<KeyCode>, state: &mut ResMut<LobbyState>
     if (state.play.sheet.is_some() || state.play.password_for.is_some()) && escape {
         state.play.sheet = None;
         state.play.password_for = None;
-        state.lobby.focus_on(Field::Search);
+        state.lobby.park_caret();
         return true;
     }
     false
@@ -842,20 +844,24 @@ fn text_field_keys(
                 let focus = state.lobby.focus();
                 state.lobby.set_field(focus, "");
             }
-            // A search box with text: Esc clears it (HTML's search input).
+            // A search box: Esc clears its text first, then parks the caret so
+            // shell shortcuts work again.
             Key::Escape
                 if table
                     && matches!(
                         state.lobby.focus(),
                         Field::Search | Field::DeckSearch | Field::ReplaySearch
-                    )
-                    && !state.lobby.field(state.lobby.focus()).is_empty() =>
+                    ) =>
             {
                 let focus = state.lobby.focus();
-                state.lobby.set_field(focus, "");
-                if focus == Field::Search {
-                    let request = state.lobby.search_again();
-                    dispatch(state, mailbox, request);
+                if state.lobby.field(focus).is_empty() {
+                    state.lobby.park_caret();
+                } else {
+                    state.lobby.set_field(focus, "");
+                    if focus == Field::Search {
+                        let request = state.lobby.search_again();
+                        dispatch(state, mailbox, request);
+                    }
                 }
             }
             // The Create-table sheet's default button (`KEYBOARD.md` §7.4).
@@ -875,7 +881,7 @@ fn text_field_keys(
                     if request.is_none() {
                         state.play.sheet = Some((draft, editing));
                     } else {
-                        state.lobby.focus_on(Field::Search);
+                        state.lobby.park_caret();
                     }
                     dispatch(state, mailbox, request);
                 }

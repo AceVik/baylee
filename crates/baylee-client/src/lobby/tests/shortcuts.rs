@@ -149,3 +149,75 @@ fn slash_moves_into_the_search_without_typing_itself() {
     );
     assert_eq!(fired(&app), [ShellAction::Search], "c fired from the field");
 }
+
+#[test]
+fn closing_create_table_returns_focus_to_opener_and_keeps_shortcuts_alive() {
+    use super::front_keys::{focused, press_key};
+    use crate::shellkit::focus::Stop;
+
+    let mut app = signed_in();
+    press(&mut app, Press::Play(PlayPress::CreateTable));
+    settle(&mut app);
+    assert!(app.world().resource::<LobbyState>().play.sheet.is_some());
+    assert!(app.world().resource::<LobbyState>().lobby.typing_here());
+
+    // Closing with Escape returns focus to the Create table stop and parks the caret.
+    press_key(&mut app, KeyCode::Escape, Key::Escape, &[]);
+    settle(&mut app);
+    {
+        let state = app.world().resource::<LobbyState>();
+        assert!(state.play.sheet.is_none());
+        assert!(!state.lobby.typing_here());
+    }
+    assert_eq!(focused(&app), Some(Stop::new(orders::PLAY.name, "create")));
+
+    // Shell shortcuts work immediately without typing into the search box.
+    key(&mut app, KeyCode::Digit2, "2", &[]);
+    {
+        let state = app.world().resource::<LobbyState>();
+        assert_eq!(state.hub, Hub::Decks);
+        assert_eq!(state.lobby.field(Field::Search), "");
+    }
+
+    // Closing via Cancel restores the Create table stop too.
+    key(&mut app, KeyCode::Digit1, "1", &[]);
+    settle(&mut app);
+    press(&mut app, Press::Play(PlayPress::CreateTable));
+    settle(&mut app);
+    press(&mut app, Press::Play(PlayPress::CloseSheet));
+    settle(&mut app);
+    assert!(!app.world().resource::<LobbyState>().lobby.typing_here());
+    assert_eq!(focused(&app), Some(Stop::new(orders::PLAY.name, "create")));
+}
+
+#[test]
+fn escape_in_table_search_clears_text_then_parks_caret() {
+    use super::front_keys::press_key;
+
+    let mut app = signed_in();
+    key(&mut app, KeyCode::Slash, "/", &[]);
+    key(&mut app, KeyCode::KeyA, "a", &[]);
+    assert_eq!(
+        app.world()
+            .resource::<LobbyState>()
+            .lobby
+            .field(Field::Search),
+        "a"
+    );
+    assert!(app.world().resource::<LobbyState>().lobby.typing_here());
+
+    press_key(&mut app, KeyCode::Escape, Key::Escape, &[]);
+    {
+        let state = app.world().resource::<LobbyState>();
+        assert_eq!(state.lobby.field(Field::Search), "");
+        assert!(state.lobby.typing_here());
+    }
+
+    press_key(&mut app, KeyCode::Escape, Key::Escape, &[]);
+    assert!(!app.world().resource::<LobbyState>().lobby.typing_here());
+
+    key(&mut app, KeyCode::Digit2, "2", &[]);
+    let state = app.world().resource::<LobbyState>();
+    assert_eq!(state.hub, Hub::Decks);
+    assert_eq!(state.lobby.field(Field::Search), "");
+}

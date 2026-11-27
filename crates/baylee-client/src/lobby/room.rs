@@ -1721,7 +1721,13 @@ impl RoomPress {
             }
             RoomPress::EditRules => {
                 if let Some(draft) = state.lobby.room_as_draft() {
-                    super::play::open_sheet(state, scrolled, draft, true);
+                    super::play::open_sheet(
+                        state,
+                        scrolled,
+                        draft,
+                        true,
+                        crate::shellkit::focus::Stop::new(orders::ROOM.name, "edit-rules"),
+                    );
                 }
             }
             // Each seat shows its side as a chip that steps through the

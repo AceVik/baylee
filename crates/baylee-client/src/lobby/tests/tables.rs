@@ -989,9 +989,9 @@ fn protected_table_password_is_requested_only_after_selecting_it() {
             .password_for
             .is_none()
     );
-    assert_eq!(
-        app.world().resource::<LobbyState>().lobby.focus(),
-        Field::Search
+    assert!(
+        !app.world().resource::<LobbyState>().lobby.typing_here(),
+        "closing the password sheet parks the caret instead of trapping focus in search"
     );
 }
 
