@@ -82,6 +82,7 @@ fn online_activity_tiles_share_the_retained_headers_focus_table() {
     {
         let mut state = app.world_mut().resource_mut::<LobbyState>();
         state.gateway_selected = true;
+        state.echoes.tower_answered(true);
         state.lobby.apply(LobbyEvent::Games(GameListing::default()));
     }
     press(

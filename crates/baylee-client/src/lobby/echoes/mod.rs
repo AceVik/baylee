@@ -155,6 +155,37 @@ pub(crate) struct Ui {
     session: Option<central::Handle>,
     #[cfg(not(target_arch = "wasm32"))]
     worker: native::Worker,
+    /// Whether Central delegates a Tower at all, asked once per account.
+    #[cfg(not(target_arch = "wasm32"))]
+    reach: native::Reach,
+}
+
+impl Ui {
+    /// Whether this account's Central was found to delegate a Tower (owner,
+    /// 27.11.2026: Tower Echoes is not live for the open beta, and its tile
+    /// must not open onto an error). Not yet known is not there. The browser
+    /// build cannot ask and keeps the tile as it was.
+    /// What Central said about its Tower, for a test that needs the tile.
+    #[cfg(test)]
+    pub(crate) fn tower_answered(&mut self, live: bool) {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.reach.known = Some(live);
+        }
+        #[cfg(target_arch = "wasm32")]
+        let _ = live;
+    }
+
+    pub(crate) fn tower_reached(&self) -> bool {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.reach.known == Some(true)
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            true
+        }
+    }
 }
 
 pub(super) fn install(app: &mut App) {
