@@ -791,14 +791,31 @@ pub(crate) fn sheet(
         out.commands,
         out.fonts,
         out.metrics,
-        &format!(
-            "{} {}",
-            Phrase::ShellAdvanced.text(lang),
-            if open { "\u{25b4}" } else { "\u{25be}" }
-        ),
+        Phrase::ShellAdvanced.text(lang),
         Press::Settings(SettingsPress::ProfileAdvanced),
         open,
     );
+    let chevron = out
+        .commands
+        .spawn((
+            Text::new(
+                if open {
+                    crate::hud::glyph::CHEVRON_UP
+                } else {
+                    crate::hud::glyph::CHEVRON_DOWN
+                }
+                .to_string(),
+            ),
+            crate::hud::icon_tf(out.fonts, out.metrics.small * 0.85),
+            TextColor(if open {
+                palette::DOCK_INK
+            } else {
+                palette::MUTED
+            }),
+            Pickable::IGNORE,
+        ))
+        .id();
+    out.commands.entity(toggle).add_child(chevron);
     out.tab(toggle);
     out.commands.entity(body).add_child(toggle);
     if open {

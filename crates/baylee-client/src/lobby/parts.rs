@@ -67,6 +67,19 @@ pub(super) fn menu_button(
     weight: controls::Weight,
     action: impl Bundle,
 ) -> Entity {
+    menu_button_open(commands, kit, text, weight, false, action)
+}
+
+/// Like [`menu_button`], flipping the chevron up while the disclosure or menu
+/// it controls is `open`.
+pub(super) fn menu_button_open(
+    commands: &mut Commands,
+    kit: Kit,
+    text: &str,
+    weight: controls::Weight,
+    open: bool,
+    action: impl Bundle,
+) -> Entity {
     let wrapper = controls::button(
         commands,
         kit,
@@ -76,9 +89,14 @@ pub(super) fn menu_button(
         None,
         action,
     );
+    let glyph = if open {
+        crate::hud::glyph::CHEVRON_UP
+    } else {
+        crate::hud::glyph::CHEVRON_DOWN
+    };
     let caret = commands
         .spawn((
-            Text::new(CARET.to_string()),
+            Text::new(glyph.to_string()),
             icon_tf(kit.fonts, kit.m.small * 0.85),
             TextColor(tokens::MUTED),
             Node {

@@ -30,11 +30,12 @@ pub(super) fn filters(commands: &mut Commands, p: Entity, kit: Kit, ui: &Ui) {
     }
     let grow = parts::grow(commands);
     commands.entity(row).add_child(grow);
-    let picker = parts::menu_button(
+    let picker = parts::menu_button_open(
         commands,
         kit,
         league_name(ui.league, lang),
         Weight::Secondary,
+        ui.show_leagues,
         Press::Ranked(Action::ToggleLeagues),
     );
     orders::stop(commands, picker, &ORDER, "league");

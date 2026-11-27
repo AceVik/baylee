@@ -720,11 +720,12 @@ fn deck_picker(commands: &mut Commands, parent: Entity, kit: Kit, state: &LobbyS
     if let Some((selected, name)) = &look.deck {
         let line = parts::caption(commands, kit, Phrase::RankedChosenDeck.text(lang));
         commands.entity(parent).add_child(line);
-        let picker = parts::menu_button(
+        let picker = parts::menu_button_open(
             commands,
             kit,
             name,
             Weight::Secondary,
+            look.picker,
             Press::Ranked(Action::ToggleDecks),
         );
         orders::stop(commands, picker, &super::ORDER, "deck");

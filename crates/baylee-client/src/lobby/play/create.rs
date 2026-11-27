@@ -494,11 +494,12 @@ pub(super) fn create_sheet(
         tokens::MUTED,
     );
     let gap = parts::grow(commands);
-    let adjust = parts::menu_button(
+    let adjust = parts::menu_button_open(
         commands,
         kit,
         Phrase::SheetAdjust.text(lang),
         Weight::Ghost,
+        draft.adjust,
         Press::Play(PlayPress::Adjust),
     );
     orders::stop(commands, adjust, &orders::CREATE, "adjust");
