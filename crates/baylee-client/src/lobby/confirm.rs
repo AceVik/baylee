@@ -45,6 +45,9 @@ pub(crate) enum Destructive {
     /// takes it up at Central; the question stands until Central answers.
     #[cfg(not(target_arch = "wasm32"))]
     FriendInvite(Box<super::invites::link::Asked>),
+    /// Resetting a settings section back to its defaults. Carried out by
+    /// `press.rs`, which has `Prefs` and `ClientSettings`.
+    ResetSettingsSection(baylee_client_core::settings_map::Section),
 }
 
 impl Destructive {
@@ -61,6 +64,7 @@ impl Destructive {
             Destructive::AddGateway(_) => "add-gateway",
             Destructive::RankedOpponents(_) => "ranked-opponents",
             Destructive::FriendInvite(_) => "friend-invite",
+            Destructive::ResetSettingsSection(_) => "reset-settings-section",
         }
     }
 }
@@ -105,7 +109,8 @@ pub(super) fn accept(state: &mut LobbyState) -> Option<LobbyRequest> {
         }
         Destructive::SignOutGuest { .. }
         | Destructive::AddGateway(_)
-        | Destructive::RankedOpponents(_) => None,
+        | Destructive::RankedOpponents(_)
+        | Destructive::ResetSettingsSection(_) => None,
         #[cfg(not(target_arch = "wasm32"))]
         Destructive::FriendInvite(_) => None,
         Destructive::LeaveHosting(game) => state.lobby.leave_table(&game),
@@ -196,6 +201,11 @@ pub(super) fn draw(
                 .map_or("", |g| g.name.as_str()),
             Phrase::LeaveHostingHint,
         ),
+        Destructive::ResetSettingsSection(section) => (
+            Phrase::SettingsResetSectionQuestion,
+            section.name().text(lang),
+            Phrase::SettingsResetSectionHint,
+        ),
         Destructive::AddGateway(_) => unreachable!("drawn by `draw_proposal`"),
         Destructive::RankedOpponents(_) => unreachable!("drawn by `draw_opponents`"),
         #[cfg(not(target_arch = "wasm32"))]
@@ -235,9 +245,10 @@ pub(super) fn draw(
         Destructive::ForgetGateway(_) => Phrase::SeatRemove,
         Destructive::DeleteBuildDeck(_) => Phrase::Delete,
         Destructive::SignOutGuest { to_gateways: true } => Phrase::ShellSwitchGateway,
+        Destructive::ResetSettingsSection(_) => Phrase::SettingsResetSectionConfirm,
         _ => Phrase::ConfirmOk,
     };
-    let can_confirm = !state.lobby.busy();
+    let can_confirm = !state.lobby.busy() || matches!(action, Destructive::ResetSettingsSection(_));
     let yes = split_button(
         commands,
         fonts,
@@ -842,16 +853,20 @@ fn modal(
     cancel: Press,
     kind: DialogKind,
 ) -> Entity {
-    use bevy::ui::{ColorStop, InterpolationColorSpace};
-    let top_rim = match kind {
-        DialogKind::Destructive => tokens::DANGER.with_alpha(0.54),
-        DialogKind::Proposal | DialogKind::Choice => Color::srgba(0.86, 0.78, 0.62, 0.48),
-        DialogKind::Warning => tokens::GOLD.with_alpha(0.54),
-    };
-    let side_rim = match kind {
-        DialogKind::Destructive => tokens::DANGER.with_alpha(0.34),
-        DialogKind::Proposal | DialogKind::Choice => Color::srgba(0.58, 0.66, 0.76, 0.34),
-        DialogKind::Warning => tokens::GOLD.with_alpha(0.34),
+    let rim = match kind {
+        DialogKind::Destructive => BorderColor {
+            top: tokens::DANGER.with_alpha(0.54),
+            right: tokens::DANGER.with_alpha(0.34),
+            bottom: tokens::DANGER.with_alpha(0.34),
+            left: tokens::DANGER.with_alpha(0.34),
+        },
+        DialogKind::Warning => BorderColor {
+            top: tokens::GOLD.with_alpha(0.54),
+            right: tokens::GOLD.with_alpha(0.34),
+            bottom: tokens::GOLD.with_alpha(0.34),
+            left: tokens::GOLD.with_alpha(0.34),
+        },
+        DialogKind::Proposal | DialogKind::Choice => crate::shellkit::glass::rim(),
     };
     let panel = commands
         .spawn((
@@ -867,20 +882,8 @@ fn modal(
                 ..default()
             },
             BackgroundColor(Color::NONE),
-            BackgroundGradient::from(
-                LinearGradient::to_bottom(vec![
-                    ColorStop::percent(Color::srgba(0.080, 0.130, 0.200, 0.64), 0.0),
-                    ColorStop::percent(Color::srgba(0.035, 0.068, 0.115, 0.58), 48.0),
-                    ColorStop::percent(Color::srgba(0.025, 0.050, 0.088, 0.68), 100.0),
-                ])
-                .in_color_space(InterpolationColorSpace::Srgba),
-            ),
-            BorderColor {
-                top: top_rim,
-                right: side_rim,
-                bottom: side_rim,
-                left: side_rim,
-            },
+            crate::shellkit::glass::ground(crate::shellkit::glass::Density::Reading),
+            rim,
             crate::shellkit::surfaces::elevation_card(),
             Press::Shared(SharedPress::PickerNothing),
         ))

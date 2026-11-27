@@ -690,6 +690,7 @@ fn ready(state: &LobbyState) -> bool {
         && state.lobby.awaiting().is_none()
 }
 
+#[allow(clippy::too_many_lines)]
 pub(crate) fn poll(
     mut lobby: ResMut<LobbyState>,
     mut commands: Commands,
@@ -702,6 +703,7 @@ pub(crate) fn poll(
         .central_handle()
         .filter(|h| h.is_active() && lobby.has_central_account());
     lobby.bypass_change_detection().ranked_net.session(handle);
+    super::inline::sync_format(lobby.bypass_change_detection());
     let closed = phase
         .as_deref()
         .is_none_or(|p| *p.get() == DuelPhase::Closed);
@@ -724,15 +726,19 @@ pub(crate) fn poll(
     });
     let can_play = ready(state) && closed;
     let epoch = state.gateway_epoch;
-    let worker = &mut state.ranked_net;
-    let reply = worker
+    let reply = state
+        .ranked_net
         .inbox
         .as_ref()
         .and_then(|inbox| inbox.try_lock().ok()?.take());
     if let Some(reply) = reply {
-        let notify = !can_play && live.is_none() && replication::new_assignment(worker, &reply);
-        worker.inbox = None;
-        if let Some(play) = finish(worker, epoch, reply) {
+        let notify =
+            !can_play && live.is_none() && replication::new_assignment(&state.ranked_net, &reply);
+        state.ranked_net.inbox = None;
+        let play = finish(&mut state.ranked_net, epoch, reply);
+        super::inline::sync_format(state);
+        let worker = &mut state.ranked_net;
+        if let Some(play) = play {
             let taking_over = live.is_some_and(|live| live.match_id == play.assignment.match_id);
             if !can_play && !taking_over {
                 worker.played = None;
@@ -785,6 +791,7 @@ pub(crate) fn poll(
     }
     if can_play {
         rejoin(state);
+        super::inline::sync_format(state);
     }
     let worker = &mut state.ranked_net;
     if worker.session.is_none()

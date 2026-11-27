@@ -571,7 +571,7 @@ pub(super) fn body(commands: &mut Commands, holder: Entity, env: &Env) {
     if stats_shown(env) {
         let list =
             crate::lobby::scroller(commands, metrics, List::Deck, env.scrolled.get(List::Deck));
-        crate::lobby::scrollbars::attach(commands, holder, list, metrics);
+        crate::lobby::scrollbars::attach_stable(commands, holder, list, metrics);
         let numbers = super::stats::draw(commands, env);
         commands.entity(list).add_child(numbers);
         return;

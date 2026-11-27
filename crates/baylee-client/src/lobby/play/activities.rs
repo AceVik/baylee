@@ -206,10 +206,10 @@ fn challenges(
                 action: Press::Challenges(
                     task.map_or(Action::Refresh, |task| Action::Select(task.id)),
                 ),
-                live: if signed_in && task.is_some() && !model.busy {
+                live: if signed_in && task.is_some() && !model.blocking() {
                     Live::Yes
                 } else {
-                    Live::No(if model.busy {
+                    Live::No(if model.blocking() {
                         Phrase::ChallengeLoading.text(lang)
                     } else {
                         unavailable

@@ -1230,9 +1230,10 @@ pub struct Lobby {
     /// How that line reads. Written with it and never apart from it, which
     /// is what [`Lobby::write`] is for.
     tone: Tone,
-    /// The client's own sentence the line says, if it is one; `None` for
-    /// a gateway's words. [`Lobby::status_quiet`] reads it.
-    status_phrase: Option<Phrase>,
+    /// The client's own sentence the line says and its arguments, if it is
+    /// one; `None` for a gateway's words. [`Lobby::status_quiet`] and
+    /// [`Lobby::set_lang`] read it.
+    status_source: Option<(Phrase, Vec<String>)>,
     busy: bool,
     /// Whether what is in flight only re-reads lists already on screen
     /// (refresh, search, a page, the watch). See [`Lobby::refreshing`].
@@ -1253,14 +1254,13 @@ pub struct Lobby {
     /// already in. A shell that has to *do* something when a field is picked —
     /// raise a keyboard, say — cannot tell that from the field alone.
     focus_epoch: u64,
-    /// The language everything this lobby says is said in.
+    /// The language everything this lobby speaks is said in.
     ///
     /// Held here rather than passed to each method because the status line is
     /// written *at* the moment something happens, and the shell that renders
-    /// it a frame later has no idea what was meant. A line already on screen
-    /// is not re-translated when the language changes: it is one transient
-    /// sentence about something that has already finished, and the next one
-    /// arrives in the new language.
+    /// it a frame later has no idea what was meant. Changing the language
+    /// re-renders any status line said from a client [`Phrase`] in the new
+    /// language while keeping verbatim gateway prose as it arrived.
     lang: crate::i18n::Lang,
     /// A table of ours that is open and has nobody in the other chair yet.
     awaiting: Option<SeatHandover>,
@@ -1318,6 +1318,9 @@ pub struct Lobby {
     /// (a button, the eye) instead, so a typed letter goes nowhere (WP1, the
     /// shell's focus walker). Any placement of the caret ends it.
     caret_parked: bool,
+    /// The focus epoch the caret was parked at: a placement after it (a
+    /// new epoch) is what [`Lobby::placed_since_parking`] reports.
+    parked_at: u64,
 }
 
 /// Which face the front door's account card shows (the shell design, §3).
@@ -1642,8 +1645,9 @@ impl Lobby {
     /// It still stands on the front door's status line; it is never a toast.
     #[must_use]
     pub fn status_quiet(&self) -> bool {
-        self.status_phrase
-            .is_some_and(|phrase| QUIET.contains(&phrase))
+        self.status_source
+            .as_ref()
+            .is_some_and(|(phrase, _)| QUIET.contains(phrase))
     }
 
     /// How that line should read — see [`Tone`].
@@ -1884,8 +1888,17 @@ impl Lobby {
     pub fn park_caret(&mut self) {
         if !self.caret_parked {
             self.caret_parked = true;
+            self.parked_at = self.focus_epoch;
             self.revealed = None;
         }
+    }
+
+    /// Whether the caret is parked and the lobby has placed it again since
+    /// (a placement that did not go through [`Lobby::focus_on`]); a placement
+    /// from before the park is not one.
+    #[must_use]
+    pub fn placed_since_parking(&self) -> bool {
+        self.caret_parked && self.focus_epoch != self.parked_at
     }
 
     /// Whether no field has the caret (see [`Lobby::park_caret`]).
@@ -1984,35 +1997,37 @@ impl Lobby {
     /// Says one of the client's own sentences, in the language it is set to.
     pub(crate) fn note(&mut self, phrase: Phrase) {
         let said = phrase.text(self.lang).to_string();
-        self.write(said, Tone::Note, Some(phrase));
+        self.write(said, Tone::Note, Some((phrase, Vec::new())));
     }
 
     /// The same, for a sentence that is a *no* — see [`Tone`].
     pub(crate) fn refuse(&mut self, phrase: Phrase) {
         let said = phrase.text(self.lang).to_string();
-        self.write(said, Tone::Refusal, Some(phrase));
+        self.write(said, Tone::Refusal, Some((phrase, Vec::new())));
     }
 
     /// The same, for the shell — which has its own sentences to say and no
     /// business knowing which language this lobby is in.
     pub fn tell(&mut self, phrase: Phrase, args: &[&str]) {
         let said = phrase.fill(self.lang, args);
-        self.write(said, Tone::Note, Some(phrase));
+        let kept = args.iter().map(|arg| (*arg).to_owned()).collect();
+        self.write(said, Tone::Note, Some((phrase, kept)));
     }
 
     /// The shell's own refusals: a change it will not throw away unasked, a
     /// deck with no room left in it.
     pub fn tell_refusal(&mut self, phrase: Phrase, args: &[&str]) {
         let said = phrase.fill(self.lang, args);
-        self.write(said, Tone::Refusal, Some(phrase));
+        let kept = args.iter().map(|arg| (*arg).to_owned()).collect();
+        self.write(said, Tone::Refusal, Some((phrase, kept)));
     }
 
     /// The one door the status line is written through, so that a line and
     /// its tone can never be set apart from each other.
-    fn write(&mut self, said: String, tone: Tone, phrase: Option<Phrase>) {
+    fn write(&mut self, said: String, tone: Tone, source: Option<(Phrase, Vec<String>)>) {
         self.status = said;
         self.tone = tone;
-        self.status_phrase = phrase;
+        self.status_source = source;
     }
 
     /// Takes the line away. A blank line has no tone to read.
@@ -2027,10 +2042,19 @@ impl Lobby {
     }
 
     /// Changes it. The shell does this when the setting is read at startup
-    /// and whenever the player picks another language.
+    /// and whenever the player picks another language. Any status line said
+    /// from a client [`Phrase`] is re-rendered in the new language.
     pub fn set_lang(&mut self, lang: Lang) {
         self.lang = lang;
         self.builder.relabel_lists(lang);
+        if let Some((phrase, args)) = &self.status_source {
+            let refs: Vec<&str> = args.iter().map(String::as_str).collect();
+            self.status = if refs.is_empty() {
+                phrase.text(lang).to_string()
+            } else {
+                phrase.fill(lang, &refs)
+            };
+        }
     }
 
     /// Puts the caret in a field.
@@ -2391,6 +2415,11 @@ impl Lobby {
         }
         if self.username.text().trim().is_empty() || self.password.is_empty() {
             self.refuse(Phrase::NeedUsernameAndPassword);
+            self.focus_on(if self.username.text().trim().is_empty() {
+                Field::Username
+            } else {
+                Field::Password
+            });
             return None;
         }
         // The gateway's own rule, so that what is wrong with a name is said
@@ -2413,6 +2442,7 @@ impl Lobby {
         };
         if registering && self.display_name.text().trim().is_empty() {
             self.refuse(Phrase::NeedDisplayName);
+            self.focus_on(Field::DisplayName);
             return None;
         }
         // Compared exactly, spaces and all: the gateway takes the password

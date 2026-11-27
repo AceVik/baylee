@@ -312,7 +312,7 @@ fn button(
     weight: Weight,
 ) -> Entity {
     let lang = kit.lang();
-    let live = if model.busy {
+    let live = if model.blocking() {
         Live::No(Phrase::ChallengeLoading.text(lang))
     } else if model.tower.uncertain()
         && matches!(

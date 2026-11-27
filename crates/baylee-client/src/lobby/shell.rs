@@ -598,6 +598,8 @@ pub(super) fn ui(
             nav_scroll: scrolled_to.get(List::SettingsNav),
         };
         crate::settingsui::screen(&mut commands, root, &view, kit);
+        // Reset this section asks here, over the settings.
+        super::confirm::draw(&mut commands, root, &state, &fonts, metrics);
         super::confirm::draw_deletion(&mut commands, root, &state, &fonts, metrics);
         return;
     }

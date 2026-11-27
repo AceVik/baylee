@@ -169,9 +169,10 @@ pub(super) fn follow_focus(
     presses: Query<&Press>,
     mut state: ResMut<LobbyState>,
     mut kept: ResMut<Kept>,
-    mut ring_was: Local<Option<Entity>>,
+    mut ring_was: Local<Option<Stop>>,
     mut caret_was: Local<Option<(Field, u64)>>,
     mut opener: Local<Option<Stop>>,
+    mut sheet_fallback: Local<Option<Stop>>,
     remembered: Res<crate::shellkit::focus::Remembered>,
 ) {
     if !matches!(state.lobby.screen(), Screen::Table) || state.settings_open() {
@@ -194,8 +195,8 @@ pub(super) fn follow_focus(
         return;
     }
     let drawn = |stop: &Stop| stops.iter().find(|(_, s)| *s == stop).map(|(e, _)| e);
-    // A menu that closed gives the ring back to the control that opened it
-    // (`KEYBOARD.md` §1.8): the stop that had it before the menu took it.
+    // A menu or Create-table sheet that closed gives the ring back to the
+    // control that opened it (`KEYBOARD.md` §1.8).
     let in_menu = kept.0.is_some_and(|s| s.table == super::orders::MENU.name);
     if state.menu.is_none() && in_menu {
         kept.0 = opener.take();
@@ -204,14 +205,39 @@ pub(super) fn follow_focus(
     } else if !in_menu && opener.is_none() {
         *opener = kept.0;
     }
+    let in_sheet = kept
+        .0
+        .is_some_and(|s| s.table == super::orders::CREATE.name);
+    let sheet_open = state.play.sheet.is_some() || state.play.password_for.is_some();
+    if !sheet_open && in_sheet {
+        kept.0 = state
+            .bypass_change_detection()
+            .play
+            .sheet_opener
+            .take()
+            // A text box is no opener to go back to: the ring on it would put
+            // the caret in it, the trap this hand-back exists to avoid.
+            .or_else(|| {
+                sheet_fallback
+                    .take()
+                    .filter(|s| drawn(s).is_none_or(|e| field_of(e, &presses).is_none()))
+            });
+    } else if !sheet_open {
+        if state.play.sheet_opener.is_some() {
+            state.bypass_change_detection().play.sheet_opener = None;
+        }
+        *sheet_fallback = None;
+    } else if !in_sheet && sheet_fallback.is_none() {
+        *sheet_fallback = remembered.0.or(kept.0);
+    }
     // A rebuilt screen: the stop that had the ring has a new entity. The
     // kit's own memory first: a screen that moved focus this frame after
     // the walker (the terms sheet's Esc onto Not now) wrote it there, and
-    // `kept` still names the stop before; a closed menu's opener is
-    // `kept`'s alone.
+    // `kept` still names the stop before; a closed menu's or sheet's opener
+    // is `kept`'s alone.
     let restored = remembered
         .0
-        .filter(|s| !in_menu && drawn(s).is_some())
+        .filter(|s| !in_menu && !in_sheet && drawn(s).is_some())
         .or(kept.0);
     if focus.get().is_none_or(|f| !stops.contains(f))
         && let Some(stop) = restored
@@ -220,11 +246,11 @@ pub(super) fn follow_focus(
         focus.set(entity, FocusCause::Navigated);
     }
     let ring = focus.get().filter(|f| stops.contains(*f));
-    if let Some(entity) = ring
-        && let Ok((_, stop)) = stops.get(entity)
-        && kept.0 != Some(*stop)
+    let ring_stop = ring.and_then(|e| stops.get(e).ok().map(|(_, s)| *s));
+    if let Some(stop) = ring_stop
+        && kept.0 != Some(stop)
     {
-        kept.0 = Some(*stop);
+        kept.0 = Some(stop);
     }
     // The caret went into a field (a tap, `/`): the ring follows it.
     let caret = (state.lobby.focus(), state.lobby.focus_epoch());
@@ -233,31 +259,33 @@ pub(super) fn follow_focus(
         *caret_was = Some(caret);
         if typing
             && ring.and_then(|e| field_of(e, &presses)) != Some(caret.0)
-            && let Some((entity, _)) = stops
+            && let Some((entity, stop)) = stops
                 .iter()
                 .find(|(e, _)| field_of(*e, &presses) == Some(caret.0))
         {
             focus.set(entity, FocusCause::Navigated);
-            *ring_was = Some(entity);
-            kept.0 = stops.get(entity).ok().map(|(_, s)| *s);
+            *ring_was = Some(*stop);
+            kept.0 = Some(*stop);
             return;
         }
     }
     // The ring moved (the walker, a press): the caret follows it into a
     // field, or out of one.
-    if *ring_was == ring {
+    if *ring_was == ring_stop {
         return;
     }
-    *ring_was = ring;
+    *ring_was = ring_stop;
     let Some(entity) = ring else {
         return;
     };
     match field_of(entity, &presses) {
-        Some(field) if state.lobby.focus() != field => state.lobby.focus_on(field),
+        Some(field) if state.lobby.focus() != field || state.lobby.caret_parked() => {
+            state.lobby.focus_on(field);
+        }
         None if typing => {
-            // Out of the field: the caret rests where nothing is drawn, so
-            // a letter is a shortcut again (`KEYBOARD.md` §2.7).
-            state.lobby.focus_on(Field::Username);
+            // Out of the field: park the caret so a letter is a shortcut
+            // again (`KEYBOARD.md` §2.7).
+            state.lobby.park_caret();
         }
         Some(_) | None => {}
     }

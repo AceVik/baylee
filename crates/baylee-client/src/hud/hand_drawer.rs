@@ -256,8 +256,13 @@ pub fn sync_hand_tab(
         );
     }
     put(
-        if next.open { "\u{25be}" } else { "\u{25b4}" }.to_string(),
-        tf_bold(&fonts, 12.0),
+        if next.open {
+            crate::hud::glyph::CHEVRON_DOWN
+        } else {
+            crate::hud::glyph::CHEVRON_UP
+        }
+        .to_string(),
+        icon_tf(&fonts, 10.0),
         palette::DIALOG_SOFT,
     );
 }

@@ -316,6 +316,60 @@ fn emptying_the_cache_asks_first() {
     assert!(!state.settings_view.fill.armed, "leaving disarms it");
 }
 
+/// While emptying the cache is armed, a Cancel button stands beside
+/// "Yes, delete them", sits in the tab order, and disarms without leaving.
+#[test]
+fn cancelling_empty_cache_disarms_without_leaving_the_section() {
+    use crate::settingsui::keys::SETTINGS;
+    use crate::shellkit::focus::Stop as FocusStop;
+
+    let mut app = settings_at(Section::Network);
+    assert!(!presses(&mut app).contains(&fill_press(FillPress::CancelEmpty)));
+
+    press(&mut app, fill_press(FillPress::Empty));
+    settle(&mut app);
+    assert!(
+        app.world()
+            .resource::<LobbyState>()
+            .settings_view
+            .fill
+            .armed
+    );
+    assert!(presses(&mut app).contains(&fill_press(FillPress::CancelEmpty)));
+    assert!(
+        labels(&mut app)
+            .iter()
+            .any(|said| said == Phrase::ActCancel.text(Lang::En))
+    );
+    let mut stops = app.world_mut().query::<&FocusStop>();
+    let drawn: HashSet<&str> = stops
+        .iter(app.world())
+        .filter(|stop| stop.id.starts_with("card-fill"))
+        .map(|stop| stop.id)
+        .collect();
+    assert!(drawn.contains("card-fill-cancel"), "{drawn:?}");
+    for id in drawn {
+        assert!(SETTINGS.stops.contains(&id), "{id}");
+    }
+
+    press(&mut app, fill_press(FillPress::CancelEmpty));
+    settle(&mut app);
+    let state = app.world().resource::<LobbyState>();
+    assert!(!state.settings_view.fill.armed);
+    assert_eq!(state.settings_section(), Section::Network);
+    assert!(!presses(&mut app).contains(&fill_press(FillPress::CancelEmpty)));
+    assert!(
+        labels(&mut app)
+            .iter()
+            .any(|said| said == Phrase::CardFillEmpty.text(Lang::En))
+    );
+    assert!(
+        !labels(&mut app)
+            .iter()
+            .any(|said| said == Phrase::CardFillEmptySure.text(Lang::En))
+    );
+}
+
 /// The header's mark stands only while pictures are on their way, says how
 /// far, and opens the block.
 #[test]

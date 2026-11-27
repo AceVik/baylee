@@ -48,6 +48,17 @@ pub(super) fn follow_format(state: &mut LobbyState, format: Format) {
     state.ranked.show_decks = false;
 }
 
+/// Aligns the desk with the page's format once no search holds it.
+pub(super) fn sync_format(state: &mut LobbyState) -> bool {
+    let format = state.ranked.format;
+    if locked(state) || format == state.ranked.queue_format {
+        return false;
+    }
+    follow_format(state, format);
+    state.ranked.revision = state.ranked.revision.wrapping_add(1);
+    true
+}
+
 fn locked(state: &LobbyState) -> bool {
     state.ranked_net.busy
         || matches!(
@@ -76,6 +87,7 @@ pub(super) fn owns(action: Action) -> bool {
 /// The page opened: the account's decks and its queue entry are read again,
 /// as the Play tile's desk read them when it unfolded.
 pub(super) fn opened(state: &mut LobbyState, mailbox: &Mailbox) {
+    follow_format(state, state.ranked.format);
     if state.has_central_account() && state.central_handle().is_some_and(|h| h.is_active()) {
         crate::lobby::dispatch(state, mailbox, Some(LobbyRequest::ListDecks));
         native::refresh(state);
@@ -134,6 +146,7 @@ pub(super) fn press(action: Action, cx: Cx<'_, '_, '_, '_, '_>) {
     let state = cx.state.bypass_change_detection();
     #[cfg(feature = "dev-control")]
     if super::visual_fixture::reply(state, action) {
+        sync_format(state);
         return;
     }
     match action {
@@ -156,6 +169,7 @@ pub(super) fn press(action: Action, cx: Cx<'_, '_, '_, '_, '_>) {
         Action::Resume => native::resume(state),
         _ => return,
     }
+    follow_format(state, state.ranked.format);
     state.ranked.revision = state.ranked.revision.wrapping_add(1);
 }
 
@@ -289,7 +303,7 @@ fn own_rank(book: &Book, format: Format) -> Option<OwnRank> {
 
 pub(super) fn patch(
     mut commands: Commands,
-    state: Res<LobbyState>,
+    mut state: ResMut<LobbyState>,
     // The account's standing, and the device's settings its choice is kept in.
     (book, settings): (
         Option<Res<Book>>,
@@ -306,6 +320,7 @@ pub(super) fn patch(
         *painted = Painted::default();
         return;
     }
+    sync_format(state.bypass_change_detection());
     let format = queue::effective_format(&state);
     let own = book
         .as_deref()

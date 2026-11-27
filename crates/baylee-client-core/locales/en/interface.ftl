@@ -1221,7 +1221,13 @@ NoNewGames = No new games can start right now — the server may be updating. Ga
 
 # Shown when a search matched nothing. `$query` is what was searched for.
 # Arguments: query
-NoTableMatches = no table matches “{ $query }”
+NoTableMatches = No table matches “{ $query }”
+
+# Shown when active filter chips hide every table.
+NoTableMatchesFilters = No table matches these filters
+
+# Clears the table list's active filter chips from its empty state.
+PlayClearFilters = Clear filters
 
 # Sits down at a table.
 Join = Join
@@ -8475,6 +8481,16 @@ SettingsNoMatch = Nothing matches
 
 # Puts the shown section's rows back.
 SettingsResetSection = Reset this section
+
+# Confirming Reset this section. `$name` is the section's name.
+# Arguments: name
+SettingsResetSectionQuestion = Reset { $name }?
+
+# Under it: what resetting a section does.
+SettingsResetSectionHint = This puts every setting in this section back to its default.
+
+# The confirmation button for Reset this section.
+SettingsResetSectionConfirm = Reset
 
 # Display & Interface, on a chip.
 SectionDisplayShort = Display

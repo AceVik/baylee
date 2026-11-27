@@ -649,7 +649,14 @@ pub fn sync_switcher(
     let chosen_now = chosen(&duel, &table, measured.seats);
     if next.shown {
         let named = pill_names(&duel, &table, &measured);
-        spawn_pill(&mut commands, &fonts, lang, named, next.compact);
+        spawn_pill(
+            &mut commands,
+            &fonts,
+            lang,
+            named,
+            next.compact,
+            next.menu.is_some(),
+        );
     }
     if let Some(focus) = next.menu {
         let phone = measured.class() == TableFrame::Phone;
@@ -679,6 +686,7 @@ fn spawn_pill(
     lang: Lang,
     arrangement: Arrangement,
     compact: bool,
+    open: bool,
 ) {
     let ground = pill_ground();
     let pill = commands
@@ -730,8 +738,15 @@ fn spawn_pill(
     }
     let caret = commands
         .spawn((
-            Text::new("\u{25be}"),
-            tf(fonts, PILL_PT),
+            Text::new(
+                if open {
+                    crate::hud::glyph::CHEVRON_UP
+                } else {
+                    crate::hud::glyph::CHEVRON_DOWN
+                }
+                .to_string(),
+            ),
+            crate::hud::icon_tf(fonts, PILL_PT * 0.85),
             TextColor(palette::DIALOG_SOFT),
             Pickable::IGNORE,
         ))

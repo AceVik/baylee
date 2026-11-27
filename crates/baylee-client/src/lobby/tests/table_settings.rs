@@ -252,6 +252,43 @@ fn esc_empties_the_search_before_it_puts_the_settings_away() {
     assert!(!app.world().resource::<LobbyState>().settings_open());
 }
 
+#[test]
+fn esc_clears_settings_search_then_closes_over_table_even_after_tab() {
+    use super::front_keys::{focused_id, press_key, tab};
+    let mut app = asked_at_a_table();
+    press(
+        &mut app,
+        Press::Shared(SharedPress::Focus(Field::SettingsSearch)),
+    );
+    for ch in ["a", "u"] {
+        press_key(&mut app, KeyCode::KeyA, Key::Character(ch.into()), &[]);
+    }
+    assert_eq!(app.world().resource::<LobbyState>().settings_query(), "au");
+    tab(&mut app, false);
+    assert_ne!(focused_id(&app), Some("search"));
+    assert!(
+        !app.world().resource::<LobbyState>().lobby.typing_here(),
+        "Tab parked the caret off SettingsSearch"
+    );
+    press_key(&mut app, KeyCode::Escape, Key::Escape, &[]);
+    {
+        let state = app.world().resource::<LobbyState>();
+        assert!(
+            state.settings_query().is_empty(),
+            "first Esc clears the search query even with caret parked"
+        );
+        assert!(
+            state.settings_over_table(),
+            "first Esc keeps Settings open over the table"
+        );
+    }
+    press_key(&mut app, KeyCode::Escape, Key::Escape, &[]);
+    assert!(
+        !app.world().resource::<LobbyState>().settings_open(),
+        "second Esc closes Settings over the table"
+    );
+}
+
 /// Standing over a table at rest, the screen is drawn once, not every frame.
 #[test]
 fn the_settings_over_a_table_are_not_redrawn_at_rest() {

@@ -36,6 +36,8 @@ pub(crate) enum FillPress {
     TryAgain,
     /// Empty the cache: the first press arms, the second does it.
     Empty,
+    /// Back out of emptying the cache.
+    CancelEmpty,
     /// The header's mark: open the block.
     Show,
 }
@@ -57,7 +59,7 @@ impl FillPress {
             Self::Pace(pace) => choices.pace = pace,
             Self::Reach(reach) => choices.reach = reach,
             Self::Budget(budget) => choices.budget = budget,
-            Self::Pause | Self::TryAgain | Self::Empty | Self::Show => {}
+            Self::Pause | Self::TryAgain | Self::Empty | Self::CancelEmpty | Self::Show => {}
         }
         *choices != before
     }
@@ -79,6 +81,9 @@ impl FillPress {
                     crate::cachefill::empty();
                 }
                 view.fill.armed = !view.fill.armed;
+            }
+            Self::CancelEmpty => {
+                view.fill.armed = false;
             }
             Self::Show => {
                 state.settings = SettingsPane::Open;
@@ -350,7 +355,7 @@ fn line(out: &mut Out, readout: Readout, ink: Color, size: f32) -> Entity {
         .spawn((
             readout,
             Text::new(""),
-            TextLayout::new(Justify::Left, LineBreak::WordOrCharacter),
+            TextLayout::new(Justify::Left, LineBreak::WordBoundary),
             Node {
                 min_width: px_fixed(0.0),
                 ..default()
@@ -379,7 +384,21 @@ fn block(out: &mut Out, state: &LobbyState) -> Entity {
         ))
         .id();
     let status = line(out, Readout::Status, tokens::INK, m.text);
+    out.commands
+        .entity(status)
+        .entry::<Node>()
+        .and_modify(|mut node| {
+            node.flex_grow = 1.0;
+            node.flex_shrink = 1.0;
+        });
     let share = line(out, Readout::Percent, tokens::INK, m.small);
+    out.commands
+        .entity(share)
+        .insert(TextLayout::no_wrap())
+        .entry::<Node>()
+        .and_modify(|mut node| {
+            node.flex_shrink = 0.0;
+        });
     out.commands.entity(head).add_children(&[status, share]);
     let track = out
         .commands
@@ -464,6 +483,14 @@ fn buttons(out: &mut Out, holder: Entity, view: FillView) {
         weight,
         press(FillPress::Empty),
     ));
+    if view.armed {
+        buttons.push(out.button(
+            "card-fill-cancel",
+            Phrase::ActCancel.text(lang),
+            Weight::Secondary,
+            press(FillPress::CancelEmpty),
+        ));
+    }
     let row = out.wrap(&buttons);
     out.commands.entity(holder).add_child(row);
     if view.armed {
@@ -979,6 +1006,7 @@ mod tests {
             FillPress::Pause,
             FillPress::TryAgain,
             FillPress::Empty,
+            FillPress::CancelEmpty,
             FillPress::Show,
         ] {
             assert!(!press.on_device());
@@ -1040,6 +1068,73 @@ mod tests {
                     "{lang:?}: {said}"
                 );
             }
+        }
+    }
+
+    /// Short status words (`Off`, `Aus`) mutated into `Readout::Status` after
+    /// spawn must stay on a single line instead of wrapping letter by letter.
+    #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
+    #[test]
+    fn status_readout_stays_single_line_for_off_and_aus() {
+        use crate::shellkit::{TextSize, Viewport};
+
+        let (mut app, fonts) = crate::shellkit::header::tests::layout_app();
+        app.insert_resource(LobbyState::new())
+            .init_resource::<FillBoard>()
+            .add_systems(Update, show);
+        let kit = crate::shellkit::controls::Kit {
+            fonts: &fonts,
+            m: ShellMetrics::of(Viewport::desktop(1280.0, 720.0), TextSize::M),
+            german: false,
+        };
+        let status = {
+            let state = LobbyState::new();
+            {
+                let mut commands = app.world_mut().commands();
+                let column = commands
+                    .spawn(Node {
+                        width: px_fixed(760.0),
+                        flex_direction: FlexDirection::Column,
+                        ..default()
+                    })
+                    .id();
+                let mut out = Out {
+                    commands: &mut commands,
+                    kit,
+                    lang: Lang::En,
+                    column,
+                    signed_in: false,
+                };
+                let holder = block(&mut out, &state);
+                commands.entity(column).add_child(holder);
+            }
+            app.world_mut().flush();
+            app.world_mut()
+                .query::<(Entity, &Readout)>()
+                .iter(app.world())
+                .find_map(|(e, r)| (*r == Readout::Status).then_some(e))
+                .expect("status readout")
+        };
+
+        for (lang, expected) in [(Lang::En, "Off"), (Lang::De, "Aus")] {
+            app.world_mut()
+                .resource_mut::<LobbyState>()
+                .lobby
+                .set_lang(lang);
+            app.world_mut().resource_mut::<FillBoard>().progress.status = Status::Off;
+            app.update();
+            app.update();
+            assert_eq!(app.world().get::<Text>(status).unwrap().0, expected);
+            let size = app
+                .world()
+                .get::<ComputedNode>(status)
+                .expect("laid out")
+                .size();
+            assert!(
+                size.y > 0.0 && size.y < kit.m.text * 1.9,
+                "{lang:?} '{expected}' wrapped vertically: size={size:?}, line_size={}",
+                kit.m.text
+            );
         }
     }
 }

@@ -653,11 +653,12 @@ fn toolbar(
     let mut format_anchor = None;
     if phone {
         let (_, fmt_label) = format_filter_display(lang, ui.format);
-        let fmt_btn = parts::menu_button(
+        let fmt_btn = parts::menu_button_open(
             commands,
             kit,
             fmt_label,
             Weight::Ghost,
+            state.menu == Some(ShellMenu::DeckFormat),
             Press::Shared(SharedPress::OpenMenu(ShellMenu::DeckFormat)),
         );
         orders::item(commands, fmt_btn, &orders::DECKS, "formats", 0);
@@ -674,11 +675,12 @@ fn toolbar(
                 Press::Shared(SharedPress::OpenMenu(ShellMenu::DeckSort)),
             )
         } else {
-            parts::menu_button(
+            parts::menu_button_open(
                 commands,
                 kit,
                 &label,
                 Weight::Ghost,
+                state.menu == Some(ShellMenu::DeckSort),
                 Press::Shared(SharedPress::OpenMenu(ShellMenu::DeckSort)),
             )
         };

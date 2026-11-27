@@ -769,18 +769,30 @@ fn the_logo_picks_the_cut_its_height_asks_for() {
     assert_eq!(cut_for(400.0), 2);
 }
 
-/// The lane and the update card hold the same corner of the lobby. Alone the
-/// lane rests at the corner; with a card it stands on the card, right edges
-/// in line and one gap above, wherever the card was moved to (the friends
-/// drawer pushes it left) and however tall it grew.
+/// The lane, the `About` footer pill and the update card hold the same corner
+/// of the lobby. Alone the lane rests one gap above the footer pill; with a
+/// card it stands on the card, right edges in line and one gap above, wherever
+/// the card was moved to (the friends drawer pushes it left) and however tall
+/// it grew.
 #[test]
 fn the_toast_lane_stands_on_the_update_card_and_not_over_it() {
+    use super::super::front::door::{FOOTER_BOTTOM, FOOTER_PILL_H};
     use super::super::header::LaneRest;
     let rest = LaneRest {
         edge: 16.0,
         gap: 8.0,
     };
-    assert_eq!(rest.place(None), (Val::Px(16.0), Val::Px(16.0)));
+    let above_about = FOOTER_BOTTOM + FOOTER_PILL_H + rest.gap;
+    assert_eq!(rest.place(None), (Val::Px(16.0), Val::Px(above_about)));
+    // Wider desktop gaps keep one full gap above the About pill too.
+    let wide = LaneRest {
+        edge: 20.0,
+        gap: 12.0,
+    };
+    assert_eq!(
+        wide.place(None),
+        (Val::Px(20.0), Val::Px(FOOTER_BOTTOM + FOOTER_PILL_H + 12.0))
+    );
     // A card 16 from the right whose top is 136 above the window's bottom.
     assert_eq!(
         rest.place(Some((16.0, 136.0))),

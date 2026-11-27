@@ -137,6 +137,10 @@ pub fn segmented_compact<B: Bundle>(
     for (i, text) in items.iter().enumerate() {
         let on = i == selected;
         let face = super::segment_face(commands, inner_h, kit.m.px(10.0), None, RADIUS_PILL, on);
+        commands
+            .entity(face)
+            .entry::<Node>()
+            .and_modify(|mut node| node.flex_grow = 1.0);
         let words = label(
             commands,
             kit,
@@ -150,6 +154,7 @@ pub fn segmented_compact<B: Bundle>(
             .entity(wrapper)
             .entry::<Node>()
             .and_modify(move |mut node| {
+                node.flex_grow = 1.0;
                 node.margin = UiRect::vertical(px_fixed(v_margin));
             });
         commands.entity(group).add_child(wrapper);

@@ -1007,6 +1007,10 @@ pub fn segmented<B: Bundle>(
     for (i, text) in items.iter().enumerate() {
         let on = i == selected;
         let face = segment_face(commands, inner_h, kit.m.px(12.0), None, RADIUS_CONTROL, on);
+        commands
+            .entity(face)
+            .entry::<Node>()
+            .and_modify(|mut node| node.flex_grow = 1.0);
         let words = label(
             commands,
             kit,
@@ -1020,6 +1024,10 @@ pub fn segmented<B: Bundle>(
             .entity(wrapper)
             .entry::<Node>()
             .and_modify(|mut node| {
+                // Share the track's full width when a column parent stretches
+                // the control (leaving no empty hollow void), while staying
+                // snug to the labels in an auto-sized row.
+                node.flex_grow = 1.0;
                 // Bleed the hit box 1 px into the outer frame's 1 px border so
                 // the outer track matches `button` height to the pixel while
                 // `Role::Hit` keeps its full `kit.m.hit` vertical span.
@@ -2138,6 +2146,103 @@ mod tests {
                 app.update();
             }
         }
+    }
+
+    /// In a column parent (`AlignItems::Stretch`), `segmented` segments share
+    /// the full stretched track width with no trailing hollow void; in a row
+    /// parent, the track still hugs its segments.
+    #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
+    #[test]
+    fn segmented_fills_stretched_column_track_and_hugs_in_row() {
+        use super::super::size::{TextSize, Viewport};
+
+        let (mut app, fonts) = super::super::header::tests::layout_app();
+        let kit = Kit {
+            fonts: &fonts,
+            m: ShellMetrics::of(Viewport::desktop(1440.0, 900.0), TextSize::M),
+            german: false,
+        };
+        let (col_root, col_seg, row_root, row_seg) = {
+            let mut commands = app.world_mut().commands();
+            let col_root = commands
+                .spawn(Node {
+                    width: px_fixed(600.0),
+                    flex_direction: FlexDirection::Column,
+                    ..default()
+                })
+                .id();
+            let col_seg = segmented(
+                &mut commands,
+                kit,
+                &["Off", "Break the loop", "Draw"],
+                0,
+                |_| (),
+            );
+            commands.entity(col_root).add_child(col_seg);
+
+            let row_root = commands
+                .spawn(Node {
+                    width: px_fixed(600.0),
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    ..default()
+                })
+                .id();
+            let row_seg = segmented(
+                &mut commands,
+                kit,
+                &["Off", "Break the loop", "Draw"],
+                0,
+                |_| (),
+            );
+            commands.entity(row_root).add_child(row_seg);
+            (col_root, col_seg, row_root, row_seg)
+        };
+        app.world_mut().flush();
+        app.update();
+        app.update();
+
+        let col_w = app
+            .world()
+            .get::<ComputedNode>(col_seg)
+            .expect("col seg")
+            .size()
+            .x;
+        let seg_sum: f32 = app
+            .world()
+            .get::<Children>(col_seg)
+            .expect("col segments")
+            .iter()
+            .map(|e| {
+                app.world()
+                    .get::<ComputedNode>(e)
+                    .expect("segment")
+                    .size()
+                    .x
+            })
+            .sum();
+        assert!(
+            (col_w - 600.0).abs() < 1.0,
+            "column segmented track stretches to column width ({col_w})"
+        );
+        // 2 px border + 4 px horizontal track padding + 2 * 2 px column gaps = 10 px chrome.
+        assert!(
+            (col_w - seg_sum) <= 12.0,
+            "segments fill stretched track with no trailing void (track {col_w}, segments {seg_sum})"
+        );
+
+        let row_w = app
+            .world()
+            .get::<ComputedNode>(row_seg)
+            .expect("row seg")
+            .size()
+            .x;
+        assert!(
+            row_w < 500.0 && row_w > 0.0,
+            "row segmented track stays snug to its labels ({row_w})"
+        );
+        app.world_mut().entity_mut(col_root).despawn();
+        app.world_mut().entity_mut(row_root).despawn();
     }
 
     /// Disabled buttons spawn a root-level floating tooltip above sheets and

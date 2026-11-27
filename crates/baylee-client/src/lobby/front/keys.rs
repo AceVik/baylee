@@ -348,11 +348,13 @@ pub(crate) fn lobby_to_kit(
 }
 
 /// A parked caret the lobby has since placed again: the placement wins.
+/// A placement this system had not seen yet but that came before the park
+/// (a sheet closed in the frame after its field took the caret) is not one.
 pub(crate) fn unpark_on_placement(mut state: ResMut<LobbyState>, mut seen: Local<Option<u64>>) {
     let epoch = state.lobby.focus_epoch();
     if *seen != Some(epoch) {
         *seen = Some(epoch);
-        if state.lobby.caret_parked() {
+        if state.lobby.placed_since_parking() {
             let field = state.lobby.focus();
             state.lobby.focus_on(field);
         }

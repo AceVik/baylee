@@ -114,7 +114,8 @@ pub(crate) fn close_on_escape(
     let inner = state.settings.capturing().is_some()
         || state.settings.capturing_shell().is_some()
         || state.settings_view.profile_sheet
-        || (state.lobby.focus() == Field::SettingsSearch && !state.settings_query().is_empty());
+        || state.confirmation.is_some()
+        || !state.settings_query().is_empty();
     if inner {
         return;
     }
@@ -128,6 +129,12 @@ pub(crate) fn close_on_escape(
 /// Puts the settings over a table away, as its Back control does; the
 /// table plays on.
 pub(crate) fn close(state: &mut LobbyState) {
+    if matches!(
+        state.confirmation,
+        Some(super::confirm::Destructive::ResetSettingsSection(_))
+    ) {
+        state.confirmation = None;
+    }
     if state.settings.is_open() {
         state.settings = SettingsPane::Closed;
     }
@@ -265,5 +272,6 @@ pub(crate) fn draw(
         nav_scroll: scrolled.get(List::SettingsNav),
     };
     crate::settingsui::screen(&mut commands, root, &view, kit);
+    super::confirm::draw(&mut commands, root, &state, &fonts, metrics);
     *drawn = Some(now);
 }

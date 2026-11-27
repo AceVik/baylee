@@ -281,11 +281,12 @@ pub(super) fn hero(
         None,
         Press::Play(PlayPress::PlayHouse),
     );
-    let caret = parts::menu_button(
+    let caret = parts::menu_button_open(
         commands,
         kit,
         super::super::ai_name(lang, difficulty(state.play.difficulty)),
         Weight::Secondary,
+        state.menu == Some(ShellMenu::Difficulty),
         Press::Shared(SharedPress::OpenMenu(ShellMenu::Difficulty)),
     );
     anchors.caret = Some(caret);

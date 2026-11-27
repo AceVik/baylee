@@ -185,6 +185,18 @@ impl SharedPress {
                     sign_out(state, prefs, scrolled, mailbox, settings);
                 }
             }
+            SharedPress::ConfirmDestructive
+                if matches!(
+                    state.confirmation,
+                    Some(confirm::Destructive::ResetSettingsSection(_))
+                ) =>
+            {
+                if let Some(confirm::Destructive::ResetSettingsSection(section)) =
+                    state.confirmation.take()
+                {
+                    crate::settingsui::reset_section(section, prefs, settings.as_deref_mut());
+                }
+            }
             SharedPress::ConfirmDestructive => {
                 let forgetting = matches!(
                     state.confirmation,

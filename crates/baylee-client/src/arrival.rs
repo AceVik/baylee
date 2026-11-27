@@ -505,6 +505,7 @@ fn spawn(mut commands: Commands, mut materials: ResMut<Assets<PassageMaterial>>)
                     ..default()
                 },
                 TextColor(INK),
+                Visibility::Hidden,
                 Pickable::IGNORE,
             ));
             root.spawn((
@@ -530,6 +531,7 @@ fn spawn(mut commands: Commands, mut materials: ResMut<Assets<PassageMaterial>>)
                         },
                         TextColor(INK),
                         TextLayout::justify(Justify::Center),
+                        Visibility::Hidden,
                         Pickable::IGNORE,
                     ));
                 }
@@ -556,13 +558,30 @@ fn spawn(mut commands: Commands, mut materials: ResMut<Assets<PassageMaterial>>)
                         ..default()
                     },
                     TextColor(INK),
+                    Visibility::Hidden,
                     Pickable::IGNORE,
                 ));
             });
         });
 }
 
-#[allow(clippy::too_many_arguments)]
+fn word_font(word: u8, fonts: &UiFonts) -> &Handle<Font> {
+    if word == 0 { &fonts.serif } else { &fonts.text }
+}
+
+/// Returns the loaded font handle for an arrival cover word, or `None` while
+/// its own font is still loading so the word stays hidden instead of rendering
+/// in Bevy's ASCII-only fallback font.
+fn ready_word_font(
+    word: u8,
+    fonts: Option<&UiFonts>,
+    is_loaded: impl Fn(bevy::asset::AssetId<Font>) -> bool,
+) -> Option<Handle<Font>> {
+    let handle = word_font(word, fonts?);
+    is_loaded(handle.id()).then(|| handle.clone())
+}
+
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 fn paint(
     journey: Res<Journey>,
     time: Res<Time<Real>>,
@@ -574,8 +593,17 @@ fn paint(
     mut root: Query<(&mut Visibility, &mut BackgroundColor), With<Cover>>,
     surface: Query<(&ComputedNode, &MaterialNode<PassageMaterial>)>,
     mut materials: ResMut<Assets<PassageMaterial>>,
-    mut words: Query<(&Words, &mut Text, &mut TextFont, &mut TextColor)>,
-    mut exit: Query<&mut Visibility, (With<Exit>, Without<Cover>)>,
+    mut words: Query<
+        (
+            &Words,
+            &mut Text,
+            &mut TextFont,
+            &mut TextColor,
+            &mut Visibility,
+        ),
+        (Without<Cover>, Without<Exit>),
+    >,
+    mut exit: Query<&mut Visibility, (With<Exit>, Without<Cover>, Without<Words>)>,
 ) {
     let Ok((mut visible, mut backdrop)) = root.single_mut() else {
         return;
@@ -623,7 +651,7 @@ fn paint(
         Phrase::ArrivalLogin
     };
     let status = status(&journey, progress, lang);
-    for (word, mut text, mut font, mut color) in &mut words {
+    for (word, mut text, mut font, mut color, mut word_vis) in &mut words {
         let value = match word.0 {
             0 => title.text(lang),
             1 => status.as_str(),
@@ -644,20 +672,16 @@ fn paint(
         if text.0 != value {
             value.clone_into(&mut text.0);
         }
-        if let Some(fonts) = &fonts {
-            let handle = if word.0 == 0 {
-                &fonts.serif
-            } else {
-                &fonts.text
-            };
-            let wanted = if assets.is_loaded_with_dependencies(handle.id()) {
-                handle.clone().into()
-            } else {
-                default()
-            };
+        if let Some(handle) = ready_word_font(word.0, fonts.as_deref(), |id| {
+            assets.is_loaded_with_dependencies(id)
+        }) {
+            let wanted = handle.into();
             if font.font != wanted {
                 font.font = wanted;
             }
+            word_vis.set_if_neq(Visibility::Inherited);
+        } else {
+            word_vis.set_if_neq(Visibility::Hidden);
         }
         color.set_if_neq(TextColor(INK.with_alpha(
             (1.0 - progress * 3.0).clamp(0.0, 1.0) * if word.0 == 2 { 0.5 } else { 1.0 },
@@ -829,6 +853,66 @@ struct UiVertexOutput {
     @location(0) uv: vec2<f32>,
     @builtin(position) position: vec4<f32>,
 };",
+        );
+    }
+
+    #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
+    #[test]
+    fn arrival_words_stay_hidden_until_their_own_font_is_loaded() {
+        // Per-word font gating: each word waits on its own font handle.
+        let mut store = Assets::<Font>::default();
+        let mut load = |file: &str| {
+            let path = format!("{}/assets/fonts/{file}", env!("CARGO_MANIFEST_DIR"));
+            store.add(Font::from_bytes(std::fs::read(path).expect(file)))
+        };
+        let fonts = UiFonts {
+            text: load("AlegreyaSans-Regular.ttf"),
+            serif: load("Faustina.ttf"),
+            ..default()
+        };
+        for word in 0..=4 {
+            assert!(ready_word_font(word, None, |_| true).is_none());
+            assert!(ready_word_font(word, Some(&fonts), |_| false).is_none());
+        }
+        // Only the sans text font loaded: title (0, serif) stays hidden, rest ready.
+        let text_id = fonts.text.id();
+        let serif_id = fonts.serif.id();
+        assert!(ready_word_font(0, Some(&fonts), |id| id == text_id).is_none());
+        for word in 1..=4 {
+            assert_eq!(
+                ready_word_font(word, Some(&fonts), |id| id == text_id).map(|h| h.id()),
+                Some(text_id)
+            );
+        }
+        // Once serif loads too, title uses serif.
+        assert_eq!(
+            ready_word_font(0, Some(&fonts), |id| id == text_id || id == serif_id).map(|h| h.id()),
+            Some(serif_id)
+        );
+
+        // Live `spawn` + `paint` keeps every `Words` entity hidden while `UiFonts`
+        // handles have not finished loading in `AssetServer`.
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, bevy::asset::AssetPlugin::default()))
+            .init_asset::<Font>()
+            .init_asset::<PassageMaterial>()
+            .insert_resource(Journey {
+                destination: Destination::Login,
+                ..default()
+            })
+            .insert_resource(UiFonts::default())
+            .add_systems(Startup, spawn)
+            .add_systems(Update, paint);
+        app.update();
+        let mut q = app.world_mut().query::<(&Words, &Visibility)>();
+        let shown: Vec<u8> = q
+            .iter(app.world())
+            .filter(|(_, vis)| **vis != Visibility::Hidden)
+            .map(|(w, _)| w.0)
+            .collect();
+        assert!(
+            shown.is_empty(),
+            "arrival cover words must stay hidden while their fonts are unloaded: {shown:?}"
         );
     }
 }

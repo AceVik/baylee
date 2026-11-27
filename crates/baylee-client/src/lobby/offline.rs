@@ -518,6 +518,31 @@ impl Offline {
         }
     }
 
+    /// A distinct name for a duplicated deck, matching how the online builder
+    /// names copies (`Phrase::ListCopyName`), so copying a built-in deck never
+    /// shadows and hides the original.
+    fn copy_name(&self, original: &str, lang: Lang) -> String {
+        let base = Phrase::ListCopyName.fill(lang, &[original]);
+        if !self
+            .decks
+            .iter()
+            .any(|d| d.name.eq_ignore_ascii_case(&base))
+        {
+            return base;
+        }
+        for n in 2usize.. {
+            let candidate = format!("{base} ({n})");
+            if !self
+                .decks
+                .iter()
+                .any(|d| d.name.eq_ignore_ascii_case(&candidate))
+            {
+                return candidate;
+            }
+        }
+        base
+    }
+
     fn library(&mut self, request: client_core::lobby::library::Request, lang: Lang) -> LobbyEvent {
         use client_core::lobby::library::{HouseDeck, Reply, Request, Snapshot};
         let reply = match request {
@@ -567,8 +592,8 @@ impl Offline {
             ),
             Request::Copy(id) => {
                 if let Some(d) = self.deck(&id).cloned() {
-                    match self.save_deck(None, d.name, d.cards, d.sideboard, d.commanders, d.format)
-                    {
+                    let name = self.copy_name(&d.name, lang);
+                    match self.save_deck(None, name, d.cards, d.sideboard, d.commanders, d.format) {
                         LobbyEvent::DeckSaved { deck_id: Some(id) } => Reply::Copied(id),
                         _ => Reply::Failed(Phrase::LibraryReadFailed.text(lang).into()),
                     }
@@ -1092,6 +1117,59 @@ mod tests {
             offline.library(Request::History(id), Lang::En),
             LobbyEvent::Library(Reply::Failed(_))
         ));
+    }
+
+    #[test]
+    fn duplicating_a_builtin_deck_keeps_the_original_and_gives_the_copy_a_distinct_name() {
+        use client_core::lobby::library::{Reply, Request};
+        let mut offline = offline();
+        let LobbyEvent::Decks(before) = offline.ask(LobbyRequest::ListDecks) else {
+            panic!("listing decks");
+        };
+        let original = offline.decks[0].clone();
+        let LobbyEvent::Library(Reply::Copied(first_id)) =
+            offline.library(Request::Copy(original.id.clone()), Lang::En)
+        else {
+            panic!("first copy");
+        };
+        let expected = Phrase::ListCopyName.fill(Lang::En, &[&original.name]);
+        assert_eq!(offline.deck(&first_id).unwrap().name, expected);
+        let LobbyEvent::Decks(after_first) = offline.ask(LobbyRequest::ListDecks) else {
+            panic!("listing decks");
+        };
+        assert_eq!(after_first.len(), before.len() + 1);
+        assert!(
+            after_first.iter().any(|d| d.id == original.id),
+            "the built-in deck stays listed"
+        );
+        assert!(after_first.iter().any(|d| d.id == first_id));
+
+        // A second copy gets its own distinct name too.
+        let LobbyEvent::Library(Reply::Copied(second_id)) =
+            offline.library(Request::Copy(original.id.clone()), Lang::En)
+        else {
+            panic!("second copy");
+        };
+        assert_eq!(
+            offline.deck(&second_id).unwrap().name,
+            format!("{expected} (2)")
+        );
+        let LobbyEvent::Decks(after_second) = offline.ask(LobbyRequest::ListDecks) else {
+            panic!("listing decks");
+        };
+        assert_eq!(after_second.len(), before.len() + 2);
+
+        // German uses the localized copy phrase.
+        let second_builtin = offline.decks[1].clone();
+        let LobbyEvent::Library(Reply::Copied(de_id)) =
+            offline.library(Request::Copy(second_builtin.id.clone()), Lang::De)
+        else {
+            panic!("german copy");
+        };
+        assert_eq!(
+            offline.deck(&de_id).unwrap().name,
+            Phrase::ListCopyName.fill(Lang::De, &[&second_builtin.name])
+        );
     }
 
     /// One unreadable deck costs that deck and nothing else.

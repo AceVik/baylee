@@ -277,6 +277,10 @@ impl Lobby {
 
     /// Forgets the account and everything it bought.
     pub(super) fn forget_the_session(&mut self) {
+        let had_session = matches!(
+            self.performer,
+            Performer::Gateway(_) | Performer::Guest(_) | Performer::Central
+        );
         self.scoped_builder = None;
         self.me = None;
         self.stats = None;
@@ -318,6 +322,10 @@ impl Lobby {
         self.refusal = None;
         self.room_list = None;
         self.pool_requested = false;
-        self.note(Phrase::SignedOut);
+        if had_session {
+            self.note(Phrase::SignedOut);
+        } else {
+            self.clear_status();
+        }
     }
 }

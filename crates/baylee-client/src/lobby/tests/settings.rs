@@ -665,6 +665,73 @@ fn a_key_typed_into_its_box_is_only_ever_drawn_as_dots() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// A failed credential-store check shows its error without leaving
+/// "Asking this machine's credential store…" standing beside it.
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn credential_store_error_hides_the_asking_status_line() {
+    use baylee_client_core::i18n::Phrase;
+    use baylee_client_core::llmseat::panel::Act;
+    use baylee_client_core::llmseat::seating::Preset;
+    use baylee_client_core::settings_map::Section;
+
+    let dir = std::env::temp_dir().join(format!("baylee-seatkey-err-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join(baylee_client_core::llmseat::FILE);
+
+    let mut app = headless();
+    stocked(&mut app);
+    sized(&mut app, 1400.0);
+    app.update();
+    press(&mut app, Press::Front(FrontPress::FrontMenu));
+    press(&mut app, Press::Settings(SettingsPress::OpenSettings));
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::Section(Section::LanguageModels)),
+    );
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .seat
+        .open_at(path);
+    app.update();
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::Seat(Act::AddPreset(Preset::DeepSeek))),
+    );
+    app.update();
+
+    let entry = app
+        .world()
+        .resource::<LobbyState>()
+        .seat
+        .panel()
+        .and_then(|panel| panel.key_entry(0, &|_| None))
+        .expect("the preset names a key and an address");
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        let keys = state.seat.keys_mut();
+        keys.forget();
+        keys.answered(&entry, Err("could not start baylee-seat: NotFound".into()));
+    }
+    app.update();
+
+    let drawn = labels(&mut app);
+    assert!(
+        drawn
+            .iter()
+            .any(|l| l == "could not start baylee-seat: NotFound"),
+        "the store error must be shown: {drawn:?}"
+    );
+    assert!(
+        !drawn
+            .iter()
+            .any(|l| l == Phrase::SeatKeyAsking.text(Lang::En)),
+        "the asking line must clear once the check fails: {drawn:?}"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// Language models (§12): the profiles stand in a list, and a profile's
 /// fields on its sheet — the first ones shown, Advanced's behind its
 /// disclosure; Close and Esc put the sheet away, and the list's row opens
@@ -722,6 +789,65 @@ fn a_profile_is_edited_on_its_sheet_with_advanced_behind_a_disclosure() {
         app.world().resource::<LobbyState>().settings.is_open(),
         "and only the sheet"
     );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn discarding_a_new_profile_clears_the_profile_sheet_modal_flag() {
+    use baylee_client_core::llmseat::panel::Act;
+    use baylee_client_core::settings_map::Section;
+    use baylee_client_core::shellkeys::Context;
+
+    let dir = std::env::temp_dir().join(format!("baylee-seat-revert-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+
+    let mut app = headless();
+    sized(&mut app, 1400.0);
+    app.update();
+    press(&mut app, Press::Settings(SettingsPress::OpenSettings));
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::Section(Section::LanguageModels)),
+    );
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .seat
+        .open_at(dir.join(baylee_client_core::llmseat::FILE));
+    app.update();
+
+    press(&mut app, Press::Settings(SettingsPress::Seat(Act::Add)));
+    {
+        let state = app.world().resource::<LobbyState>();
+        assert!(state.settings_view.profile_sheet);
+        assert!(
+            super::super::shortcuts::modal_by(state, Context::Settings).contains(&"profile_sheet")
+        );
+    }
+
+    press(&mut app, Press::Settings(SettingsPress::Seat(Act::Revert)));
+    {
+        let state = app.world().resource::<LobbyState>();
+        assert!(
+            state
+                .seat
+                .panel()
+                .and_then(baylee_client_core::llmseat::panel::SeatPanel::selected)
+                .is_none()
+        );
+        assert!(
+            !state.settings_view.profile_sheet,
+            "discarding the unsaved profile clears the sheet's modal flag"
+        );
+        assert!(
+            !super::super::shortcuts::modal_by(state, Context::Settings).contains(&"profile_sheet")
+        );
+    }
+
+    // One Escape immediately closes Front Door Settings instead of being swallowed.
+    super::front_keys::press_key(&mut app, KeyCode::Escape, Key::Escape, &[]);
+    assert!(!app.world().resource::<LobbyState>().settings.is_open());
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -1228,4 +1354,191 @@ fn reduced_motion_can_be_changed_before_gateway_admission() {
         !before
     );
     assert!(!app.world().resource::<LobbyState>().gateway_selected);
+}
+
+/// Resetting a section asks for confirmation first, resets Gameplay's
+/// `trigger_order` when confirmed, and stays disabled on sections whose rows
+/// are all locked before sign-in (such as Controls).
+#[test]
+fn reset_section_confirms_resets_trigger_order_and_disables_locked_sections() {
+    use baylee_client_core::settings_map::Section;
+    use baylee_client_core::triggerorder::TriggerKey;
+    use baylee_core::ids::{AbilityRef, CardIndex};
+
+    let key = |card| Some(TriggerKey::Card(AbilityRef::new(CardIndex::new(card), 0)));
+    let mut app = settings_at(Section::Gameplay);
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::ToggleTriggerAccept),
+    );
+    app.world_mut()
+        .resource_mut::<crate::prefs::Prefs>()
+        .edit()
+        .trigger_order
+        .learn(&[key(1), key(2)], &[key(2), key(1)]);
+    app.update();
+    app.update();
+
+    let reset_gameplay = Press::Settings(SettingsPress::ResetSection(Section::Gameplay));
+    press(&mut app, reset_gameplay);
+    assert!(matches!(
+        app.world().resource::<LobbyState>().confirmation,
+        Some(super::super::confirm::Destructive::ResetSettingsSection(
+            Section::Gameplay
+        ))
+    ));
+    assert!(
+        app.world()
+            .resource::<crate::prefs::Prefs>()
+            .all()
+            .trigger_order
+            .accept_known,
+        "pressing Reset this section must wait for confirmation before resetting"
+    );
+
+    // Cancelling leaves the settings intact.
+    press(&mut app, Press::Shared(SharedPress::CancelDestructive));
+    assert!(app.world().resource::<LobbyState>().confirmation.is_none());
+    assert!(
+        app.world()
+            .resource::<crate::prefs::Prefs>()
+            .all()
+            .trigger_order
+            .accept_known
+    );
+    assert!(
+        !app.world()
+            .resource::<crate::prefs::Prefs>()
+            .all()
+            .trigger_order
+            .is_empty()
+    );
+
+    // Confirming resets Gameplay including `trigger_order`.
+    press(&mut app, reset_gameplay);
+    press(&mut app, Press::Shared(SharedPress::ConfirmDestructive));
+    assert!(app.world().resource::<LobbyState>().confirmation.is_none());
+    let memory = &app
+        .world()
+        .resource::<crate::prefs::Prefs>()
+        .all()
+        .trigger_order;
+    assert!(!memory.accept_known);
+    assert!(memory.is_empty());
+
+    // Before sign-in, Controls has no editable rows so Reset this section is disabled.
+    let mut offline = headless();
+    offline.insert_resource(crate::settings::ClientSettings::default());
+    sized(&mut offline, 1400.0);
+    {
+        let mut state = offline.world_mut().resource_mut::<LobbyState>();
+        state.settings = SettingsPane::Open;
+        state.set_settings_section(Section::Controls);
+    }
+    offline.update();
+    offline.update();
+    let reset_controls = Press::Settings(SettingsPress::ResetSection(Section::Controls));
+    let disabled = offline
+        .world_mut()
+        .query::<(&Press, Has<crate::shellkit::controls::Disabled>)>()
+        .iter(offline.world())
+        .find_map(|(p, dis)| (*p == reset_controls).then_some(dis))
+        .expect("Reset this section button drawn on Controls");
+    assert!(
+        disabled,
+        "Reset this section must be disabled when every row in the section is locked"
+    );
+    press(&mut offline, reset_controls);
+    assert!(
+        offline
+            .world()
+            .resource::<LobbyState>()
+            .confirmation
+            .is_none(),
+        "disabled Reset this section opens no confirmation"
+    );
+}
+
+/// Picking a Settings search result opens its section and scrolls the
+/// jumped-to row into view once layout has measured the list and the row.
+#[test]
+fn settings_search_jump_scrolls_target_row_into_view() {
+    use baylee_client_core::settings_map::{Row, Section};
+
+    let mut app = settings_at(Section::Audio);
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .set_settings_query("follow".into());
+    app.update();
+    assert!(
+        presses(&mut app).contains(&Press::Settings(SettingsPress::Jump(Row::FollowControl))),
+        "search must offer the matching Graphics row"
+    );
+
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::Jump(Row::FollowControl)),
+    );
+    app.update();
+    {
+        let state = app.world().resource::<LobbyState>();
+        assert_eq!(state.settings_section(), Section::Graphics);
+        assert!(state.settings_query().is_empty());
+        assert_eq!(state.settings_view.jump, Some(Row::FollowControl));
+    }
+
+    let list = app
+        .world_mut()
+        .query::<(Entity, &Scrollable)>()
+        .iter(app.world())
+        .find_map(|(entity, which)| (which.0 == List::Settings).then_some(entity))
+        .expect("the Settings list is drawn");
+    let target = app
+        .world_mut()
+        .query::<(Entity, &crate::settingsui::rows::RowMark)>()
+        .iter(app.world())
+        .find_map(|(entity, mark)| (mark.0 == Row::FollowControl).then_some(entity))
+        .expect("the target row carries its RowMark");
+    app.world_mut().entity_mut(list).insert((
+        ComputedNode {
+            size: Vec2::new(800.0, 400.0),
+            content_size: Vec2::new(800.0, 1400.0),
+            inverse_scale_factor: 1.0,
+            ..default()
+        },
+        UiGlobalTransform::from_translation(Vec2::new(400.0, 200.0)),
+    ));
+    app.world_mut().entity_mut(target).insert((
+        ComputedNode {
+            size: Vec2::new(800.0, 60.0),
+            inverse_scale_factor: 1.0,
+            ..default()
+        },
+        UiGlobalTransform::from_translation(Vec2::new(400.0, 830.0)),
+    ));
+    app.update();
+
+    let scroll_y = app.world().get::<ScrollPosition>(list).unwrap().y;
+    assert!(
+        (scroll_y - 800.0).abs() < 1.0,
+        "expected the list to scroll to the jumped row, got {scroll_y}"
+    );
+    assert!(
+        (app.world().resource::<Scrolled>().get(List::Settings) - 800.0).abs() < 1.0,
+        "remembered scroll offset must match the jumped position"
+    );
+    assert_eq!(
+        app.world().resource::<LobbyState>().settings_view.jump,
+        None,
+        "the pending jump clears once scrolled"
+    );
+
+    // Later manual scrolling is not pulled back to the jumped row.
+    app.world_mut().get_mut::<ScrollPosition>(list).unwrap().y = 120.0;
+    app.update();
+    let after = app.world().get::<ScrollPosition>(list).unwrap().y;
+    assert!(
+        (after - 120.0).abs() < 1.0,
+        "jump must not fight later scrolling, got {after}"
+    );
 }

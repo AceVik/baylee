@@ -118,10 +118,21 @@ fn offline_play_asks_for_its_pool_again_after_a_sign_out() {
     assert_eq!(*lobby.screen(), Screen::Build);
 }
 
-/// Signing out of offline play puts the sign-in screen back in charge.
+/// Signing out of offline play puts the sign-in screen back in charge without
+/// claiming a session was signed out.
 #[test]
 fn leaving_offline_play_takes_the_performer_with_it() {
     let mut lobby = offline_lobby();
     lobby.sign_out();
     assert_eq!(lobby.refresh(), None, "there is nobody to ask again");
+    assert!(
+        lobby.status().is_empty(),
+        "leaving offline play must not show a Signed out banner, got {:?}",
+        lobby.status()
+    );
+
+    // Signing out of a real session still says "Signed out".
+    let mut signed_in = seated_lobby();
+    signed_in.sign_out();
+    assert_eq!(signed_in.status(), Phrase::SignedOut.text(Lang::En));
 }

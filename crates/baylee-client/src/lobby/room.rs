@@ -781,11 +781,12 @@ fn seat_card(
     if empty {
         // An open chair: the host may give it to the house or a model.
         if game.yours && !lobby.offline() {
-            let ai = super::parts::menu_button(
+            let ai = super::parts::menu_button_open(
                 commands,
                 kit,
                 Phrase::RoomAi.text(lang),
                 Weight::Secondary,
+                state.menu == Some(ShellMenu::SeatAi(at)),
                 Press::Shared(SharedPress::OpenMenu(ShellMenu::SeatAi(at))),
             );
             walk(commands, ai);
@@ -1720,7 +1721,13 @@ impl RoomPress {
             }
             RoomPress::EditRules => {
                 if let Some(draft) = state.lobby.room_as_draft() {
-                    super::play::open_sheet(state, scrolled, draft, true);
+                    super::play::open_sheet(
+                        state,
+                        scrolled,
+                        draft,
+                        true,
+                        crate::shellkit::focus::Stop::new(orders::ROOM.name, "edit-rules"),
+                    );
                 }
             }
             // Each seat shows its side as a chip that steps through the

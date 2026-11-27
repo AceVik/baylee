@@ -51,8 +51,10 @@ struct Viewport {
 }
 
 #[derive(PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)] // four independent switches of one strip
 struct Pager {
     season: String,
+    browsing_seasons: bool,
     page: usize,
     previous: bool,
     next: bool,
@@ -269,6 +271,10 @@ fn board_panel(
         });
     commands.entity(content).add_child(board);
     let head = parts::row(commands, kit, false);
+    commands
+        .entity(head)
+        .entry::<Node>()
+        .and_modify(|mut n| n.align_items = AlignItems::FlexStart);
     let mark = commands
         .spawn((
             Node {
@@ -532,6 +538,7 @@ fn paint_board(
     let pager = if ui.browsing_seasons {
         Pager {
             season: Phrase::RankedSeasons.text(lang).to_owned(),
+            browsing_seasons: true,
             page: ui.season_pages.len() + 1,
             previous: !ui.season_pages.is_empty(),
             next: matches!(
@@ -543,6 +550,7 @@ fn paint_board(
     } else {
         Pager {
             season: season.to_owned(),
+            browsing_seasons: false,
             page: ui.pages.len() + 1,
             previous: !ui.pages.is_empty(),
             next,
@@ -560,7 +568,7 @@ fn paint_pager(commands: &mut Commands, container: Entity, kit: Kit, pager: &Pag
     commands.entity(container).despawn_children();
     let words = Phrase::RankedPage.fill(lang, &[&pager.page.to_string()]);
     label(commands, container, kit, &words, kit.m.small, tokens::MUTED);
-    let season_button = parts::menu_button(
+    let season_button = parts::menu_button_open(
         commands,
         kit,
         if pager.season.is_empty() {
@@ -569,6 +577,7 @@ fn paint_pager(commands: &mut Commands, container: Entity, kit: Kit, pager: &Pag
             &pager.season
         },
         Weight::Ghost,
+        pager.browsing_seasons,
         Press::Ranked(Action::Seasons),
     );
     orders::stop(commands, season_button, &ORDER, "season");

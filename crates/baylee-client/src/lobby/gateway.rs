@@ -236,6 +236,7 @@ impl LobbyState {
         }
         let Some(url) = normalize(self.lobby.field(Field::Gateway)) else {
             self.lobby.tell_refusal(Phrase::GatewayUrlInvalid, &[]);
+            self.lobby.focus_on(Field::Gateway);
             return None;
         };
         self.ask_gateway(url)

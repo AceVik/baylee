@@ -419,7 +419,7 @@ fn standings(commands: &mut Commands, scores: Entity, kit: Kit, lang: Lang, mode
         Tone::Head,
         None,
     );
-    if model.standings.is_empty() && !model.busy {
+    if model.standings.is_empty() && !model.blocking() {
         // No score yet: the ranking says so in its middle, under a cup,
         // as every empty list of the lobby does.
         let empty = crate::shellkit::states::empty(

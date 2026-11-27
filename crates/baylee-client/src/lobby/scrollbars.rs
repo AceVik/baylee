@@ -231,7 +231,9 @@ pub(crate) fn show_when_needed(
         let Ok(list) = lists.get(bar.target) else {
             continue;
         };
-        let runs_over = list.content_size.y > list.size.y + 1.0;
+        let inv = list.inverse_scale_factor();
+        let slack = if inv > 0.0 { 2.0 / inv } else { 2.0 };
+        let runs_over = list.size.y > 0.0 && list.content_size.y > list.size.y + slack;
         let display = if runs_over || stable {
             Display::Flex
         } else {
@@ -263,5 +265,89 @@ pub(super) fn remember(
         {
             memory.set(which.0, position.y);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn show_when_needed_ignores_hidpi_rounding_overhang_and_keeps_stable_gutter() {
+        let mut app = App::new();
+        app.add_systems(Update, show_when_needed);
+
+        let list = app
+            .world_mut()
+            .spawn(ComputedNode {
+                // 2x Retina scale: 430.5 logical px = 861 physical px; 1 logical px
+                // rounding overhang = 2 physical px.
+                size: Vec2::new(800.0, 861.0),
+                content_size: Vec2::new(800.0, 863.0),
+                inverse_scale_factor: 0.5,
+                ..default()
+            })
+            .id();
+        let collapsible = app
+            .world_mut()
+            .spawn((
+                OnlyWhenNeeded,
+                Node {
+                    display: Display::None,
+                    ..default()
+                },
+                Visibility::Inherited,
+                Scrollbar::new(list, ControlOrientation::Vertical, 44.0),
+            ))
+            .id();
+        let stable = app
+            .world_mut()
+            .spawn((
+                OnlyWhenNeeded,
+                StableGutter,
+                Node {
+                    display: Display::Flex,
+                    ..default()
+                },
+                Visibility::Hidden,
+                Scrollbar::new(list, ControlOrientation::Vertical, 44.0),
+            ))
+            .id();
+
+        app.update();
+        assert_eq!(
+            app.world().get::<Node>(collapsible).unwrap().display,
+            Display::None,
+            "1 logical px rounding overhang on 2x display does not show scrollbar"
+        );
+        assert_eq!(
+            app.world().get::<Node>(stable).unwrap().display,
+            Display::Flex,
+            "stable gutter stays in layout while hidden"
+        );
+        assert_eq!(
+            *app.world().get::<Visibility>(stable).unwrap(),
+            Visibility::Hidden
+        );
+
+        // Real overflow (30 logical px = 60 physical px) reveals both bars.
+        app.world_mut()
+            .get_mut::<ComputedNode>(list)
+            .unwrap()
+            .content_size
+            .y = 921.0;
+        app.update();
+        assert_eq!(
+            app.world().get::<Node>(collapsible).unwrap().display,
+            Display::Flex
+        );
+        assert_eq!(
+            app.world().get::<Node>(stable).unwrap().display,
+            Display::Flex
+        );
+        assert_eq!(
+            *app.world().get::<Visibility>(stable).unwrap(),
+            Visibility::Inherited
+        );
     }
 }
