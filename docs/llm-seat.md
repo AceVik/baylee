@@ -1659,8 +1659,13 @@ receipt against the table, reads the AI seat's transcript, and prints one
 line (also kept as `<target>/tmp/ai-players-runners/summary.txt`):
 whether the AI won or lost and at which seat, the turns and how the game
 ended, the questions that expired, and its answers counted apart: decided
-by the pilot (with their think time: median, P95, most), instant (a
-standing pass, a plan's tap, a forced answer) and the house's. A failing runner, or one that
+(every answer the pilot's mind gave, whatever mind it is, a house pilot's
+own choices too, with their think time: median, P95, most), instant (only
+what the standing orders answered with no mind asked), house (only what
+the declared fallback answered after the pilot handed the seat over) and
+fallback (what the seat's own house or least answer gave before any
+hand-over, where the pilot's mind failed or ran out of time). A failing
+runner, or one that
 does not stop after its game, fails the test, and the process is killed
 either way.
 

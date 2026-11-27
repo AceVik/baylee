@@ -1029,18 +1029,22 @@ impl External {
 }
 
 /// What the AI seat's transcript says of its game. Its answers are told
-/// apart: those its pilot decided (a model's call, which took time), those
-/// that took none (a standing order's pass, a plan's next tap, a forced
-/// answer), and the house's (and the least answer's) where the pilot did
-/// not answer.
+/// apart: those its pilot's mind gave, whatever mind it is (a model's call,
+/// the house's own choice), with their think time; those the standing
+/// orders gave with no mind asked; those the declared fallback gave after
+/// the pilot handed the seat over (the transcript's `handed_over` line);
+/// and those the seat's own fallback gave before any hand-over, where the
+/// pilot's mind failed or ran out of time (the bridge's house or least
+/// answer).
 struct Seen {
     turns: u64,
     ended: String,
     expired: u64,
-    /// The decided answers' think times, in milliseconds, rising.
+    /// The pilot's mind's think times, in milliseconds, rising.
     decided: Vec<u64>,
     instant: usize,
     house: usize,
+    fallback: usize,
 }
 
 impl Seen {
@@ -1054,22 +1058,25 @@ impl Seen {
             decided: Vec::new(),
             instant: 0,
             house: 0,
+            fallback: 0,
         };
+        let mut handed_over = false;
         for line in text.lines() {
             let Ok(value) = serde_json::from_str::<serde_json::Value>(line) else {
                 continue;
             };
+            handed_over |= value.get("handed_over").is_some();
             match (value["event"].as_str(), value["by"].as_str()) {
                 (Some("over"), _) => value["result"]
                     .as_str()
                     .unwrap_or_default()
                     .clone_into(&mut seen.ended),
-                (Some("answered"), Some("mind")) => match value["model_ms"].as_u64() {
-                    Some(ms) if ms > 0 => seen.decided.push(ms),
-                    _ => seen.instant += 1,
-                },
-                (Some("answered"), Some(_)) => seen.house += 1,
                 (Some("standing"), _) => seen.instant += 1,
+                (Some("answered"), _) if handed_over => seen.house += 1,
+                (Some("answered"), Some("mind")) => {
+                    seen.decided.push(value["model_ms"].as_u64().unwrap_or(0))
+                }
+                (Some("answered"), Some(_)) => seen.fallback += 1,
                 _ => {}
             }
             if let Some(summary) = value.get("summary") {
@@ -1097,7 +1104,7 @@ impl Seen {
         format!(
             "ai-players e2e: {profile} {said} as seat {ai_seat} after {} turns ({reason}); {} \
              questions expired; decided {} (median {} ms, P95 {} ms, max {} ms), instant {}, \
-             house {}",
+             house {}, fallback {}",
             self.turns,
             self.expired,
             self.decided.len(),
@@ -1105,7 +1112,8 @@ impl Seen {
             self.at(0.95),
             self.decided.last().copied().unwrap_or(0),
             self.instant,
-            self.house
+            self.house,
+            self.fallback
         )
     }
 
