@@ -45,8 +45,7 @@ impl Postgres {
     pub fn start(prefix: &str, memory: &str, data_bytes: u64) -> Result<Self> {
         let wanted = std::env::var(BACKEND_VAR).ok();
         if native(wanted.as_deref(), docker_runs)? {
-            let dir =
-                std::env::temp_dir().join(format!("{prefix}-{}", crate::secret::hex(6)?));
+            let dir = std::env::temp_dir().join(format!("{prefix}-{}", crate::secret::hex(6)?));
             println!("Owned native PostgreSQL fixture: {}", dir.display());
             return LocalPostgres::start(dir, None, true).map(Self::Native);
         }
@@ -580,6 +579,9 @@ mod tests {
         assert!(!native(None, || true).unwrap(), "Docker runs: a container");
         assert!(native(Some(""), || false).unwrap(), "empty is unset");
         let refused = native(Some("podman"), never).unwrap_err().to_string();
-        assert!(refused.contains(BACKEND_VAR) && refused.contains("podman"), "{refused}");
+        assert!(
+            refused.contains(BACKEND_VAR) && refused.contains("podman"),
+            "{refused}"
+        );
     }
 }
