@@ -105,6 +105,7 @@ fn fifty_build_arounds_pass_native_admission_with_real_mana_bases() {
     );
     // A legal generic pile is not a tribal build-around. These independent
     // checks inspect the final native definitions, after builder refinement.
+    // (Giada and Dwynen left the set in the 27.11.2026 calibration.)
     for (leader, tribes) in [
         (
             "Rin and Seri, Inseparable",
@@ -112,14 +113,6 @@ fn fifty_build_arounds_pass_native_admission_with_real_mana_bases() {
                 baylee_core::generated::subtypes::creature::CAT,
                 baylee_core::generated::subtypes::creature::DOG,
             ],
-        ),
-        (
-            "Giada, Font of Hope",
-            vec![baylee_core::generated::subtypes::creature::ANGEL],
-        ),
-        (
-            "Dwynen, Gilt-Leaf Daen",
-            vec![baylee_core::generated::subtypes::creature::ELF],
         ),
         (
             "Pashalik Mons",
