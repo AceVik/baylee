@@ -8,7 +8,12 @@
 //! request for money, and the words say that donations are not
 //! tax-deductible. Only sums and counts reach this module, never a donation.
 
-use central_api::funding::{Funding, Monthly};
+use central_api::funding::Monthly;
+
+/// Central's public figures, re-exported so the client reads them on every
+/// target: `baylee-account`, which also names this type, is not built for
+/// wasm32.
+pub use central_api::funding::Funding;
 
 /// The monthly goal in euro cents: what the work costs a month (the owner's
 /// breakdown of 18.11.2026, the website's `Funding::GOAL`).

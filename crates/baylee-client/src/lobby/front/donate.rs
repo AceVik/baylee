@@ -23,8 +23,7 @@ use crate::shellkit::controls::{self, Kit, Live, Weight};
 use crate::shellkit::metrics::px_fixed;
 use crate::shellkit::role::Role;
 use crate::shellkit::{surfaces, tokens};
-use baylee_account::funding::Funding;
-use baylee_client_core::funding::{self, Platform};
+use baylee_client_core::funding::{self, Funding, Platform};
 
 /// The heart's colour: a warm rose that stands apart from the kit's teal
 /// accent and gold without shouting.
