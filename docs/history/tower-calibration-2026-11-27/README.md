@@ -35,3 +35,16 @@ The calibrated content's fingerprint is
 `6f8b0c7a6cc0babb94a7c6ae3c277b73161e35627086ada97c1b16db57098364`
 (`baylee_tower_content::CALIBRATED`), measured at commit `aabb8b499` on the
 release `e476745f7`'s card registry.
+
+On Wave 19's registry (`fc309f1d4`, the one the cohort's engine of 0.2.2
+carries), with the starters frozen as measured (`CALIBRATED` =
+`e73066537b36170fda824321f69938fd8b495af58ecfeb640882971738c7abc1`, images
+left out, equal on both registries):
+
+| File | What |
+| --- | --- |
+| `w19-starters.json` | the frozen fifty on Wave 19's rules: 38.7–60.2 % |
+| `w19-candidates-v1.json` | first cell calibration on Wave 19 |
+| `w19-ladder-v1.json` | the ladder after it, fresh deals: 475 of 600 inside 30–70 % |
+| `w19-candidates-v2.json` | the 125 outlier cells, deeper trims and other shop runs |
+| `w19-ladder-v2.json` | the published ladder, fresh deals: 531 of 600 inside 30–70 % |

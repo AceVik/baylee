@@ -243,6 +243,20 @@ any cell calibration 336), outside per stage 1, 2, 7, 7, 5, 6, 8, 7, 10,
 relic engines are complete, keep most of the rest; tuning those relics is a
 change to the run's balance for players too, not to the house alone.
 
+**On Wave 19's rules.** The cohort binds to the Tower engine of 0.2.2,
+whose card registry Wave 19 (`fc309f1d4`) set; the AI-player work in it
+changes no card, engine, house AI or Tower crate. The frozen starters
+measured again under those rules (24,500 duels, `w19-starters.json`):
+38.7 % (Ghen) to 60.2 % (Vona); 45 of 50 inside the band and the other five
+within 1.3 points of its edge, inside their own intervals. The house ladder
+was calibrated afresh on that registry (86,400 duels for the first pick
+table, then 55,344 for the 125 cells a fresh measurement still found outside
+the band, with up to four relics in the bag and the other shop runs). The
+published ladder, on fresh deals (33,800 duels, `w19-ladder-v2.json`):
+every stage beats the one below by 51–64 %; 531 of the 600 cells lie inside
+30–70 %, outside per stage 2, 3, 6, 7, 1, 2, 5, 6, 12, 7, 9 and 9, between
+10 % and 88 %.
+
 **What the numbers hold for.** Both chairs are the Expert heuristics, so
 these are measurements of builds, not of human play: a person who shops
 and pilots better than the Expert beats the house more often. The shared
