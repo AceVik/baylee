@@ -185,9 +185,17 @@ fn scripted(content: &Content, seed: &[u8; 32], variant: u8) -> Result<Ladder, E
     let catalog = &content.catalog;
     let cohort = construction_cohort(catalog)?;
     let pool = prepared_pool();
-    let recipes = recipes(&pool)?;
+    let mut recipes = recipes(&pool)?;
     if recipes.len() != content.starters.len() {
         return Err(Error::House("starters and recipes disagree"));
+    }
+    // A refit must keep the starter's own theme: only the core cards the
+    // frozen starter holds are required, whatever a later card wave adds to
+    // the registry the core is drawn from.
+    for (recipe, starter) in recipes.iter_mut().zip(&content.starters) {
+        recipe
+            .core
+            .retain(|card| starter.deck.iter().any(|stack| stack.card == *card));
     }
     let mut runs = Vec::with_capacity(content.starters.len());
     for (index, starter) in content.starters.iter().enumerate() {

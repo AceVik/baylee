@@ -5,6 +5,7 @@ use baylee_cards::deckgen::{Archetype, Pool, build_commander_run_with_core};
 use baylee_core::ids::CardIndex;
 use std::collections::{BTreeMap, BTreeSet};
 
+mod frozen;
 mod lands;
 mod theme;
 
@@ -207,21 +208,32 @@ fn collection(
     ))
 }
 
-/// Prepare fifty 40-card build-arounds with singleton spells, reviewed utility
-/// lands and a colour-correct mana base. This is an offline publication operation;
-/// it never runs per socket, per frame or during an engine turn.
+/// The fifty 40-card build-arounds with singleton spells, reviewed utility
+/// lands and a colour-correct mana base, as the calibration measured them
+/// (`frozen::STARTERS`): every card is checked against this registry, never
+/// rebuilt from it. This is an offline publication operation; it never runs
+/// per socket, per frame or during an engine turn.
 /// # Errors
-/// Missing native support, invalid generated deck or publication capacity.
+/// A card this registry no longer supports, or a commander out of `LEADERS`.
 pub fn expeditions() -> Result<Content, Error> {
-    let pool = prepared_pool();
     let mut cards = BTreeMap::<CardIndex, Card>::new();
     for name in ["Plains", "Island", "Swamp", "Mountain", "Forest"] {
         let card = named(name)?;
         cards.insert(card.card, card);
     }
     let mut starters = Vec::with_capacity(LEADERS.len());
-    for recipe in recipes(&pool)? {
-        let (starter, needed) = collection(recipe.commander, recipe.build(&pool)?)?;
+    for (&(commander, deck), &(name, _, _)) in frozen::STARTERS.iter().zip(&LEADERS) {
+        let commander = CardIndex::new(commander);
+        if baylee_cards::decks::by_name(name) != Some(commander) {
+            return Err(Error::Card(name));
+        }
+        let main = deck
+            .iter()
+            .flat_map(|&(card, copies)| {
+                std::iter::repeat_n(CardIndex::new(card), usize::from(copies))
+            })
+            .collect();
+        let (starter, needed) = collection(commander, main)?;
         for card in needed {
             cards.insert(card.card, card);
         }
