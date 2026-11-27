@@ -84,6 +84,7 @@ async fn offline_admin_is_idempotent_immutable_role_scoped_and_revocable() {
         for operation in [
             json!({"action": "revoke", "operator": Uuid::now_v7()}),
             json!({"action": "pause_enrollment", "cohort": Uuid::now_v7()}),
+            json!({"action": "erase_account", "account": Uuid::now_v7()}),
         ] {
             client.refused(operation).await;
         }
@@ -141,6 +142,18 @@ async fn enrollment(
             .await,
         Err(Error::NotFound)
     );
+    // An individual erasure request, through the real command: the account's
+    // run goes with it, and a repeat says that nothing is held.
+    let erase = json!({"action": "erase_account", "account": account});
+    assert_eq!(
+        client.ok(erase.clone()).await,
+        json!({"result": "erased", "erasure": "removed"})
+    );
+    assert_eq!(
+        client.ok(erase).await,
+        json!({"result": "erased", "erasure": "absent"})
+    );
+    assert!(store.runs(account, None, 8).await.unwrap().is_empty());
 }
 
 async fn house_commands(
