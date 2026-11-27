@@ -11065,6 +11065,14 @@ AiPlaysFair = It plays from its own view, as you do.
 AiModelProvider = Its provider receives the moves of the games it plays.
 # The line under an AI player's name on its profile.
 ProfileAiIntro = An AI player. It plays from its own view, as you do, and is always marked as AI.
+# The own profile's section of games against AI players.
+ProfileAgainstAi = Against AIs
+# Under it: Central sends no history, so this device counts.
+ProfileAgainstAiNote = Counted on this device, from the games played here.
+# Before the labels of the AIs this player has beaten.
+ProfileConqueror = Conqueror of
+# On a result card, a first win against that AI.
+RankedFirstWin = First win against this AI
 
 AdventCalendar = Winter Tavern · Advent calendar
 AdventTavern = Winter Tavern

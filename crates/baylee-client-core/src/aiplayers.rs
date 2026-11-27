@@ -310,5 +310,8 @@ pub const fn board_players_index(players: BoardPlayers) -> usize {
     }
 }
 
+mod record;
+pub use record::{Counted, Record, Records, Tally, Verdict};
+
 #[cfg(test)]
 mod tests;

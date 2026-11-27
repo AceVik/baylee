@@ -4447,6 +4447,10 @@ AiBadgeSpoken = KI-Spieler: { $label } ({ $kind })
 AiPlaysFair = Er spielt aus seiner eigenen Sicht, wie du.
 AiModelProvider = Sein Anbieter erhält die Züge der Partien, die er spielt.
 ProfileAiIntro = Ein KI-Spieler. Er spielt aus seiner eigenen Sicht, wie du, und ist immer als KI gekennzeichnet.
+ProfileAgainstAi = Gegen KIs
+ProfileAgainstAiNote = Auf diesem Gerät gezählt, aus den hier gespielten Partien.
+ProfileConqueror = Bezwinger von
+RankedFirstWin = Erster Sieg gegen diese KI
 
 AdventCalendar = Wintertaverne · Adventskalender
 AdventTavern = Wintertaverne
