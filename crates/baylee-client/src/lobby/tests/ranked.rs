@@ -156,3 +156,94 @@ fn the_ranked_tile_opens_a_page_with_the_desk_beside_the_public_ladder() {
         Some("ranked")
     );
 }
+
+#[test]
+fn ranked_desk_scrolls_and_wears_an_only_when_needed_scrollbar() {
+    use crate::lobby::{List, Scrollable, Scrolled, scrollbars::OnlyWhenNeeded};
+    use crate::shellkit::surfaces::SheetScroller;
+    use bevy::input::mouse::MouseScrollUnit;
+    use bevy::picking::pointer::{Location, PointerId};
+    use bevy::ui_widgets::Scrollbar;
+
+    let mut app = headless();
+    sized(&mut app, 1280.0);
+    app.world_mut().resource_mut::<LobbyState>().hub = Hub::Ranked;
+    settle(&mut app);
+
+    let (desk_scroller, node, has_sheet_scroller, has_scroll_pos) = app
+        .world_mut()
+        .query::<(
+            Entity,
+            &Scrollable,
+            &Node,
+            Has<SheetScroller>,
+            Has<ScrollPosition>,
+        )>()
+        .iter(app.world())
+        .find(|(_, s, ..)| s.0 == List::RankedDesk)
+        .map(|(e, _, n, sheet, pos)| (e, n.clone(), sheet, pos))
+        .expect("wide Ranked desk owns a Scrollable(List::RankedDesk) viewport");
+    assert_eq!(node.overflow.y, OverflowAxis::Scroll);
+    assert!(
+        has_sheet_scroller,
+        "desk viewport accepts sheet scroll events"
+    );
+    assert!(has_scroll_pos, "desk viewport carries ScrollPosition");
+
+    let (track_entity, is_only_when_needed) = app
+        .world_mut()
+        .query::<(Entity, &Scrollbar, Has<OnlyWhenNeeded>)>()
+        .iter(app.world())
+        .find(|(_, bar, _)| bar.target == desk_scroller)
+        .map(|(e, _, own)| (e, own))
+        .expect("Ranked desk has a scrollbar targeting its scroller");
+    assert!(is_only_when_needed);
+
+    // Simulate 1280x720 overflow (506 px viewport, 720 px content): scrollbar
+    // appears and mouse-wheel scrolling moves the desk and persists in Scrolled.
+    app.world_mut()
+        .entity_mut(desk_scroller)
+        .insert(ComputedNode {
+            size: Vec2::new(360.0, 506.0),
+            content_size: Vec2::new(360.0, 720.0),
+            inverse_scale_factor: 1.0,
+            ..default()
+        });
+    app.update();
+    assert_eq!(
+        app.world().get::<Node>(track_entity).unwrap().display,
+        Display::Flex,
+        "overflowing Ranked desk reveals its scrollbar"
+    );
+
+    let pointer = bevy::picking::events::Pointer::new(
+        PointerId::Mouse,
+        Location {
+            target: bevy::camera::NormalizedRenderTarget::Window(
+                bevy::window::WindowRef::Primary
+                    .normalize(Some(Entity::PLACEHOLDER))
+                    .expect("window ref"),
+            ),
+            position: Vec2::new(220.0, 400.0),
+        },
+    );
+    app.world_mut().write_message(PointerScroll {
+        entity: desk_scroller,
+        pointer,
+        unit: MouseScrollUnit::Line,
+        x: 0.0,
+        y: -5.0,
+        hit: bevy::picking::backend::HitData::new(Entity::PLACEHOLDER, 0.0, None, None),
+        phase: bevy::input::touch::TouchPhase::Moved,
+    });
+    app.update();
+    let offset = app.world().get::<ScrollPosition>(desk_scroller).unwrap().y;
+    assert!(
+        offset > 0.0,
+        "wheel scroll moves the Ranked desk ({offset})"
+    );
+    assert!(
+        (app.world().resource::<Scrolled>().get(List::RankedDesk) - offset).abs() < 0.01,
+        "Ranked desk scroll offset persists across rebuilds"
+    );
+}

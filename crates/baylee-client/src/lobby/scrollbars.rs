@@ -9,6 +9,15 @@ pub(crate) const fn bar_width(wide: bool) -> f32 {
     if wide { 12.0 } else { 8.0 }
 }
 
+/// Horizontal spacing on each side of a banded scrollbar track.
+const BAND_GAP: f32 = 6.0;
+
+/// Total width reserved beside a scroller by [`band_stable`]: the gap before
+/// the track, the track itself, and its trailing margin.
+pub(crate) const fn band_gutter(wide: bool) -> f32 {
+    BAND_GAP + bar_width(wide) + BAND_GAP
+}
+
 /// Puts `list` and a scrollbar for it side by side in `parent`; returns the
 /// bar's track.
 pub(crate) fn attach(
@@ -96,6 +105,51 @@ pub(crate) fn attach_when_needed(
     bar
 }
 
+/// Puts `list` at full width in `parent` with an [`OnlyWhenNeeded`] scrollbar
+/// overlaid at its right edge so showing the bar never shifts centred content
+/// sideways.
+pub(crate) fn attach_overlay(
+    commands: &mut Commands,
+    parent: Entity,
+    list: Entity,
+    wide: bool,
+) -> Entity {
+    let host = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                flex_grow: 1.0,
+                flex_basis: px(0),
+                min_height: px(0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(list).entry::<Node>().and_modify(|mut n| {
+        n.width = Val::Auto;
+        n.flex_grow = 1.0;
+        n.flex_basis = px(0);
+        n.min_width = px(0);
+    });
+    let bar = track(commands, list, wide);
+    commands
+        .entity(bar)
+        .insert((OnlyWhenNeeded, ZIndex(2)))
+        .entry::<Node>()
+        .and_modify(|mut node| {
+            node.position_type = PositionType::Absolute;
+            node.right = px(4);
+            node.top = px(4);
+            node.bottom = px(4);
+            node.height = Val::Auto;
+            node.display = Display::None;
+        });
+    commands.entity(host).add_children(&[list, bar]);
+    commands.entity(parent).add_child(host);
+    bar
+}
+
 /// Wraps `scroller` and an [`OnlyWhenNeeded`] scrollbar in a horizontal band
 /// and returns that band entity (used by sheets and dialogs).
 pub(crate) fn band_when_needed(commands: &mut Commands, scroller: Entity, wide: bool) -> Entity {
@@ -121,7 +175,7 @@ fn band(commands: &mut Commands, scroller: Entity, wide: bool, stable: bool) -> 
             height: percent(100),
             flex_shrink: 0.0,
             display: if stable { Display::Flex } else { Display::None },
-            margin: UiRect::right(px(6)),
+            margin: UiRect::right(px(BAND_GAP)),
             border_radius: BorderRadius::all(px(w * 0.5)),
             ..default()
         },
@@ -139,7 +193,7 @@ fn band(commands: &mut Commands, scroller: Entity, wide: bool, stable: bool) -> 
                 flex_shrink: 1.0,
                 min_height: px(0),
                 overflow: Overflow::clip_y(),
-                column_gap: px(6),
+                column_gap: px(BAND_GAP),
                 ..default()
             },
             Pickable::IGNORE,

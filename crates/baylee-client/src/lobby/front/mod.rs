@@ -1356,6 +1356,29 @@ fn halves(commands: &mut Commands, metrics: Metrics, controls: &[Entity]) -> Ent
     halves
 }
 
+/// Aspect ratio of the shipped `brand/baylee-logo.png` emblem.
+pub(super) const LOGO_ASPECT: f32 = 1942.0 / 809.0;
+
+/// Width of the front-door logo, bounded by both the width class and the
+/// available vertical room so the sign-in card and community pills fit at
+/// `1280×720` and leave headroom for an inline banner at `1600×938`.
+pub(super) fn logo_width(m: crate::shellkit::ShellMetrics, height: f32, full: bool) -> f32 {
+    let by_width: f32 = match m.frame {
+        Frame::Phone => return 185.0,
+        Frame::Compact | Frame::Narrow => 350.0,
+        Frame::Wide => 520.0,
+        Frame::Vast => 580.0,
+    };
+    let chrome = if full {
+        108.0 + m.body * 2.0
+    } else {
+        48.0 + 8.0
+    };
+    let stack = m.scaled(if full { 606.0 } else { 548.0 });
+    let max_logo_h = (height - chrome - stack).max(88.0);
+    by_width.min(max_logo_h * LOGO_ASPECT)
+}
+
 /// The front door (§3): the logo, the tagline and the card, the text row
 /// under it, the colophon at the foot, and the About sheet when it is up.
 ///
@@ -1408,23 +1431,19 @@ pub(super) fn front_door(
         .entity(root)
         .entry::<Node>()
         .and_modify(|mut node| node.overflow = Overflow::clip());
-    // A page taller than the window scrolls, and a bar at its edge says so
-    // (owner, 09.10.2026); one that fits shows none.
-    let bar = super::scrollbars::attach(commands, root, page, faces::field_metrics(kit));
-    commands
-        .entity(bar)
-        .insert(super::scrollbars::OnlyWhenNeeded)
-        .entry::<Node>()
-        .and_modify(|mut node| node.display = Display::None);
+    // A page taller than the window scrolls, and a bar overlaid at its right
+    // edge says so (owner, 09.10.2026) without ever shifting the centred column
+    // sideways when a banner appears.
+    super::scrollbars::attach_overlay(
+        commands,
+        root,
+        page,
+        faces::field_metrics(kit).frame == Frame::Compact,
+    );
     let _ = cloud;
     let logo = assets.map_or_else(Handle::default, |a| a.load("brand/baylee-logo.png"));
-    let logo_width = match kit.m.frame {
-        Frame::Phone => 185.0,
-        Frame::Compact | Frame::Narrow => 350.0,
-        Frame::Wide => 520.0,
-        Frame::Vast => 580.0,
-    };
-    let brand = door::front_logo(commands, state, logo, logo_width, phone, full);
+    let logo_width = logo_width(kit.m, height, full);
+    let brand = door::front_logo(commands, state, logo, logo_width);
     let stage = stage(commands, state, cast, kit, scrolled_to, music_on);
     let community = door::community_row(commands, state, kit, full);
     let version = door::version_line(commands, state, kit);
@@ -1602,7 +1621,7 @@ pub(super) fn front_door(
         commands.entity(root).add_child(veil);
     }
     door::community_dialog(commands, root, state, kit);
-    donate::sheet(commands, root, state, kit);
+    donate::sheet(commands, root, state, kit, scrolled_to);
 }
 
 /// A control of the front door: the saved gateways, the account form,
@@ -1742,6 +1761,7 @@ impl FrontPress {
             FrontPress::Donate => {
                 state.front_menu = false;
                 state.community_dialog = None;
+                scrolled.set(List::Donate, 0.0);
                 state.giving.open = true;
             }
             FrontPress::CloseDonate => state.giving.open = false,
@@ -2055,5 +2075,114 @@ mod tests {
         assert_eq!(pose(&rest, Panel::SignIn, 520.0), Pose::REST);
         let door = moving(Panel::Gateway, Panel::SignIn, 0.5);
         assert_eq!(pose(&door, Panel::Create, 520.0), Pose::REST);
+    }
+
+    fn front_door_state(lang: Lang) -> LobbyState {
+        let mut state = LobbyState::default();
+        state.lobby.set_lang(lang);
+        #[cfg(not(target_arch = "wasm32"))]
+        super::super::central::enable(&mut state);
+        #[cfg(target_arch = "wasm32")]
+        let _ = state.lobby.choose_gateway("https://gateway.example");
+        state.source_code = Some(super::super::source::Code {
+            url: "https://github.com/AceVik/baylee".to_string(),
+            image: Handle::default(),
+            side: 29,
+        });
+        state
+    }
+
+    #[test]
+    fn front_door_fits_at_1280x720_without_clipping_community_pills() {
+        use crate::shellkit::{ShellMetrics, TextSize, Viewport};
+        use bevy::ui_widgets::Scrollbar;
+
+        for lang in [Lang::En, Lang::De] {
+            let (mut app, fonts) = crate::face::tests::layout_app();
+            app.add_systems(Update, crate::lobby::scrollbars::show_when_needed);
+            let state = front_door_state(lang);
+            let cast = FrontCast::default();
+            let scrolled = Scrolled::default();
+            let kit = Kit {
+                fonts: &fonts,
+                m: ShellMetrics::of(Viewport::desktop(1280.0, 720.0), TextSize::M),
+                german: lang == Lang::De,
+            };
+            let mut commands = app.world_mut().commands();
+            let root = commands
+                .spawn(Node {
+                    width: px_fixed(1280.0),
+                    height: px_fixed(720.0),
+                    flex_direction: FlexDirection::Column,
+                    ..default()
+                })
+                .id();
+            front_door(
+                &mut commands,
+                root,
+                &state,
+                &cast,
+                kit,
+                &scrolled,
+                None,
+                None,
+                false,
+                720.0,
+            );
+            app.world_mut().flush();
+            for _ in 0..4 {
+                app.update();
+            }
+
+            let world = app.world_mut();
+            let (page_entity, page_size, page_content, page_rect) = world
+                .query::<(
+                    Entity,
+                    &Scrollable,
+                    &ComputedNode,
+                    &bevy::ui::UiGlobalTransform,
+                )>()
+                .iter(world)
+                .find(|(_, s, ..)| s.0 == List::Table)
+                .map(|(e, _, c, t)| {
+                    (
+                        e,
+                        c.size(),
+                        c.content_size(),
+                        Rect::from_center_size(t.translation, c.size()),
+                    )
+                })
+                .expect("front-door scroll viewport");
+            assert!(
+                page_content.y <= page_size.y + 2.0,
+                "{lang:?} at 1280x720 should fit without vertical overflow (content {} vs view {})",
+                page_content.y,
+                page_size.y
+            );
+
+            let bar_display = world
+                .query::<(&Scrollbar, &Node)>()
+                .iter(world)
+                .find(|(bar, _)| bar.target == page_entity)
+                .map(|(_, n)| n.display)
+                .expect("front-door scrollbar");
+            assert_eq!(bar_display, Display::None);
+
+            let mut pills = 0;
+            for (press, computed, at) in world
+                .query::<(&Press, &ComputedNode, &bevy::ui::UiGlobalTransform)>()
+                .iter(world)
+            {
+                if matches!(press, Press::Front(FrontPress::OpenCommunityDialog(_))) {
+                    pills += 1;
+                    let rect = Rect::from_center_size(at.translation, computed.size());
+                    assert!(
+                        rect.max.y <= page_rect.max.y + 0.5,
+                        "{lang:?} community pill {press:?} {rect:?} clipped past viewport {page_rect:?}"
+                    );
+                }
+            }
+            assert_eq!(pills, 4, "all four community pills laid out cleanly");
+        }
     }
 }

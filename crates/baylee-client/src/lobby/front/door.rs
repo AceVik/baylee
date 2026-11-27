@@ -252,8 +252,6 @@ pub(super) fn front_logo(
     state: &LobbyState,
     logo: Handle<Image>,
     logo_width: f32,
-    phone: bool,
-    full: bool,
 ) -> Entity {
     let name = Phrase::MemorialOpen.text(state.lobby.lang());
     let mut a11y = accesskit::Node::new(accesskit::Role::Button);
@@ -273,14 +271,7 @@ pub(super) fn front_logo(
             Node {
                 width: px_fixed(logo_width),
                 max_width: Val::Percent(100.0),
-                max_height: Val::Vh(if phone {
-                    32.0
-                } else if full {
-                    28.0
-                } else {
-                    23.5
-                }),
-                aspect_ratio: Some(1942.0 / 809.0),
+                aspect_ratio: Some(super::LOGO_ASPECT),
                 flex_shrink: 0.0,
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
                 ..default()
@@ -644,6 +635,7 @@ pub(super) fn header_controls(
     let table = keys::table_of(state).name;
     let cluster = commands
         .spawn((
+            super::super::hint::HeaderHintScope,
             Node {
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::FlexEnd,

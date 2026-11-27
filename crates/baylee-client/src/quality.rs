@@ -255,6 +255,7 @@ pub struct FrameRateCounter;
 
 /// Shows the counter while the setting asks for it: the frame time and the
 /// rate, averaged over about half a second.
+#[allow(clippy::too_many_arguments)]
 fn show_frame_rate(
     mut commands: Commands,
     time: Res<Time<Real>>,
@@ -267,6 +268,7 @@ fn show_frame_rate(
         &ComputedNode,
         &UiGlobalTransform,
     )>,
+    bars: Query<(&ComputedNode, &UiGlobalTransform), With<crate::shellkit::header::HeaderSurface>>,
 ) {
     let want = in_use.0.show_frame_rate;
     if !want {
@@ -284,13 +286,20 @@ fn show_frame_rate(
     };
     *since += dt;
     let said = format!("{:.1} ms \u{b7} {:.0} fps", *mean * 1000.0, 1.0 / *mean);
-    // Under the front door's top-left tile, never on it (beta.6: the
-    // counter sat on the source tile).
-    let top = tiles
+    // Below any top-left front-door tile or shell header/strip so the counter
+    // never covers the Baylee logo or top-bar controls.
+    let tile_top = tiles
         .iter()
-        .filter(|(tile, ..)| tile.corner == crate::lobby::front::door::Corner::Left)
-        .map(|(_, node, at)| frame_rate_top(node, at))
+        .filter(|(tile, node, _)| {
+            tile.corner == crate::lobby::front::door::Corner::Left && node.size().y > 0.0
+        })
+        .map(|(_, node, at)| frame_rate_top(node, at, 4.0))
         .fold(4.0_f32, f32::max);
+    let top = bars
+        .iter()
+        .filter(|(node, _)| node.size().y > 0.0)
+        .map(|(node, at)| frame_rate_top(node, at, 2.0))
+        .fold(tile_top, f32::max);
     if let Ok((_, mut text, mut node)) = counters.single_mut() {
         if node.top != Val::Px(top) {
             node.top = Val::Px(top);
@@ -322,11 +331,11 @@ fn show_frame_rate(
     ));
 }
 
-/// The counter's top below a tile: the tile's bottom edge in logical
-/// pixels, plus a little air.
-fn frame_rate_top(node: &ComputedNode, at: &UiGlobalTransform) -> f32 {
+/// The counter's top below a tile or header bar: its bottom edge in logical
+/// pixels, plus `air`.
+fn frame_rate_top(node: &ComputedNode, at: &UiGlobalTransform, air: f32) -> f32 {
     let scale = node.inverse_scale_factor;
-    at.translation.y * scale + node.size().y * scale / 2.0 + 4.0
+    at.translation.y * scale + node.size().y * scale / 2.0 + air
 }
 
 /// Whether ambient surfaces stand still: the player asked for no motion, or
@@ -1153,5 +1162,95 @@ mod tests {
             app.update();
         }
         assert!((wait(&app) - rest).abs() < 1e-4, "at rest again");
+    }
+
+    #[test]
+    fn frame_rate_counter_sits_below_header_strip_and_front_corner_tile() {
+        use crate::lobby::front::FrontPress;
+        use crate::lobby::front::door::{Corner, CornerTile};
+        use crate::shellkit::header::HeaderSurface;
+
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        let mut in_use = InUse::default();
+        in_use.0.show_frame_rate = true;
+        app.insert_resource(in_use)
+            .insert_resource(crate::hud::UiFonts::default())
+            .add_systems(Update, show_frame_rate);
+
+        // With a 56 px lobby header at 2x Retina scale (112 physical px tall),
+        // the counter drops below the header instead of covering the brand logo.
+        let header = app
+            .world_mut()
+            .spawn((
+                HeaderSurface(false),
+                ComputedNode {
+                    size: Vec2::new(3200.0, 112.0),
+                    inverse_scale_factor: 0.5,
+                    ..default()
+                },
+                UiGlobalTransform::from(bevy::math::Affine2::from_translation(Vec2::new(
+                    1600.0, 56.0,
+                ))),
+            ))
+            .id();
+        app.update();
+        let top = |app: &mut App| {
+            app.world_mut()
+                .query_filtered::<&Node, With<FrameRateCounter>>()
+                .single(app.world())
+                .expect("FrameRateCounter")
+                .top
+        };
+        assert_eq!(top(&mut app), Val::Px(58.0));
+
+        // When a seated strip stands below the header (56..94), the counter
+        // clears the strip too.
+        let strip = app
+            .world_mut()
+            .spawn((
+                HeaderSurface(true),
+                ComputedNode {
+                    size: Vec2::new(3200.0, 76.0),
+                    inverse_scale_factor: 0.5,
+                    ..default()
+                },
+                UiGlobalTransform::from(bevy::math::Affine2::from_translation(Vec2::new(
+                    1600.0, 150.0,
+                ))),
+            ))
+            .id();
+        app.update();
+        assert_eq!(top(&mut app), Val::Px(96.0));
+
+        // On the front door (no header, left Support Baylee corner tile
+        // ending at y = 94), it clears the corner tile.
+        app.world_mut().despawn(header);
+        app.world_mut().despawn(strip);
+        let corner = app
+            .world_mut()
+            .spawn((
+                CornerTile {
+                    corner: Corner::Left,
+                    press: FrontPress::Donate,
+                },
+                ComputedNode {
+                    size: Vec2::new(160.0, 80.0),
+                    inverse_scale_factor: 1.0,
+                    ..default()
+                },
+                UiGlobalTransform::from(bevy::math::Affine2::from_translation(Vec2::new(
+                    96.0, 54.0,
+                ))),
+            ))
+            .id();
+        app.update();
+        assert_eq!(top(&mut app), Val::Px(98.0));
+
+        // With neither header nor corner tile (e.g. a 3D duel table), it sits
+        // in the top-left corner at 4 px.
+        app.world_mut().despawn(corner);
+        app.update();
+        assert_eq!(top(&mut app), Val::Px(4.0));
     }
 }

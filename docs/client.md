@@ -4986,8 +4986,9 @@ on every class but a phone, whose form still sets two to a row so it ends
 above the keyboard (§2.7). A second face's head wraps rather than cuts:
 `‹ Back` and the title on one line, the gateway's chip at the right end of
 it, or on a line of its own when the three do not fit. A front door taller
-than its window scrolls, and a bar at its edge says so
-(`scrollbars::OnlyWhenNeeded`, out of the layout while the page fits).
+than its window scrolls, and a bar overlaid at its right edge says so
+(`scrollbars::attach_overlay`, `OnlyWhenNeeded`, so showing it never shifts the
+centred column sideways).
 Every list that runs over has one, at its right edge where the client's
 other bars stand: Play's deck picker (Change deck) is a sheet whose body is
 a `Scrollable` with its bar (`surfaces::sheet_box_listed`; before a report

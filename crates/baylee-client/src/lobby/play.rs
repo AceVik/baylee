@@ -236,6 +236,7 @@ fn activity_lane(
 ) -> Entity {
     let phone = kit.m.frame == ShellFrame::Phone;
     let wide = matches!(kit.m.frame, ShellFrame::Wide | ShellFrame::Vast);
+    let side = phone || wide;
     let lane = commands
         .spawn((
             Node {
@@ -256,6 +257,13 @@ fn activity_lane(
             .insert(crate::vista::Framed(crate::vista::Vista::Interior));
     }
     let band = super::scrollbars::band_stable(commands, lane, phone);
+    // Let the hidden stable scrollbar gutter sit inside the column gap between
+    // the Play tiles and the Tables panel instead of doubling that gap.
+    let fold_gap = if side {
+        super::scrollbars::band_gutter(phone).min(kit.m.body)
+    } else {
+        0.0
+    };
     commands
         .entity(band)
         .entry::<Node>()
@@ -277,6 +285,9 @@ fn activity_lane(
             } else {
                 Val::Vh(42.0)
             };
+            if fold_gap > 0.0 {
+                n.margin.right = px_fixed(-fold_gap);
+            }
             n.flex_shrink = 0.0;
         });
     commands.entity(body).add_child(band);

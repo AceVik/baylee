@@ -1821,9 +1821,10 @@ pub fn list_row(
             Node {
                 min_height: px_fixed(kit.m.row),
                 width: Val::Percent(100.0),
-                padding: UiRect::axes(kit.m.px(12.0), px_fixed(0.0)),
+                padding: UiRect::axes(kit.m.px(12.0), kit.m.px(8.0)),
                 align_items: AlignItems::Center,
                 column_gap: px_fixed(kit.m.gap),
+                flex_shrink: 0.0,
                 border_radius: BorderRadius::all(px_fixed(RADIUS_CONTROL)),
                 overflow: Overflow::clip(),
                 ..default()
@@ -1839,6 +1840,7 @@ pub fn list_row(
                 flex_grow: 1.0,
                 flex_shrink: 1.0,
                 min_width: px_fixed(0.0),
+                row_gap: kit.m.px(2.0),
                 ..default()
             },
             Pickable::IGNORE,
@@ -1849,11 +1851,29 @@ pub fn list_row(
             Text::new(title),
             tf_bold(kit.fonts, kit.m.text),
             TextColor(tokens::INK),
-            TextLayout::no_wrap(),
+            TextLayout::new(
+                bevy::text::Justify::Left,
+                bevy::text::LineBreak::WordBoundary,
+            ),
             Pickable::IGNORE,
         ))
         .id();
-    let meta = label(commands, kit, meta, kit.m.small, tokens::MUTED);
+    let meta = commands
+        .spawn((
+            Text::new(meta),
+            tf(kit.fonts, kit.m.small),
+            TextColor(tokens::MUTED),
+            TextLayout::new(
+                bevy::text::Justify::Left,
+                bevy::text::LineBreak::WordBoundary,
+            ),
+            Node {
+                width: Val::Percent(100.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
     commands.entity(words).add_children(&[name, meta]);
     commands.entity(line).add_child(words);
     commands.entity(line).add_children(trailing);
@@ -2115,5 +2135,62 @@ mod tests {
         };
         world.flush();
         assert_eq!(world.get::<BoxShadow>(card), Some(&elevation_card()));
+    }
+
+    #[test]
+    fn list_row_wraps_long_subtitle_inside_panel_without_horizontal_clipping() {
+        let (mut app, fonts) = crate::face::tests::layout_app();
+        let kit = Kit {
+            fonts: &fonts,
+            m: ShellMetrics::of(Viewport::desktop(1280.0, 720.0), TextSize::M),
+            german: true,
+        };
+        let short_meta = "Grafik \u{b7} Kurz";
+        let long_meta = "Grafik \u{b7} Wie steil die Kamera auf einen Tisch mit drei oder mehr Plätzen blickt. Steil zeichnet dein eigenes Brett etwa ein Drittel größer und die fernen Plätze etwas kleiner; flach hält sie ungefähr gleich groß";
+        let mut commands = app.world_mut().commands();
+        let panel = commands
+            .spawn(Node {
+                width: px_fixed(640.0),
+                height: px_fixed(400.0),
+                flex_direction: FlexDirection::Column,
+                ..default()
+            })
+            .id();
+        let short_row = list_row(&mut commands, kit, "Kurz", short_meta, &[], ());
+        let long_row = list_row(&mut commands, kit, "Tischwinkel", long_meta, &[], ());
+        commands.entity(panel).add_children(&[short_row, long_row]);
+        app.world_mut().flush();
+        for _ in 0..4 {
+            app.update();
+        }
+        let world = app.world_mut();
+        let panel_w = world.get::<ComputedNode>(panel).unwrap().size().x;
+        let short_h = world
+            .query::<(&Text, &ComputedNode)>()
+            .iter(world)
+            .find(|(t, _)| t.0 == short_meta)
+            .map(|(_, c)| c.size().y)
+            .expect("short subtitle");
+        let (long_w, long_h, long_break) = world
+            .query::<(&Text, &ComputedNode, &TextLayout)>()
+            .iter(world)
+            .find(|(t, ..)| t.0 == long_meta)
+            .map(|(_, c, l)| (c.size().x, c.size().y, l.linebreak))
+            .expect("long German subtitle");
+        let long_row_h = world.get::<ComputedNode>(long_row).unwrap().size().y;
+
+        assert_eq!(long_break, bevy::text::LineBreak::WordBoundary);
+        assert!(
+            long_w <= panel_w,
+            "wrapped subtitle width {long_w} must stay inside panel width {panel_w}"
+        );
+        assert!(
+            long_h > short_h * 1.5,
+            "long German subtitle should wrap onto multiple lines ({long_h} vs {short_h})"
+        );
+        assert!(
+            long_row_h >= long_h,
+            "list row ({long_row_h}) grows to hold wrapped subtitle ({long_h})"
+        );
     }
 }

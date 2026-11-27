@@ -95,7 +95,7 @@ pub(in crate::lobby) fn draw(
     );
     let page = page_root(commands, root, kit, compact);
     let (title, formats) = masthead(commands, page, kit);
-    let band = desk_and_board(commands, page, kit, compact);
+    let band = desk_and_board(commands, page, kit, compact, scrolled);
     let board = board_panel(commands, band, kit, metrics, compact, scrolled);
     commands.entity(page).insert(Page {
         metrics: kit.m,
@@ -192,7 +192,13 @@ fn masthead(commands: &mut Commands, page: Entity, kit: Kit) -> (Entity, Entity)
 /// The page's body: the account's desk (its standing and the queue) beside
 /// the public ladder on a wide window, above it on a narrow one. The desk
 /// keeps one width whatever it says, so the ladder beside it never moves.
-fn desk_and_board(commands: &mut Commands, page: Entity, kit: Kit, compact: bool) -> Entity {
+fn desk_and_board(
+    commands: &mut Commands,
+    page: Entity,
+    kit: Kit,
+    compact: bool,
+    scrolled: &Scrolled,
+) -> Entity {
     let band = commands
         .spawn((
             Node {
@@ -230,12 +236,34 @@ fn desk_and_board(commands: &mut Commands, page: Entity, kit: Kit, compact: bool
             n.min_height = px(0);
             n.row_gap = kit.m.space(2);
             if !compact {
-                n.overflow = Overflow::scroll_y();
+                n.overflow = Overflow::clip();
             }
         });
     commands.entity(desk).insert(Pickable::default());
     commands.entity(band).add_child(desk);
-    super::inline::desk(commands, desk, kit);
+    let content = if compact {
+        desk
+    } else {
+        let scroller = commands
+            .spawn((
+                Node {
+                    flex_direction: FlexDirection::Column,
+                    overflow: Overflow::scroll_y(),
+                    row_gap: kit.m.space(2),
+                    min_height: px(0),
+                    ..default()
+                },
+                surfaces::SheetScroller,
+                Scrollable(List::RankedDesk),
+                ScrollPosition(Vec2::new(0.0, scrolled.get(List::RankedDesk))),
+                crate::shellkit::Role::Scroll,
+                Pickable::default(),
+            ))
+            .id();
+        scrollbars::attach_when_needed(commands, desk, scroller, false);
+        scroller
+    };
+    super::inline::desk(commands, desk, content, kit);
     band
 }
 

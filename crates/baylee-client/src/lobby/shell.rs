@@ -275,6 +275,9 @@ pub(super) struct KitDrawn {
     strip: bool,
     /// Tall enough for the front door's full colophon.
     tall: bool,
+    /// Quantised front-door logo width so vertical resizes within one width
+    /// class (such as `860` → `720`) refit the logo without rebuilding at rest.
+    front_logo: u16,
     /// The big-screen scale in eighths (`ShellMetrics::scale`): crossing a
     /// step redraws, as crossing a frame does.
     scale: u8,
@@ -375,12 +378,23 @@ pub(super) fn ui(
         } else {
             0
         };
+    let on_front = !state.settings.is_open()
+        && (matches!(state.lobby.screen(), Screen::SignIn { .. }) || state.showing_gateway_hub());
+    let tall = height >= super::front::door::FULL_COLOPHON_HEIGHT;
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let front_logo = if on_front {
+        let full = matches!(shell_m.frame, Frame::Wide | Frame::Vast) && tall;
+        ((super::front::logo_width(shell_m, height, full) / 8.0).round() as u16) * 8
+    } else {
+        0
+    };
     let kit_now = KitDrawn {
         frame: shell_m.frame,
         step,
         input: *kit_inputs.0,
         strip: super::header::seated(&state).is_some(),
-        tall: height >= super::front::door::FULL_COLOPHON_HEIGHT,
+        tall,
+        front_logo,
         scale: eighths(shell_m.scale),
         games_window,
     };
