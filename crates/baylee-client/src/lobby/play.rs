@@ -419,7 +419,6 @@ fn recent(commands: &mut Commands, parent: Entity, state: &LobbyState, kit: Kit)
         return;
     }
     let panel = surfaces::panel(commands, kit, percent(100));
-    commands.entity(panel).insert(super::dock::Dock(6));
     let caption = parts::caption(commands, kit, Phrase::PlayRecentGames.text(lang));
     commands.entity(panel).add_child(caption);
     for (at, game) in lobby.recent().iter().enumerate() {

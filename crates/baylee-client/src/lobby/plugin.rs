@@ -68,7 +68,6 @@ impl Plugin for LobbyPlugin {
         crate::flip::install(app);
         app.init_resource::<thumbnails::Cache>()
             .init_resource::<thumbnails::ArtCache>()
-            .init_resource::<dock::Surfaces>()
             .init_resource::<Mailbox>()
             .init_resource::<feed::Feed>()
             .init_resource::<ChatJoins>()
@@ -166,7 +165,6 @@ impl Plugin for LobbyPlugin {
                     // After the rebuild, so a music switch it just stood up
                     // says the right thing on its first frame.
                     blink.run_if(table_settings::lobby_or_over_table),
-                    dock::materialize.run_if(in_state(DuelPhase::Closed)),
                     (button_style::materialize, crate::shellkit::sheen::dress)
                         .run_if(table_settings::lobby_or_over_table),
                     hint::hint_panel,

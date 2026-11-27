@@ -6,7 +6,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
 use crate::challenge_art::Scene;
-use crate::hud::tf_bold;
 use crate::shellkit::{Frame, surfaces};
 
 /// Whether two sections stand side by side: a desktop window, not a tablet's.
@@ -164,72 +163,6 @@ pub(super) fn banner(commands: &mut Commands, root: Entity, kit: Kit, art: Scene
         ))
         .id();
     commands.entity(root).add_child(image);
-}
-
-/// A number behind its glyph with its name under it, one of a row of equal
-/// cells.
-pub(super) fn stat(
-    commands: &mut Commands,
-    root: Entity,
-    kit: Kit,
-    icon: char,
-    value: &str,
-    name: &str,
-) {
-    let cell = commands
-        .spawn((
-            Node {
-                flex_grow: 1.0,
-                flex_basis: px_fixed(0.0),
-                min_width: px_fixed(0.0),
-                flex_direction: FlexDirection::Column,
-                align_items: AlignItems::Center,
-                row_gap: kit.m.px(2.0),
-                padding: UiRect::axes(kit.m.space(1), kit.m.space(1)),
-                border: UiRect::all(px_fixed(1.0)),
-                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
-                ..default()
-            },
-            BackgroundColor(tokens::CONTROL.with_alpha(0.45)),
-            BorderColor::all(tokens::BORDER),
-            Pickable::IGNORE,
-        ))
-        .id();
-    let number = commands
-        .spawn((
-            Node {
-                align_items: AlignItems::Center,
-                column_gap: kit.m.px(8.0),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .with_children(|line| {
-            line.spawn((
-                Text::new(icon.to_string()),
-                crate::hud::icon_tf(kit.fonts, kit.m.text * 0.9),
-                TextColor(tokens::ACCENT),
-                Pickable::IGNORE,
-            ));
-            line.spawn((
-                Text::new(value),
-                tf_bold(kit.fonts, kit.m.head),
-                TextColor(tokens::INK),
-                Pickable::IGNORE,
-            ));
-        })
-        .id();
-    let name = commands
-        .spawn((
-            Text::new(name),
-            tf(kit.fonts, kit.m.small),
-            TextColor(tokens::MUTED),
-            TextLayout::default().with_justify(Justify::Center),
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(cell).add_children(&[number, name]);
-    commands.entity(root).add_child(cell);
 }
 
 /// A hairline between two groups of a section.

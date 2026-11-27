@@ -528,8 +528,8 @@ fn draw(
                 ..default()
             },
             BackgroundColor(Color::NONE),
-            super::rows::dialog_glass(),
-            BorderColor::all(super::rows::GLASS_EDGE),
+            crate::shellkit::glass::ground(crate::shellkit::glass::Density::Reading),
+            crate::shellkit::glass::rim(),
             crate::shellkit::surfaces::sheet_shadow(),
         ))
         .id();

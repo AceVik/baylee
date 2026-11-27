@@ -10,8 +10,10 @@ in the queue's format. The page stands a Central account's desk beside the
 public ladder on a wide window (above it on a narrow one, the whole page
 scrolling; a guest reading the ladder from the front door sees the ladder
 alone): the standing (rank badge, Elo, the season's record, a bar of the ten
-placement games while unranked), the deck selector, the search and
-its result card. A Central account can queue for a duel, check its status and
+placement games while unranked), once a game is played its figures in three
+equal cells (the season's win rate, its games, the games of every season:
+`queue::figures_row`, `parts::stat`, the cell the Daily and Weekly detail uses
+too), the deck selector, the search and its result card. A Central account can queue for a duel, check its status and
 cancel there; the desk keeps one width whatever it says, so the ladder beside
 it never moves. Opening or leaving the page never enters or leaves the queue.
 Without a legal deck in the format, the desk shows an empty state that leads to
@@ -258,13 +260,12 @@ preserves its scroll container, header and focus targets.
 
 ## Accounts and decks
 
-The account screens reuse the table hand HUD's `FrontalMaterial`: leather,
-engraved borders and five mineral inlays, which a lobby panel lifts clear of
-its tooled line (`dock::INLAY_LIFT`; on the hand they sit on it), with the
-panel's last row clear of them in turn. `lobby/dock.rs` maintains seven bounded
-material slots, one per differently sized surface. Decorative children ignore
-picking. The existing motion preference also controls these materials and the
-ambient shader. Native/browser text editing, selection, paste and IME continue
+Every container wears one glass (owner, 26.11.2026: the look of the sign-in
+card and its dialogs, for the contacts, the chat, the list of tables and every
+other container; `shellkit::glass`, docs/client.md §"One glass for every
+container"). The leather the account screens once borrowed from the hand HUD
+(`lobby/dock.rs`, seven material slots) is gone with it. Decorative children
+ignore picking. Native/browser text editing, selection, paste and IME continue
 through the existing text-buffer and soft-keyboard paths.
 
 A native client starts at Baylee Central's sign-in, and its *Continue without an

@@ -92,7 +92,7 @@ pub(super) fn draw(
                 ..default()
             },
             BackgroundColor(Color::NONE),
-            crate::social::rows::dialog_glass(),
+            tower_glass(),
             BorderColor::all(tokens::GOLD.with_alpha(0.52)),
             shellkit::surfaces::popover_shadow(),
             Pickable::default(),
@@ -147,6 +147,19 @@ pub(super) fn draw(
         ))
         .id();
     seats(commands, panel, kit, duel, lang);
+}
+
+/// The Tower panel's own smoked glass under its gilded rim: the Tower keeps
+/// its look (owner, 26.11.2026), the rest of the client wears
+/// `shellkit::glass`.
+fn tower_glass() -> BackgroundGradient {
+    BackgroundGradient::from(LinearGradient::new(
+        std::f32::consts::PI,
+        vec![
+            ColorStop::auto(Color::srgba(0.050, 0.102, 0.144, 0.96)),
+            ColorStop::auto(Color::srgba(0.026, 0.060, 0.090, 0.94)),
+        ],
+    ))
 }
 
 fn close(commands: &mut Commands, parent: Entity, kit: Kit, lang: Lang) {

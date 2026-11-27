@@ -282,11 +282,15 @@ impl BellItem {
     }
 }
 
-/// The bell: what happened, newest last, and how much of it is unread.
+/// The bell: what happened and when (Unix seconds), newest last, and how
+/// much of it is unread.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Bell {
-    items: Vec<BellItem>,
+    items: Vec<(BellItem, i64)>,
     unread: usize,
+    /// How many of the newest items were unread when the bell was last
+    /// opened: the ones its list marks as new.
+    fresh: usize,
     /// How many times it has rung, ever: what a toast lane counts against.
     rung: u64,
 }
@@ -295,12 +299,12 @@ impl Bell {
     /// How many items the bell keeps.
     pub const KEPT: usize = 20;
 
-    /// Rings: one more item, unread.
-    pub fn ring(&mut self, item: BellItem) {
+    /// Rings: one more item, unread, that happened `at` (Unix seconds).
+    pub fn ring(&mut self, item: BellItem, at: i64) {
         if self.items.len() == Self::KEPT {
             self.items.remove(0);
         }
-        self.items.push(item);
+        self.items.push((item, at));
         self.unread = (self.unread + 1).min(Self::KEPT);
         self.rung += 1;
     }
@@ -313,7 +317,14 @@ impl Bell {
 
     /// The newest `n` items, oldest of them first.
     pub fn latest(&self, n: usize) -> impl Iterator<Item = &BellItem> {
-        self.items[self.items.len().saturating_sub(n)..].iter()
+        self.items[self.items.len().saturating_sub(n)..]
+            .iter()
+            .map(|(item, _)| item)
+    }
+
+    /// Every item with when it happened, newest first.
+    pub fn entries(&self) -> impl Iterator<Item = (&BellItem, i64)> {
+        self.items.iter().rev().map(|(item, at)| (item, *at))
     }
 
     /// Items not yet seen.
@@ -322,8 +333,17 @@ impl Bell {
         self.unread
     }
 
-    /// Everything, as seen.
+    /// How many of the newest items the open list marks as new: those
+    /// unread when it was opened.
+    #[must_use]
+    pub const fn fresh(&self) -> usize {
+        self.fresh
+    }
+
+    /// Everything, as seen: what was unread stays marked new in the list
+    /// being opened, and only there.
     pub fn read_all(&mut self) {
+        self.fresh = self.unread;
         self.unread = 0;
     }
 
@@ -339,16 +359,23 @@ impl Bell {
         self.items.is_empty()
     }
 
-    /// The items as sentences, newest first.
-    #[must_use]
-    pub fn lines(&self, lang: Lang) -> Vec<String> {
-        self.items.iter().rev().map(|i| i.sentence(lang)).collect()
-    }
-
     /// The newest item.
     #[must_use]
     pub fn newest(&self) -> Option<&BellItem> {
-        self.items.last()
+        self.items.last().map(|(item, _)| item)
+    }
+}
+
+/// How long ago `at` was at `now` (both Unix seconds), in the largest whole
+/// unit; under a minute is "just now", and a clock that went back is too.
+#[must_use]
+pub fn ago(now: i64, at: i64, lang: Lang) -> String {
+    let seconds = now.saturating_sub(at);
+    match seconds {
+        ..60 => Phrase::ShellAgoNow.text(lang).to_owned(),
+        60..3600 => Phrase::ShellAgoMinutes.fill(lang, &[&(seconds / 60).to_string()]),
+        3600..86_400 => Phrase::ShellAgoHours.fill(lang, &[&(seconds / 3600).to_string()]),
+        _ => Phrase::ShellAgoDays.fill(lang, &[&(seconds / 86_400).to_string()]),
     }
 }
 
@@ -622,14 +649,30 @@ mod tests {
             "a different table is no news"
         );
         let mut bell = Bell::default();
-        for item in table_news(&before, &after) {
-            bell.ring(item);
+        for (at, item) in table_news(&before, &after).into_iter().enumerate() {
+            bell.ring(item, i64::try_from(at).unwrap() * 120);
         }
         assert_eq!(bell.unread(), 2);
-        assert_eq!(bell.lines(Lang::En)[0], "Ole#9 left your table");
+        let (newest, at) = bell.entries().next().unwrap();
+        assert_eq!(newest.sentence(Lang::En), "Ole#9 left your table");
+        assert_eq!(at, 120);
         bell.read_all();
         assert_eq!(bell.unread(), 0);
+        assert_eq!(bell.fresh(), 2, "the list being opened still marks them");
         assert_eq!(bell.len(), 2);
+        bell.read_all();
+        assert_eq!(bell.fresh(), 0, "opened again, nothing is new");
+    }
+
+    #[test]
+    fn a_bell_line_says_how_long_ago_in_its_largest_unit() {
+        assert_eq!(ago(100, 100, Lang::En), "just now");
+        assert_eq!(ago(100, 400, Lang::De), "gerade eben", "a clock gone back");
+        assert_eq!(ago(159, 100, Lang::En), "just now");
+        assert_eq!(ago(160, 100, Lang::De), "vor 1 Min.");
+        assert_eq!(ago(3_599, 0, Lang::En), "59 min ago");
+        assert_eq!(ago(7_200, 0, Lang::De), "vor 2 Std.");
+        assert_eq!(ago(3 * 86_400 + 5, 0, Lang::En), "3 d ago");
     }
 
     /// §2.5 (S4-12): the agent or engine gone while in a room — Start is

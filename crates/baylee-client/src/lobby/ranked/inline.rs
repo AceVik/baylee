@@ -221,7 +221,11 @@ fn caption(state: &LobbyState, own: Option<OwnRank>) -> String {
         api::QueueState::Idle => {}
     }
     match own {
-        Some((rank, _, Some(elo), _)) if rank.league != League::Unranked => format!(
+        Some(OwnRank {
+            rank,
+            elo: Some(elo),
+            ..
+        }) if rank.league != League::Unranked => format!(
             "{} · {}",
             super::rank_name(rank, lang),
             Phrase::RankedElo.fill(lang, &[&elo.to_string()])
@@ -232,23 +236,25 @@ fn caption(state: &LobbyState, own: Option<OwnRank>) -> String {
 
 fn own_rank(book: &Book, format: Format) -> Option<OwnRank> {
     if let Some(s) = book.own_player(format) {
-        return Some((
-            s.rank,
-            s.placement_games,
-            Some(s.elo),
-            Some((s.wins, s.losses, s.draws)),
-        ));
+        return Some(OwnRank {
+            rank: s.rank,
+            placements: s.placement_games,
+            elo: Some(s.elo),
+            record: Some((s.wins, s.losses, s.draws)),
+            career: Some(s.career),
+        });
     }
-    book.own_loaded().then_some((
-        api::Rank {
+    book.own_loaded().then_some(OwnRank {
+        rank: api::Rank {
             league: League::Unranked,
             division: None,
             champion_place: None,
         },
-        0,
-        None,
-        None,
-    ))
+        placements: 0,
+        elo: None,
+        record: None,
+        career: None,
+    })
 }
 
 pub(super) fn patch(

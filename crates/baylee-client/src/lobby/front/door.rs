@@ -1968,7 +1968,9 @@ pub(super) fn community_dialog(
     );
     commands
         .entity(dialog)
-        .insert((BackgroundColor(Color::NONE), super::glass_card_gradient()))
+        .insert(crate::shellkit::glass::ground(
+            crate::shellkit::glass::Density::Clear,
+        ))
         .entry::<Node>()
         .and_modify(move |mut node| {
             node.align_items = AlignItems::Center;

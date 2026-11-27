@@ -67,8 +67,10 @@ pub(crate) const LOBBY_INKS: Inks = Inks {
     pt: crate::hud::logpanel::LOG_LINE_PT,
 };
 
-/// The rim of every chat surface: the kit's sheet edge, so the chat
-/// window and the contacts drawer are framed as the client's sheets are.
+/// The edge of the chat's pills, and of the light rules inside its surfaces:
+/// the kit's sheet edge. The surfaces themselves (the window, the contacts
+/// drawer, the chat's sheets) wear the client's glass and its rim
+/// (`shellkit::glass`).
 pub(crate) const GLASS_EDGE: Color = crate::shellkit::tokens::SHEET_EDGE;
 /// The rule between a chat surface's bands, and round its fields: the kit's
 /// own hairline, the one under a sheet's head and over its foot.
@@ -76,30 +78,6 @@ pub(crate) const GLASS_RULE: Color = crate::shellkit::tokens::BORDER;
 /// Smoked-glass fill for interactive pills (`chat_pill`, `FriendsDoor`) whose
 /// hover lift animates [`BackgroundColor`] directly without a second quad.
 pub(crate) const PILL_GLASS: Color = Color::srgba(0.036, 0.078, 0.112, 0.89);
-
-/// The chat window's ground: smoked slate-obsidian glass that lets the room
-/// behind it through as a cool glow and no more, slightly denser than before
-/// so timestamps, sender names, prose and card links read crisply over bright
-/// 4K vistas and battlefields while keeping quiet ink comfortably above 4.5:1
-/// (`the_window_is_glass_and_its_quiet_ink_still_reads_over_the_fire`).
-pub(crate) fn window_ground() -> BackgroundGradient {
-    let [head, foot] = window_glass();
-    BackgroundGradient::from(LinearGradient::new(
-        std::f32::consts::PI,
-        vec![ColorStop::auto(head), ColorStop::auto(foot)],
-    ))
-}
-
-/// The glass at the window's head and at its foot.
-pub(crate) fn window_glass() -> [Color; 2] {
-    [
-        Color::srgba(0.042, 0.088, 0.126, WINDOW_GLASS.0),
-        Color::srgba(0.024, 0.056, 0.084, WINDOW_GLASS.1),
-    ]
-}
-
-/// How opaque the chat window's ground is at its head and at its foot.
-pub(crate) const WINDOW_GLASS: (f32, f32) = (0.91, 0.88);
 
 /// Top-lit frosted sheen for the head of the chat's own sheets and of the
 /// tower's panel. The chat window and the drawer have a sheet's head: no
@@ -110,17 +88,6 @@ pub(crate) fn head_glass() -> BackgroundGradient {
         vec![
             ColorStop::auto(Color::srgba(0.11, 0.20, 0.27, 0.56)),
             ColorStop::auto(Color::srgba(0.05, 0.10, 0.15, 0.24)),
-        ],
-    ))
-}
-
-/// Denser smoked glass for the chat's own sheets and its filter dialog.
-pub(crate) fn dialog_glass() -> BackgroundGradient {
-    BackgroundGradient::from(LinearGradient::new(
-        std::f32::consts::PI,
-        vec![
-            ColorStop::auto(Color::srgba(0.050, 0.102, 0.144, 0.96)),
-            ColorStop::auto(Color::srgba(0.026, 0.060, 0.090, 0.94)),
         ],
     ))
 }

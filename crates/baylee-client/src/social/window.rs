@@ -36,6 +36,7 @@ use head::{group_bar, head_parts};
 pub(crate) use list::{ARRIVE_SECS, Arrive, UnreadDivider};
 use list::{arrive, fill_list, note_the_marker};
 use peek::peek;
+use place::{LobbyChatPlacing, lobby_panel_place, lobby_room};
 use resize::{LobbyChatSizing, lobby_panel_size};
 
 /// The tab row's height in the chat window.
@@ -270,10 +271,13 @@ pub(crate) fn install(app: &mut App) {
     );
     app.add_systems(
         PostUpdate,
-        resize::cursor.after(crate::shellkit::pointer::follow_the_pointer),
+        (resize::cursor, place::cursor)
+            .chain()
+            .after(crate::shellkit::pointer::follow_the_pointer),
     );
     app.init_resource::<Windows>()
         .init_resource::<LobbyChatSizing>()
+        .init_resource::<LobbyChatPlacing>()
         .init_resource::<preview::ChatHover>()
         .add_systems(
             Update,
@@ -288,10 +292,12 @@ pub(crate) fn install(app: &mut App) {
                 pop_the_lobby_chat,
                 arrive,
                 resize::resize,
+                place::drag,
                 (
                     sync_lobby_window
                         .after(crate::hud::sync_log)
                         .before(crate::hud::follow_the_log),
+                    place::round_the_foot,
                     age_encryption_note,
                     show_scrollbars_only_on_overflow,
                 )
@@ -878,7 +884,11 @@ fn sync_lobby_window(
         Option<Res<crate::cardtext::CardTexts>>,
         Option<Res<logpanel::LogFolds>>,
     ),
-    (windows_q, scale): (Query<&Window>, Option<Res<UiScale>>),
+    (windows_q, scale, mut grounds): (
+        Query<&Window>,
+        Option<Res<UiScale>>,
+        Query<&mut BackgroundGradient, With<LobbyChat>>,
+    ),
     mut windows: ResMut<Windows>,
     mut roots: Query<
         (
@@ -897,9 +907,10 @@ fn sync_lobby_window(
     ),
     mut spacers: Query<&mut Node, With<logpanel::virtual_list::LogSpacer>>,
     mut shape: Local<Option<LobbyShape>>,
-    (zoom, sizing, slide, prefs): (
+    (zoom, sizing, placing, slide, prefs): (
         Res<super::zoom::Zoom>,
         Res<LobbyChatSizing>,
+        Res<LobbyChatPlacing>,
         Option<Res<super::drawer::DrawerSlide>>,
         Option<Res<crate::prefs::Prefs>>,
     ),
@@ -932,11 +943,7 @@ fn sync_lobby_window(
             crate::hud::scale::desktop_space(w, scale.as_deref())
         });
     let drawer_room = slide.as_ref().map_or(0.0, |s| s.room(zoom.0));
-    let avail_window = if ui.open && drawer_room > 0.0 {
-        Vec2::new((window.x - drawer_room).max(320.0 * zoom.0), window.y)
-    } else {
-        window
-    };
+    let avail_window = lobby_room(window, ui.open, drawer_room, zoom.0);
     let size = lobby_panel_size(
         sizing
             .resized
@@ -956,6 +963,10 @@ fn sync_lobby_window(
     let full = ui.open && !minimised;
     let want_h = if full { zpx(size.height) } else { Val::Auto };
     let want_w = if ui.open { zpx(size.width) } else { Val::Auto };
+    // A window put over the lobby's other panels stands on the solid glass,
+    // so no line of theirs shows through its own; on the painting, docked or
+    // at a table, it is the reading glass every panel wears.
+    let mut floats = false;
     let (left, right, bottom, radius, border) = if at_table {
         let table_node = logpanel::root_node();
         let base_right = match table_node.right {
@@ -975,17 +986,32 @@ fn sync_lobby_window(
             UiRect::all(zpx(1.0)),
         )
     } else {
+        // Where the player put it, held inside the screen every frame; a
+        // minimised window's head docks on the foot where it stood.
+        let place = lobby_panel_place(
+            placing
+                .placed
+                .or(settings.as_deref().and_then(|s| s.chat_window_at)),
+            size,
+            avail_window,
+            zoom.0,
+        );
+        floats = full && !place::docked(place);
         let left = if ui.open {
-            zpx(12.0)
+            zpx(place.left)
         } else {
             pill_left(&captions, window.y).unwrap_or(zpx(196.0))
         };
         (
             left,
             Val::Auto,
-            zpx(0.0),
-            // Docked on the window's foot: only the upper corners are round.
-            BorderRadius::top(Val::Px(Frame::Lobby.radius())),
+            zpx(if floats { place.bottom } else { 0.0 }),
+            // Docked on the window's foot only the upper corners are round.
+            if floats {
+                BorderRadius::all(Val::Px(Frame::Lobby.radius()))
+            } else {
+                BorderRadius::top(Val::Px(Frame::Lobby.radius()))
+            },
             if ui.open {
                 UiRect::all(zpx(1.0))
             } else {
@@ -1045,8 +1071,8 @@ fn sync_lobby_window(
                 },
                 opening_transform,
                 BackgroundColor(Color::NONE),
-                rows::window_ground(),
-                BorderColor::all(rows::GLASS_EDGE),
+                crate::shellkit::glass::ground(crate::shellkit::glass::Density::Reading),
+                crate::shellkit::glass::rim(),
                 elevation(),
                 stacked(0),
                 initial_vis,
@@ -1117,6 +1143,16 @@ fn sync_lobby_window(
         if node.border != border {
             node.border = border;
         }
+    }
+    let ground = crate::shellkit::glass::ground(if floats {
+        crate::shellkit::glass::Density::Solid
+    } else {
+        crate::shellkit::glass::Density::Reading
+    });
+    if let Ok(mut worn) = grounds.get_mut(root)
+        && *worn != ground
+    {
+        *worn = ground;
     }
     let drawn = &mut windows.lobby;
     if *shape != Some(now) || drawn.root != Some(root) {
@@ -1384,6 +1420,13 @@ fn skeleton(commands: &mut Commands, fonts: &UiFonts, frame: Frame, lang: Lang) 
             BorderColor::all(rows::GLASS_RULE),
         ))
         .id();
+    if frame == Frame::Lobby {
+        // The lobby's window moves by its head (`place`): its free band
+        // takes the pointer, its tabs and tools stay presses.
+        commands
+            .entity(head)
+            .insert((place::MoveHandle, Pickable::default()));
+    }
     let sub = commands
         .spawn((
             Part::Sub,
@@ -1964,6 +2007,7 @@ mod filter;
 mod head;
 pub(crate) mod list;
 mod peek;
+mod place;
 pub(crate) mod preview;
 mod resize;
 #[cfg(test)]

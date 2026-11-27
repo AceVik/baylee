@@ -127,7 +127,7 @@ fn progress(commands: &mut Commands, card: Entity, kit: Kit, lang: Lang, model: 
         ),
         (crate::hud::glyph::FINISH, Phrase::ChallengeStatBest, best),
     ] {
-        layout::stat(commands, band, kit, icon, &value, caption.text(lang));
+        crate::lobby::parts::stat(commands, band, kit, icon, &value, caption.text(lang));
     }
     if let Some(at) = progress.completed_at {
         let message = format!(

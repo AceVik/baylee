@@ -51,6 +51,16 @@ pub struct ChatWindowSize {
     pub height: f32,
 }
 
+/// Where the lobby chat window stands: its lower-left corner, in the same
+/// unscaled interface pixels as its size (`social::window::place`).
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ChatWindowPlace {
+    /// From the window's left edge.
+    pub left: f32,
+    /// From the window's foot; 0 is docked on it.
+    pub bottom: f32,
+}
+
 /// Everything the client remembers.
 #[derive(Resource, Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
@@ -92,6 +102,10 @@ pub struct ClientSettings {
     /// The lobby chat window's size on this device; `None` keeps its responsive default.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub chat_window: Option<ChatWindowSize>,
+    /// Where the lobby chat window was put on this device; `None` keeps it
+    /// docked on the window's foot, where it always stood.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chat_window_at: Option<ChatWindowPlace>,
     /// The address that last signed in here, to fill the sign-in box with.
     ///
     /// Here for the reason the zone browser above is, said from the other
@@ -226,6 +240,7 @@ impl Default for ClientSettings {
             zone_browser: None,
             zone_view: baylee_client_core::browser::ViewMode::default(),
             chat_window: None,
+            chat_window_at: None,
             last_username: String::new(),
             gateways: Vec::new(),
             gateway_uses: baylee_client_core::lobby::gateway_use::GatewayUses::default(),
@@ -798,6 +813,10 @@ mod tests {
                 width: 640.0,
                 height: 420.0,
             }),
+            chat_window_at: Some(super::ChatWindowPlace {
+                left: 220.0,
+                bottom: 96.0,
+            }),
             last_username: "player@example.invalid".to_string(),
             gateway_uses: {
                 let mut uses = baylee_client_core::lobby::gateway_use::GatewayUses::default();
@@ -869,6 +888,7 @@ mod tests {
         assert_eq!(read.audio, written.audio);
         assert_eq!(read.table, written.table);
         assert_eq!(read.chat_window, written.chat_window);
+        assert_eq!(read.chat_window_at, written.chat_window_at);
         assert_eq!(read.feedback_url, written.feedback_url);
         assert_eq!(read.report_url, written.report_url);
         assert_eq!(read.report_device, written.report_device);
