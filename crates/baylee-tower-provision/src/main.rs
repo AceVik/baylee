@@ -87,6 +87,14 @@ fn main() {
 }
 
 fn run() -> Result<Value> {
+    let input = read()?;
+    let seed = hex32(&input.house_seed).context("the house seed")?;
+    let offline = Offline::prepare(&input, &seed)?;
+    online(&input, &offline)
+}
+
+/// The input, bounded and checked before anything starts.
+fn read() -> Result<Input> {
     ensure!(
         std::env::args().len() == 1,
         "takes no arguments; the input comes on stdin"
@@ -125,36 +133,65 @@ fn run() -> Result<Value> {
         central_api::Token::from_hex(credential)
             .map_err(|_| anyhow::anyhow!("an operator credential is not 64 hex digits"))?;
     }
-    let seed = hex32(&input.house_seed).context("the house seed")?;
+    Ok(input)
+}
 
-    // Offline: the engine's identity, the publication and the ladder.
-    let runtime = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .context("starting a runtime")?;
-    let artifact = runtime
-        .block_on(Artifact::probe(&input.engine))
-        .map_err(|error| anyhow::anyhow!("the engine is no Tower executor: {error}"))?;
-    let content = baylee_tower_content::runic().context("building the Tower content")?;
-    let publication = Publication {
-        cohort: Cohort::for_generation(artifact.identity().clone(), &content.catalog, GENERATOR)
+/// The engine's identity, the publication and the ladder: no database yet.
+struct Offline {
+    artifact: Artifact,
+    content: baylee_tower_content::Content,
+    publication: Publication,
+    ladder: baylee_tower_content::Ladder,
+}
+
+impl Offline {
+    fn prepare(input: &Input, seed: &[u8; 32]) -> Result<Self> {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .context("starting a runtime")?;
+        let artifact = runtime
+            .block_on(Artifact::probe(&input.engine))
+            .map_err(|error| anyhow::anyhow!("the engine is no Tower executor: {error}"))?;
+        let content = baylee_tower_content::runic().context("building the Tower content")?;
+        let publication = Publication {
+            cohort: Cohort::for_generation(
+                artifact.identity().clone(),
+                &content.catalog,
+                GENERATOR,
+            )
             .map_err(|error| anyhow::anyhow!("the engine's identity makes no cohort: {error:?}"))?,
-        catalog: content.catalog.clone(),
-        starters: content.starters.clone(),
-    };
-    publication
-        .validate()
-        .map_err(|error| anyhow::anyhow!("the publication is invalid: {error}"))?;
-    let ladder = baylee_tower_content::ladder(&content, &seed).context("building the house")?;
-    baylee_tower_content::check_ladder(&ladder, &content).context("checking the house")?;
+            catalog: content.catalog.clone(),
+            starters: content.starters.clone(),
+        };
+        publication
+            .validate()
+            .map_err(|error| anyhow::anyhow!("the publication is invalid: {error}"))?;
+        let ladder = baylee_tower_content::ladder(&content, seed).context("building the house")?;
+        baylee_tower_content::check_ladder(&ladder, &content).context("checking the house")?;
+        Ok(Self {
+            artifact,
+            content,
+            publication,
+            ladder,
+        })
+    }
+}
 
-    // Online, through the service's own closed commands.
+/// Every write, through the service's own closed commands.
+fn online(input: &Input, offline: &Offline) -> Result<Value> {
+    let Offline {
+        artifact,
+        content,
+        publication,
+        ladder,
+    } = offline;
     let service = Service {
         binary: &input.service,
         configuration: &input.configuration,
     };
     service.migrate()?;
-    service.admin(json!({"action": "grant_runtime", "role": input.runtime_role}))?;
+    service.admin(&json!({"action": "grant_runtime", "role": input.runtime_role}))?;
     let mut operators = serde_json::Map::new();
     for (role, name, credential) in [
         (Role::Host, "official gateway", &input.credentials.host),
@@ -175,7 +212,7 @@ fn run() -> Result<Value> {
         ),
         (Role::Courier, "tower courier", &input.credentials.courier),
     ] {
-        let reply = service.admin(json!({
+        let reply = service.admin(&json!({
             "action": "provision",
             "name": name,
             "role": role,
@@ -185,9 +222,9 @@ fn run() -> Result<Value> {
         operators.insert(format!("{role:?}").to_lowercase(), json!(id));
     }
     let host = operators["host"].as_str().context("host id")?.to_owned();
-    service.admin(json!({"action": "approve_host", "host": host, "origin": input.gateway}))?;
+    service.admin(&json!({"action": "approve_host", "host": host, "origin": input.gateway}))?;
     let cohort = id(
-        &service.admin(json!({"action": "publish", "publication": publication}))?,
+        &service.admin(&json!({"action": "publish", "publication": publication}))?,
         "cohort",
     )?;
     let mut published = 0_u32;
@@ -196,7 +233,7 @@ fn run() -> Result<Value> {
             let build = ladder
                 .build(stage, archetype)
                 .context("a house cell is missing")?;
-            service.admin(json!({
+            service.admin(&json!({
                 "action": "publish_house",
                 "publisher": input.credentials.publisher.as_str(),
                 "cohort": cohort,
@@ -231,7 +268,7 @@ impl Service<'_> {
         .map(|_| ())
     }
 
-    fn admin(&self, operation: Value) -> Result<Value> {
+    fn admin(&self, operation: &Value) -> Result<Value> {
         let action = operation["action"].as_str().unwrap_or("?").to_owned();
         let input = Zeroizing::new(serde_json::to_vec(&json!({
             "configuration": self.configuration,
