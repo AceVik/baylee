@@ -50,6 +50,7 @@ use clap::Parser as _;
 use std::collections::BTreeMap;
 use std::ffi::OsString;
 use std::path::PathBuf;
+use std::pin::Pin;
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
@@ -88,6 +89,39 @@ struct Path {
     unbudgeted: bool,
 }
 
+/// How long a path's passed free check stands (owner, 27.11.2026): a CLI's
+/// account check can take a minute (agy's `/quota` took 62 s on the machine
+/// that plays the AI accounts), so it is not asked before every game, and
+/// never while a match waits for its seat.
+pub const CHECK_STANDS: Duration = Duration::from_mins(30);
+
+/// A path's free check: whether one runs now, and when one last passed.
+#[derive(Clone, Copy, Debug, Default)]
+struct Check {
+    running: bool,
+    passed: Option<Instant>,
+}
+
+/// What a free check's future is.
+type CheckRun = Pin<Box<dyn Future<Output = Result<(), String>> + Send>>;
+
+/// A path's free check, run apart from any game (a model's entry, a CLI's
+/// account check: `Mind::check`, no game's call), from its settings line
+/// and the key store.
+type Checker = Arc<dyn Fn(Join, Arc<dyn KeyStore>) -> CheckRun + Send + Sync>;
+
+/// The free check of the path `join` plays: its mind built as for a game,
+/// nothing reserved, and asked [`Mind::check`].
+fn free_check(join: Join, keys: Arc<dyn KeyStore>) -> CheckRun {
+    Box::pin(async move {
+        let Reachable { plan, access, .. } = reach(&join, None, &[], &env, &*keys)
+            .map_err(|e| format!("{e:#}"))?
+            .ok_or_else(|| "the settings file names no such profile".to_owned())?;
+        let built = access.build(&plan);
+        built.mind.check().await
+    })
+}
+
 /// A language model flying an AI account's seats.
 pub struct LlmPilot {
     paths: Vec<Path>,
@@ -97,6 +131,10 @@ pub struct LlmPilot {
     held: Held,
     /// Failures in a row before a game, per path.
     failures: Arc<Mutex<BTreeMap<String, u32>>>,
+    /// Each path's free check ([`CHECK_STANDS`]).
+    checks: Arc<Mutex<BTreeMap<String, Check>>>,
+    /// What runs a free check ([`free_check`]; a stand-in in tests).
+    checker: Checker,
 }
 
 impl std::fmt::Debug for LlmPilot {
@@ -231,6 +269,8 @@ impl LlmPilot {
             keys,
             held: Held::default(),
             failures: Arc::default(),
+            checks: Arc::default(),
+            checker: Arc::new(free_check),
         };
         for (name, why) in unreachable {
             pilot.failed(&name, &format!("it cannot be reached yet: {why}"));
@@ -254,48 +294,112 @@ impl LlmPilot {
         hold_back(&self.held, profile, hold, why);
     }
 
-    /// The chain's first live path, reached, reserved and checked for a
-    /// game: the mind, its booking, what it declares and how long it may
-    /// think. A path that cannot be reached or reserved, or whose free
-    /// check fails (a model's entry, a CLI's login: `Mind::check`, no
-    /// game's call), is held back and the next tried, each failure in a
-    /// row holding it twice as long ([`Self::failed`]). With the rest of
-    /// the live paths behind it.
-    async fn first<'a>(&self, live: &'a [&'a Path]) -> Option<(Started, &'a [&'a Path])> {
-        for (at, path) in live.iter().enumerate() {
-            let why = match start(path, &*self.keys) {
-                Ok(started) => match started.mind.check().await {
-                    Ok(()) => {
-                        self.failures
-                            .lock()
-                            .unwrap_or_else(PoisonError::into_inner)
-                            .remove(&path.profile);
-                        return Some((started, &live[at + 1..]));
-                    }
-                    Err(why) => why,
-                },
-                Err(why) => why,
-            };
-            self.failed(&path.profile, &why);
+    /// The chain's first live path whose free check passed, reached and
+    /// reserved for a game: the mind, its booking, what it declares and how
+    /// long it may think. No check runs here, while the match waits: a
+    /// path whose check passed within [`CHECK_STANDS`] is taken first, else
+    /// one whose check passed before that (rather than the house), never one
+    /// never checked. A path that cannot be reached or reserved is held back
+    /// and the next tried ([`Self::failed`]). With the rest of the live
+    /// paths behind it.
+    fn first<'a>(&self, live: &'a [&'a Path]) -> Option<(Started, &'a [&'a Path])> {
+        let now = Instant::now();
+        let passed: Vec<Option<Instant>> = live.iter().map(|p| self.passed(&p.profile)).collect();
+        let fresh =
+            |at: usize| passed[at].is_some_and(|when| now.duration_since(when) < CHECK_STANDS);
+        let order = (0..live.len())
+            .filter(|&at| fresh(at))
+            .chain((0..live.len()).filter(|&at| passed[at].is_some() && !fresh(at)));
+        for at in order {
+            match start(live[at], &*self.keys) {
+                Ok(started) => return Some((started, &live[at + 1..])),
+                Err(why) => self.failed(&live[at].profile, &why),
+            }
         }
         None
+    }
+
+    /// When `profile`'s free check last passed.
+    fn passed(&self, profile: &str) -> Option<Instant> {
+        self.checks
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(profile)
+            .and_then(|check| check.passed)
+    }
+
+    /// Starts, in the background, the free check of each of `live` whose
+    /// last pass is older than [`CHECK_STANDS`] and that none runs for:
+    /// before the account offers, never in a game. One that passes stands
+    /// for [`CHECK_STANDS`]; one that fails or gives no answer in time (a
+    /// CLI's account check whose answer is unknown) holds the path back as
+    /// [`Self::failed`] does. Outside a runtime (a test's plain thread)
+    /// nothing is started.
+    fn check_stale(&self, live: &[&Path], now: Instant) {
+        let Ok(runtime) = tokio::runtime::Handle::try_current() else {
+            return;
+        };
+        let mut checks = self.checks.lock().unwrap_or_else(PoisonError::into_inner);
+        for path in live {
+            let check = checks.entry(path.profile.clone()).or_default();
+            if check.running
+                || check
+                    .passed
+                    .is_some_and(|at| now.duration_since(at) < CHECK_STANDS)
+            {
+                continue;
+            }
+            check.running = true;
+            let run = (self.checker)(path.join.clone(), Arc::clone(&self.keys));
+            let (profile, checks, held, failures) = (
+                path.profile.clone(),
+                Arc::clone(&self.checks),
+                Arc::clone(&self.held),
+                Arc::clone(&self.failures),
+            );
+            runtime.spawn(async move {
+                let result = run.await;
+                let mut checks = checks.lock().unwrap_or_else(PoisonError::into_inner);
+                let check = checks.entry(profile.clone()).or_default();
+                check.running = false;
+                match result {
+                    Ok(()) => {
+                        check.passed = Some(Instant::now());
+                        drop(checks);
+                        failures
+                            .lock()
+                            .unwrap_or_else(PoisonError::into_inner)
+                            .remove(&profile);
+                    }
+                    Err(why) => {
+                        drop(checks);
+                        fail(&held, &failures, &profile, &why);
+                    }
+                }
+            });
+        }
     }
 
     /// `profile` failed before a game: held back for [`FAILED_HOLD`],
     /// doubled for each failure in a row, at most [`MOST_HOLD`], so a path
     /// that stays dead is asked rarely.
     fn failed(&self, profile: &str, why: &str) {
-        let times = {
-            let mut failures = self.failures.lock().unwrap_or_else(PoisonError::into_inner);
-            let times = failures.entry(profile.to_owned()).or_insert(0);
-            *times = times.saturating_add(1);
-            *times
-        };
-        let hold = FAILED_HOLD
-            .saturating_mul(1 << (times - 1).min(5))
-            .min(MOST_HOLD);
-        self.hold(profile, hold, why);
+        fail(&self.held, &self.failures, profile, why);
     }
+}
+
+/// [`LlmPilot::failed`], from the maps it keeps.
+fn fail(held: &Held, failures: &Mutex<BTreeMap<String, u32>>, profile: &str, why: &str) {
+    let times = {
+        let mut failures = failures.lock().unwrap_or_else(PoisonError::into_inner);
+        let times = failures.entry(profile.to_owned()).or_insert(0);
+        *times = times.saturating_add(1);
+        *times
+    };
+    let hold = FAILED_HOLD
+        .saturating_mul(1 << (times - 1).min(5))
+        .min(MOST_HOLD);
+    hold_back(held, profile, hold, why);
 }
 
 /// The longest a path that keeps failing before its games is held back.
@@ -437,31 +541,48 @@ impl Pilot for LlmPilot {
         format!("model:{}", self.paths[0].profile)
     }
 
+    /// Ready while a live path's free check passed within [`CHECK_STANDS`];
+    /// each live path whose check is older is checked again meanwhile, in
+    /// the background ([`LlmPilot::check_stale`]).
     fn ready(&self) -> Result<(), String> {
         let now = Instant::now();
-        if self.live(now).is_empty() {
-            let held = self.held.lock().unwrap_or_else(PoisonError::into_inner);
-            let list: Vec<String> = held
-                .iter()
-                .map(|(p, until)| {
-                    format!(
-                        "{p} for {} min",
-                        until.saturating_duration_since(now).as_secs().div_ceil(60)
-                    )
-                })
-                .collect();
-            return Err(format!(
-                "every access path of the model is held back ({})",
-                list.join(", ")
-            ));
+        let live = self.live(now);
+        if !live.is_empty() {
+            self.check_stale(&live, now);
+            let fresh = live.iter().any(|p| {
+                self.passed(&p.profile)
+                    .is_some_and(|at| now.duration_since(at) < CHECK_STANDS)
+            });
+            return if fresh {
+                Ok(())
+            } else {
+                Err(
+                    "no access path's free check has passed in the last 30 min: it is running \
+                     before the account offers (a CLI's account check can take minutes)"
+                        .to_owned(),
+                )
+            };
         }
-        Ok(())
+        let held = self.held.lock().unwrap_or_else(PoisonError::into_inner);
+        let list: Vec<String> = held
+            .iter()
+            .map(|(p, until)| {
+                format!(
+                    "{p} for {} min",
+                    until.saturating_duration_since(now).as_secs().div_ceil(60)
+                )
+            })
+            .collect();
+        Err(format!(
+            "every access path of the model is held back ({})",
+            list.join(", ")
+        ))
     }
 
     fn fly<'a>(&'a self, seat: Seat<'a>) -> Flight<'a> {
         Box::pin(async move {
             let live = self.live(Instant::now());
-            let Some((started, rest)) = self.first(&live).await else {
+            let Some((started, rest)) = self.first(&live) else {
                 return Ok(Piloted::HandOver(
                     "no access path of the model could take the game".into(),
                 ));
