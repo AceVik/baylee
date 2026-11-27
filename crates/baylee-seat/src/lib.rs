@@ -42,6 +42,7 @@ pub mod canary;
 pub mod cli;
 pub mod config;
 pub mod deck;
+pub mod deckbuild;
 pub mod declare;
 pub mod house;
 pub mod keys;
