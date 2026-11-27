@@ -42,6 +42,8 @@ pub(super) struct Profile {
     pub season: Season,
     pub formats: Vec<Standing>,
     pub awards: Vec<Award>,
+    /// The badge Central gives an AI player's profile; none for a person.
+    pub ai: Option<baylee_account::ranked::ai::AiBadge>,
 }
 
 impl Profile {
@@ -53,7 +55,7 @@ impl Profile {
             tag,
             formats,
             awards,
-            ..
+            ai,
         } = response
         else {
             return None;
@@ -77,6 +79,7 @@ impl Profile {
             season,
             formats,
             awards,
+            ai,
         })
     }
 

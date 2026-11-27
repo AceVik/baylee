@@ -23,6 +23,8 @@
 //! here, the trained net beside them. A pilot that cannot go on after a
 //! resume hands the seat to the declared house fallback.
 
+pub mod chain;
+pub mod cli;
 mod deck;
 mod game;
 mod link;
@@ -34,7 +36,7 @@ mod token;
 
 pub use deck::{Frozen, Shelf};
 pub use game::{Match, MatchOptions, MatchReport, Receipt, play_match};
-pub use link::{LinkOptions, RankedLink, socket_url};
+pub use link::{DeckRefused, LinkOptions, RankedLink, socket_url};
 pub use pilot::{Flight, HousePilot, Pilot, Piloted, Seat, fly_bridge};
 pub use player::{Player, ROLL_OVER, Session, resolve};
 pub use token::RunnerToken;
@@ -88,6 +90,9 @@ pub struct Settings {
     /// fetched as a guest ([`facts::fetch`]) and kept beside them; `None`
     /// fetches none and uses what is kept there.
     pub facts_from: Option<String>,
+    /// Legality facts the operator keeps, read and never written; beside
+    /// fetched ones, the fresher of the two counts.
+    pub facts_file: Option<std::path::PathBuf>,
     /// How often the facts are fetched again.
     pub refetch_facts: Duration,
     /// How each match is played.
@@ -102,6 +107,7 @@ impl Default for Settings {
             renew_offers: Duration::from_secs(15),
             reread_decks: Duration::from_secs(60),
             facts_from: None,
+            facts_file: None,
             refetch_facts: Duration::from_mins(30),
             play: MatchOptions::default(),
         }
@@ -182,7 +188,9 @@ pub async fn run(
         tokio::select! {
             Some(joined) = rounds.playing.join_next(), if !rounds.playing.is_empty() => {
                 rounds.done += 1;
-                each(joined.unwrap_or_else(|e| Err(anyhow!("the match's task ended: {e}"))));
+                let report = joined.unwrap_or_else(|e| Err(anyhow!("the match's task ended: {e}")));
+                rounds.after(&report);
+                each(report);
             }
             _ = stop.changed() => {}
             () = tokio::time::sleep(settings.poll) => {}
@@ -220,11 +228,7 @@ impl Rounds<'_> {
             .reread
             .is_none_or(|at| at.elapsed() >= self.settings.reread_decks)
         {
-            let kept = self.shelf.dir().map(facts::path_in).and_then(|path| {
-                facts::load(&path)
-                    .map_err(|why| tracing::info!(why = %why, "no legality facts beside the decks"))
-                    .ok()
-            });
+            let kept = self.facts();
             self.shelf
                 .refresh(kept.as_ref(), |line| tracing::info!("{line}"));
             self.reread = Some(Instant::now());
@@ -333,6 +337,77 @@ impl Rounds<'_> {
             Some("no deck to offer".to_owned())
         } else {
             None
+        }
+    }
+
+    /// What a finished match leaves: its game in the deck's chronicle
+    /// (`<decks>/<format>/games.jsonl`, which the deck builder reads), and
+    /// a deck the host would not seat offered no more.
+    fn after(&mut self, report: &anyhow::Result<MatchReport>) {
+        match report {
+            Ok(m) => {
+                let (Some(dir), Some(version)) = (self.shelf.dir(), self.shelf.version_of(&m.deck))
+                else {
+                    return;
+                };
+                let result = match m.receipt.map(|r| r.won()) {
+                    Some(Some(true)) => "won",
+                    Some(Some(false)) => "lost",
+                    Some(None) => "draw",
+                    None => "unrated",
+                };
+                let mut notes = Vec::new();
+                if m.receipt.is_some() {
+                    notes.push("result inferred from the account's public standing".to_owned());
+                }
+                if let Some(why) = &m.handed_over {
+                    notes.push(format!("the house took the seat over: {why}"));
+                }
+                let game = crate::deckbuild::history::Game {
+                    at: facts::now_utc(),
+                    version,
+                    result: result.into(),
+                    turns: Some(m.played.stats.turns),
+                    elo: m.receipt.map(|r| r.elo),
+                    delta: m.receipt.and_then(|r| r.delta),
+                    opponent: m.opponent.clone(),
+                    note: (!notes.is_empty()).then(|| notes.join("; ")),
+                };
+                if let Err(e) = crate::deckbuild::history::record_game(dir, m.format, &game) {
+                    tracing::warn!(error = %e, "the match was not written to the deck's chronicle");
+                }
+            }
+            Err(e) => {
+                if let Some(refused) = e.chain().find_map(|c| c.downcast_ref::<DeckRefused>()) {
+                    tracing::warn!("{refused}");
+                    self.shelf.refuse(refused.digest);
+                    self.reread = None;
+                }
+            }
+        }
+    }
+
+    /// The legality facts the decks are checked against: the fresher of
+    /// the operator's file and the fetched ones beside the decks. Best
+    /// effort: with none, every deck that freezes is offered, and the
+    /// host's own check at seating is what stands.
+    fn facts(&self) -> Option<facts::Facts> {
+        let read = |path: std::path::PathBuf| {
+            facts::load(&path)
+                .map_err(
+                    |why| tracing::debug!(why = %why, path = %path.display(), "no legality facts"),
+                )
+                .ok()
+        };
+        let given = self.settings.facts_file.clone().and_then(read);
+        let fetched = self.shelf.dir().map(facts::path_in).and_then(read);
+        match (given, fetched) {
+            (Some(given), Some(fetched)) => Some(if fetched.fetched > given.fetched {
+                fetched
+            } else {
+                given
+            }),
+            (given, fetched) => given.or(fetched),
         }
     }
 

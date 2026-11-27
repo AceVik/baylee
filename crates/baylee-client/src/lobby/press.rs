@@ -152,6 +152,11 @@ impl SharedPress {
                     http::probe_gateway(url, mailbox);
                 }
             }
+            // Whom a first ranked search accepts (`ranked::choice`).
+            #[cfg(not(target_arch = "wasm32"))]
+            SharedPress::ConfirmDestructive if super::ranked::asking_opponents(state) => {
+                super::ranked::confirm_opponents(state, settings);
+            }
             SharedPress::ConfirmDestructive
                 if matches!(
                     state.confirmation,

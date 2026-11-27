@@ -225,6 +225,17 @@ pub struct ClientSettings {
     /// from before it reads the defaults.
     #[serde(default, deserialize_with = "baylee_client_core::graphics::lenient")]
     pub card_fill: baylee_client_core::cachefill::FillChoices,
+    /// Whom each Central account signed in here lets fill its ranked
+    /// search (`client_core::aiplayers`): people only, the local AIs, or
+    /// every AI. By account, since consent is the person's; never asked
+    /// is no entry, and the first search asks with nothing preselected.
+    /// Named in `docs/privacy.md`.
+    #[serde(
+        default,
+        deserialize_with = "baylee_client_core::graphics::lenient",
+        skip_serializing_if = "baylee_client_core::aiplayers::Remembered::is_empty"
+    )]
+    pub ranked_opponents: baylee_client_core::aiplayers::Remembered,
 }
 
 fn yes() -> bool {
@@ -258,6 +269,7 @@ impl Default for ClientSettings {
             report_attachments_closed: false,
             usage_count: true,
             card_fill: baylee_client_core::cachefill::FillChoices::default(),
+            ranked_opponents: baylee_client_core::aiplayers::Remembered::default(),
         }
     }
 }
@@ -874,6 +886,11 @@ mod tests {
                 reach: baylee_client_core::cachefill::Reach::Thumbnails,
                 budget: baylee_client_core::cachefill::Budget::Five,
             },
+            ranked_opponents: {
+                let mut remembered = baylee_client_core::aiplayers::Remembered::default();
+                remembered.keep("0193-ann", baylee_client_core::aiplayers::Opponents::Local);
+                remembered
+            },
         };
         let text = serde_json::to_string_pretty(&written).expect("serializes");
         let read: ClientSettings = serde_json::from_str(&text).expect("decodes");
@@ -889,6 +906,10 @@ mod tests {
         assert_eq!(read.table, written.table);
         assert_eq!(read.chat_window, written.chat_window);
         assert_eq!(read.chat_window_at, written.chat_window_at);
+        assert_eq!(read.ranked_opponents, written.ranked_opponents);
+        let unknown: ClientSettings = serde_json::from_str(r#"{"ranked_opponents":[1]}"#)
+            .expect("a choice it cannot read costs the choices and not the file");
+        assert!(unknown.ranked_opponents.is_empty(), "and asks again");
         assert_eq!(read.feedback_url, written.feedback_url);
         assert_eq!(read.report_url, written.report_url);
         assert_eq!(read.report_device, written.report_device);

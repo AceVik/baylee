@@ -6,11 +6,12 @@ use super::{
 };
 use crate::hud::glyph;
 use api::{Outcome, QueueState};
+use baylee_client_core::aiplayers::Opponents;
 use baylee_client_core::lobby::DeckSummary;
 use bevy::prelude::*;
 
 pub(super) fn effective_format(state: &LobbyState) -> Format {
-    match &state.ranked_net.queue {
+    match state.ranked_net.shown_queue() {
         QueueState::Assigned { assignment, .. } => assignment.format,
         QueueState::Waiting { format, .. } => *format,
         _ => state.ranked.queue_format,
@@ -51,6 +52,27 @@ pub(super) struct Look {
     deck_page: usize,
     own: Option<OwnRank>,
     preview: preview::Look,
+    /// Whom the account lets fill its searches; `None` until it chooses.
+    pub(super) opponents: Option<Opponents>,
+}
+
+/// The queue as the desk draws it. The countdown and the search's clock
+/// are patched in place (`aidesk::animate`), so neither a new fill-in time
+/// nor a search moving to another choice redraws the desk.
+fn drawn_queue(state: &LobbyState) -> QueueState {
+    let mut queue = state.ranked_net.shown_queue().clone();
+    if let QueueState::Waiting {
+        ai_fill_in_at,
+        queued_at,
+        key,
+        ..
+    } = &mut queue
+    {
+        *ai_fill_in_at = None;
+        *queued_at = 0;
+        *key = [0; 16];
+    }
+    queue
 }
 
 pub(super) fn look(state: &LobbyState, own: Option<OwnRank>) -> Look {
@@ -59,11 +81,13 @@ pub(super) fn look(state: &LobbyState, own: Option<OwnRank>) -> Look {
         format: effective_format(state),
         eligible: state.has_central_account(),
         held: state.lobby.awaiting().is_some(),
-        busy: state.ranked_net.busy,
+        // A search moving to another choice is still the search it was.
+        busy: state.ranked_net.busy && !state.ranked_net.switching(),
         recover: state.ranked_net.needs_deck,
         played: state.ranked_net.played,
         error: state.ranked_net.error,
-        queue: state.ranked_net.queue.clone(),
+        opponents: super::choice::current(state),
+        queue: drawn_queue(state),
         deck: selected(state).map(|(id, d)| (id, d.name.clone())),
         options: if state.ranked.show_decks {
             choices(state)
@@ -81,9 +105,9 @@ pub(super) fn look(state: &LobbyState, own: Option<OwnRank>) -> Look {
     }
 }
 
+/// The search's clock, and the seconds it last wrote.
 #[derive(Component)]
 pub(super) struct WaitingSince {
-    start: i64,
     seconds: Option<u64>,
 }
 #[derive(Component)]
@@ -136,6 +160,7 @@ pub(super) fn draw(
     deck_picker(commands, parent, kit, state, look);
     if look.deck.is_some() && !look.recover {
         preview::draw(commands, parent, kit, &look.preview);
+        super::aidesk::opponents(commands, parent, kit, look.opponents);
     }
     join_button(commands, parent, kit, look);
 }
@@ -308,21 +333,30 @@ fn show_status(commands: &mut Commands, parent: Entity, kit: Kit, look: &Look) -
     let lang = kit.lang();
     match &look.queue {
         QueueState::Idle => {}
-        QueueState::Waiting {
-            format, queued_at, ..
-        } => {
-            waiting(commands, parent, kit, *format, *queued_at);
+        QueueState::Waiting { format, .. } => {
+            waiting(commands, parent, kit, *format);
+            // The countdown's room stands from the first second, so its
+            // coming and going moves nothing.
+            super::aidesk::fill_in_slot(commands, parent, kit);
+            // Leave stays where it is while its answer comes, greyed.
+            let leave = controls::button_compact(
+                commands,
+                kit,
+                None,
+                Phrase::RankedCancel.text(lang),
+                Weight::Secondary,
+                if look.busy {
+                    Live::No(Phrase::RankedLeaving.text(lang))
+                } else {
+                    Live::Yes
+                },
+                Press::Ranked(Action::Cancel),
+            );
             if !look.busy {
-                btn(
-                    commands,
-                    parent,
-                    kit,
-                    Phrase::RankedCancel.text(lang),
-                    Action::Cancel,
-                    (&super::ORDER, "queue", 1),
-                    false,
-                );
+                orders::item(commands, leave, &super::ORDER, "queue", 1);
             }
+            commands.entity(parent).add_child(leave);
+            super::aidesk::opponents(commands, parent, kit, look.opponents);
             if !look.recover {
                 return false;
             }
@@ -334,6 +368,9 @@ fn show_status(commands: &mut Commands, parent: Entity, kit: Kit, look: &Look) -
                 Phrase::RankedAssigned.fill(lang, &[format_name(assignment.format, lang)])
             };
             label(commands, parent, kit, &words, kit.m.text, tokens::ACCENT);
+            if let Some(badge) = &assignment.opponent_ai {
+                super::aidesk::opponent_line(commands, parent, kit, Phrase::RankedOpponent, badge);
+            }
             if look.played == Some(assignment.match_id) && !look.busy {
                 btn(
                     commands,
@@ -358,6 +395,7 @@ fn show_status(commands: &mut Commands, parent: Entity, kit: Kit, look: &Look) -
             format,
             before,
             after,
+            opponent_ai,
             ..
         } => {
             let deck_progress = if deck.after.league == League::Unranked {
@@ -385,6 +423,7 @@ fn show_status(commands: &mut Commands, parent: Entity, kit: Kit, look: &Look) -
                     before: *before,
                     after: *after,
                     deck: &deck_receipt,
+                    opponent: opponent_ai.as_ref(),
                 },
             );
         }
@@ -458,6 +497,8 @@ struct Settled<'a> {
     after: api::Rank,
     /// The deck's line, already in words.
     deck: &'a str,
+    /// The opponent's badge, when it was an AI player.
+    opponent: Option<&'a baylee_client_core::aiplayers::AiBadge>,
 }
 
 /// A rank's small badge, as the result card shows it before and after.
@@ -563,6 +604,9 @@ fn result_card(commands: &mut Commands, parent: Entity, kit: Kit, settled: Settl
     commands
         .entity(line)
         .add_children(&[from, arrow, to, name, grow, delta]);
+    if let Some(badge) = settled.opponent {
+        super::aidesk::opponent_line(commands, card, kit, Phrase::RankedAgainst, badge);
+    }
     label(
         commands,
         card,
@@ -573,7 +617,10 @@ fn result_card(commands: &mut Commands, parent: Entity, kit: Kit, settled: Settl
     );
 }
 
-fn waiting(commands: &mut Commands, parent: Entity, kit: Kit, format: Format, queued_at: i64) {
+/// The search's head: what is searched for, three breathing dots and how
+/// long it has run (`aidesk::animate` writes the clock, from the start of
+/// the person's search, which a move to another choice keeps).
+fn waiting(commands: &mut Commands, parent: Entity, kit: Kit, format: Format) {
     let lang = kit.lang();
     let title = Phrase::RankedSearching.fill(lang, &[format_name(format, lang)]);
     label(commands, parent, kit, &title, kit.m.text, tokens::ACCENT);
@@ -596,10 +643,9 @@ fn waiting(commands: &mut Commands, parent: Entity, kit: Kit, format: Format, qu
         commands.entity(row).add_child(dot);
     }
     let clock = parts::line(commands, kit, "", kit.m.small, tokens::MUTED);
-    commands.entity(clock).insert(WaitingSince {
-        start: queued_at,
-        seconds: None,
-    });
+    commands
+        .entity(clock)
+        .insert((WaitingSince { seconds: None }, super::aidesk::counting(kit)));
     commands.entity(row).add_child(clock);
 }
 
@@ -764,9 +810,13 @@ pub(super) fn animate(
     if clocks.is_empty() {
         return;
     }
-    let now = parts::now_secs();
+    // From the start of the person's search on Central's clock: a move to
+    // another choice keeps it, and a clock that runs off Central's does not
+    // shift it.
+    let now = state.ranked_net.central_now();
+    let since = state.ranked_net.searching_since().unwrap_or(now);
+    let seconds = u64::try_from(now.saturating_sub(since)).unwrap_or(0);
     for (mut marker, mut text) in &mut clocks {
-        let seconds = now.saturating_sub(u64::try_from(marker.start).unwrap_or(now));
         if marker.seconds != Some(seconds) {
             marker.seconds = Some(seconds);
             text.0 = Phrase::RankedElapsed.fill(

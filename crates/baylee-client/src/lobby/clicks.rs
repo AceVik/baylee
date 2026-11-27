@@ -5,6 +5,24 @@ use super::systems::forget_the_guest;
 #[allow(clippy::wildcard_imports)] // the lobby's own vocabulary
 use super::*;
 
+/// Whether `press` picks an option on the question that stands, which
+/// answers it no more than its own Search does: whom a first ranked search
+/// accepts has three options before its Search (`confirm::draw_opponents`).
+fn picks_on_the_sheet(state: &LobbyState, press: &Press) -> bool {
+    #[cfg(not(target_arch = "wasm32"))]
+    if matches!(
+        state.confirmation,
+        Some(super::confirm::Destructive::RankedOpponents(_))
+    ) && matches!(
+        press,
+        Press::Ranked(super::ranked::Action::PickOpponents(_))
+    ) {
+        return true;
+    }
+    let _ = (state, press);
+    false
+}
+
 /// Signs out of everything: the session here ([`end_the_session`]), and
 /// Baylee Central's behind it.
 pub(super) fn sign_out(
@@ -404,6 +422,7 @@ pub(super) fn run(press: Press, cx: Cx<'_, '_, '_, '_, '_>) {
                 press,
                 Press::Shared(SharedPress::ConfirmDestructive | SharedPress::CancelDestructive)
             )
+            && !picks_on_the_sheet(state, press)
         {
             return;
         }

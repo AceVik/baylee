@@ -80,6 +80,30 @@ impl Default for LinkOptions {
     }
 }
 
+/// How many asks for the first seat the host may refuse on a live session
+/// before the link takes it that the host will not seat the deck.
+const REFUSALS: u32 = 2;
+
+/// The host would not seat the match's deck (its legality check refused
+/// it): the runner stops offering that deck. Central voids the match once
+/// its reservation lapses, without a score for either side.
+#[derive(Debug)]
+pub struct DeckRefused {
+    /// The deck's commitment.
+    pub digest: [u8; 32],
+}
+
+impl std::fmt::Display for DeckRefused {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(
+            "the host would not seat this deck: its legality check refused it, and the runner \
+             offers it no more",
+        )
+    }
+}
+
+impl std::error::Error for DeckRefused {}
+
 /// One AI seat's way to its table.
 pub struct RankedLink {
     player: Player,
@@ -96,6 +120,9 @@ pub struct RankedLink {
     ticket: Zeroizing<String>,
     renewal: Option<Aborting>,
     renewals: Arc<AtomicU32>,
+    /// Asks the host refused on a live session before the first seat:
+    /// the host would not seat the deck.
+    refusals: u32,
 }
 
 /// What one ask for a seat came to.
@@ -141,6 +168,7 @@ impl RankedLink {
             ticket: Zeroizing::new(String::new()),
             renewal: None,
             renewals: Arc::default(),
+            refusals: 0,
         }
     }
 
@@ -154,6 +182,20 @@ impl RankedLink {
     #[must_use]
     pub fn renewals(&self) -> u32 {
         self.renewals.load(Ordering::Relaxed)
+    }
+
+    /// Whether a refusal before the first seat came from the host rather
+    /// than from Central: the link's session is the account's newest and
+    /// still lives. The relay answers the host's refusal of a deck (400)
+    /// as Central answers an ended session, so the session is asked.
+    async fn host_refused(&self) -> bool {
+        self.assignment.game.is_none()
+            && self.player.session().same(&self.session)
+            && self
+                .session
+                .call(|account| account.check_active())
+                .await
+                .is_ok()
     }
 
     /// Goes on with the account's newest session when Central ended the
@@ -347,6 +389,14 @@ impl Table for RankedLink {
                     bail!("the match's host is not one the operator accepts (--accept-host)")
                 }
                 Err(e) => {
+                    if e == Error::Rejected && self.host_refused().await {
+                        self.refusals += 1;
+                        if self.refusals >= REFUSALS {
+                            return Err(anyhow::Error::new(DeckRefused {
+                                digest: self.deck.digest,
+                            }));
+                        }
+                    }
                     self.on_rejected(e);
                     e.to_string()
                 }

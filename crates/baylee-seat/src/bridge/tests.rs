@@ -491,6 +491,8 @@ enum Link {
         label: &'static str,
         why: &'static str,
     },
+    /// A standby made elsewhere (the ranked runner's chain), as it is.
+    Given(Standby),
 }
 
 /// A bridge whose primary mind plays `primary`, a core seated before it
@@ -556,6 +558,7 @@ impl Scene {
                         Err(why.into())
                     }),
                 },
+                Link::Given(standby) => standby,
             };
             chain.push(seen);
             standbys.push(standby);
@@ -1704,4 +1707,104 @@ fn a_fallback_s_limit_names_the_fallback() {
         ..limit
     };
     assert_eq!(failed.said(), "the fallback fb1 failed: 429: slow down");
+}
+
+/// A ranked account's chain (`crate::ranked::chain`): the primary path
+/// fails, the same model on the next path is asked the question at once,
+/// fails in its turn, and the declared house takes the question and the
+/// rest of the game; each path that could not answer is held back from
+/// new games, by its own name.
+#[tokio::test]
+async fn a_ranked_chain_fails_down_to_the_declared_house() {
+    use crate::ranked::chain::{Held, holding, house_at_the_end};
+    let held = Held::default();
+    let api_seen = Record::default();
+    let api = Standby {
+        label: "haiku-api".into(),
+        arm: Box::new({
+            let seen = Arc::clone(&api_seen);
+            move |_| {
+                Ok(Swap {
+                    mind: Moving::mind(vec![Move::Unavailable], &seen),
+                    think: Some(Duration::from_secs(20)),
+                    taken: None,
+                    declared: Some(api_mind("claude-haiku-4-5")),
+                })
+            }
+        }),
+    };
+    let house = house_at_the_end(
+        "expert".into(),
+        crate::house::level("expert").expect("a fair level"),
+    );
+    let mut scene = Scene::chained(
+        vec![Move::Unavailable],
+        vec![
+            Link::Given(holding(api, "haiku-cli".into(), Arc::clone(&held))),
+            Link::Given(holding(house, "haiku-cli".into(), Arc::clone(&held))),
+        ],
+    );
+    scene.ask(2).await;
+    // Each mind that takes over declares itself before it is asked; the
+    // declarations are sent with the next steps carried out.
+    let kinds = |bridge: &Bridge| -> Vec<i32> {
+        bridge
+            .declaring
+            .iter()
+            .filter_map(|step| match step {
+                Step::Send(Envelope {
+                    msg: Some(v1::envelope::Msg::SeatMind(mind)),
+                }) => Some(mind.kind),
+                _ => None,
+            })
+            .collect()
+    };
+    let mut declared = Vec::new();
+    let mut steps = scene.back().await;
+    loop {
+        declared.extend(kinds(&scene.bridge));
+        if !(steps.is_empty() && scene.bridge.thinking.is_some()) {
+            break;
+        }
+        scene.carry(steps).await;
+        steps = scene.back().await;
+    }
+    assert!(
+        !answers(&steps).is_empty(),
+        "the question is answered: {steps:?}"
+    );
+    assert_eq!(
+        declared,
+        [
+            v1::seat_mind::Kind::LlmApi as i32,
+            v1::seat_mind::Kind::House as i32
+        ],
+        "each path is declared before it answers, the house last"
+    );
+    scene.carry(steps).await;
+    let labels: Vec<&str> = scene
+        .bridge
+        .fell_back
+        .iter()
+        .map(|f| f.label.as_str())
+        .collect();
+    assert_eq!(labels, ["haiku-api", "house:expert"]);
+    {
+        let held = held.lock().unwrap();
+        assert!(
+            held.contains_key("haiku-cli"),
+            "the first path is held back"
+        );
+        assert!(held.contains_key("haiku-api"), "and the one after it");
+    }
+    assert_eq!(
+        api_seen.lock().unwrap().asked.len(),
+        1,
+        "the API path was asked once"
+    );
+    // The house answers the rest of the game: no path is asked again.
+    scene.ask(3).await;
+    let steps = scene.back().await;
+    assert!(!answers(&steps).is_empty());
+    assert_eq!(api_seen.lock().unwrap().asked.len(), 1);
 }

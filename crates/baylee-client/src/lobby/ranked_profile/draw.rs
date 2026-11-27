@@ -175,6 +175,60 @@ fn sheet_body(commands: &mut Commands, kit: Kit, handle: &str) -> Entity {
 #[cfg(test)]
 mod pointer_tests;
 
+/// An AI player's profile says so first: its badge (the kind's mark and
+/// its label, with the hint that says what it is) and the line that it
+/// plays from its own view, in the body's head where the record follows.
+fn ai_player(
+    commands: &mut Commands,
+    root: Entity,
+    kit: Kit,
+    badge: &baylee_account::ranked::ai::AiBadge,
+) {
+    let lang = kit.lang();
+    let panel = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                align_items: AlignItems::Center,
+                column_gap: kit.m.px(12.0),
+                padding: UiRect::all(kit.m.px(12.0)),
+                border: UiRect::all(px(1.0)),
+                border_radius: BorderRadius::all(kit.m.px(9.0)),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            BackgroundColor(tokens::CONTROL),
+            BorderColor::all(crate::aibadge::ink(badge.kind).with_alpha(0.45)),
+        ))
+        .id();
+    commands.entity(root).add_child(panel);
+    let disc = crate::aibadge::disc(commands, kit, badge, kit.m.scaled(44.0));
+    let words = commands
+        .spawn((
+            Node {
+                flex_grow: 1.0,
+                flex_basis: px(0.0),
+                min_width: px(0.0),
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::FlexStart,
+                row_gap: kit.m.px(4.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let pill = crate::aibadge::pill(commands, kit, badge, kit.m.text, true);
+    commands.entity(words).add_child(pill);
+    label(
+        commands,
+        words,
+        kit,
+        Phrase::ProfileAiIntro.text(lang),
+        tokens::MUTED,
+    );
+    commands.entity(panel).add_children(&[disc, words]);
+}
+
 fn section(commands: &mut Commands, root: Entity, kit: Kit, title: &str) -> Entity {
     let panel = commands
         .spawn((
@@ -260,6 +314,9 @@ fn icon(commands: &mut Commands, root: Entity, kit: Kit, visual: impl Bundle, si
 
 fn competitive(commands: &mut Commands, root: Entity, kit: Kit, p: &Profile) {
     let lang = kit.lang();
+    if let Some(badge) = &p.ai {
+        ai_player(commands, root, kit, badge);
+    }
     let overview = section(commands, root, kit, &p.season.name);
     for format in Format::ALL {
         let player = p

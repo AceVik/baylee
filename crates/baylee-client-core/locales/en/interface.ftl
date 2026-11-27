@@ -11019,6 +11019,53 @@ RankedPreviewRecorded = This exact deck version keeps its recorded rating.
 # Arguments: changed, compared, loss
 RankedPreviewInherited = { $changed } of { $compared } copies changed · edit deduction { $loss } Elo
 
+# The ranked desk's choice of whom a search accepts (docs/proposals/ai-players.md).
+RankedOpponents = Opponents
+# The choice that keeps AI players out of a search.
+RankedOpponentsPeople = People only
+# The choice that lets the house AI and Baylee AI fill a search.
+RankedOpponentsLocal = Local AIs
+# The choice that also lets language models fill a search.
+RankedOpponentsAny = All AIs
+RankedOpponentsPeopleHelp = You wait for a person, however long it takes.
+RankedOpponentsLocalHelp = If nobody comes, the house AI or Baylee AI plays you. Your moves stay on Baylee's servers.
+RankedOpponentsAnyHelp = Language models may play you too. A language model's provider receives this game's moves.
+# Under the choice before a person has made it.
+RankedOpponentsUnset = Choose who may play you. Nothing is chosen until you do.
+# The sheet the first search opens.
+RankedOpponentsQuestion = Who may play you?
+RankedOpponentsIntro = When no person is found for a while, an AI player can take the other seat. AI players are always marked as AI. You can change this beside the search at any time, even while searching.
+# The sheet's answer: remember the choice and search.
+RankedOpponentsSearch = Search
+# Why Leave queue is grey while Central answers it.
+RankedLeaving = Leaving the queue…
+# The fill-in countdown on a waiting search.
+# Arguments: time
+RankedFillIn = AI opponent in { $time }
+# Before the badge of the opponent a match found.
+RankedOpponent = Opponent
+# Before the badge of the opponent on a result card.
+RankedAgainst = Against
+# The ladder's groups: people and AI players together.
+RankedBoardEveryone = Everyone
+# The ladder's groups: people only.
+RankedBoardPeople = People
+# The ladder's groups: AI players only.
+RankedBoardAi = AIs
+RankedBoardEmptyAi = No AI player stands in this group yet.
+# What kind of mind an AI player is, inside its badge's spoken words.
+AiKindHouse = house AI
+AiKindModel = language model
+AiKindNet = Baylee AI
+AiKindOther = AI
+# An AI player's badge read aloud and in its hint.
+# Arguments: label, kind
+AiBadgeSpoken = AI player: { $label } ({ $kind })
+AiPlaysFair = It plays from its own view, as you do.
+AiModelProvider = Its provider receives the moves of the games it plays.
+# The line under an AI player's name on its profile.
+ProfileAiIntro = An AI player. It plays from its own view, as you do, and is always marked as AI.
+
 AdventCalendar = Winter Tavern · Advent calendar
 AdventTavern = Winter Tavern
 AdventName = Advent calendar

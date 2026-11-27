@@ -63,6 +63,7 @@ use baylee_seat::lobby::{Chair, ChairTicket, GuestSignIn, Lobby, Room, Session, 
 use baylee_seat::seat::{Outcome, is_blitz_clock};
 use baylee_seat::show::Show;
 use baylee_seat::spend::{self, Booked};
+use baylee_seat::stop::Stoppers;
 use baylee_seat::{BridgeConfig, Disclosure, HouseMind, Mind, ScriptedMind, SeatCore, Transcript};
 use clap::{Parser, Subcommand, ValueEnum};
 use std::fmt::Write as _;
@@ -108,7 +109,7 @@ enum Command {
     /// Play Ranked as an AI account: trade the AI runner token at Baylee
     /// Central, offer the account's decks, and play each match Central
     /// makes with them (`docs/llm-seat.md` §"The ranked runner").
-    Ranked(Box<ranked_cli::RankedArgs>),
+    Ranked(Box<ranked_cli::RankedCommand>),
     /// An AI's own decks: the host's legality facts, a deck lent without a
     /// model, or built and improved by one, every version kept
     /// (`docs/llm-seat.md` §"Deck building").
@@ -692,19 +693,28 @@ fn standby(
     fallen: &Fallen,
 ) -> Result<bridge::Standby, String> {
     let fallback = fallback_reporting(join, at, profile, env);
+    let reachable = reach(&fallback, None, args, env, keys)
+        .map_err(|e| format!("{e:#}"))?
+        .ok_or_else(|| format!("the settings file names no profile «{profile}»"))?;
+    if reachable.plan.settings.provider == llm::Provider::Cli {
+        return Err(format!(
+            "profile «{profile}» plays an agent CLI, and a fallback is a model behind an API"
+        ));
+    }
+    Ok(standing_by(profile, reachable, fallen))
+}
+
+/// The fallback `profile`, reached as `reachable`, ready to take over: its
+/// game reserved in its own book only when it takes over. Behind an API
+/// or an agent CLI alike: a ranked account's chain is one model on several
+/// access paths, a subscription's CLI among them (`ranked_llm`).
+fn standing_by(profile: &str, reachable: Reachable, fallen: &Fallen) -> bridge::Standby {
     let Reachable {
         mut plan,
         access,
         book,
         caps,
-    } = reach(&fallback, None, args, env, keys)
-        .map_err(|e| format!("{e:#}"))?
-        .ok_or_else(|| format!("the settings file names no profile «{profile}»"))?;
-    if plan.settings.provider == llm::Provider::Cli {
-        return Err(format!(
-            "profile «{profile}» plays an agent CLI, and a fallback is a model behind an API"
-        ));
-    }
+    } = reachable;
     let label = profile.to_string();
     let fallen = Arc::clone(fallen);
     let named = label.clone();
@@ -761,10 +771,10 @@ fn standby(
             declared: Some(declared),
         })
     };
-    Ok(bridge::Standby {
+    bridge::Standby {
         label,
         arm: Box::new(arm),
-    })
+    }
 }
 
 /// The chain of fallbacks that stand by for what `primary` declared, in
@@ -943,7 +953,7 @@ async fn run() -> anyhow::Result<()> {
             say!("{line}");
             Ok(())
         }
-        Command::Ranked(ranked) => ranked_cli::run(&ranked, Arc::clone(&keys), &mut stoppers).await,
+        Command::Ranked(ranked) => ranked_cli::run(&ranked, Arc::clone(&keys)).await,
         Command::Join(join) => {
             let (mut let_go, orders, ticket) = if join.tethered {
                 let held = tether::hold(join.chair_ticket || join.host_chair);
@@ -1202,133 +1212,8 @@ async fn leave_unstarted(unstarted: &Unstarted) {
 mod deckbuild_cli;
 mod host_chair;
 mod ranked_cli;
+mod ranked_llm;
 mod tether;
-
-/// Every signal a process can be asked to stop by, registered with the
-/// operating system the moment this is built (`arm`), well before anything
-/// reserves a game's budget: ctrl-c; on unix also SIGTERM (`kill`,
-/// `docker stop`, a service manager); on Windows also ctrl-break, its
-/// console closing, and the user logging off or the machine shutting down,
-/// where the system waits a few seconds for the process to finish. One
-/// that cannot be registered (rare: an operating-system limit) is simply
-/// never answered, as before. SIGHUP keeps its own meaning (a bridge under
-/// `nohup` plays on), and SIGKILL can never be answered: a bridge stopped
-/// by either counts its reservation in full.
-#[cfg_attr(windows, allow(clippy::struct_field_names))] // Windows names them all `Ctrl…`
-struct Stoppers {
-    #[cfg(unix)]
-    interrupt: Option<tokio::signal::unix::Signal>,
-    #[cfg(unix)]
-    terminate: Option<tokio::signal::unix::Signal>,
-    #[cfg(windows)]
-    ctrl_c: Option<tokio::signal::windows::CtrlC>,
-    #[cfg(windows)]
-    ctrl_break: Option<tokio::signal::windows::CtrlBreak>,
-    #[cfg(windows)]
-    ctrl_close: Option<tokio::signal::windows::CtrlClose>,
-    #[cfg(windows)]
-    ctrl_logoff: Option<tokio::signal::windows::CtrlLogoff>,
-    #[cfg(windows)]
-    ctrl_shutdown: Option<tokio::signal::windows::CtrlShutdown>,
-}
-
-impl Stoppers {
-    /// Registers every listener now, synchronously (each constructor here
-    /// installs the operating system's own hook before returning); `None`
-    /// only where that failed.
-    fn arm() -> Self {
-        #[cfg(unix)]
-        {
-            use tokio::signal::unix::{SignalKind, signal};
-            Self {
-                interrupt: signal(SignalKind::interrupt()).ok(),
-                terminate: signal(SignalKind::terminate()).ok(),
-            }
-        }
-        #[cfg(windows)]
-        {
-            use tokio::signal::windows::{
-                ctrl_break, ctrl_c, ctrl_close, ctrl_logoff, ctrl_shutdown,
-            };
-            Self {
-                ctrl_c: ctrl_c().ok(),
-                ctrl_break: ctrl_break().ok(),
-                ctrl_close: ctrl_close().ok(),
-                ctrl_logoff: ctrl_logoff().ok(),
-                ctrl_shutdown: ctrl_shutdown().ok(),
-            }
-        }
-        #[cfg(not(any(unix, windows)))]
-        Self {}
-    }
-
-    /// The first of these already-armed listeners to fire; forever on one
-    /// that was never armed.
-    async fn stopped(&mut self) -> &'static str {
-        #[cfg(unix)]
-        {
-            /// Waits on an armed listener, or forever if it was never
-            /// armed (`arm` failed to register it).
-            async fn on(
-                listener: &mut Option<tokio::signal::unix::Signal>,
-                name: &'static str,
-            ) -> &'static str {
-                match listener {
-                    Some(listener) => {
-                        listener.recv().await;
-                        name
-                    }
-                    None => std::future::pending().await,
-                }
-            }
-            let Self {
-                interrupt,
-                terminate,
-            } = self;
-            tokio::select! {
-                by = on(interrupt, "ctrl-c") => by,
-                by = on(terminate, "SIGTERM") => by,
-            }
-        }
-        #[cfg(windows)]
-        {
-            let Self {
-                ctrl_c,
-                ctrl_break,
-                ctrl_close,
-                ctrl_logoff,
-                ctrl_shutdown,
-            } = self;
-            macro_rules! on {
-                ($listener:expr, $name:expr) => {
-                    async {
-                        match $listener {
-                            Some(listener) => {
-                                listener.recv().await;
-                                $name
-                            }
-                            None => std::future::pending().await,
-                        }
-                    }
-                };
-            }
-            tokio::select! {
-                by = on!(ctrl_c, "ctrl-c") => by,
-                by = on!(ctrl_break, "ctrl-break") => by,
-                by = on!(ctrl_close, "the console closing") => by,
-                by = on!(ctrl_logoff, "the user logging off") => by,
-                by = on!(ctrl_shutdown, "the machine shutting down") => by,
-            }
-        }
-        #[cfg(not(any(unix, windows)))]
-        {
-            match tokio::signal::ctrl_c().await {
-                Ok(_) => "ctrl-c",
-                Err(_) => std::future::pending().await,
-            }
-        }
-    }
-}
 
 /// Sits down, plays the game out, and says how it went.
 async fn join_and_play(
