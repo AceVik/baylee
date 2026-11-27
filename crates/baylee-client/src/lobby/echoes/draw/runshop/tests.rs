@@ -656,6 +656,7 @@ fn following_a_run_back_from_its_finished_duel_never_locates_a_table() {
     assert!(!playing(&mut ui, api::Phase::Playing));
     assert!(!playing(&mut ui, api::Phase::Verifying));
     assert_eq!(ui.settling, Some(id), "still waiting for the result");
-    playing(&mut ui, api::Phase::Reward);
+    // Verified and back at the shop: the result is read.
+    playing(&mut ui, api::Phase::Shop);
     assert_eq!(ui.settling, None, "the result is read");
 }
