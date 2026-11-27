@@ -323,4 +323,20 @@ impl Shelf {
     pub fn by_digest(&self, digest: &[u8; 32]) -> Option<Arc<Frozen>> {
         self.kept.get(digest).cloned()
     }
+
+    /// The version of `format`'s deck in the directory whose commitment is
+    /// `digest`, newest first, kept from then on: a match a runner before
+    /// a restart took with a version this one no longer offers. `None`
+    /// where no version has it (or the shelf has no directory).
+    pub fn recall(&mut self, format: Format, digest: &[u8; 32]) -> Option<Arc<Frozen>> {
+        let dir = self.dir.clone()?;
+        let found = history::versions(&dir, format)
+            .into_iter()
+            .rev()
+            .filter_map(|version| Frozen::from_file(&version.deck, format).ok())
+            .find(|frozen| frozen.digest == *digest)
+            .map(Arc::new)?;
+        self.kept.insert(found.digest, Arc::clone(&found));
+        Some(found)
+    }
 }

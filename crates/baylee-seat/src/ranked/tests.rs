@@ -181,3 +181,113 @@ fn the_runner_token_comes_from_a_file_or_the_store_and_is_never_quoted() {
     assert!(from_file.read().is_err(), "an empty file is no token");
     assert_eq!(format!("{from_file:?}"), "RunnerToken(…)");
 }
+
+/// The host's facts: Forest at `verdict` in Standard, and the blocks given.
+fn facts(
+    verdict: &str,
+    blocked: Vec<baylee_client_core::lobby::BlockedCard>,
+) -> crate::deckbuild::facts::Facts {
+    let forest = baylee_cards::decks::by_name("Forest").expect("a pool card");
+    crate::deckbuild::facts::Facts {
+        gateway: "https://host.test".into(),
+        fetched: "2026-11-27T03:00:00Z".into(),
+        pool: baylee_client_core::cardquery::PoolFactsBody {
+            version: "0123456789abcdef".into(),
+            formats: vec!["standard".into()],
+            sets: Vec::new(),
+            verdicts: vec![verdict.into()],
+            cards: vec![vec![forest.get(), 0]],
+        },
+        blocked,
+    }
+}
+
+#[test]
+fn a_deck_is_offered_only_where_the_hosts_facts_admit_it() {
+    let forest = baylee_cards::decks::by_name("Forest").unwrap();
+    let deck = Frozen::from_rows(
+        "Forest",
+        "standard",
+        Format::Standard,
+        &["60 Forest".into()],
+        &[],
+        &[],
+    )
+    .unwrap();
+    assert_eq!(deck.admitted(&facts("l", Vec::new())), Ok(()));
+    assert!(
+        deck.admitted(&facts("b", Vec::new())).is_err(),
+        "banned there"
+    );
+    let block = |until: Option<&str>| baylee_client_core::lobby::BlockedCard {
+        index: forest.get(),
+        name: "Forest".into(),
+        reason: "a fault".into(),
+        until: until.map(Into::into),
+    };
+    let why = deck.admitted(&facts("l", vec![block(None)])).unwrap_err();
+    assert!(why.contains("blocked"), "{why}");
+    assert_eq!(
+        deck.admitted(&facts("l", vec![block(Some("2026-01-01T00:00:00Z"))])),
+        Ok(()),
+        "a block that ended blocks nothing"
+    );
+
+    // On the shelf: a newer version the host would not seat is passed over.
+    let scratch = Scratch::new();
+    write_version(&scratch.0, 1, "60 Forest\n");
+    write_version(&scratch.0, 2, "20 Forest\n40 Grizzly Bears\n");
+    let mut shelf = Shelf::directory(scratch.0.clone(), vec![Format::Standard]);
+    let mut said = Vec::new();
+    // Grizzly Bears has no verdict in these facts.
+    shelf.refresh(Some(&facts("l", Vec::new())), |line| said.push(line));
+    assert_eq!(shelf.offers()[0].deck, deck.digest, "{said:?}");
+    assert!(
+        said.iter().any(|l| l.contains("would not seat")),
+        "{said:?}"
+    );
+}
+
+#[test]
+fn a_restarted_runner_finds_an_older_version_a_match_was_made_with() {
+    let scratch = Scratch::new();
+    write_version(&scratch.0, 1, "60 Forest\n");
+    write_version(&scratch.0, 2, "20 Forest\n40 Grizzly Bears\n");
+    let mut shelf = Shelf::directory(scratch.0.clone(), vec![Format::Standard]);
+    shelf.refresh(None, |_| {});
+    let old = Frozen::from_rows(
+        "Old",
+        "standard",
+        Format::Standard,
+        &["60 Forest".into()],
+        &[],
+        &[],
+    )
+    .unwrap();
+    assert!(
+        shelf.by_digest(&old.digest).is_none(),
+        "the newest is offered"
+    );
+    let found = shelf
+        .recall(Format::Standard, &old.digest)
+        .expect("version 1");
+    assert_eq!(found.digest, old.digest);
+    assert!(shelf.by_digest(&old.digest).is_some(), "kept from then on");
+    assert!(shelf.recall(Format::Standard, &[0; 32]).is_none());
+}
+
+#[test]
+fn a_commander_deck_file_freezes_with_its_commander() {
+    let scratch = Scratch::new();
+    let path = scratch.0.join("v0001-20261127T010000Z.txt");
+    std::fs::write(
+        &path,
+        "# name: Aang\n# format: commander\nCMD: 1 Aang and Katara\n99 Forest\n",
+    )
+    .unwrap();
+    let frozen = Frozen::from_file(&path, Format::Commander).unwrap();
+    assert_eq!(frozen.deck.commanders, ["Aang and Katara"]);
+    assert_eq!(frozen.bridge.commanders, ["Aang and Katara"]);
+    let main: u32 = frozen.bridge.list.main.iter().map(|c| c.count).sum();
+    assert_eq!(main, 99, "the commander is not among the main deck's cards");
+}
