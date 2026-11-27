@@ -37,7 +37,7 @@ fn codes(sets: usize, trims: u8) -> Vec<u8> {
 }
 
 /// Measure every cell's candidates against `field` opponents of its stage.
-#[allow(clippy::too_many_arguments)] // the measurement's complete inputs
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // one measurement, read top to bottom
 pub fn measure(
     content: &Content,
     cohort: &Cohort,
