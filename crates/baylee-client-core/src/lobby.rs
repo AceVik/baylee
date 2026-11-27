@@ -1318,6 +1318,9 @@ pub struct Lobby {
     /// (a button, the eye) instead, so a typed letter goes nowhere (WP1, the
     /// shell's focus walker). Any placement of the caret ends it.
     caret_parked: bool,
+    /// The focus epoch the caret was parked at: a placement after it (a
+    /// new epoch) is what [`Lobby::placed_since_parking`] reports.
+    parked_at: u64,
 }
 
 /// Which face the front door's account card shows (the shell design, §3).
@@ -1885,8 +1888,17 @@ impl Lobby {
     pub fn park_caret(&mut self) {
         if !self.caret_parked {
             self.caret_parked = true;
+            self.parked_at = self.focus_epoch;
             self.revealed = None;
         }
+    }
+
+    /// Whether the caret is parked and the lobby has placed it again since
+    /// (a placement that did not go through [`Lobby::focus_on`]); a placement
+    /// from before the park is not one.
+    #[must_use]
+    pub fn placed_since_parking(&self) -> bool {
+        self.caret_parked && self.focus_epoch != self.parked_at
     }
 
     /// Whether no field has the caret (see [`Lobby::park_caret`]).

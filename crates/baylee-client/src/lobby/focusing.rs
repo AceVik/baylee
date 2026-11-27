@@ -215,7 +215,13 @@ pub(super) fn follow_focus(
             .play
             .sheet_opener
             .take()
-            .or_else(|| sheet_fallback.take());
+            // A text box is no opener to go back to: the ring on it would put
+            // the caret in it, the trap this hand-back exists to avoid.
+            .or_else(|| {
+                sheet_fallback
+                    .take()
+                    .filter(|s| drawn(s).is_none_or(|e| field_of(e, &presses).is_none()))
+            });
     } else if !sheet_open {
         if state.play.sheet_opener.is_some() {
             state.bypass_change_detection().play.sheet_opener = None;
