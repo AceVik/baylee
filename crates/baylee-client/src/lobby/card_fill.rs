@@ -36,6 +36,8 @@ pub(crate) enum FillPress {
     TryAgain,
     /// Empty the cache: the first press arms, the second does it.
     Empty,
+    /// Back out of emptying the cache.
+    CancelEmpty,
     /// The header's mark: open the block.
     Show,
 }
@@ -57,7 +59,7 @@ impl FillPress {
             Self::Pace(pace) => choices.pace = pace,
             Self::Reach(reach) => choices.reach = reach,
             Self::Budget(budget) => choices.budget = budget,
-            Self::Pause | Self::TryAgain | Self::Empty | Self::Show => {}
+            Self::Pause | Self::TryAgain | Self::Empty | Self::CancelEmpty | Self::Show => {}
         }
         *choices != before
     }
@@ -79,6 +81,9 @@ impl FillPress {
                     crate::cachefill::empty();
                 }
                 view.fill.armed = !view.fill.armed;
+            }
+            Self::CancelEmpty => {
+                view.fill.armed = false;
             }
             Self::Show => {
                 state.settings = SettingsPane::Open;
@@ -478,6 +483,14 @@ fn buttons(out: &mut Out, holder: Entity, view: FillView) {
         weight,
         press(FillPress::Empty),
     ));
+    if view.armed {
+        buttons.push(out.button(
+            "card-fill-cancel",
+            Phrase::ActCancel.text(lang),
+            Weight::Secondary,
+            press(FillPress::CancelEmpty),
+        ));
+    }
     let row = out.wrap(&buttons);
     out.commands.entity(holder).add_child(row);
     if view.armed {
@@ -993,6 +1006,7 @@ mod tests {
             FillPress::Pause,
             FillPress::TryAgain,
             FillPress::Empty,
+            FillPress::CancelEmpty,
             FillPress::Show,
         ] {
             assert!(!press.on_device());

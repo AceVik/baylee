@@ -82,6 +82,7 @@ pub(crate) const SETTINGS: TabOrder = TabOrder {
         "card-fill",
         "card-fill-go",
         "card-fill-empty",
+        "card-fill-cancel",
         "card-fill-pace",
         "card-fill-reach",
         "card-fill-budget",
@@ -324,6 +325,80 @@ pub(crate) fn mirror_in_use(
     };
     if state.settings_view.in_use != in_use.0 {
         state.bypass_change_detection().settings_view.in_use = in_use.0;
+    }
+}
+
+/// Scrolls the settings list so the row a search result jumped to stands in
+/// view, once layout has measured both the list and the row.
+pub(crate) fn scroll_to_jump(
+    mut state: ResMut<LobbyState>,
+    rows: Query<(
+        Entity,
+        &super::rows::RowMark,
+        &ComputedNode,
+        &UiGlobalTransform,
+    )>,
+    parents: Query<&ChildOf>,
+    mut lists: Query<
+        (
+            &crate::lobby::Scrollable,
+            &ComputedNode,
+            &UiGlobalTransform,
+            &mut ScrollPosition,
+        ),
+        Without<super::rows::RowMark>,
+    >,
+    mut scrolled: ResMut<crate::lobby::Scrolled>,
+) {
+    let Some(target) = state.settings_view.jump else {
+        return;
+    };
+    if !state.settings_open()
+        || !state.settings_query().is_empty()
+        || baylee_client_core::settings_map::of(target).section != state.settings_section()
+    {
+        state.bypass_change_detection().settings_view.jump = None;
+        return;
+    }
+    let mut laid_out = false;
+    let mut found = None;
+    for (entity, mark, row_node, at) in &rows {
+        if row_node.size().y > 0.0 {
+            laid_out = true;
+        }
+        if mark.0 == target {
+            found = Some((entity, row_node, at));
+            break;
+        }
+    }
+    let Some((entity, row_node, at)) = found else {
+        if laid_out {
+            state.bypass_change_detection().settings_view.jump = None;
+        }
+        return;
+    };
+    if row_node.size().y <= 0.0 {
+        return;
+    }
+    for ancestor in parents.iter_ancestors(entity) {
+        let Ok((list, view, origin, mut scroll)) = lists.get_mut(ancestor) else {
+            continue;
+        };
+        if list.0 != crate::lobby::List::Settings || view.size().y <= 0.0 {
+            continue;
+        }
+        let scale = view.inverse_scale_factor();
+        let top = (at.translation.y - row_node.size().y * 0.5 - origin.translation.y
+            + view.size().y * 0.5)
+            * scale;
+        let end = ((view.content_size().y - view.size().y) * scale).max(0.0);
+        let want = (scroll.y + top).clamp(0.0, end);
+        if (scroll.y - want).abs() > 0.5 {
+            scroll.y = want;
+        }
+        scrolled.set(list.0, scroll.y);
+        state.bypass_change_detection().settings_view.jump = None;
+        return;
     }
 }
 

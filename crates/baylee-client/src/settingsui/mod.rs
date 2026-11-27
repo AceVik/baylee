@@ -652,6 +652,7 @@ fn results(out: &mut Out, view: &View, query: &str) {
 /// The section a press of the search's results or the nav shows, and the
 /// query cleared.
 pub(crate) fn show(state: &mut LobbyState, section: Section) {
+    state.settings_view.jump = None;
     if state.settings_section() != section {
         state.set_settings_section(section);
         state.settings_view.fill.armed = false;

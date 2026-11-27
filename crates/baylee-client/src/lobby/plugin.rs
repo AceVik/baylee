@@ -355,7 +355,11 @@ impl Plugin for LobbyPlugin {
                             .before(crate::shellkit::focus::FocusVisuals),
                     )
                         .run_if(in_state(DuelPhase::Closed)),
-                    focusing::follow_focus.run_if(table_settings::lobby_or_over_table),
+                    (
+                        focusing::follow_focus,
+                        crate::settingsui::keys::scroll_to_jump.after(bevy::ui::UiSystems::Layout),
+                    )
+                        .run_if(table_settings::lobby_or_over_table),
                 ),
             )
             // The keyboard on the stops the screens draw (WP2, WP3): Enter

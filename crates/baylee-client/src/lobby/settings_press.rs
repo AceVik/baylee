@@ -323,6 +323,7 @@ impl SettingsPress {
             SettingsPress::Jump(row) => {
                 crate::settingsui::show(state, baylee_client_core::settings_map::of(row).section);
                 scrolled.set(List::Settings, 0.0);
+                state.settings_view.jump = Some(row);
             }
             SettingsPress::ResetSection(section) => {
                 let signed_in = state.lobby.token().is_some();
@@ -390,8 +391,8 @@ impl SettingsPress {
             SettingsPress::Seat(act) => {
                 use baylee_client_core::llmseat::panel::Act;
                 state.seat.act(act);
-                // A new profile is filled in on its sheet; a removed one's
-                // sheet has nothing left to show.
+                // A new profile is filled in on its sheet; a removed one or
+                // anything that leaves no profile selected closes the sheet.
                 match act {
                     Act::Add | Act::AddPreset(_) | Act::Duplicate(_) => {
                         state.settings_view.profile_sheet = true;
@@ -399,6 +400,14 @@ impl SettingsPress {
                     }
                     Act::Remove(_) => state.settings_view.profile_sheet = false,
                     _ => {}
+                }
+                if state
+                    .seat
+                    .panel()
+                    .is_none_or(|panel| panel.selected().is_none())
+                {
+                    state.seat.blur();
+                    state.settings_view.profile_sheet = false;
                 }
             }
             _ => return false,

@@ -311,6 +311,8 @@ pub struct LobbyState {
 pub(crate) struct SettingsView {
     /// The section shown.
     pub(crate) section: baylee_client_core::settings_map::Section,
+    /// The row a search result jumped to, waiting for layout to scroll it into view.
+    pub(crate) jump: Option<baylee_client_core::settings_map::Row>,
     /// A shortcut's rebind refused: the action, the chord and why.
     pub(crate) refused: Option<(
         baylee_client_core::shellkeys::ShellAction,

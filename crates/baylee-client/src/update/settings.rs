@@ -179,24 +179,38 @@ pub(crate) fn controls(
             Pickable::IGNORE,
         ))
         .id();
-    for switch in [
+    for (row, switch) in [
         (
-            Phrase::UpdateAutoCheck,
-            Phrase::UpdateAutoCheckWhy,
-            UpdateButton::ToggleCheck,
-            Readout::Check,
+            baylee_client_core::settings_map::Row::CheckAutomatically,
+            (
+                Phrase::UpdateAutoCheck,
+                Phrase::UpdateAutoCheckWhy,
+                UpdateButton::ToggleCheck,
+                Readout::Check,
+            ),
         ),
         (
-            Phrase::UpdateAutoInstall,
-            Phrase::UpdateAutoInstallWhy,
-            UpdateButton::ToggleInstall,
-            Readout::Install,
+            baylee_client_core::settings_map::Row::InstallAutomatically,
+            (
+                Phrase::UpdateAutoInstall,
+                Phrase::UpdateAutoInstallWhy,
+                UpdateButton::ToggleInstall,
+                Readout::Install,
+            ),
         ),
     ] {
         let line = switch_line(commands, kit, metrics, lang, switch);
+        commands
+            .entity(line)
+            .insert(crate::settingsui::rows::RowMark(row));
         commands.entity(root).add_child(line);
     }
     let line = lobby::row(commands, metrics, true);
+    commands
+        .entity(line)
+        .insert(crate::settingsui::rows::RowMark(
+            baylee_client_core::settings_map::Row::CheckNow,
+        ));
     let now = our_button(
         commands,
         fonts,
