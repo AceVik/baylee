@@ -391,6 +391,9 @@ const THIS_OBJECT_READ: &[&str] = &[
     "to: ThisObject,",
     "ExileLinked { target: ThisObject,",
     "RedirectNextChosenSourceDamageToTarget { target: ThisObject",
+    "RelocateAttachment { attachment: Spec(ThisObject),",
+    "SetDynamicPT { subject: ThisObject,",
+    "RedirectNextDamageTo { from: ThisObject,",
 ];
 
 /// Which effects may be spelled with `ThisObject`, held against the pool.
