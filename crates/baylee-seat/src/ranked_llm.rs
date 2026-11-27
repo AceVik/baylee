@@ -32,13 +32,15 @@ use super::{Fallen, Join, Reachable, fallback_join, reach, standing_by};
 use anyhow::{Context as _, anyhow, bail};
 use baylee_account::ranked::ai::AiKind;
 use baylee_ai::AIProfile;
+use baylee_client_core::llmseat::Provider;
 use baylee_client_core::llmseat::keys::KeyStore;
+use baylee_client_core::llmseat::models::{self, Endpoint};
 use baylee_client_core::say;
 use baylee_protocol::v1::SeatMind;
 use baylee_seat::bridge;
 use baylee_seat::config::Paths;
 use baylee_seat::ranked::chain::{
-    FAILED_HOLD, Held, hold_back, holding, house_at_the_end, same_model,
+    Claimed, FAILED_HOLD, Held, claimed, hold_back, holding, house_at_the_end, same_model,
 };
 use baylee_seat::ranked::{Flight, Pilot, Piloted, Seat};
 use baylee_seat::seat::{BridgeConfig, Labelled};
@@ -80,6 +82,8 @@ struct Path {
     profile: String,
     join: Join,
     declared: SeatMind,
+    /// What it claims to play, for the chain's check.
+    claim: Claimed,
 }
 
 /// A language model flying an AI account's seats.
@@ -189,24 +193,25 @@ impl LlmPilot {
                 .with_context(|| format!("the settings file names no profile «{name}»"))?;
             let declared = declare::llm(&reached.plan.settings);
             // The account's name and rating claim one model at one effort:
-            // every path names both, a lone one too, and each after the
-            // first names the first's (`same_model`). The effort is the
-            // profile's own: a provider's default is no named effort.
-            if own.effort.is_none() {
-                bail!(
-                    "the access path «{name}» names no effort; give the profile its `effort` in \
-                     the settings file (and its `model`, for a CLI `<tool>:<model>`): the \
-                     account's name and rating claim one model at one effort"
-                );
-            }
-            same_model(&declared, &declared).map_err(|why| {
+            // every path names both, a lone one too, as the profile itself
+            // writes them (a provider's default is no named effort), and
+            // each after the first claims the first's (`same_model`).
+            let endpoint = if own.provider == Provider::Cli {
+                Endpoint::cli(&own.model)
+            } else {
+                Endpoint::new(own.provider, own.base_url.as_deref())
+            };
+            let known = !models::resolve(endpoint, &own.model, &[])
+                .efforts
+                .is_empty();
+            let claim = claimed(&declared, own.effort.as_deref(), known).map_err(|why| {
                 anyhow!(
-                    "the access path «{name}»: {why}; give the profile its `model` (for a CLI \
-                     `<tool>:<model>`) and its `effort` in the settings file"
+                    "the access path «{name}»: {why} in the settings file: the account's name and \
+                     rating claim one model at one effort"
                 )
             })?;
             if let Some(first) = paths.first() {
-                same_model(&first.declared, &declared).map_err(|why| {
+                same_model(&first.claim, &claim).map_err(|why| {
                     anyhow!(
                         "the access path «{name}» plays another model than «{}»: {why}; an AI \
                          account's chain reaches one model at one effort",
@@ -221,6 +226,7 @@ impl LlmPilot {
                 profile: name.clone(),
                 join,
                 declared,
+                claim,
             });
         }
         say!("the model's access paths, in order: {}", names.join(" → "));
