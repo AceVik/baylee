@@ -38,14 +38,16 @@ env:
 jobs:
   package:
     name: package (${{ matrix.target }}${{ matrix.variant && format('-{0}', matrix.variant) || '' }})
-    # A promotion runs on Linux. The two macOS rows build on the owner's Mac,
-    # each in a throwaway Tart VM, while the repository variable
-    # `MACOS_RUNNER` is `self-hosted`, and only for a push to main or a
-    # dispatch (which only someone with write access can start): a pull
-    # request, `ci:full` included, never reaches that machine. Any other
-    # value (`github` since 30.10.2026) runs them on GitHub's image
-    # (docs/releasing.md §"The macOS runner").
-    runs-on: ${{ inputs.source-run != '' && 'ubuntu-24.04' || (matrix.mac && vars.MACOS_RUNNER == 'self-hosted' && (github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')) && fromJSON('["self-hosted","macOS","ARM64","baylee-vm"]') || matrix.os }}
+    # A promotion runs on Linux. The macOS rows build on the owner's Mac, each
+    # in a throwaway Tart VM, in two cases. While the repository variable
+    # `MACOS_RUNNER` is `self-hosted`: a push to main or a dispatch (which only
+    # someone with write access can start). While `MACOS_RELEASE_RUNNER` is
+    # `self-hosted`: a `v*` tag, which only an admin can push (the ruleset on
+    # `refs/tags/v*`), and whose cold `dist` build took GitHub's image four to
+    # five hours a row (0.2.2-beta.o1, 27.11.2026). A pull request, `ci:full`
+    # included, never reaches that machine. Any other value runs them on
+    # GitHub's image (docs/releasing.md §"The macOS runner").
+    runs-on: ${{ inputs.source-run != '' && 'ubuntu-24.04' || (matrix.mac && (vars.MACOS_RUNNER == 'self-hosted' && (github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') || vars.MACOS_RELEASE_RUNNER == 'self-hosted' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))) && fromJSON('["self-hosted","macOS","ARM64","baylee-vm"]') || matrix.os }}
     # A build's p95 ×1.5 (06.–08.10.2026, before the build was narrowed to the
     # three shipped binaries). A promotion verifies and copies in 2–3 minutes,
     # so 15 is its bound, not a build's. Those bounds are `package-check`'s: a

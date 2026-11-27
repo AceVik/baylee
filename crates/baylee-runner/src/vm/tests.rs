@@ -573,7 +573,7 @@ fn prepare_builds_the_image_without_a_start_runner_file() {
 /// job before its first step. Run here with the real shell.
 #[cfg(unix)]
 #[test]
-fn the_job_guard_admits_only_main_pushes_and_dispatches_of_this_repository() {
+fn the_job_guard_admits_only_main_pushes_release_tags_and_dispatches_of_this_repository() {
     let settings = Settings::default();
     let dir = tempfile::tempdir().unwrap();
     let guard = dir.path().join("job-guard.sh");
@@ -595,7 +595,15 @@ fn the_job_guard_admits_only_main_pushes_and_dispatches_of_this_repository() {
     assert!(admits(repo, "workflow_dispatch", "refs/heads/c41/topic"));
     assert!(!admits(repo, "pull_request", "refs/pull/7/merge"));
     assert!(!admits(repo, "push", "refs/heads/c41/topic"));
-    assert!(!admits(repo, "push", "refs/tags/v1.0.0"));
+    assert!(admits(repo, "push", "refs/tags/v0.2.3-beta.o1"));
+    assert!(!admits(repo, "push", "refs/tags/release-1"));
+    assert!(!admits(repo, "push", "refs/heads/v0.2.3-beta.o1"));
+    assert!(!admits(repo, "pull_request", "refs/tags/v0.2.3-beta.o1"));
+    assert!(!admits(
+        "someone/baylee",
+        "push",
+        "refs/tags/v0.2.3-beta.o1"
+    ));
     assert!(!admits("someone/baylee", "push", "refs/heads/main"));
     assert!(!admits(repo, "pull_request_target", "refs/heads/main"));
 

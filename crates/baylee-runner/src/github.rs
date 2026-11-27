@@ -166,11 +166,15 @@ impl<'a> GitHub<'a> {
     }
 }
 
-/// The runs a VM may serve: this repository's pushes to main and its
-/// dispatches, which only someone with write access can start. A pull
-/// request, a fork's above all, may name the label in its own YAML; it is
-/// left queued here, and the job guard in each VM refuses it as well.
+/// The runs a VM may serve: this repository's pushes to main, its dispatches,
+/// which only someone with write access can start, and its releases, a `v*`
+/// tag only an admin can push (a tag run names the tag as its `head_branch`).
+/// A pull request, a fork's above all, may name the label in its own YAML; it
+/// is left queued here, and the job guard in each VM refuses it as well.
 fn run_ids(answer: &Value, repo: &str) -> Result<Vec<u64>> {
+    /// The one workflow a `v*` tag starts.
+    const RELEASE_WORKFLOW: &str = ".github/workflows/release.yml";
+
     let runs = answer
         .get("workflow_runs")
         .and_then(Value::as_array)
@@ -184,7 +188,11 @@ fn run_ids(answer: &Value, repo: &str) -> Result<Vec<u64>> {
         let field = |pointer: &str| run.pointer(pointer).and_then(Value::as_str);
         let trusted = field("/head_repository/full_name") == Some(repo)
             && match field("/event") {
-                Some("push") => field("/head_branch") == Some("main"),
+                Some("push") => {
+                    field("/head_branch") == Some("main")
+                        || (field("/path") == Some(RELEASE_WORKFLOW)
+                            && field("/head_branch").is_some_and(|tag| tag.starts_with('v')))
+                }
                 Some("workflow_dispatch") => true,
                 _ => false,
             };
@@ -251,22 +259,30 @@ mod tests {
     }
 
     #[test]
-    fn only_main_pushes_and_dispatches_of_this_repository_are_served() {
+    fn only_main_pushes_release_tags_and_dispatches_of_this_repository_are_served() {
         let repo = "AceVik/baylee";
-        let run = |id: u64, event: &str, branch: &str, head: &str| {
-            json!({"id": id, "event": event, "head_branch": branch,
+        let ci = ".github/workflows/ci.yml";
+        let release = ".github/workflows/release.yml";
+        let run = |id: u64, event: &str, branch: &str, head: &str, path: &str| {
+            json!({"id": id, "event": event, "head_branch": branch, "path": path,
                    "head_repository": {"full_name": head}})
         };
         let answer = json!({"workflow_runs": [
-            run(1, "push", "main", repo),
-            run(2, "workflow_dispatch", "c41/topic", repo),
-            run(3, "pull_request", "main", "someone/baylee"),
-            run(4, "pull_request", "c41/topic", repo),
-            run(5, "push", "c41/topic", repo),
-            run(6, "push", "main", "someone/baylee"),
+            run(1, "push", "main", repo, ci),
+            run(2, "workflow_dispatch", "c41/topic", repo, ci),
+            run(3, "pull_request", "main", "someone/baylee", ci),
+            run(4, "pull_request", "c41/topic", repo, ci),
+            run(5, "push", "c41/topic", repo, ci),
+            run(6, "push", "main", "someone/baylee", ci),
             {"id": 7, "event": "push", "head_branch": "main"},
+            // A release: the tag is the run's `head_branch` (run 46007829494).
+            run(8, "push", "v0.2.3-beta.o1", repo, release),
+            run(9, "push", "v0.2.3-beta.o1", repo, ci),
+            run(10, "push", "release-1", repo, release),
+            run(11, "push", "v0.2.3-beta.o1", "someone/baylee", release),
+            run(12, "pull_request", "v0.2.3-beta.o1", repo, release),
         ]});
-        assert_eq!(run_ids(&answer, repo).unwrap(), [1, 2]);
+        assert_eq!(run_ids(&answer, repo).unwrap(), [1, 2, 8]);
     }
 
     #[test]
