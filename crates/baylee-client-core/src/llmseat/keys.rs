@@ -532,7 +532,7 @@ pub struct KeyDesk {
     /// frame, asks every frame.
     refused: BTreeSet<KeyEntry>,
     typing: Option<(KeyEntry, crate::textbuf::TextBuffer)>,
-    said: Option<(KeyEntry, String)>,
+    said: BTreeMap<KeyEntry, String>,
 }
 
 impl KeyDesk {
@@ -553,10 +553,7 @@ impl KeyDesk {
     /// store that refused), until the next press.
     #[must_use]
     pub fn said(&self, entry: &KeyEntry) -> Option<&str> {
-        self.said
-            .as_ref()
-            .filter(|(at, _)| at == entry)
-            .map(|(_, why)| why.as_str())
+        self.said.get(entry).map(String::as_str)
     }
 
     /// Asks the store about `entry` unless it was asked already: what the
@@ -583,18 +580,21 @@ impl KeyDesk {
         self.asked.remove(entry);
         match came {
             Ok(state) => {
+                self.refused.remove(entry);
+                self.said.remove(entry);
                 self.heard.insert(entry.clone(), state);
             }
             Err(why) => {
                 self.refused.insert(entry.clone());
-                self.said = Some((entry.clone(), blank_key_shapes_short(&why)));
+                self.said
+                    .insert(entry.clone(), blank_key_shapes_short(&why));
             }
         }
     }
 
     /// Puts the caret in `entry`'s key box, empty.
     pub fn focus(&mut self, entry: &KeyEntry) {
-        self.said = None;
+        self.said.remove(entry);
         self.refused.remove(entry);
         self.typing = Some((entry.clone(), crate::textbuf::TextBuffer::default()));
     }
@@ -626,16 +626,16 @@ impl KeyDesk {
         };
         let key = buffer.text().trim().to_string();
         if let Some(why) = key_fault(&key) {
-            self.said = Some((entry, why.to_string()));
+            self.said.insert(entry, why.to_string());
         } else {
-            self.said = None;
+            self.said.remove(&entry);
             self.queued.push(KeyJob::Set(entry, key));
         }
     }
 
     /// Forgets the key kept for `entry`.
     pub fn delete(&mut self, entry: &KeyEntry) {
-        self.said = None;
+        self.said.remove(entry);
         self.refused.remove(entry);
         if self.typing.as_ref().is_some_and(|(at, _)| at == entry) {
             self.typing = None;
@@ -649,6 +649,7 @@ impl KeyDesk {
     pub fn forget(&mut self) {
         self.heard.clear();
         self.refused.clear();
+        self.said.clear();
     }
 }
 

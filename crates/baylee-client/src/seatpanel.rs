@@ -1392,22 +1392,26 @@ impl Drawn<'_, '_, '_> {
         };
         let state = self.keys.state(&entry).cloned();
         let busy = self.keys.busy(&entry);
+        let said = self.keys.said(&entry).map(str::to_string);
         let host = entry.host().to_string();
-        let (words, ink) = match (&state, busy) {
-            (_, true) | (None, _) => (Phrase::SeatKeyAsking.text(lang).to_string(), palette::MUTED),
-            (Some(KeyState::Set), _) => (Phrase::SeatKeyKept.fill(lang, &[&host]), palette::INK),
-            (Some(KeyState::Absent), _) => {
-                (Phrase::SeatKeyNoneKept.fill(lang, &[&host]), palette::MUTED)
+        let status = match (&state, busy) {
+            (_, true) => Some((Phrase::SeatKeyAsking.text(lang).to_string(), palette::MUTED)),
+            (None, false) if said.is_none() => {
+                Some((Phrase::SeatKeyAsking.text(lang).to_string(), palette::MUTED))
             }
-            (Some(KeyState::Unavailable(why)), _) => (
-                Phrase::SeatKeyStoreUnavailable.fill(lang, &[why.as_str()]),
-                palette::MUTED,
-            ),
+            (None, false) => None,
+            (Some(KeyState::Set), false) => {
+                Some((Phrase::SeatKeyKept.fill(lang, &[&host]), palette::INK))
+            }
+            (Some(KeyState::Absent), false) => {
+                Some((Phrase::SeatKeyNoneKept.fill(lang, &[&host]), palette::MUTED))
+            }
+            (Some(KeyState::Unavailable(why)), false) => {
+                let words = Phrase::SeatKeyStoreUnavailable.fill(lang, &[why.as_str()]);
+                self.line(cell, &words, palette::MUTED);
+                return;
+            }
         };
-        if matches!(state, Some(KeyState::Unavailable(_))) {
-            self.line(cell, &words, ink);
-            return;
-        }
         let typing = self.keys.typing().filter(|(e, _)| **e == entry);
         let blank = baylee_client_core::textbuf::TextBuffer::default();
         let look = FieldLook {
@@ -1472,6 +1476,10 @@ impl Drawn<'_, '_, '_> {
         if !can_forget {
             let reason = if busy {
                 Phrase::SeatKeyAsking.text(lang).to_string()
+            } else if state.is_none()
+                && let Some(why) = &said
+            {
+                why.clone()
             } else {
                 Phrase::SeatKeyNoneKept.fill(lang, &[&host])
             };
@@ -1482,9 +1490,10 @@ impl Drawn<'_, '_, '_> {
         self.tab(keep);
         self.tab(forget);
         self.commands.entity(doors).add_children(&[keep, forget]);
-        self.line(cell, &words, ink);
-        if let Some(why) = self.keys.said(&entry) {
-            let why = why.to_string();
+        if let Some((words, ink)) = status {
+            self.line(cell, &words, ink);
+        }
+        if let Some(why) = said {
             self.line(cell, &why, palette::DANGER);
         }
     }
