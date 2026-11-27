@@ -38,17 +38,25 @@ fn codes(sets: usize, trims: u8) -> Vec<u8> {
 
 /// Around a published pick: itself, one relic more or less in the bag, two
 /// more, and the same trim of the other sets.
-fn around(pick: u8, sets: usize) -> Vec<u8> {
+fn around(pick: u8, sets: usize, deep: bool) -> Vec<u8> {
     let (set, trim) = (pick / HOUSE_TRIMS, pick % HOUSE_TRIMS);
     let sets = u8::try_from(sets).unwrap_or(1).max(1);
+    let deeper = |by: u8| set * HOUSE_TRIMS + (trim + by).min(HOUSE_TRIMS - 1);
     let mut codes = vec![
         pick,
-        set * HOUSE_TRIMS + (trim + 1).min(HOUSE_TRIMS - 1),
-        set * HOUSE_TRIMS + (trim + 2).min(HOUSE_TRIMS - 1),
+        deeper(1),
+        deeper(2),
         set * HOUSE_TRIMS + trim.saturating_sub(1),
     ];
+    if deep {
+        codes.extend([deeper(3), deeper(4)]);
+    }
     for other in 1..sets {
-        codes.push(((set + other) % sets) * HOUSE_TRIMS + trim);
+        let other = (set + other) % sets;
+        codes.push(other * HOUSE_TRIMS + trim);
+        if deep {
+            codes.push(other * HOUSE_TRIMS + (trim + 2).min(HOUSE_TRIMS - 1));
+        }
     }
     let mut seen = Vec::new();
     codes.retain(|code| {
@@ -72,6 +80,7 @@ pub fn measure(
     threads: usize,
     stages: &[u8],
     relative: bool,
+    only: &[(u8, usize)],
 ) -> serde_json::Value {
     let count = content.starters.len();
     let global = codes(sets.len(), trims);
@@ -79,7 +88,11 @@ pub fn measure(
     // untrimmed builds, or (relative) the published ladder itself.
     let cell = |stage: u8, archetype: usize| -> Vec<u8> {
         if relative {
-            around(HOUSE_PICKS[usize::from(stage) - 1][archetype], sets.len())
+            around(
+                HOUSE_PICKS[usize::from(stage) - 1][archetype],
+                sets.len(),
+                !only.is_empty(),
+            )
         } else {
             global.clone()
         }
@@ -98,6 +111,9 @@ pub fn measure(
     let mut matches = Vec::new();
     for &stage in &wanted {
         for archetype in 0..count {
+            if !only.is_empty() && !only.contains(&(stage, archetype)) {
+                continue;
+            }
             for candidate in 0..cell(stage, archetype).len() {
                 for step in 0..field {
                     let opponent = (archetype + 1 + step * (count - 1) / field) % count;
@@ -164,7 +180,7 @@ pub fn measure(
         },
     );
     let stages_n = usize::from(MAX_STAGES);
-    let mut cells = vec![vec![vec![Tally::default(); 8]; count]; stages_n];
+    let mut cells = vec![vec![vec![Tally::default(); 12]; count]; stages_n];
     for (m, played) in matches.iter().zip(&results) {
         cells[usize::from(m.stage) - 1][m.archetype][m.candidate].add(played, m.first);
     }

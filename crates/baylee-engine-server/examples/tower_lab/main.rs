@@ -69,6 +69,9 @@ enum Command {
         /// Around the published pick table instead, against the published ladder.
         #[arg(long)]
         relative: bool,
+        /// Only these cells, `stage:starter` (repeatable), with deeper trims.
+        #[arg(long)]
+        cell: Vec<String>,
         /// Independent deals per opponent and chair.
         #[arg(long, default_value_t = 1)]
         seeds: u32,
@@ -152,10 +155,12 @@ fn main() -> Result<()> {
             sets,
             trims,
             relative,
+            cell,
             seeds,
             field,
             stage,
         } => {
+            let only = cells(&cell)?;
             let seed = private_seed()?;
             let sets = baylee_tower_content::house_candidates(&content, &seed, sets)?;
             candidates::measure(
@@ -169,6 +174,7 @@ fn main() -> Result<()> {
                 cli.threads,
                 &stage,
                 relative,
+                &only,
             )
         }
         Command::Variants {
@@ -228,4 +234,18 @@ fn leaders(identity: &str) -> serde_json::Value {
             .map(|(mana_value, name)| serde_json::json!({"name": name, "mana_value": mana_value}))
             .collect::<Vec<_>>(),
     })
+}
+
+/// `stage:starter` pairs, one-based, as (stage, zero-based starter).
+fn cells(texts: &[String]) -> Result<Vec<(u8, usize)>> {
+    texts
+        .iter()
+        .map(|text| {
+            let (stage, starter) = text.split_once(':').context("a cell is stage:starter")?;
+            let stage: u8 = stage.parse().context("a cell's stage")?;
+            let starter: usize = starter.parse().context("a cell's starter")?;
+            let starter = starter.checked_sub(1).context("starters are one-based")?;
+            Ok((stage, starter))
+        })
+        .collect()
 }
