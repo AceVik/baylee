@@ -40,10 +40,12 @@ pub(super) fn menu(commands: &mut Commands, holder: Entity, env: &Env) {
                     ..item(Phrase::BuildEmptyDeck.text(lang), BuildPress::ClearDeck)
                 });
             }
-            items.push(MenuItem {
-                destructive: true,
-                ..item(Phrase::Delete.text(lang), BuildPress::DeleteBuildDeck)
-            });
+            if deck.editing().is_some() || env.state.deck_save_out() {
+                items.push(MenuItem {
+                    destructive: true,
+                    ..item(Phrase::Delete.text(lang), BuildPress::DeleteBuildDeck)
+                });
+            }
         }
         BuildMenu::Grouping => {
             for g in Grouping::ALL {
@@ -183,6 +185,9 @@ pub(super) fn menu(commands: &mut Commands, holder: Entity, env: &Env) {
                 ..item(Phrase::BuildRemoveAll.text(lang), BuildPress::RemoveAll(at))
             });
         }
+    }
+    if items.is_empty() {
+        return;
     }
     // A press anywhere else closes the menu: a catcher under it, over the
     // whole window.

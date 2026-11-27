@@ -248,25 +248,29 @@ pub(super) fn draw(commands: &mut Commands, holder: Entity, env: &Env) {
         );
         kids.push(hist_btn);
 
-        let del_hint = if busy {
-            format!(
-                "{} / {} — {}",
-                Phrase::EmptyTheDeck.text(lang),
-                Phrase::Delete.text(lang),
-                Phrase::SavingDeck.text(lang)
-            )
-        } else {
-            format!(
+        let has_cards =
+            !deck.entries(Zone::Main).is_empty() || !deck.entries(Zone::Side).is_empty();
+        let can_delete = deck.editing().is_some() || env.state.deck_save_out();
+        let del_enabled = !busy && (has_cards || can_delete);
+        let del_label = match (has_cards, can_delete) {
+            (true, true) => format!(
                 "{} / {}",
                 Phrase::EmptyTheDeck.text(lang),
                 Phrase::Delete.text(lang)
-            )
+            ),
+            (true, false) => Phrase::EmptyTheDeck.text(lang).to_string(),
+            (false, _) => Phrase::Delete.text(lang).to_string(),
+        };
+        let del_hint = if busy {
+            format!("{del_label} — {}", Phrase::SavingDeck.text(lang))
+        } else {
+            del_label
         };
         let del_btn = tool_icon_button(
             commands,
             kit,
             '\u{f1f8}',
-            !busy,
+            del_enabled,
             del_hint,
             &[],
             (

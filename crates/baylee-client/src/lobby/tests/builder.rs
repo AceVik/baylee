@@ -76,7 +76,6 @@ fn the_builder_screen_builds_with_its_controls() {
         Press::Build(BuildPress::ToggleHideInSideboard),
         Press::Build(BuildPress::TogglePlayable),
         Press::Build(BuildPress::CycleSort),
-        Press::Build(BuildPress::ToggleHeaderMenu),
         Press::Build(BuildPress::TogglePoolGrouped),
         Press::Build(BuildPress::SetPoolView(crate::buildui::PoolView::Grid)),
         // Both pool rows are offered, so the search does not have to be
@@ -91,6 +90,13 @@ fn the_builder_screen_builds_with_its_controls() {
     }
     // The rail's filters are behind Filters, not a second chip row (§7).
     assert!(!found.contains(&Press::Build(BuildPress::SetKind(Some("Creature")))));
+    // Nothing to empty and nothing saved to delete: the trash stands, and is off.
+    let trash = press_target(&mut app, Press::Build(BuildPress::ToggleHeaderMenu));
+    assert!(
+        app.world()
+            .entity(trash)
+            .contains::<crate::shellkit::controls::Disabled>()
+    );
     // Nothing is saveable yet: no name, no cards — Save stands, and is off.
     let save = press_target(&mut app, Press::Build(BuildPress::SaveDeck));
     assert!(
@@ -1071,6 +1077,83 @@ fn issue_194_commander_management_is_visible_without_opening_card_details() {
     );
 }
 
+/// Clicking Choose commander must move both builder nav and shell `InputFocus`
+/// to the pool search box so immediately typed letters are never dropped.
+#[test]
+fn choose_commander_focuses_search_field_and_accepts_typed_keys() {
+    use crate::buildui::{BUILDER, Nav};
+    use crate::shellkit::focus::Stop;
+    use bevy::input_focus::{FocusCause, InputFocus};
+
+    let mut app = headless();
+    stocked(&mut app);
+    sized(&mut app, 1400.0);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.build_deck();
+        state.build.nav = Nav::Idle;
+    }
+    app.update();
+    let commander_stop = {
+        let world = app.world_mut();
+        world
+            .query::<(Entity, &Stop)>()
+            .iter(world)
+            .find(|(_, s)| s.table == BUILDER && s.id == "commander")
+            .map(|(e, _)| e)
+            .expect("the commander Choose stop")
+    };
+    app.world_mut()
+        .resource_mut::<InputFocus>()
+        .set(commander_stop, FocusCause::Navigated);
+    app.update();
+
+    press(&mut app, Press::Build(BuildPress::ChooseCommander(false)));
+    app.update();
+    assert_eq!(
+        app.world().resource::<LobbyState>().build.nav,
+        Nav::Field,
+        "builder nav enters the search field"
+    );
+    app.world_mut()
+        .resource_mut::<Messages<KeyboardInput>>()
+        .write(typed(' '));
+    app.world_mut()
+        .resource_mut::<Messages<KeyboardInput>>()
+        .write(typed('T'));
+    app.update();
+    assert_eq!(
+        app.world().resource::<LobbyState>().lobby.builder().text(),
+        "is:commander T"
+    );
+}
+
+/// The commander chooser's hint banner must grow into the remaining width of
+/// its row instead of collapsing to zero width beside "Done".
+#[test]
+fn commander_chooser_hint_grows_to_fill_its_row() {
+    let mut app = headless();
+    stocked(&mut app);
+    sized(&mut app, 1400.0);
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .build_deck();
+    app.update();
+    press(&mut app, Press::Build(BuildPress::ChooseCommander(false)));
+
+    let expected = Phrase::CommanderHint.text(Lang::En);
+    let world = app.world_mut();
+    let (_, node, layout) = world
+        .query::<(&Text, &Node, &TextLayout)>()
+        .iter(world)
+        .find(|(text, _, _)| text.0 == expected)
+        .expect("the commander chooser hint text");
+    assert_eq!(node.flex_grow, 1.0);
+    assert_eq!(node.flex_basis, crate::shellkit::px_fixed(0.0));
+    assert_eq!(layout.linebreak, bevy::text::LineBreak::WordBoundary);
+}
+
 /// #255: the commander's picture is a deck row's picture. It is drawn at the
 /// row's full height, shows the printing the deck holds rather than the
 /// registry's, and opens the picker on the commander's own row, even while
@@ -1227,7 +1310,49 @@ fn thumbnails_open_printing_and_empty_deck_is_inside_the_menu() {
     assert!((w / h - 5.0 / 7.0).abs() < 0.05, "{w} × {h}");
     press(&mut app, Press::Build(BuildPress::ToggleHeaderMenu));
     assert!(presses(&mut app).contains(&Press::Build(BuildPress::ClearDeck)));
+    assert!(
+        !presses(&mut app).contains(&Press::Build(BuildPress::DeleteBuildDeck)),
+        "an unsaved deck does not offer Delete"
+    );
+    // Once the deck exists (is being edited), Delete appears in the menu.
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        let sent = state.lobby.builder().draft();
+        state
+            .lobby
+            .builder_mut()
+            .mark_auto_saved(&sent, Some("saved-1"), false);
+    }
+    app.update();
     assert!(presses(&mut app).contains(&Press::Build(BuildPress::DeleteBuildDeck)));
+}
+
+#[test]
+fn unsaved_empty_deck_disables_trash_and_refuses_delete() {
+    let mut app = headless();
+    stocked(&mut app);
+    sized(&mut app, 1400.0);
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .build_deck();
+    app.update();
+    let trash = press_target(&mut app, Press::Build(BuildPress::ToggleHeaderMenu));
+    assert!(
+        app.world()
+            .entity(trash)
+            .contains::<crate::shellkit::controls::Disabled>(),
+        "trash button is disabled on a brand-new empty unsaved deck"
+    );
+    press(&mut app, Press::Build(BuildPress::ToggleHeaderMenu));
+    assert!(
+        app.world().resource::<LobbyState>().build.menu.is_none(),
+        "opening an empty trash menu is refused"
+    );
+    assert!(
+        !presses(&mut app).contains(&Press::Build(BuildPress::DeleteBuildDeck)),
+        "no Delete is offered for an unsaved deck"
+    );
 }
 
 #[test]
@@ -1788,5 +1913,76 @@ fn default_hide_in_deck_and_sideboard_switches_toggle_pool_rows_with_one_click()
             .builder()
             .count_of(1, Zone::Side),
         1
+    );
+}
+
+/// At 1280px, both partner commanders get their own full-width row with an
+/// eliding name and printing thumbnail, deck rows mark their card names for
+/// ellipsis, and Stats KPI tiles form a symmetric 2×2 clipping grid with a
+/// wrapping `DeckMakeup` line.
+#[test]
+fn partner_commanders_stack_and_stats_tiles_fit_at_1280() {
+    use baylee_client_core::deckbuilder::Zone;
+
+    let mut app = headless();
+    stocked(&mut app);
+    sized(&mut app, 1280.0);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.build_deck();
+        let mut cards = pool_cards();
+        cards[0].commander = true;
+        cards[0].partners = vec![cards[1].index];
+        cards[1].commander = false;
+        let deck = state.lobby.builder_mut();
+        deck.set_pool(cards, true);
+        assert!(deck.add(0, Zone::Main));
+        assert!(deck.add(1, Zone::Main));
+        assert!(deck.set_commander(0));
+        assert!(deck.add_partner(1));
+    }
+    app.update();
+    app.update();
+
+    let found = presses(&mut app);
+    assert!(
+        found.contains(&Press::Build(BuildPress::PickCommanderPrint(0)))
+            && found.contains(&Press::Build(BuildPress::PickCommanderPrint(1))),
+        "both partner commanders have clickable thumbnails: {found:?}"
+    );
+    let elided_names: Vec<String> = {
+        let world = app.world_mut();
+        world
+            .query::<&crate::buildui::ElideText>()
+            .iter(world)
+            .map(|e| e.full.clone())
+            .collect()
+    };
+    assert!(
+        elided_names.iter().any(|n| n == "Llanowar Elves")
+            && elided_names.iter().any(|n| n == "Forest"),
+        "commander and deck rows carry ElideText: {elided_names:?}"
+    );
+
+    press(
+        &mut app,
+        Press::Build(BuildPress::SetTab(crate::buildui::DeckTab::Stats)),
+    );
+    app.update();
+    let kpi_count = {
+        let world = app.world_mut();
+        world
+            .query::<&Node>()
+            .iter(world)
+            .filter(|n| {
+                n.flex_basis == Val::Percent(45.0)
+                    && n.overflow == Overflow::clip()
+                    && n.flex_direction == FlexDirection::Column
+            })
+            .count()
+    };
+    assert_eq!(
+        kpi_count, 4,
+        "all four KPI tiles use the 2x2 clipping layout"
     );
 }
