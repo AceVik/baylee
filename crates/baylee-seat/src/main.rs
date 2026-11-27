@@ -692,19 +692,28 @@ fn standby(
     fallen: &Fallen,
 ) -> Result<bridge::Standby, String> {
     let fallback = fallback_reporting(join, at, profile, env);
+    let reachable = reach(&fallback, None, args, env, keys)
+        .map_err(|e| format!("{e:#}"))?
+        .ok_or_else(|| format!("the settings file names no profile «{profile}»"))?;
+    if reachable.plan.settings.provider == llm::Provider::Cli {
+        return Err(format!(
+            "profile «{profile}» plays an agent CLI, and a fallback is a model behind an API"
+        ));
+    }
+    Ok(standing_by(profile, reachable, fallen))
+}
+
+/// The fallback `profile`, reached as `reachable`, ready to take over: its
+/// game reserved in its own book only when it takes over. Behind an API
+/// or an agent CLI alike: a ranked account's chain is one model on several
+/// access paths, a subscription's CLI among them (`ranked_llm`).
+fn standing_by(profile: &str, reachable: Reachable, fallen: &Fallen) -> bridge::Standby {
     let Reachable {
         mut plan,
         access,
         book,
         caps,
-    } = reach(&fallback, None, args, env, keys)
-        .map_err(|e| format!("{e:#}"))?
-        .ok_or_else(|| format!("the settings file names no profile «{profile}»"))?;
-    if plan.settings.provider == llm::Provider::Cli {
-        return Err(format!(
-            "profile «{profile}» plays an agent CLI, and a fallback is a model behind an API"
-        ));
-    }
+    } = reachable;
     let label = profile.to_string();
     let fallen = Arc::clone(fallen);
     let named = label.clone();
@@ -761,10 +770,10 @@ fn standby(
             declared: Some(declared),
         })
     };
-    Ok(bridge::Standby {
+    bridge::Standby {
         label,
         arm: Box::new(arm),
-    })
+    }
 }
 
 /// The chain of fallbacks that stand by for what `primary` declared, in
@@ -1202,6 +1211,7 @@ async fn leave_unstarted(unstarted: &Unstarted) {
 mod deckbuild_cli;
 mod host_chair;
 mod ranked_cli;
+mod ranked_llm;
 mod tether;
 
 /// Every signal a process can be asked to stop by, registered with the

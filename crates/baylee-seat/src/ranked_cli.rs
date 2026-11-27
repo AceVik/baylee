@@ -1,6 +1,7 @@
 //! `baylee-seat ranked`: an AI account that plays Ranked
 //! (`baylee_seat::ranked`, `docs/llm-seat.md` §"The ranked runner").
 
+use super::ranked_llm::{LlmPilot, Setup};
 use anyhow::{Context as _, anyhow, bail};
 use baylee_account::Endpoint;
 use baylee_account::ranked::Format;
@@ -55,9 +56,24 @@ pub struct RankedArgs {
     transcripts: Option<PathBuf>,
     /// The house's level (`novice` … `expert`); never `seer`. Central's
     /// settings for the account must name it (`house:<level>`).
-    #[arg(long, default_value = "expert")]
+    #[arg(long, default_value = "expert", conflicts_with = "profile")]
     level: String,
-    /// The house that takes a seat over from a pilot that cannot go on.
+    /// Or a language model: the settings file's profile the account plays,
+    /// its `fallback` the chain of access paths to the same model and
+    /// effort (`docs/llm-seat.md` §"The ranked runner"). Central's settings
+    /// for the account must name it (`model:<profile>`).
+    #[arg(long)]
+    profile: Option<String>,
+    /// The settings file the profile is read from [default:
+    /// <state>/llm-seat.json].
+    #[arg(long, requires = "profile")]
+    config: Option<PathBuf>,
+    /// The spend book every path's game is counted in [default:
+    /// <state>/llm-spend.json].
+    #[arg(long, requires = "profile")]
+    ledger: Option<PathBuf>,
+    /// The house that takes a seat over from a pilot that cannot go on, and
+    /// plays past the end of a language model's chain, declared.
     #[arg(long, default_value = "expert")]
     fallback_level: String,
     /// Matches to play, then stop [default: play on].
@@ -97,13 +113,6 @@ pub async fn run(
         Endpoint::development(&args.central)
             .map_err(|_| anyhow!("--central is `live` or a loopback http:// address"))?
     };
-    let pilot: Arc<dyn Pilot> = Arc::new(HousePilot::new(&args.level)?);
-    let fallback: Arc<dyn Pilot> = Arc::new(HousePilot::new(&args.fallback_level)?);
-    let token = match (&args.token_file, &args.token_key) {
-        (Some(path), _) => RunnerToken::from_file(path.clone()),
-        (None, Some(name)) => RunnerToken::from_store(&endpoint, name.clone(), keys),
-        (None, None) => bail!("--token-file or --token-key says where the runner token is"),
-    };
     let beneath = |own: &Option<PathBuf>, name: &str| {
         own.clone()
             .or_else(|| args.state.as_ref().map(|state| state.join(name)))
@@ -114,6 +123,25 @@ pub async fn run(
     if let Some(dir) = &transcripts {
         std::fs::create_dir_all(dir).with_context(|| format!("creating {}", dir.display()))?;
     }
+    let pilot: Arc<dyn Pilot> = match &args.profile {
+        Some(profile) => Arc::new(LlmPilot::new(
+            &Setup {
+                profile: profile.clone(),
+                config: beneath(&args.config, "llm-seat.json"),
+                ledger: beneath(&args.ledger, "llm-spend.json"),
+                transcripts: transcripts.clone(),
+                house_level: args.fallback_level.clone(),
+            },
+            Arc::clone(&keys),
+        )?),
+        None => Arc::new(HousePilot::new(&args.level)?),
+    };
+    let fallback: Arc<dyn Pilot> = Arc::new(HousePilot::new(&args.fallback_level)?);
+    let token = match (&args.token_file, &args.token_key) {
+        (Some(path), _) => RunnerToken::from_file(path.clone()),
+        (None, Some(name)) => RunnerToken::from_store(&endpoint, name.clone(), keys),
+        (None, None) => bail!("--token-file or --token-key says where the runner token is"),
+    };
     let account = ranked::resolve(&endpoint, &args.account).await?;
     let player = Player::open(endpoint, account, token).await?;
     say!(
