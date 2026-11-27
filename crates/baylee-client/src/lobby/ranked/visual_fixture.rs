@@ -53,17 +53,21 @@ fn seat_an_ai(mut state: ResMut<LobbyState>) {
     if time::OffsetDateTime::now_utc().unix_timestamp() < at + 1 {
         return;
     }
-    let opponent = match state.ranked.opponents {
-        Some(Opponents::Any) => api::ai::AiBadge {
-            kind: api::ai::AiKind::Model,
-            label: "Claude Haiku · Hoch".into(),
-        },
-        _ => house(),
+    let (name, opponent) = match state.ranked.opponents {
+        Some(Opponents::Any) => (
+            "KI-Haiku-Hoch#0f3a",
+            api::ai::AiBadge {
+                kind: api::ai::AiKind::Model,
+                label: "Claude Haiku · Hoch".into(),
+            },
+        ),
+        _ => (HOUSE_NAME, house()),
     };
+    let match_id = *Uuid::now_v7().as_bytes();
     let assigned = QueueState::Assigned {
         key,
         assignment: api::Assignment {
-            match_id: *Uuid::now_v7().as_bytes(),
+            match_id,
             host_id: *Uuid::now_v7().as_bytes(),
             origin: "https://host.invalid".into(),
             format,
@@ -71,18 +75,20 @@ fn seat_an_ai(mut state: ResMut<LobbyState>) {
             seat: 0,
             deck: [0; 32],
             game: None,
-            opponent_ai: Some(opponent),
+            opponent_ai: Some(opponent.clone()),
         },
     };
     let ai = state
         .ranked
         .opponents
         .map_or(AiOpponents::None, Opponents::wire);
-    state
-        .bypass_change_detection()
-        .ranked_net
-        .show_for_fixture(assigned, ai);
+    let net = &mut state.bypass_change_detection().ranked_net;
+    net.show_for_fixture(assigned, ai);
+    net.name_for_fixture(match_id, name, Some(opponent));
 }
+
+/// The house AI's account, as an administrator named it.
+const HOUSE_NAME: &str = "KI-Haus-Expert#6699";
 
 pub(crate) fn populate(state: &mut LobbyState) -> bool {
     if !enabled() || state.central_ready() || state.lobby.token().is_some() {
@@ -222,7 +228,16 @@ pub(super) fn reply(state: &mut LobbyState, action: Action) -> bool {
         .ranked
         .opponents
         .map_or(AiOpponents::None, Opponents::wire);
+    let settled_against = match &result {
+        QueueState::Finished { match_id, .. } => Some(*match_id),
+        _ => None,
+    };
     state.ranked_net.show_for_fixture(result, ai);
+    if let Some(match_id) = settled_against {
+        state
+            .ranked_net
+            .name_for_fixture(match_id, HOUSE_NAME, Some(house()));
+    }
     true
 }
 

@@ -56,6 +56,31 @@ pub(super) struct Look {
     pub(super) opponents: Option<Opponents>,
     /// Whether the settled game shown was a first win against its AI.
     first_win: bool,
+    /// The shown match's opponent as Central's participants name it:
+    /// its handle and, for an AI, its badge.
+    opponent: Option<(
+        Option<String>,
+        Option<baylee_client_core::aiplayers::AiBadge>,
+    )>,
+}
+
+impl Look {
+    /// The shown match's opponent: its handle once Central named it, and
+    /// its badge from that answer or, before it, from the queue's own
+    /// `fallback` (an assignment's or a result's `opponent_ai`).
+    fn named_opponent<'a>(
+        &'a self,
+        fallback: Option<&'a baylee_client_core::aiplayers::AiBadge>,
+    ) -> (
+        Option<&'a str>,
+        Option<&'a baylee_client_core::aiplayers::AiBadge>,
+    ) {
+        let named = self.opponent.as_ref();
+        (
+            named.and_then(|(name, _)| name.as_deref()),
+            named.and_then(|(_, ai)| ai.as_ref()).or(fallback),
+        )
+    }
 }
 
 /// The queue as the desk draws it. The countdown and the search's clock
@@ -97,6 +122,10 @@ pub(super) fn look(
             state.ranked_net.shown_queue(),
             QueueState::Finished { match_id, .. } if state.ranked.first_win == Some(*match_id)
         ),
+        opponent: state
+            .ranked_net
+            .opponent()
+            .map(|o| (o.name.clone(), o.ai.clone())),
         queue: drawn_queue(state),
         deck: selected(state).map(|(id, d)| (id, d.name.clone())),
         options: if state.ranked.show_decks {
@@ -339,6 +368,28 @@ fn error(commands: &mut Commands, parent: Entity, kit: Kit, look: &Look) {
     }
 }
 
+/// Leave the queue, standing where it is while its answer comes, greyed.
+fn leave_button(commands: &mut Commands, parent: Entity, kit: Kit, busy: bool) {
+    let lang = kit.lang();
+    let leave = controls::button_compact(
+        commands,
+        kit,
+        None,
+        Phrase::RankedCancel.text(lang),
+        Weight::Secondary,
+        if busy {
+            Live::No(Phrase::RankedLeaving.text(lang))
+        } else {
+            Live::Yes
+        },
+        Press::Ranked(Action::Cancel),
+    );
+    if !busy {
+        orders::item(commands, leave, &super::ORDER, "queue", 1);
+    }
+    commands.entity(parent).add_child(leave);
+}
+
 fn show_status(commands: &mut Commands, parent: Entity, kit: Kit, look: &Look) -> bool {
     let lang = kit.lang();
     match &look.queue {
@@ -348,24 +399,7 @@ fn show_status(commands: &mut Commands, parent: Entity, kit: Kit, look: &Look) -
             // The countdown's room stands from the first second, so its
             // coming and going moves nothing.
             super::aidesk::fill_in_slot(commands, parent, kit);
-            // Leave stays where it is while its answer comes, greyed.
-            let leave = controls::button_compact(
-                commands,
-                kit,
-                None,
-                Phrase::RankedCancel.text(lang),
-                Weight::Secondary,
-                if look.busy {
-                    Live::No(Phrase::RankedLeaving.text(lang))
-                } else {
-                    Live::Yes
-                },
-                Press::Ranked(Action::Cancel),
-            );
-            if !look.busy {
-                orders::item(commands, leave, &super::ORDER, "queue", 1);
-            }
-            commands.entity(parent).add_child(leave);
+            leave_button(commands, parent, kit, look.busy);
             super::aidesk::opponents(commands, parent, kit, look.opponents);
             if !look.recover {
                 return false;
@@ -378,9 +412,13 @@ fn show_status(commands: &mut Commands, parent: Entity, kit: Kit, look: &Look) -
                 Phrase::RankedAssigned.fill(lang, &[format_name(assignment.format, lang)])
             };
             label(commands, parent, kit, &words, kit.m.text, tokens::ACCENT);
-            if let Some(badge) = &assignment.opponent_ai {
-                super::aidesk::opponent_line(commands, parent, kit, Phrase::RankedOpponent, badge);
-            }
+            super::aidesk::opponent_line(
+                commands,
+                parent,
+                kit,
+                Phrase::RankedOpponent,
+                look.named_opponent(assignment.opponent_ai.as_ref()),
+            );
             if look.played == Some(assignment.match_id) && !look.busy {
                 btn(
                     commands,
@@ -433,7 +471,7 @@ fn show_status(commands: &mut Commands, parent: Entity, kit: Kit, look: &Look) -
                     before: *before,
                     after: *after,
                     deck: &deck_receipt,
-                    opponent: opponent_ai.as_ref(),
+                    opponent: look.named_opponent(opponent_ai.as_ref()),
                     first_win: look.first_win,
                 },
             );
@@ -508,8 +546,11 @@ struct Settled<'a> {
     after: api::Rank,
     /// The deck's line, already in words.
     deck: &'a str,
-    /// The opponent's badge, when it was an AI player.
-    opponent: Option<&'a baylee_client_core::aiplayers::AiBadge>,
+    /// The opponent's handle and, for an AI player, its badge.
+    opponent: (
+        Option<&'a str>,
+        Option<&'a baylee_client_core::aiplayers::AiBadge>,
+    ),
     /// Whether it was the first win against that AI.
     first_win: bool,
 }
@@ -617,8 +658,8 @@ fn result_card(commands: &mut Commands, parent: Entity, kit: Kit, settled: Settl
     commands
         .entity(line)
         .add_children(&[from, arrow, to, name, grow, delta]);
-    if let Some(badge) = settled.opponent {
-        super::aidesk::opponent_line(commands, card, kit, Phrase::RankedAgainst, badge);
+    super::aidesk::opponent_line(commands, card, kit, Phrase::RankedAgainst, settled.opponent);
+    if settled.opponent.1.is_some() {
         // The first win against this AI, as this device counted it.
         if settled.first_win {
             let mark = parts::marked_line(

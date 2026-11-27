@@ -209,27 +209,20 @@ fn identity(commands: &mut Commands, band: Entity, kit: Kit, row: &api::Row, i: 
         .as_deref()
         .or(row.name.as_deref())
         .unwrap_or_else(|| Phrase::RankedUnnamed.text(lang));
-    // An AI player is never named without its badge: its label and kind's
-    // mark stand where a person's name does, and its mark where their
-    // portrait does. The row is the control, so the pill takes no pointer.
+    // An AI player is named as a person is, by its own handle and portrait;
+    // its badge stands beside the name on the same line and gives way first
+    // (down to the kind's mark) where the line is narrow. The row is the
+    // control, so the badge takes no pointer; its words stay its
+    // accessible text.
     if let Some(badge) = &row.ai {
-        let pill = crate::aibadge::pill(commands, kit, badge, kit.m.text * 0.92, false);
-        // As wide as its words, where a name would end, not the row.
-        commands
-            .entity(pill)
-            .entry::<Node>()
-            .and_modify(|mut n| n.align_self = AlignSelf::FlexStart);
-        commands.entity(who).add_child(pill);
+        crate::aibadge::named(commands, who, kit, name, kit.m.text, badge, false);
     } else {
         label(commands, who, kit, name, kit.m.text, tokens::INK);
     }
     let profile = if let Some(h) = handle {
         if standing.track == Track::Player {
-            let portrait = if let Some(badge) = &row.ai {
-                crate::aibadge::disc(commands, kit, badge, kit.m.scale * 32.0)
-            } else {
-                crate::shellkit::avatar::disc(commands, kit.fonts, &h, kit.m.scale * 32.0)
-            };
+            let portrait =
+                crate::shellkit::avatar::disc(commands, kit.fonts, &h, kit.m.scale * 32.0);
             commands
                 .entity(portrait)
                 .insert(crate::lobby::ranked_profile::BoardPortrait);

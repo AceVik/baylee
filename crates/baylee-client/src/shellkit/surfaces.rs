@@ -116,6 +116,7 @@ pub struct SheetHeader<'a, C = ()> {
     icon: Option<(char, Color)>,
     subtitle: Option<(&'a str, Color)>,
     meta: Option<&'a str>,
+    beside: Option<Entity>,
     close: Option<C>,
 }
 
@@ -129,6 +130,7 @@ impl<'a> SheetHeader<'a, ()> {
             icon: None,
             subtitle: None,
             meta: None,
+            beside: None,
             close: None,
         }
     }
@@ -177,6 +179,14 @@ impl<'a, C> SheetHeader<'a, C> {
         self
     }
 
+    /// Stands a caller-built entity beside the title on its line (a
+    /// badge beside a name); the title keeps its room and it gives way.
+    #[must_use]
+    pub const fn beside(mut self, entity: Entity) -> Self {
+        self.beside = Some(entity);
+        self
+    }
+
     /// Attaches a top-right close `×` button carrying `action`.
     #[must_use]
     pub fn close<N: Bundle>(self, action: N) -> SheetHeader<'a, N> {
@@ -186,6 +196,7 @@ impl<'a, C> SheetHeader<'a, C> {
             icon: self.icon,
             subtitle: self.subtitle,
             meta: self.meta,
+            beside: self.beside,
             close: Some(action),
         }
     }
@@ -569,6 +580,9 @@ fn spawn_sheet_head<C: Bundle>(
             Pickable::IGNORE,
         ))
         .id();
+    let title = header
+        .beside
+        .map_or(title, |beside| title_beside(commands, kit, title, beside));
     commands.entity(titles).add_child(title);
     for (sub, ink) in header
         .subtitle
@@ -595,6 +609,31 @@ fn spawn_sheet_head<C: Bundle>(
         commands.entity(head).add_child(close);
     }
     head
+}
+
+/// A header's title with `beside` on its line ([`SheetHeader::beside`]):
+/// the title keeps its room and what stands beside it gives way.
+fn title_beside(commands: &mut Commands, kit: Kit, title: Entity, beside: Entity) -> Entity {
+    commands.entity(title).insert((
+        TextLayout::no_wrap(),
+        Node {
+            flex_shrink: 0.0,
+            ..default()
+        },
+    ));
+    let line = commands
+        .spawn((
+            Node {
+                align_items: AlignItems::Center,
+                column_gap: kit.m.px(8.0),
+                min_width: px_fixed(0.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(line).add_children(&[title, beside]);
+    line
 }
 
 /// Marker placed on the scrolling body of every [`sheet_box`] surface so mouse

@@ -49,15 +49,10 @@ impl Names {
             return;
         }
         let mut shown = raw.clone();
+        // An AI player is a full player with its own handle, named as a
+        // person is; its badge's mark stands beside the name, never in it.
         for s in &mut shown.seats {
-            let seat = usize::from(s.player.get());
-            // An AI player is called by its badge's label wherever text
-            // names the seat (the log, the prompts, the result's verdict),
-            // as its badge says it; its mark goes where a mark can stand.
-            if let Some(badge) = &roster.ai[seat] {
-                s.display_name =
-                    baylee_client_core::aiplayers::label(badge, baylee_client_core::i18n::Lang::En);
-            } else if let Some(handle) = &roster.handles[seat] {
+            if let Some(handle) = &roster.handles[usize::from(s.player.get())] {
                 s.display_name.clone_from(handle);
             }
         }
@@ -253,10 +248,11 @@ mod badge_tests {
         assert_ne!(duel.roster_revision(), before, "the bars redraw for it");
         assert_eq!(duel.ai_badge(PlayerId::new(1)), Some(&house()));
         assert_eq!(duel.ai_badge(PlayerId::new(0)), None);
-        // Text names the seat by its badge, never by the bare account name.
+        // The AI is named by its own handle, as a person is; the badge
+        // stands beside it.
         assert_eq!(
             duel.display_statics().unwrap().seat_name(PlayerId::new(1)),
-            "Haus-KI · Expert"
+            "KI-Haus-Expert#0002"
         );
         // The roster the game reads is untouched: the seat stays a remote
         // seat, and no badge is written into what a report or record keeps.

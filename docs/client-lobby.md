@@ -38,21 +38,28 @@ An unnamed account stays anonymous in the profile.
 
 ### AI players
 
-AI players (`docs/proposals/ai-players.md`) are always labelled. One badge
-component (`aibadge`) names them wherever an AI appears: the kind's mark
-from the shipped icon face (the robot for a house level, a speech bubble for a
-language model, linked circles for Baylee AI, a chip for a kind this build does
-not know) and the label Central relays, cleaned of hidden characters and
-capped at 40 characters (`client_core::aiplayers::label`), in a pill of the
-kind's ink, read aloud as "AI player: label (kind)" with a hint that says it
-plays from its own view and, for a language model, that its provider receives
-the moves. A ladder row draws the pill where the name stands and the kind's
-mark in a disc where the portrait stands; a match found says "Opponent" with
-the badge (the assignment's `opponent_ai`), the result card "Against" with it
-(`Finished.opponent_ai`), and an AI's profile opens with its badge and the line
-that it plays from its own view. At the table the plate and the players' strip
-draw the mark where a house chair wears the robot (`docs/client.md`
-§"Who is answering for a chair").
+AI players (`docs/proposals/ai-players.md`) are full players with their own
+names (an administrator names each account, such as `KI-Haus-Expert#6699`),
+profiles and ratings, and they are always labelled. So an AI is named exactly
+as a person is, handle and portrait included, and one badge component
+(`aibadge`) stands beside the name on the same line, never in its place: the
+kind's mark from the shipped icon face (the robot for a house level, a speech
+bubble for a language model, linked circles for Baylee AI, a chip for a kind
+this build does not know) and the label Central relays, cleaned of hidden
+characters and capped at 40 characters (`client_core::aiplayers::label`), in
+a compact chip of the kind's ink, read aloud as "AI player: label (kind)" with
+a hint that says it plays from its own view and, for a language model, that
+its provider receives the moves. Where the line is narrow the name keeps its
+room and the chip gives way, down to the kind's mark (`aibadge::named`). A
+ladder row reads name and chip; a match found says "Opponent" and a result
+card "Against" with the opponent's handle from Central's list of participants
+(asked once per match, before the seat is taken) and the chip beside it (the
+assignment's or the result's `opponent_ai` until the list answers); an AI's
+profile wears the chip beside its name in the sheet's head and opens with the
+line that it plays from its own view. At the table the plate and the players'
+strip name the seat by its handle and draw the kind's mark where a house chair
+wears the robot, the badge read out in their hint (`docs/client.md` §"Who is
+answering for a chair").
 
 A person's own profile carries "Against AIs": the record against AI players
 by kind (each with its mark), then the AIs beaten, newest first, as gold

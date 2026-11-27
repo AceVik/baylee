@@ -159,6 +159,33 @@ pub(super) fn connect(
     Ok((host, marker))
 }
 
+/// Who match `match_id` is against, from Central's list of participants:
+/// the other seat's published handle (a malformed one is dropped) and its AI
+/// badge. This player's seat is `seat`.
+pub(super) fn opponent(
+    account: &mut Account,
+    match_id: baylee_account::ranked::Id,
+    seat: u8,
+) -> Result<super::Opponent, Error> {
+    match account.replica(SeatRequest::Participants { match_id })? {
+        SeatResponse::Participants {
+            match_id: answered,
+            seats,
+            ai,
+        } if answered == match_id && seat < 2 => {
+            let other = usize::from(1 - seat);
+            Ok(super::Opponent {
+                match_id,
+                name: seats[other]
+                    .clone()
+                    .filter(|name| crate::lobby::ranked_profile::valid_handle(name)),
+                ai: ai[other].clone(),
+            })
+        }
+        _ => Err(Error::Rejected),
+    }
+}
+
 pub(super) fn new_assignment(worker: &Worker, reply: &Reply) -> bool {
     let queue = match reply {
         Reply::Authority(_, Ok(route)) => &route.queue,

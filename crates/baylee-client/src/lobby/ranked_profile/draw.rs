@@ -16,6 +16,9 @@ use bevy::prelude::*;
 pub(super) struct Root;
 #[derive(Component)]
 pub(super) struct Body;
+/// The room beside the profile's name where an AI player's badge stands.
+#[derive(Component)]
+pub(super) struct HeaderBadge;
 
 #[derive(Default)]
 pub(super) struct Paint {
@@ -37,7 +40,7 @@ pub(super) fn draw(
     input: Option<Res<InputClass>>,
     mut last: Local<Paint>,
     roots: Query<Entity, With<Root>>,
-    bodies: Query<Entity, With<Body>>,
+    (bodies, badges): (Query<Entity, With<Body>>, Query<Entity, With<HeaderBadge>>),
 ) {
     let Some(handle) = page.handle.as_deref() else {
         if last.shell.take().is_some() {
@@ -83,17 +86,26 @@ pub(super) fn draw(
     {
         return;
     }
-    let content = if same && let Some(body) = bodies.iter().next() {
+    let (content, slot) = if same && let Some(body) = bodies.iter().next() {
         commands.entity(body).despawn_children();
-        body
+        (body, badges.iter().next())
     } else {
         for e in &roots {
             commands.entity(e).try_despawn();
         }
-        let body = sheet_body(&mut commands, kit, handle);
+        let (body, slot) = sheet_body(&mut commands, kit, handle);
         last.shell = Some((handle.to_owned(), lang, metrics));
-        body
+        (body, Some(slot))
     };
+    // An AI player is named as a person is; its badge stands beside the
+    // name in the head, filled when its profile says so.
+    if let Some(slot) = slot {
+        commands.entity(slot).despawn_children();
+        if let Some(badge) = entry.and_then(|e| e.profile.as_ref()?.ai.as_ref()) {
+            let chip = crate::aibadge::pill(&mut commands, kit, badge, kit.m.small, true);
+            commands.entity(slot).add_child(chip);
+        }
+    }
     if let Some(p) = entry.and_then(|e| e.profile.as_ref()) {
         competitive(&mut commands, content, kit, p);
     }
@@ -124,7 +136,7 @@ pub(super) fn draw(
     last.version = Some((version, own, private.cloned().unwrap_or_default()));
 }
 
-fn sheet_body(commands: &mut Commands, kit: Kit, handle: &str) -> Entity {
+fn sheet_body(commands: &mut Commands, kit: Kit, handle: &str) -> (Entity, Entity) {
     let lang = kit.lang();
     let body = commands
         .spawn((
@@ -159,8 +171,20 @@ fn sheet_body(commands: &mut Commands, kit: Kit, handle: &str) -> Entity {
         None,
         (Action::Refresh, Stop::new(ORDER.name, "refresh")),
     );
+    let slot = commands
+        .spawn((
+            HeaderBadge,
+            Node {
+                min_width: px(0.0),
+                flex_shrink: 1.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
     let header = SheetHeader::new(name)
         .lead(image)
+        .beside(slot)
         .subtitle(Phrase::RankedPlayerProfile.text(lang))
         .close((Action::Close, Stop::new(ORDER.name, "close")));
     let sheet = surfaces::sheet_box_fixed(
@@ -179,7 +203,7 @@ fn sheet_body(commands: &mut Commands, kit: Kit, handle: &str) -> Entity {
         sheet,
     );
     commands.entity(root).insert(Root);
-    body
+    (body, slot)
 }
 
 #[cfg(test)]
@@ -326,9 +350,9 @@ fn conquered(commands: &mut Commands, kit: Kit, name: &str) -> Entity {
     chip
 }
 
-/// An AI player's profile says so first: its badge (the kind's mark and
-/// its label, with the hint that says what it is) and the line that it
-/// plays from its own view, in the body's head where the record follows.
+/// An AI player's profile says what it is first: the kind's mark and the line
+/// that it plays from its own view, in the body's head where the record
+/// follows; its badge stands beside its name in the sheet's head.
 fn ai_player(
     commands: &mut Commands,
     root: Entity,
@@ -368,8 +392,6 @@ fn ai_player(
             Pickable::IGNORE,
         ))
         .id();
-    let pill = crate::aibadge::pill(commands, kit, badge, kit.m.text, true);
-    commands.entity(words).add_child(pill);
     label(
         commands,
         words,

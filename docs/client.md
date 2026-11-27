@@ -7507,9 +7507,9 @@ travels beside the handles in `participant_names::Roster` (seeded from the
 assignment's `opponent_ai` the moment the table opens, then confirmed by
 Central's list of participants, which is never believed for the reader's own
 seat) and is read through `Duel::ai_badge`, never written into the roster the
-game reads. Wherever text names the seat (the log, the prompts, the result's
-verdict) the display roster calls it by the badge's label, "Haus-KI ·
-Expert", never by its bare account name. The plate and the players' strip draw the kind's mark in the mark
+game reads. An AI player is a full player with its own name, so the seat is
+named by its handle as a person's is (the log, the prompts, the result's
+verdict), and the badge stands beside it. The plate and the players' strip draw the kind's mark in the mark
 slot where a house chair wears the robot (`aibadge::glyph`: the robot for a
 house level, a speech bubble for a language model, linked circles for Baylee
 AI, a chip for a kind this build does not know), and their hint adds the

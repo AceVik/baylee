@@ -1,7 +1,8 @@
 //! The one badge an AI player wears wherever its name is drawn (owner,
 //! 26.11.2026: "AI players always labelled"; `docs/proposals/ai-players.md`
 //! §"Who plays"): the mark of its kind and its label, said aloud as "AI
-//! player: …".
+//! player: …". An AI player is a full player with its own name, so the
+//! badge stands beside that name, never instead of it.
 //!
 //! Two forms of one thing. [`pill`] is the mark and the label on the
 //! shell's kit, for the desk, the ladder and the profile; [`disc`] is the
@@ -52,8 +53,9 @@ fn spoken(badge: &AiBadge, kit: Kit) -> bevy::a11y::AccessibilityNode {
     bevy::a11y::AccessibilityNode(node)
 }
 
-/// The badge: the kind's mark and the label in a pill of the kind's ink, at
-/// the text size `size`. `hinted` gives it the hover hint that says what it
+/// The badge: the kind's mark and the label in a compact chip of the
+/// kind's ink, at the text size `size`, always beside the AI's name and
+/// never in its place. `hinted` gives it the hover hint that says what it
 /// is; leave it out inside a control the pointer already answers to (a
 /// ladder row), where the row's own press must win.
 pub(crate) fn pill(
@@ -65,18 +67,20 @@ pub(crate) fn pill(
 ) -> Entity {
     let lang = kit.lang();
     let tint = ink(badge.kind);
+    // The chip gives way before the name beside it does: its label is
+    // clipped from the end, down to the kind's mark alone, which keeps its
+    // place (the chip's own minimum is its padding and the mark), while the
+    // label stays its accessible words and its hint.
     let pill = commands
         .spawn((
             AiPill,
             Node {
-                padding: UiRect::axes(kit.m.px(8.0), kit.m.px(2.0)),
-                column_gap: kit.m.px(5.0),
+                padding: UiRect::axes(kit.m.px(6.0), kit.m.px(1.0)),
+                column_gap: kit.m.px(4.0),
                 align_items: AlignItems::Center,
                 border: UiRect::all(px_fixed(1.0)),
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
                 flex_shrink: 1.0,
-                min_width: px_fixed(0.0),
-                overflow: Overflow::clip(),
                 ..default()
             },
             BorderColor::all(tint.with_alpha(0.55)),
@@ -97,6 +101,22 @@ pub(crate) fn pill(
             Text::new(glyph(badge.kind).to_string()),
             icon_tf(kit.fonts, size * 0.88),
             TextColor(tint),
+            TextLayout::no_wrap(),
+            Node {
+                flex_shrink: 0.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let room = commands
+        .spawn((
+            Node {
+                flex_shrink: 1.0,
+                min_width: px_fixed(0.0),
+                overflow: Overflow::clip(),
+                ..default()
+            },
             Pickable::IGNORE,
         ))
         .id();
@@ -107,15 +127,65 @@ pub(crate) fn pill(
             TextColor(tokens::INK),
             TextLayout::no_wrap(),
             Node {
-                flex_shrink: 1.0,
-                min_width: px_fixed(0.0),
+                flex_shrink: 0.0,
                 ..default()
             },
             Pickable::IGNORE,
         ))
         .id();
-    commands.entity(pill).add_children(&[mark, words]);
+    commands.entity(room).add_child(words);
+    commands.entity(pill).add_children(&[mark, room]);
     pill
+}
+
+/// An AI player's name as a person's is drawn, at text size `size`, with its
+/// badge beside it on the same line, the badge a step smaller. The name
+/// keeps its room and the badge gives way first, down to the kind's mark;
+/// returns the line.
+pub(crate) fn named(
+    commands: &mut Commands,
+    parent: Entity,
+    kit: Kit,
+    name: &str,
+    size: f32,
+    badge: &AiBadge,
+    hinted: bool,
+) -> Entity {
+    let line = commands
+        .spawn((
+            Node {
+                align_items: AlignItems::Center,
+                column_gap: kit.m.px(6.0),
+                min_width: px_fixed(0.0),
+                max_width: Val::Percent(100.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let words = commands
+        .spawn((
+            Text::new(name),
+            crate::hud::tf(kit.fonts, size),
+            TextColor(tokens::INK),
+            TextLayout::no_wrap(),
+            Node {
+                flex_shrink: 0.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let chip = pill(
+        commands,
+        kit,
+        badge,
+        (size * 0.82).max(kit.m.small * 0.9),
+        hinted,
+    );
+    commands.entity(line).add_children(&[words, chip]);
+    commands.entity(parent).add_child(line);
+    line
 }
 
 /// The kind's mark alone, in a round slot of `diameter` logical pixels

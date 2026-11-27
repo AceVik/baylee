@@ -509,7 +509,7 @@ fn ranked_page_searches_and_cancels_beside_the_public_ladder() {
             presented(s, "Commander · Spieler · Gold I")
         })?;
         client.wait_until("the result names its AI opponent with its badge", |s| {
-            s.shows("Gegen") && s.shows("Haus-KI · Expert")
+            s.shows("Gegen") && s.shows("KI-Haus-Expert#6699") && s.shows("Haus-KI · Expert")
         })?;
         capture(client, "ranked-division-fixture")?;
         client.wait_until("deck league promotion", |s| {
@@ -606,7 +606,8 @@ fn ranked_ai_players_hold_still_on_the_page() {
             client.click(press("Ranked(Players(Ai))"))?;
             client.wait_until("only AIs, in view", |s| {
                 !s.shows("Mistral-02")
-                    && first_text(s, "Haus-KI · Expert").is_some_and(|(_, away)| !away)
+                    && s.shows("Haus-KI · Expert")
+                    && first_text(s, "KI-Spieler-04#0004").is_some_and(|(_, away)| !away)
             })?;
             Ok(())
         })?;
@@ -614,11 +615,13 @@ fn ranked_ai_players_hold_still_on_the_page() {
         capture(client, "ranked-board-ai-from-deep")?;
         // An AI's profile says what it is.
         let screen = client.screen()?;
-        let (row, _) = first_text(&screen, "Haus-KI · Expert").expect("an AI row");
+        let (row, _) = first_text(&screen, "KI-Spieler-04#0004").expect("an AI row, by its name");
         let (x, y) = row.centre();
         client.click(at(x, y))?;
-        client.wait_until("the AI's profile", |s| {
+        client.wait_until("the AI's profile, its name with its badge", |s| {
             s.shows("Ein KI-Spieler. Er spielt aus seiner eigenen Sicht")
+                && s.shows("KI-Spieler-04#0004")
+                && s.shows("Haus-KI · Expert")
         })?;
         capture(client, "ranked-profile-ai")?;
         client.press(Key::named("Escape"))?;
@@ -651,7 +654,9 @@ fn ranked_ai_players_hold_still_on_the_page() {
         // countdown, and the match found names it with its badge.
         client.click(press("Ranked(Opponents(Local))"))?;
         client.wait_for("the match found", Duration::from_secs(30), |s| {
-            s.shows("Gegner für Standard gefunden") && s.shows("Haus-KI · Expert")
+            s.shows("Gegner für Standard gefunden")
+                && s.shows("KI-Haus-Expert#6699")
+                && s.shows("Haus-KI · Expert")
         })?;
         capture(client, "ranked-match-found")?;
         let dir = client.dir().join("recordings.txt");

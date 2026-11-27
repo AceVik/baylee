@@ -37,6 +37,7 @@ enum Reply {
     ),
     Authority(Request, Result<replication::Route, Error>),
     Submitted(Id, Result<replication::Submission, Error>),
+    Opponent(Id, Result<Opponent, Error>),
 }
 
 struct SeatReply {
@@ -130,6 +131,19 @@ pub(crate) struct Worker {
     /// When the person began this search, on Central's clock; kept across a
     /// switch, so the clock beside the search does not start again.
     since: Option<i64>,
+    /// The opponent of the match the desk shows (found or settled), as
+    /// Central's list of participants names it, and the match last asked.
+    opponent: Option<Opponent>,
+    asked_opponent: Option<Id>,
+}
+
+/// A match's opponent: its published handle and, for an AI player, its
+/// badge, which stands beside the handle and never in its place.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct Opponent {
+    match_id: Id,
+    pub(crate) name: Option<String>,
+    pub(crate) ai: Option<baylee_account::ranked::ai::AiBadge>,
 }
 
 /// A search being moved to another choice ([`Worker::switch`]).
@@ -184,6 +198,8 @@ impl Default for Worker {
             switch: None,
             skew: 0,
             since: None,
+            opponent: None,
+            asked_opponent: None,
         }
     }
 }
@@ -264,6 +280,45 @@ impl Worker {
     /// When the person began searching, on Central's clock.
     pub(super) fn searching_since(&self) -> Option<i64> {
         self.since
+    }
+
+    /// The match the desk shows a found or settled game of, and this
+    /// player's seat in it.
+    fn shown_match(&self) -> Option<(Id, u8)> {
+        match self.shown_queue() {
+            QueueState::Assigned { assignment, .. } => Some((assignment.match_id, assignment.seat)),
+            QueueState::Finished { match_id, seat, .. } => Some((*match_id, *seat)),
+            QueueState::Idle | QueueState::Waiting { .. } => None,
+        }
+    }
+
+    /// The shown match, while its opponent has not been asked for.
+    fn unnamed_match(&self) -> Option<(Id, u8)> {
+        self.shown_match()
+            .filter(|(id, _)| self.asked_opponent != Some(*id))
+    }
+
+    /// The opponent of the match the desk shows, once Central named it.
+    pub(super) fn opponent(&self) -> Option<&Opponent> {
+        let (shown, _) = self.shown_match()?;
+        self.opponent.as_ref().filter(|o| o.match_id == shown)
+    }
+
+    /// The rendering fixture names its match's opponent (`visual_fixture`).
+    #[cfg(feature = "dev-control")]
+    pub(super) fn name_for_fixture(
+        &mut self,
+        match_id: Id,
+        name: &str,
+        ai: Option<baylee_account::ranked::ai::AiBadge>,
+    ) {
+        self.opponent = Some(Opponent {
+            match_id,
+            name: Some(name.to_owned()),
+            ai,
+        });
+        self.asked_opponent = Some(match_id);
+        self.changed();
     }
 
     /// The rendering fixture's reply, as if Central had answered a join this
@@ -464,6 +519,8 @@ impl Worker {
             self.switch = None;
             self.skew = 0;
             self.since = None;
+            self.opponent = None;
+            self.asked_opponent = None;
             self.delay = POLL;
             self.next = self.session.is_some().then(Instant::now);
             self.changed();
@@ -799,6 +856,16 @@ fn dispatch(worker: &mut Worker, can_play: bool, playing: bool) {
         }
         return;
     }
+    // Who the found or settled game is against, asked once per match before
+    // the seat is taken: the desk names the opponent by its handle, and an
+    // AI by its handle with its badge beside it.
+    if let Some((match_id, seat)) = worker.unnamed_match() {
+        worker.asked_opponent = Some(match_id);
+        worker.submit(move |account| {
+            Reply::Opponent(match_id, replication::opponent(account, match_id, seat))
+        });
+        return;
+    }
     if let Some((epoch, format, source)) = worker.selecting {
         if worker.submit(move |account| Reply::Frozen(epoch, source.freeze(account, format))) {
             worker.selecting = None;
@@ -902,8 +969,9 @@ fn finish(worker: &mut Worker, epoch: u64, reply: Reply) -> Option<RankedPlay> {
                     worker.next = Some(now);
                 } else if !active {
                     // Idle; while a search moves, `rejoin` joins again from
-                    // the next frame's poll, with no read in between.
-                    worker.next = None;
+                    // the next frame's poll, with no read in between. A
+                    // settled game not yet named asks who it was against.
+                    worker.next = worker.unnamed_match().map(|_| now);
                 } else if let Some(at) = worker.fill_in_at() {
                     // Fill-in happens inside this account's own poll, so
                     // near the time it asks on the second (Central
@@ -948,8 +1016,34 @@ fn finish(worker: &mut Worker, epoch: u64, reply: Reply) -> Option<RankedPlay> {
             }
         }
         Reply::Seat(seat) => return finish_seat(worker, now, *seat),
+        Reply::Opponent(match_id, result) => heard_opponent(worker, now, match_id, result),
     }
     None
+}
+
+/// Central named the opponent of `match_id`, or could not.
+fn heard_opponent(
+    worker: &mut Worker,
+    now: Instant,
+    match_id: Id,
+    result: Result<Opponent, Error>,
+) {
+    worker.next = Some(now);
+    match result {
+        Ok(opponent) => {
+            if worker.opponent.as_ref() != Some(&opponent) {
+                worker.opponent = Some(opponent);
+                worker.changed();
+            }
+        }
+        // Asked again on a later poll; a refusal is not asked again, and
+        // the desk shows the badge without a name.
+        Err(Error::Busy | Error::Unavailable) if worker.asked_opponent == Some(match_id) => {
+            worker.asked_opponent = None;
+            worker.next = Some(now + POLL);
+        }
+        Err(_) => {}
+    }
 }
 
 fn finish_seat(worker: &mut Worker, now: Instant, seat: SeatReply) -> Option<RankedPlay> {

@@ -174,17 +174,26 @@ pub(super) fn fill_in_slot(commands: &mut Commands, parent: Entity, kit: Kit) {
         .add_children(&[mark, words, kind, grow, people]);
 }
 
-/// A caption and an AI opponent's badge, on a match found ("Opponent") or
-/// a result ("Against").
+/// The opponent of a match found ("Opponent") or a result ("Against"): its
+/// handle as Central's participants name it and, for an AI, its badge beside
+/// the handle. Before the handle has come, an AI's badge stands alone; with
+/// neither, nothing is drawn.
 pub(super) fn opponent_line(
     commands: &mut Commands,
     parent: Entity,
     kit: Kit,
     caption: Phrase,
-    badge: &AiBadge,
+    (name, badge): (Option<&str>, Option<&AiBadge>),
 ) {
+    if name.is_none() && badge.is_none() {
+        return;
+    }
     let lang = kit.lang();
     let row = parts::row(commands, kit, false);
+    commands.entity(row).entry::<Node>().and_modify(|mut n| {
+        n.min_width = Val::Px(0.0);
+        n.max_width = Val::Percent(100.0);
+    });
     let words = parts::line(
         commands,
         kit,
@@ -192,8 +201,21 @@ pub(super) fn opponent_line(
         kit.m.small,
         tokens::MUTED,
     );
-    let pill = crate::aibadge::pill(commands, kit, badge, kit.m.small, true);
-    commands.entity(row).add_children(&[words, pill]);
+    commands.entity(row).add_child(words);
+    match (name, badge) {
+        (Some(name), Some(badge)) => {
+            crate::aibadge::named(commands, row, kit, name, kit.m.small, badge, true);
+        }
+        (Some(name), None) => {
+            let named = parts::line(commands, kit, name, kit.m.small, tokens::INK);
+            commands.entity(row).add_child(named);
+        }
+        (None, Some(badge)) => {
+            let chip = crate::aibadge::pill(commands, kit, badge, kit.m.small * 0.9, true);
+            commands.entity(row).add_child(chip);
+        }
+        (None, None) => {}
+    }
     commands.entity(parent).add_child(row);
 }
 
