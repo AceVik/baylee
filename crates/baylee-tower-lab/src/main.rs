@@ -50,6 +50,9 @@ enum Command {
         /// Only these stages (repeatable).
         #[arg(long)]
         stage: Vec<u8>,
+        /// Name every build's equipment on stderr: private diagnosis only.
+        #[arg(long)]
+        detail: bool,
     },
 }
 
@@ -74,7 +77,12 @@ fn main() -> Result<()> {
                 &only,
             )
         }
-        Command::Ladder { seeds, rise, stage } => {
+        Command::Ladder {
+            seeds,
+            rise,
+            stage,
+            detail,
+        } => {
             let seed = private_seed()?;
             let started = std::time::Instant::now();
             let ladder = baylee_tower_content::ladder(&content, &seed)?;
@@ -89,6 +97,7 @@ fn main() -> Result<()> {
                 cli.seed,
                 cli.threads,
                 &stage,
+                detail,
             )
         }
     };

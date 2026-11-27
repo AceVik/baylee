@@ -32,6 +32,7 @@ pub fn measure(
     base: u64,
     threads: usize,
     stages: &[u8],
+    detail: bool,
 ) -> serde_json::Value {
     let catalog: &Catalog = &content.catalog;
     let count = content.starters.len();
@@ -137,6 +138,23 @@ pub fn measure(
             })
             .collect();
         let unfinished: u32 = cells[index].iter().map(|tally| tally.unfinished).sum();
+        if detail {
+            // Private diagnosis only: names each build's equipment on stderr.
+            for (archetype, tally) in cells[index].iter().enumerate() {
+                let items: Vec<String> = builds[archetype]
+                    .active
+                    .iter()
+                    .map(|item| format!("{:?}/{:?}", item.family, item.rarity))
+                    .collect();
+                eprintln!(
+                    "detail stage {stage} starter {} {:?} {}: {}",
+                    archetype + 1,
+                    tally.score().map(round),
+                    commander(&content.starters[archetype]),
+                    items.join(", ")
+                );
+            }
+        }
         report.push(serde_json::json!({
             "stage": stage,
             "within": {
