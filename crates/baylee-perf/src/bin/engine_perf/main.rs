@@ -87,7 +87,9 @@ use wire::Wire;
 
 /// The decks at each table and the profiles playing them. Mirrors of nothing:
 /// every house deck sits down, so an artifact board, a token board, a
-/// commander and a combo-less midrange deck are all in the count.
+/// commander and a combo-less midrange deck are all in the count. Tower seats
+/// its own starters instead (`variant::TOWER_TABLES`).
+#[cfg(not(feature = "tower"))]
 const TABLES: [(&str, &str, &str, &str); 8] = [
     ("allytifact", "victory", "steady", "sharp"),
     ("breya", "kess", "sharp", "steady"),

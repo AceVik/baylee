@@ -975,13 +975,18 @@ instrumentation, counts, profiled output and plain comparison directories.
 All three invocations for a variant use exactly the same package and feature
 selection. `engine_perf`'s `without-loop-detection` feature instantiates the
 ordinary `Session<NoLoopDetection>`; standard-loops uses `Session<DetectLoops>`.
-Its `tower` feature instead instantiates `NativeLookup<RegistryLookup, Pack>`
-with no detection, matching the shipping Tower session. Its admitted two-seat
-presets exercise native Grove rarities, Heartwood and table charges, a human
-seat and the frozen Expert opponent. Tower trains and compares `frames` only;
-its fixed human seat cannot run in an AI-only pumping workload. Unsupported
-Tower modes/four seats and mismatched server/workload features are refused.
-The regular variants retain their existing training and comparison shapes.
+Its `tower` feature instead instantiates the shipping Tower session itself,
+`engine_server::variant::Registry` (`NativeLookup<RegistryLookup, RunPack>`)
+with no detection, and seats no house deck: its sixteen duels are pairs of the
+fifty frozen Commander starters (`baylee_tower_content::runic`), made into a
+preset through the executor's own `Package::preset` at the current generation,
+so the run pack admits them as it admits a live duel. Every seat carries four
+relics from across the generation's catalog at every rarity, every other table
+its table charges, against a human seat and the frozen Expert. Tower trains
+and compares `frames` only; its fixed human seat cannot run in an AI-only
+pumping workload. Unsupported Tower modes/four seats and mismatched
+server/workload features are refused. The regular variants retain their
+existing training and comparison shapes.
 
 Focused tests establish this wiring, not a completed profile-guided release.
 **Tower release acceptance remains open until its actual release build, count
@@ -992,13 +997,10 @@ not certify Tower balance.
 Server staging requires the full set:
 `baylee-engine-server` (standard), `baylee-engine-standard-loops`, and
 `baylee-engine-tower`. All proofs must pass before any is handed to staging.
-Since 27.11.2026 the Tower engine is built plain, without a profile, and the
-deployer says so in its log (`UNPROFILED` in `crates/baylee-ops/src/deploy/engine.rs`):
-its workload still plays the retained generation-three pack, which the shipping
-Tower engine's run pack refuses, so its training stopped at the first game. The
-other two variants are profiled and proven as before. The Tower variant returns
-to the profile once `engine_perf`'s `tower` feature plays the run pack, a
-Commander deck from the Tower content.
+For a few hours on 27.11.2026 the Tower engine was built plain: its workload
+still played the retained generation-three pack, which the run pack refuses.
+Since the workload seats the run pack's own starters, all three are profiled
+and proven again.
 Finishing checks that every staged executable exists before stopping the
 drained agent. The default agent discovers only these known siblings and
 probes their exact metadata; explicit operator paths take precedence

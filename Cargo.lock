@@ -2311,6 +2311,7 @@ dependencies = [
  "baylee-gamehost",
  "baylee-protocol",
  "baylee-tower",
+ "baylee-tower-content",
  "baylee-view",
  "prost",
  "serde",

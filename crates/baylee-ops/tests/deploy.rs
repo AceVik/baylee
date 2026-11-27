@@ -495,12 +495,12 @@ fn stage_profiles_the_engine_server_from_this_commit() {
         .filter(|l| l.starts_with("cargo build"))
         .collect();
     assert!(
-        builds.len() >= 8,
-        "base build, training, shipping and proof builds for two variants, and Tower plain:\n{ran}"
+        builds.len() >= 10,
+        "base build plus three isolated training, shipping and proof builds:\n{ran}"
     );
     assert!(
-        said.contains("the tower engine is built without a profile"),
-        "an unprofiled engine is said aloud:\n{said}"
+        said.contains("all three engine variants") && !said.contains("without a profile"),
+        "every engine variant, Tower too, ships from its profile:\n{said}"
     );
     assert!(builds[0].contains("-p baylee-gateway"), "{ran}");
     assert!(
@@ -512,16 +512,9 @@ fn stage_profiles_the_engine_server_from_this_commit() {
     assert!(ran.contains("llvm-profdata merge"), "{ran}");
     for artifact in baylee_pgo::EngineArtifact::ALL {
         let args = artifact.cargo_args().join(" ");
-        // Tower's workload does not play the run generation yet, so its engine
-        // is one plain build (`deploy/engine.rs`, `UNPROFILED`).
-        let expected = if artifact == baylee_pgo::EngineArtifact::Tower {
-            1
-        } else {
-            3
-        };
         assert_eq!(
             builds.iter().filter(|build| build.contains(&args)).count(),
-            expected,
+            3,
             "{} trains, ships and proves with identical features: {ran}",
             artifact.name()
         );
