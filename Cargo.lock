@@ -2495,6 +2495,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "baylee-tower-lab"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "anyhow",
+ "baylee-ai",
+ "baylee-cards",
+ "baylee-cards-pool",
+ "baylee-core",
+ "baylee-engine",
+ "baylee-engine-server",
+ "baylee-tower",
+ "baylee-tower-content",
+ "clap",
+ "serde",
+ "serde_json",
+ "sha2 0.11.2",
+]
+
+[[package]]
 name = "baylee-tower-relics"
 version = "0.2.0-beta.o1"
 dependencies = [

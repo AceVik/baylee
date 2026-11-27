@@ -1,0 +1,28 @@
+[package]
+name = "baylee-tower-lab"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Binary: measures Tower Echoes starters and house opponents in native duels of the compiled Tower executor; offline, no database or network"
+publish = false
+
+[lints]
+workspace = true
+
+# The Tower artifact is built without loop detection (`variant.rs` refuses
+# both together), and so is this tool: its duels are the executor's own.
+[dependencies]
+anyhow.workspace = true
+baylee-ai.workspace = true
+baylee-cards.workspace = true
+baylee-cards-pool.workspace = true
+baylee-core.workspace = true
+baylee-engine.workspace = true
+baylee-engine-server = { workspace = true, default-features = false, features = ["tower"] }
+baylee-tower.workspace = true
+baylee-tower-content.workspace = true
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
