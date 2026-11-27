@@ -1112,6 +1112,7 @@ enum Expect {
 pub(crate) mod advent;
 #[cfg(not(target_arch = "wasm32"))]
 mod advent_table;
+pub(crate) mod auto_login;
 mod build_press;
 pub(crate) mod card_fill;
 mod challenges;

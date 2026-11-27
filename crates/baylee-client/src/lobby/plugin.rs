@@ -98,7 +98,7 @@ impl Plugin for LobbyPlugin {
                 Update,
                 (
                     (feed::feed, chat_joins).run_if(in_state(DuelPhase::Closed)),
-                    (poll, entrance::advance)
+                    (poll, auto_login::trigger, entrance::advance)
                         .chain()
                         .run_if(in_state(DuelPhase::Closed)),
                     localization::update.run_if(in_state(DuelPhase::Closed)),

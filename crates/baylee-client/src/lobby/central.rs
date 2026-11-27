@@ -699,6 +699,13 @@ pub(super) fn from_link(state: &mut LobbyState) {
 /// Central's, and the sign-in admits the player to that gateway. A gateway
 /// that takes guests too keeps its guest door on that form. Nothing when
 /// Central is on already, or a session on the gateway is.
+/// Records `gateway` so a subsequent Central sign-in enters it once ready.
+pub(super) fn bind_gateway(state: &mut LobbyState, gateway: String) {
+    if let Some(central) = &mut state.central {
+        central.bound = Some(gateway);
+    }
+}
+
 pub(super) fn bound(state: &mut LobbyState) {
     if state.central.is_some() || !state.gateway_selected || state.lobby.token().is_some() {
         return;
