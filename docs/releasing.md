@@ -997,10 +997,10 @@ not certify Tower balance.
 Server staging requires the full set:
 `baylee-engine-server` (standard), `baylee-engine-standard-loops`, and
 `baylee-engine-tower`. All proofs must pass before any is handed to staging.
-For a few hours on 27.11.2026 the Tower engine was built plain: its workload
-still played the retained generation-three pack, which the run pack refuses.
-Since the workload seats the run pack's own starters, all three are profiled
-and proven again.
+The releases of 27.11.2026 (`0.2.0-beta.o1`, `0.2.2-beta.o1`) built the Tower
+engine plain: its workload still played the retained generation-three pack,
+which the run pack refuses. Since the workload seats the run pack's own
+starters, all three are profiled and proven again.
 Finishing checks that every staged executable exists before stopping the
 drained agent. The default agent discovers only these known siblings and
 probes their exact metadata; explicit operator paths take precedence
