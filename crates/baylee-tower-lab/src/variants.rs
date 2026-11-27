@@ -84,7 +84,9 @@ pub fn measure(
                     failed.push(serde_json::json!({"candidate": candidate, "error": "no reviewed printing"}));
                 }
             }
-            Err(error) => failed.push(serde_json::json!({"candidate": candidate, "error": error.to_string()})),
+            Err(error) => {
+                failed.push(serde_json::json!({"candidate": candidate, "error": error.to_string()}))
+            }
         }
     }
     let catalog = Catalog {
@@ -111,7 +113,10 @@ pub fn measure(
             }
         }
     }
-    let builds: Vec<Build> = candidates.iter().map(|(_, collection)| bare(collection)).collect();
+    let builds: Vec<Build> = candidates
+        .iter()
+        .map(|(_, collection)| bare(collection))
+        .collect();
     let results = jobs::run(
         &matches,
         threads,

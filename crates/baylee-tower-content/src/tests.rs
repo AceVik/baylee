@@ -388,3 +388,35 @@ fn every_development_house_is_a_legal_build_of_its_starter() {
     let late = development_house(&content.starters[0], baylee_tower::v2::MAX_STAGES);
     assert_eq!(late.active.len(), 3);
 }
+
+/// The house's ladder is what the real run machine let fifty scripted runs
+/// hold: every stage and starter has one, each a legal build of its own
+/// commander, its equipment growing with the gold the stages pay.
+#[test]
+fn the_house_ladder_covers_every_stage_and_starter_with_legal_reachable_builds() {
+    let content = runic().unwrap();
+    let ladder = ladder(&content, &[42; 32]).unwrap();
+    check_ladder(&ladder, &content).unwrap();
+    let items = |stage: u8| -> usize {
+        (1..=50)
+            .map(|archetype| ladder.build(stage, archetype).unwrap().active.len())
+            .sum()
+    };
+    assert!(items(1) < items(4) && items(4) <= items(12));
+    for archetype in 1..=50 {
+        let build = ladder.build(12, archetype).unwrap();
+        assert!(build.active.len() <= 6);
+        build
+            .validate_for(&content.catalog, baylee_tower::v2::GENERATOR)
+            .unwrap();
+    }
+    assert!(ladder.build(13, 1).is_none() && ladder.build(1, 51).is_none());
+    // A different private seed gives different builds somewhere.
+    let other = super::ladder(&content, &[43; 32]).unwrap();
+    assert!((1..=12).any(|stage| {
+        (1..=50).any(|archetype| {
+            ladder.build(stage, archetype).unwrap().active
+                != other.build(stage, archetype).unwrap().active
+        })
+    }));
+}

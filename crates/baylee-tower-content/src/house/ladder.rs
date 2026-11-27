@@ -472,7 +472,12 @@ impl Scripted<'_> {
         self.command(catalog, &Command::Claim { cards })
     }
 
-    fn worker(&mut self, catalog: &Catalog, now: u64, command: WorkerCommand<'_>) -> Result<(), Error> {
+    fn worker(
+        &mut self,
+        catalog: &Catalog,
+        now: u64,
+        command: WorkerCommand<'_>,
+    ) -> Result<(), Error> {
         self.run = self
             .run
             .worker(self.run.revision, now, command, catalog)
@@ -502,8 +507,12 @@ impl Scripted<'_> {
             .iter()
             .map(|card| {
                 let rules = catalog.card(*card).and_then(|entry| entry.run);
-                let playable = rules.is_some_and(|rules| rules.identity.difference(identity).is_empty());
-                let rarity = match rules.and_then(|rules| rules.presentation).map(|art| art.rarity) {
+                let playable =
+                    rules.is_some_and(|rules| rules.identity.difference(identity).is_empty());
+                let rarity = match rules
+                    .and_then(|rules| rules.presentation)
+                    .map(|art| art.rarity)
+                {
                     Some(CardRarity::Mythic) => 3,
                     Some(CardRarity::Rare) => 2,
                     Some(CardRarity::Uncommon) => 1,

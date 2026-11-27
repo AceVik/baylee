@@ -169,7 +169,10 @@ fn recipe(
 }
 
 /// One starter's collection, and the catalog entries it needs.
-fn collection(commander: CardIndex, main: Vec<CardIndex>) -> Result<(Collection, Vec<Card>), Error> {
+fn collection(
+    commander: CardIndex,
+    main: Vec<CardIndex>,
+) -> Result<(Collection, Vec<Card>), Error> {
     let mut counts = BTreeMap::<CardIndex, u8>::new();
     let mut owned = Vec::new();
     let mut cards = Vec::new();

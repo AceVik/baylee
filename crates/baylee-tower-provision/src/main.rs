@@ -69,7 +69,9 @@ struct Credentials {
     courier: Zeroizing<String>,
 }
 
-fn secret<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Zeroizing<String>, D::Error> {
+fn secret<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Zeroizing<String>, D::Error> {
     String::deserialize(deserializer).map(Zeroizing::new)
 }
 
@@ -156,9 +158,21 @@ fn run() -> Result<Value> {
     let mut operators = serde_json::Map::new();
     for (role, name, credential) in [
         (Role::Host, "official gateway", &input.credentials.host),
-        (Role::Verifier, "tower verifier", &input.credentials.verifier),
-        (Role::Supervisor, "tower supervisor", &input.credentials.supervisor),
-        (Role::Publisher, "tower publisher", &input.credentials.publisher),
+        (
+            Role::Verifier,
+            "tower verifier",
+            &input.credentials.verifier,
+        ),
+        (
+            Role::Supervisor,
+            "tower supervisor",
+            &input.credentials.supervisor,
+        ),
+        (
+            Role::Publisher,
+            "tower publisher",
+            &input.credentials.publisher,
+        ),
         (Role::Courier, "tower courier", &input.credentials.courier),
     ] {
         let reply = service.admin(json!({
@@ -210,8 +224,11 @@ struct Service<'a> {
 
 impl Service<'_> {
     fn migrate(&self) -> Result<()> {
-        self.call("--migrate", &Zeroizing::new(serde_json::to_vec(self.configuration)?))
-            .map(|_| ())
+        self.call(
+            "--migrate",
+            &Zeroizing::new(serde_json::to_vec(self.configuration)?),
+        )
+        .map(|_| ())
     }
 
     fn admin(&self, operation: Value) -> Result<Value> {

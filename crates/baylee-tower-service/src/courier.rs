@@ -135,7 +135,10 @@ impl Courier {
         let mut withdrawn = 0_u64;
         let mut after = None;
         loop {
-            let page = self.store.listed_receipts(&self.principal, after, 64).await?;
+            let page = self
+                .store
+                .listed_receipts(&self.principal, after, 64)
+                .await?;
             let Some(last) = page.last() else {
                 return Ok(withdrawn);
             };
@@ -181,9 +184,13 @@ impl Courier {
             if tokio::time::Instant::now() >= listings {
                 match self.check_listings(&mut stop).await {
                     Err(Error::Cancelled) => return summary,
-                    Ok(withdrawn) => summary.withdrawn = summary.withdrawn.saturating_add(withdrawn),
+                    Ok(withdrawn) => {
+                        summary.withdrawn = summary.withdrawn.saturating_add(withdrawn)
+                    }
                     // A failed check is repeated tomorrow; delivery goes on.
-                    Err(_) => eprintln!("Tower leaderboard name check unavailable; retrying tomorrow"),
+                    Err(_) => {
+                        eprintln!("Tower leaderboard name check unavailable; retrying tomorrow")
+                    }
                 }
                 listings = tokio::time::Instant::now() + LISTING_PERIOD;
             }

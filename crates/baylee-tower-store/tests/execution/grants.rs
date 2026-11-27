@@ -32,7 +32,9 @@ async fn a_whole_run_plays_under_the_runtime_grants_and_administration_is_refuse
     let password = format!("{:032x}", Uuid::now_v7().as_u128());
     sandbox
         .db
-        .execute_unprepared(&format!("CREATE ROLE \"{role}\" LOGIN PASSWORD '{password}'"))
+        .execute_unprepared(&format!(
+            "CREATE ROLE \"{role}\" LOGIN PASSWORD '{password}'"
+        ))
         .await
         .map_err(|_| ())
         .expect("synthetic runtime login created");

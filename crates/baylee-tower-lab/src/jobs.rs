@@ -23,8 +23,9 @@ pub fn run<J: Sync, R: Send>(
                     let index = next.fetch_add(1, Ordering::Relaxed);
                     let Some(job) = jobs.get(index) else { break };
                     let result = work(job);
-                    results.lock().expect("no worker panics while holding results")[index] =
-                        Some(result);
+                    results
+                        .lock()
+                        .expect("no worker panics while holding results")[index] = Some(result);
                     progress(done.fetch_add(1, Ordering::Relaxed) + 1, jobs.len());
                 }
             });
