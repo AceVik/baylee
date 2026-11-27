@@ -82,6 +82,31 @@ pub struct LiveReport4 {
     pub tactic_rules_fired: std::collections::BTreeMap<String, u64>,
 }
 
+/// Who made a live answer.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum By4 {
+    /// The net's policy, raw or under its tactical layer (a search's
+    /// answer among them).
+    Policy,
+    /// The question left one answer.
+    Forced,
+    /// The runtime's own fallback, or the live draw rule.
+    Runtime,
+}
+
+impl By4 {
+    /// As a transcript names it: the bridge's `mind`, `forced` or `house`.
+    #[must_use]
+    pub const fn word(self) -> &'static str {
+        match self {
+            Self::Policy => "mind",
+            Self::Forced => "forced",
+            Self::Runtime => "house",
+        }
+    }
+}
+
 struct Question {
     seq: u64,
     raw: Vec<u8>,
@@ -113,6 +138,8 @@ pub struct LiveSeat4<B = NetPlayer4> {
     opening: bool,
     /// [`Self::paced`].
     paced: bool,
+    /// [`Self::last_by`].
+    last_by: By4,
     result: Option<GameResult>,
     report: LiveReport4,
 }
@@ -139,6 +166,7 @@ impl<B: Brain4> LiveSeat4<B> {
             done: false,
             opening: false,
             paced: false,
+            last_by: By4::Policy,
             result: None,
             report: LiveReport4 {
                 kind: "local_neural_v4",
@@ -212,6 +240,12 @@ impl<B: Brain4> LiveSeat4<B> {
     #[must_use]
     pub const fn paced(&self) -> bool {
         self.paced
+    }
+
+    /// Who made the answer last generated.
+    #[must_use]
+    pub const fn last_by(&self) -> By4 {
+        self.last_by
     }
 
     /// The brain, for what it counts of the game.
@@ -468,9 +502,15 @@ impl<B: Brain4> LiveSeat4<B> {
             self.report.draw_offer_answers += 1;
             self.report.last_draw_decision = Some(draw.clone());
         }
-        match answer.provenance.source {
-            SourceKind4::Net => self.report.neural_answers += 1,
-            SourceKind4::Forced => self.report.forced_answers += 1,
+        self.last_by = match answer.provenance.source {
+            SourceKind4::Net => {
+                self.report.neural_answers += 1;
+                By4::Policy
+            }
+            SourceKind4::Forced => {
+                self.report.forced_answers += 1;
+                By4::Forced
+            }
             SourceKind4::House => {
                 self.report.fallback_answers += 1;
                 match self.brain.fallback_reason() {
@@ -480,16 +520,23 @@ impl<B: Brain4> LiveSeat4<B> {
                             .runtime_fallbacks
                             .entry(reason.to_owned())
                             .or_default() += 1;
+                        By4::Runtime
                     }
-                    None if answer.draw.is_none() => self.report.tactical_answers += 1,
-                    None => {}
+                    None if answer.draw.is_none() => {
+                        self.report.tactical_answers += 1;
+                        By4::Policy
+                    }
+                    None => By4::Runtime,
                 }
             }
-            SourceKind4::Search => self.report.search_answers += 1,
+            SourceKind4::Search => {
+                self.report.search_answers += 1;
+                By4::Policy
+            }
             SourceKind4::External => {
                 anyhow::bail!("external actions cannot be attributed to a live neural brain")
             }
-        }
+        };
         Ok(())
     }
 

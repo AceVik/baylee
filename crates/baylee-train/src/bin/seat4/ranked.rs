@@ -244,7 +244,7 @@ impl Pilot for NetPilot {
                 min_think: seat.play.min_think,
                 room_check: seat.play.room_check,
             };
-            let flown = flight::fly(&mut *seat.link, &mut core, pace).await;
+            let flown = flight::fly(&mut *seat.link, &mut core, pace, &mut *seat.transcript).await;
             let how = match &flown {
                 Ok(Flown::Ended) => "ended",
                 Ok(Flown::Closed) => "closed",
