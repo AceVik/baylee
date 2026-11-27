@@ -69,13 +69,15 @@ async fn a_whole_run_plays_under_the_runtime_grants_and_administration_is_refuse
                 .approve_host(host.id(), "http://127.0.0.1:29881", true)
                 .await
                 .unwrap();
-            for archetype in 1..=u8::try_from(published.starters.len()).unwrap() {
+            for (stage, archetype) in (1..=baylee_tower::v2::MAX_STAGES).flat_map(|stage| {
+                (1..=u8::try_from(published.starters.len()).unwrap()).map(move |a| (stage, a))
+            }) {
                 let starter = &published.starters[usize::from(archetype - 1)];
                 owner
                     .publish_house(
                         &publisher,
                         cohort,
-                        1,
+                        stage,
                         archetype,
                         &Build {
                             formation: starter.formation.clone(),

@@ -55,6 +55,13 @@ enum Command {
         #[arg(long)]
         detail: bool,
     },
+    /// Implemented commanders of one colour identity (`WUBRG` letters, `C` for
+    /// none), as replacement candidates for a starter.
+    Leaders {
+        /// The exact identity, such as `W` or `BG`.
+        #[arg(long)]
+        identity: String,
+    },
     /// Calibration candidates for one starter against the current field.
     Variants {
         /// One-based starter.
@@ -116,6 +123,7 @@ fn main() -> Result<()> {
                 detail,
             )
         }
+        Command::Leaders { identity } => leaders(&identity),
         Command::Variants {
             starter,
             salts,
@@ -152,4 +160,25 @@ fn private_seed() -> Result<[u8; 32]> {
             .context("the house seed must be hex")?;
     }
     Ok(seed)
+}
+
+/// Implemented, eligible commanders of exactly `identity`, cheapest first.
+fn leaders(identity: &str) -> serde_json::Value {
+    let mut rows: Vec<(u32, &'static str)> = baylee_cards::all()
+        .filter(|def| def.coverage == baylee_cards::dsl::Coverage::Implemented)
+        .filter(|def| {
+            baylee_cards::decks::leader_of(def.index).is_some_and(|leader| leader.eligible_alone)
+        })
+        .filter(|def| def.color_identity.to_string() == identity)
+        .map(|def| (def.faces[0].mana_cost.cmc(), def.faces[0].name))
+        .collect();
+    rows.sort_unstable();
+    serde_json::json!({
+        "kind": "leaders",
+        "identity": identity,
+        "leaders": rows
+            .into_iter()
+            .map(|(mana_value, name)| serde_json::json!({"name": name, "mana_value": mana_value}))
+            .collect::<Vec<_>>(),
+    })
 }
