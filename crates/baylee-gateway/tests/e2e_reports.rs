@@ -1425,3 +1425,142 @@ async fn a_finished_record_is_kept_as_one_piece() {
     assert!(replayed.ended, "and it ends where the game ended");
     agent.abort();
 }
+
+/// A ranked AI seat's reports as its runner sends them (`baylee-seat
+/// ranked --reports-to`, `baylee_seat::ranked::DirectReports`): the seat's
+/// own body passes the official gateway's direct route as it is, Central
+/// files it marked `direct` under the device's pseudonym with this build,
+/// and its client details carry the seat's reports beside the AI's
+/// account, profile, match and host; the outbox is empty after, and
+/// nothing in what Central got holds the device id or the seat's ticket.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_ranked_ai_seat_s_reports_reach_central_by_the_direct_route() {
+    use baylee_seat::ranked::DirectReports;
+    use baylee_seat::ranked::reports::Pass;
+    use baylee_seat::reports::{Card, Checked, Filed, Kind, Moment, Report, Source};
+    let bridge = baylee_account::Token::generate().expect("a token");
+    let (url, filed) = stub_central(bridge.bearer().to_string()).await;
+    let file = central_file(&url, &bridge);
+    let gw = spawn_gateway_with(
+        "reports-ai-direct",
+        &[
+            ("BAYLEE_REPORTS_TO", "central".to_owned()),
+            ("BAYLEE_FEEDBACK_KEY", "pseudonym-key".to_owned()),
+            (
+                "BAYLEE_DIRECT_REPORT_KEY",
+                "a direct key of 16+ chars".to_owned(),
+            ),
+            (
+                "BAYLEE_CENTRAL_CONFIG_FILE",
+                file.0.to_string_lossy().into_owned(),
+            ),
+        ],
+    );
+    let state = std::env::temp_dir().join(format!(
+        "baylee-gw-ai-direct-{}",
+        uuid::Uuid::now_v7().simple()
+    ));
+    std::fs::create_dir_all(&state).unwrap();
+    let reports = DirectReports::open(&format!("http://127.0.0.1:{}", gw.port), &state).unwrap();
+    let report = Report {
+        kind: Kind::WrongOutcome,
+        severity: None,
+        confidence: None,
+        cards: vec![Card {
+            name: "Lightning Bolt".into(),
+            oracle_quote: None,
+        }],
+        rules: vec!["120.3".into()],
+        observed: "Bolt dealt 2.".into(),
+        expected: Some("It deals 3 damage.".into()),
+        evidence: None,
+        references: Vec::new(),
+    };
+    let checked = Checked::new(&report, "Priority", |_| Vec::new());
+    let seat_reports = [Filed {
+        source: Source::LlmSeat,
+        game_id: "TEST-game".into(),
+        seat: 1,
+        question: 12,
+        model: "house".into(),
+        profile: Some("house:expert".into()),
+        report,
+        checked,
+        moment: Moment {
+            turn: 4,
+            phase: None,
+            step: None,
+            pending: "Priority".into(),
+            options: Vec::new(),
+            answer: None,
+            seq: 77,
+            policy_chose: None,
+            model_would: None,
+        },
+        lookups: 0,
+        unix: 1_700_000_000,
+        seen: Vec::new(),
+        log_lines: 0,
+    }];
+    let serde_json::Value::Object(about) = serde_json::json!({
+        "ai": {"account": "TEST-account", "name": "KI-Haus#0001", "kind": "house",
+               "profile": "house:expert"},
+        "match_id": "TEST-match",
+        "format": "standard",
+        "host": "https://host.example",
+    }) else {
+        unreachable!("an object")
+    };
+    let body = baylee_seat::reports::direct(
+        &seat_reports,
+        None,
+        &about,
+        reports.device(),
+        reports.build(),
+    )
+    .expect("a report to send");
+    let ticket = "TEST-seat-ticket-0123456789";
+    let secrets = [baylee_client_core::bugreport::Secret {
+        label: "seat token",
+        value: ticket,
+    }];
+    reports.queue(&body, &secrets).expect("queued");
+    assert_eq!(reports.pass().await, Pass::Clear);
+    assert!(
+        reports.pending().is_empty(),
+        "sent and gone from the outbox"
+    );
+    parts_arrive(&filed, 1, 10).await;
+    let desk = filed.lock();
+    let sent = &desk.reports[0];
+    assert_eq!(sent["channel"], "direct");
+    assert_eq!(sent["kind"], "bug");
+    assert!(sent["game_id"].is_null(), "the direct route names no game");
+    assert_eq!(sent["build"]["version"], reports.build().version);
+    let reporter = sent["reporter"].as_str().unwrap();
+    assert_eq!(reporter.len(), 64);
+    let (_, part, gzip) = desk
+        .parts
+        .iter()
+        .find(|(_, part, _)| part == "client")
+        .expect("the client details");
+    assert_eq!(part, "client");
+    let mut text = String::new();
+    flate2::read::MultiGzDecoder::new(&gzip[..])
+        .read_to_string(&mut text)
+        .unwrap();
+    let client: serde_json::Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(client["source"], "llm-seat");
+    assert_eq!(client["game_id"], "TEST-game");
+    assert_eq!(client["ai"]["profile"], "house:expert");
+    assert_eq!(client["match_id"], "TEST-match");
+    assert_eq!(client["host"], "https://host.example");
+    assert_eq!(client["report"]["observed"], "Bolt dealt 2.");
+    for seen in [sent.to_string(), text] {
+        assert!(!seen.contains(reports.device()), "the device id stays");
+        assert!(!seen.contains(ticket));
+    }
+    drop(desk);
+    drop(gw);
+    let _ = std::fs::remove_dir_all(state);
+}
