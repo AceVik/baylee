@@ -110,6 +110,12 @@ struct Paths {
     engines: PathBuf,
     /// The agent's list of them (`BAYLEE_ENGINE_BINS`), which its unit reads.
     agent_engines_env: PathBuf,
+    /// The Tower engine the official cohort is bound to, kept outside the
+    /// deploy's reach (`BAYLEE_DEPLOY_TOWER_ENGINE` in `deploy.env`,
+    /// `docs/tower-operations.md` §"Production on one server"): named in the
+    /// agent's list in place of the deployed one, as the agent's
+    /// `tower-engine.conf` names it while no deploy keeps games.
+    tower_engine: Option<PathBuf>,
 }
 
 impl Paths {
@@ -134,6 +140,12 @@ impl Paths {
             })
             .is_some_and(|value| value == "1");
         let agent_engines_env = etc.join("agent-engines.env");
+        let tower_engine = var("BAYLEE_DEPLOY_TOWER_ENGINE")
+            .or_else(|| {
+                crate::settings::last(&[&etc.join("deploy.env")], "BAYLEE_DEPLOY_TOWER_ENGINE")
+            })
+            .filter(|path| path.starts_with('/'))
+            .map(PathBuf::from);
         if testing {
             // Only for the deploy tests, which run in a scratch tree as
             // whoever runs them; the dispatcher's own checks have no switch.
@@ -171,6 +183,7 @@ impl Paths {
             keep_games,
             engines: root.join("engines"),
             agent_engines_env,
+            tower_engine,
         }
     }
 
