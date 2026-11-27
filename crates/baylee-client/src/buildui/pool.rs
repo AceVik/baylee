@@ -239,18 +239,28 @@ pub(super) fn toolbar(commands: &mut Commands, holder: Entity, env: &Env) {
             m.small,
             tokens::MUTED,
         );
-        commands.entity(hint).insert(Node {
-            flex_shrink: 1.0,
-            min_width: px_fixed(0.0),
-            ..default()
-        });
-        commands.entity(hint).remove::<TextLayout>();
+        commands.entity(hint).insert((
+            Node {
+                flex_grow: 1.0,
+                flex_shrink: 1.0,
+                flex_basis: px_fixed(0.0),
+                min_width: px_fixed(0.0),
+                ..default()
+            },
+            TextLayout::new(Justify::Left, bevy::text::LineBreak::WordBoundary),
+        ));
         let done = link(
             commands,
             kit,
             Phrase::DoneChoosing.text(lang),
             Press::Build(BuildPress::CancelCommanderPick),
         );
+        commands
+            .entity(done)
+            .entry::<Node>()
+            .and_modify(|mut node| {
+                node.flex_shrink = 0.0;
+            });
         let row = line(commands, kit, &[hint, done]);
         commands.entity(holder).add_child(row);
     }

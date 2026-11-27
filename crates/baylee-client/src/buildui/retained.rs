@@ -103,6 +103,8 @@ struct HeaderKey {
     handle: Option<String>,
     chat_header: Option<bool>,
     menu: bool,
+    has_cards: bool,
+    can_delete: bool,
     pane: Pane,
 }
 
@@ -275,6 +277,7 @@ struct TabbarKey {
 
 /// The open menu's key, with what its items read.
 #[derive(Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)] // independent menu availability flags
 struct MenuKey {
     menu: Option<BuildMenu>,
     grouping: Grouping,
@@ -284,6 +287,8 @@ struct MenuKey {
     commanders: Vec<usize>,
     busy: bool,
     history: bool,
+    has_cards: bool,
+    can_delete: bool,
     deck_favs: Vec<String>,
     global_favs: Vec<String>,
     tower_sell: (u64, bool, u32),
@@ -594,6 +599,8 @@ fn header_key(env: &Env) -> HeaderKey {
         handle: crate::lobby::handle(state),
         chat_header: state.chat_header,
         menu: env.ui().menu == Some(BuildMenu::Header),
+        has_cards: !deck.entries(Zone::Main).is_empty() || !deck.entries(Zone::Side).is_empty(),
+        can_delete: deck.editing().is_some() || state.deck_save_out(),
         pane: env.ui().pane,
     }
 }
@@ -814,6 +821,8 @@ fn menu_key(env: &Env) -> MenuKey {
         commanders: deck.commanders().to_vec(),
         busy: env.state.lobby.busy(),
         history: env.state.lobby.token().is_some() && deck.editing().is_some(),
+        has_cards: !deck.entries(Zone::Main).is_empty() || !deck.entries(Zone::Side).is_empty(),
+        can_delete: deck.editing().is_some() || env.state.deck_save_out(),
         deck_favs: env.prefs.deck_card_favourites_for(deck_key).to_vec(),
         global_favs: env.prefs.card_favourites.clone(),
         tower_sell: super::tower_sell_signature(env.state),

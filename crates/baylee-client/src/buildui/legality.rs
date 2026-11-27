@@ -22,10 +22,12 @@ fn sign(standing: Standing) -> (char, Color) {
     }
 }
 
-/// The overview's sleek single-row bar at the bottom of the deck column:
-/// matches the pool footer's height (`38px`) so the pool list and the deck
-/// list end on the exact same horizontal line.
-#[allow(clippy::too_many_lines)] // one cohesive status bar with standing, primary problem, count, and check trigger
+/// The overview's status bar at the bottom of the deck column: matches the
+/// pool footer's minimum height (`38px`) when clean, wraps its headline and
+/// primary advisory cleanly without mid-word clipping when long, carries all
+/// advisories in its hover tooltip, and keeps the "Format and list" button
+/// intact down to 1280×720.
+#[allow(clippy::too_many_lines)] // cohesive status bar with standing, primary problem, count, and check trigger
 pub(super) fn foot(commands: &mut Commands, holder: Entity, env: &Env) {
     let kit = env.kit;
     let m = kit.m;
@@ -65,15 +67,14 @@ pub(super) fn foot(commands: &mut Commands, holder: Entity, env: &Env) {
         .spawn((
             Node {
                 width: Val::Percent(100.0),
-                height: m.px(38.0),
+                min_height: m.px(38.0),
                 flex_shrink: 0.0,
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::SpaceBetween,
-                column_gap: m.px(8.0),
-                padding: UiRect::axes(m.px(12.0), px_fixed(0.0)),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::Center,
+                row_gap: m.px(3.0),
+                padding: UiRect::axes(m.px(12.0), m.px(6.0)),
                 border: UiRect::new(px_fixed(3.0), px_fixed(1.0), px_fixed(1.0), px_fixed(1.0)),
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
-                overflow: Overflow::clip(),
                 ..default()
             },
             BackgroundColor(tokens::CONTROL.with_alpha(0.52)),
@@ -82,44 +83,84 @@ pub(super) fn foot(commands: &mut Commands, holder: Entity, env: &Env) {
             Pickable::IGNORE,
         ))
         .id();
+    let mut tip_parts = vec![overview.headline.clone()];
+    tip_parts.extend(extra_notes.iter().map(|(text, _)| text.clone()));
     if !extra_notes.is_empty() {
-        let tip = extra_notes
-            .iter()
-            .map(|(text, _)| text.as_str())
-            .collect::<Vec<_>>()
-            .join(" \u{b7} ");
-        commands
-            .entity(bar)
-            .insert((crate::lobby::HoverHint(tip), Pickable::default()));
+        commands.entity(bar).insert((
+            crate::lobby::HoverHint(tip_parts.join(" \u{b7} ")),
+            Pickable::default(),
+        ));
     }
 
+    let top_row = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::SpaceBetween,
+                column_gap: m.px(8.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let lead = commands
+        .spawn((
+            Node {
+                flex_grow: 1.0,
+                flex_shrink: 1.0,
+                flex_basis: px_fixed(0.0),
+                min_width: px_fixed(0.0),
+                align_items: AlignItems::Center,
+                column_gap: m.px(6.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
     let sign_node = glyph(commands, kit, mark_ch, m.small, ink);
-    let headline = cell(commands, kit, &overview.headline, m.small, ink, true);
-    commands.entity(headline).insert(Node {
-        flex_shrink: 0.0,
-        ..default()
-    });
-    commands.entity(bar).add_children(&[sign_node, headline]);
+    let headline = commands
+        .spawn((
+            Text::new(overview.headline.as_str()),
+            tf_bold(kit.fonts, m.small),
+            TextColor(ink),
+            TextLayout::new(Justify::Left, bevy::text::LineBreak::WordBoundary),
+            Node {
+                flex_grow: 1.0,
+                flex_shrink: 1.0,
+                flex_basis: px_fixed(0.0),
+                min_width: px_fixed(0.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(lead).add_children(&[sign_node, headline]);
 
-    if let Some((first_msg, first_ink)) = extra_notes.first() {
-        let sep = words(commands, kit, "\u{b7}", m.small, tokens::MUTED);
-        let note = cell(commands, kit, first_msg, m.small * 0.92, *first_ink, true);
-        commands.entity(bar).add_children(&[sep, note]);
-    }
-
-    let gap = spring(commands);
-    let count = cell(
-        commands,
-        kit,
-        &overview.count,
-        m.small * 0.94,
-        tokens::MUTED,
-        false,
-    );
-    commands.entity(count).insert(Node {
-        flex_shrink: 0.0,
-        ..default()
-    });
+    let trail = commands
+        .spawn((
+            Node {
+                flex_shrink: 0.0,
+                align_items: AlignItems::Center,
+                column_gap: m.px(8.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let count = commands
+        .spawn((
+            Text::new(overview.count.as_str()),
+            tf(kit.fonts, m.small * 0.94),
+            TextColor(tokens::MUTED),
+            TextLayout::no_wrap(),
+            Node {
+                flex_shrink: 0.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
     let open = link(
         commands,
         kit,
@@ -130,11 +171,36 @@ pub(super) fn foot(commands: &mut Commands, holder: Entity, env: &Env) {
         },
         (Press::Build(BuildPress::OpenCheck), stop("check")),
     );
-    commands.entity(open).insert(Node {
-        flex_shrink: 0.0,
-        ..default()
+    commands.entity(open).entry::<Node>().and_modify(|mut n| {
+        n.flex_shrink = 0.0;
     });
-    commands.entity(bar).add_children(&[gap, count, open]);
+    commands.entity(trail).add_children(&[count, open]);
+    commands.entity(top_row).add_children(&[lead, trail]);
+    commands.entity(bar).add_child(top_row);
+
+    if let Some((first_msg, first_ink)) = extra_notes.first() {
+        let note_text = if extra_notes.len() > 1 {
+            format!("{first_msg} (+{})", extra_notes.len() - 1)
+        } else {
+            first_msg.clone()
+        };
+        let note = commands
+            .spawn((
+                Text::new(note_text),
+                tf_bold(kit.fonts, m.small * 0.92),
+                TextColor(*first_ink),
+                TextLayout::new(Justify::Left, bevy::text::LineBreak::WordBoundary),
+                Node {
+                    width: Val::Percent(100.0),
+                    min_width: px_fixed(0.0),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(bar).add_child(note);
+    }
+
     commands.entity(holder).add_child(bar);
 }
 
