@@ -12,18 +12,20 @@ use std::time::{Duration, Instant, SystemTime};
 const RUNNER_DIR: &str = "/Users/admin/actions-runner";
 const GUARD: &str = "/Users/admin/job-guard.sh";
 
-/// The job-started hook: only `repo`'s pushes to main and its dispatches run
-/// in a VM. GitHub hands a just-in-time runner whichever queued job names its
-/// label, and a fork's pull request writes its own `runs-on`; the fork policy
-/// asks for approval, and this refuses the job even then (29.10.2026). A
+/// The job-started hook: only `repo`'s pushes to main, its `v*` tags and its
+/// dispatches run in a VM. GitHub hands a just-in-time runner whichever queued
+/// job names its label, and a fork's pull request writes its own `runs-on`;
+/// the fork policy asks for approval, and this refuses the job even then
+/// (29.10.2026). A `v*` tag is a release, and only an admin can push one (the
+/// ruleset on `refs/tags/v*`); its macOS rows build here since 27.11.2026. A
 /// hook that fails stops the job before its first step.
 fn job_guard(repo: &str) -> String {
     format!(
         "#!/bin/sh\n\
          case \"$GITHUB_REPOSITORY:$GITHUB_EVENT_NAME:$GITHUB_REF\" in\n\
-         {repo}:push:refs/heads/main | {repo}:workflow_dispatch:*) exit 0 ;;\n\
+         {repo}:push:refs/heads/main | {repo}:push:refs/tags/v* | {repo}:workflow_dispatch:*) exit 0 ;;\n\
          esac\n\
-         echo \"baylee-vm runs only main pushes and dispatches of {repo}, not $GITHUB_REPOSITORY $GITHUB_EVENT_NAME $GITHUB_REF\" >&2\n\
+         echo \"baylee-vm runs only main pushes, v* tags and dispatches of {repo}, not $GITHUB_REPOSITORY $GITHUB_EVENT_NAME $GITHUB_REF\" >&2\n\
          exit 1\n"
     )
 }
