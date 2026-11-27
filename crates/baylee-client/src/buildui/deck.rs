@@ -185,6 +185,9 @@ pub(super) fn head(commands: &mut Commands, holder: Entity, env: &Env) {
                     Node {
                         min_width: px_fixed(0.0),
                         max_width: Val::Percent(100.0),
+                        // Its own width beside the tabs, or a line of its own below
+                        // them when the row is too narrow; never squeezed thin.
+                        flex_shrink: 0.0,
                         ..default()
                     },
                     Pickable::IGNORE,
