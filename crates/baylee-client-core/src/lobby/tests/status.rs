@@ -1,12 +1,11 @@
-//! The one line the lobby writes about itself: which phrase stands there, which of the two tones carries it, and that the language is read when a sentence is made rather than re-read afterwards — a status line is a record of what just happened, not a label that keeps re-rendering. A refusal is the only thing on it a player has to act on, so every test here is about the two staying apart: an empty line, a form that was refused, a gateway saying no, and a finished duel that must not be drawn in the colour that means somebody is waited for. What each of those events does to the seat or the screen is asserted where that change lives; only its reading is here.
+//! The one line the lobby writes about itself: which phrase stands there, which of the two tones carries it, and that switching language re-renders any client-originated status line while leaving verbatim gateway prose intact. A refusal is the only thing on it a player has to act on, so every test here is about the two staying apart: an empty line, a form that was refused, a gateway saying no, and a finished duel that must not be drawn in the colour that means somebody is waited for. What each of those events does to the seat or the screen is asserted where that change lives; only its reading is here.
 
 #[allow(clippy::wildcard_imports)] // this module's own vocabulary
 use super::*;
 
-/// The lobby's own sentences are drawn from the phrase table, so setting
-/// the language changes what the *next* one says. Nothing re-translates a
-/// line already on screen, which is the point: a status line is a record
-/// of what just happened, not a label that keeps re-rendering.
+/// The lobby's own sentences are drawn from the phrase table, and switching
+/// the language re-renders an active client status line immediately as well
+/// as governing subsequent ones.
 #[test]
 fn a_status_line_is_said_in_the_lobbys_language() {
     let mut lobby = seated_lobby();
@@ -85,4 +84,69 @@ fn a_failure_is_shown_and_nothing_else() {
     assert_eq!(lobby.status(), "no such deck");
     assert_eq!(*lobby.screen(), Screen::Table, "we stay where we were");
     assert!(!lobby.busy(), "and the lobby is usable again");
+}
+
+#[test]
+fn switching_language_rerenders_client_status_and_keeps_gateway_prose() {
+    let mut lobby = Lobby::new();
+    assert_eq!(lobby.submit(), None);
+    assert_eq!(
+        lobby.status(),
+        Phrase::NeedUsernameAndPassword.text(Lang::En)
+    );
+    lobby.set_lang(Lang::De);
+    assert_eq!(
+        lobby.status(),
+        Phrase::NeedUsernameAndPassword.text(Lang::De)
+    );
+
+    lobby.tell(Phrase::CouldNotReachTable, &["timeout"]);
+    assert_eq!(
+        lobby.status(),
+        Phrase::CouldNotReachTable.fill(Lang::De, &["timeout"])
+    );
+    lobby.set_lang(Lang::En);
+    assert_eq!(
+        lobby.status(),
+        Phrase::CouldNotReachTable.fill(Lang::En, &["timeout"])
+    );
+
+    lobby.tell_refusal(Phrase::GatewayNotFound, &["https://bad.invalid"]);
+    lobby.set_lang(Lang::De);
+    assert_eq!(
+        lobby.status(),
+        Phrase::GatewayNotFound.fill(Lang::De, &["https://bad.invalid"])
+    );
+
+    // Gateway prose has no Phrase source and stays verbatim.
+    lobby.say("wrong password");
+    lobby.set_lang(Lang::En);
+    assert_eq!(lobby.status(), "wrong password");
+
+    lobby.clear_status();
+    lobby.set_lang(Lang::De);
+    assert_eq!(lobby.status(), "");
+}
+
+#[test]
+fn empty_submit_focuses_the_first_missing_field() {
+    let mut lobby = Lobby::new();
+    lobby.park_caret();
+    assert!(lobby.submit().is_none());
+    assert_eq!(lobby.focus(), Field::Username);
+    assert!(lobby.typing_here());
+
+    lobby.set_field(Field::Username, "alice");
+    lobby.park_caret();
+    assert!(lobby.submit().is_none());
+    assert_eq!(lobby.focus(), Field::Password);
+    assert!(lobby.typing_here());
+
+    lobby.toggle_registering();
+    lobby.set_field(Field::Password, "secret");
+    lobby.set_field(Field::PasswordAgain, "secret");
+    lobby.park_caret();
+    assert!(lobby.submit().is_none());
+    assert_eq!(lobby.focus(), Field::DisplayName);
+    assert!(lobby.typing_here());
 }

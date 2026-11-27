@@ -1278,6 +1278,46 @@ fn enter_in_the_gateway_address_saves_it_and_signs_nothing_in() {
 }
 
 #[test]
+fn empty_sign_in_and_gateway_add_focus_the_missing_field() {
+    let mut app = headless();
+    sized(&mut app, 1400.0);
+    app.update();
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .park_caret();
+    press(&mut app, Press::Front(FrontPress::Submit));
+    {
+        let state = app.world().resource::<LobbyState>();
+        assert_eq!(state.lobby.focus(), Field::Username);
+        assert!(state.lobby.typing_here());
+    }
+
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.set_field(Field::Username, "alice");
+        state.lobby.park_caret();
+    }
+    press(&mut app, Press::Front(FrontPress::Submit));
+    {
+        let state = app.world().resource::<LobbyState>();
+        assert_eq!(state.lobby.focus(), Field::Password);
+        assert!(state.lobby.typing_here());
+    }
+
+    to_gateway_face(&mut app);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.set_field(Field::Gateway, "");
+        state.lobby.park_caret();
+    }
+    press(&mut app, Press::Front(FrontPress::AddGateway));
+    let state = app.world().resource::<LobbyState>();
+    assert_eq!(state.lobby.focus(), Field::Gateway);
+    assert!(state.lobby.typing_here());
+}
+
+#[test]
 fn a_gateway_whose_games_would_not_open_is_marked_and_says_why() {
     let mut app = headless();
     to_gateway_face(&mut app);

@@ -100,7 +100,7 @@ impl Lobby {
                         self.write(
                             Phrase::YourUsernameIs.fill(self.lang, &[&name]),
                             Tone::Note,
-                            Some(Phrase::YourUsernameIs),
+                            Some((Phrase::YourUsernameIs, vec![name.clone()])),
                         );
                         self.set_field(Field::Username, &name);
                     }
@@ -206,7 +206,7 @@ impl Lobby {
                 self.write(
                     Phrase::RefusedNote.fill(self.lang, &[&refusal.list]),
                     Tone::Refusal,
-                    Some(Phrase::RefusedNote),
+                    Some((Phrase::RefusedNote, vec![refusal.list.clone()])),
                 );
                 self.refusal = Some(refusal);
                 None
