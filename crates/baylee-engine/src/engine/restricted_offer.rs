@@ -60,7 +60,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         legal.restricted_taps.clear();
         legal.restricted_floating.clear();
         legal.spell_spending.clear();
-        if !self.state.play_permissions.is_empty() {
+        if !self.state.play_permissions.is_empty() || self.state.effects.may_change_mana_spending()
+        {
             let base = casting::mana_spending(&self.state, player);
             for (spend, what) in self.spends(player, legal) {
                 let card = match what {
@@ -250,7 +251,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             }
             Spend::Cast(_, CastModeKind::Foretell) => Some(SpendFor::SpellAs(
                 card,
-                SpellForm::Foretell(face()?.foretell?),
+                SpellForm::Foretell(casting::effective_foretell_cost(
+                    self.state.object(card)?,
+                    face()?,
+                )?),
             )),
             Spend::Cast(_, CastModeKind::Plot) => Some(SpendFor::SpellAs(card, SpellForm::Plot)),
             Spend::Cast(_, CastModeKind::Impending) => Some(SpendFor::SpellAs(
@@ -276,7 +280,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     .and_then(|o| o.card)
                     .and_then(|c| self.lookup.card(c.index))
                     .and_then(|def| def.faces.first())?;
-                super::cast_wizard::spend_for(wizard, face)
+                super::cast_wizard::spend_for(&self.state, wizard, face)
             }
             PaymentContinuation::Cast { card, .. } => SpendFor::Spell(*card),
             PaymentContinuation::Activation(payment) => SpendFor::Ability(payment.source()),

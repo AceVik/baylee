@@ -3,6 +3,8 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod chain_of_plasma;
+mod jaded_response;
 mod unexpectedly_absent;
 
 mod abeyance;
@@ -112,6 +114,7 @@ mod legion_leadership;
 mod liberate;
 mod life_burst;
 mod lightning_blow;
+mod lightning_dart;
 mod lightning_strike;
 mod liliana_s_triumph;
 mod lose_focus;
@@ -135,6 +138,7 @@ mod perilous_research;
 mod predator_s_strike;
 mod preemptive_strike;
 mod price_of_progress;
+mod prohibit;
 mod provoke;
 mod psychotic_fury;
 mod purge;
@@ -159,6 +163,7 @@ mod rune_snag;
 mod sacred_boon;
 mod samite_ministration;
 mod scent_of_nightshade;
+mod scorching_lava;
 mod searing_spear;
 mod sejiri_shelter;
 mod serene_offering;

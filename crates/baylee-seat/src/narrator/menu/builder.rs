@@ -714,6 +714,7 @@ impl Builder<'_, '_> {
             };
             let deadline = match offer.effect {
                 GrantedActionKind::CancelDelayedLifeLoss { .. } => "Before your next draw step",
+                GrantedActionKind::EndContinuousEffects { .. } => "Any time with priority",
                 _ => "Until end of turn",
             };
             let effect = match offer.effect {
@@ -731,6 +732,10 @@ impl Builder<'_, '_> {
                         baylee_core::ids::TargetRef::Player(player) => self.table.player(player),
                     };
                     format!("prevent the next {amount} damage to {recipient}")
+                }
+                GrantedActionKind::EndContinuousEffects { target } => {
+                    let subject = self.table.named_target(target);
+                    format!("end effect on {subject}")
                 }
             };
             self.offer(

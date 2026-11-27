@@ -171,21 +171,19 @@ fn masthead(commands: &mut Commands, page: Entity, kit: Kit) -> (Entity, Entity)
         Press::Ranked(Action::Back),
     );
     orders::stop(commands, back, &ORDER, "back");
-    let title = parts::line(
+    // The head the sign-in card wears (`parts::title_lockup`); its words
+    // are rewritten in place as the account signs in or out.
+    let (lockup, title) = parts::title_lockup(
         commands,
         kit,
+        glyph::TROPHY,
         Phrase::RankedBoard.text(kit.lang()),
-        kit.m.h1,
-        tokens::INK,
     );
-    commands
-        .entity(title)
-        .insert(crate::hud::tf_bold(kit.fonts, kit.m.h1));
     let grow = parts::grow(commands);
     let formats = parts::row(commands, kit, true);
     commands
         .entity(top)
-        .add_children(&[back, title, grow, formats]);
+        .add_children(&[back, lockup, grow, formats]);
     (title, formats)
 }
 

@@ -138,8 +138,10 @@ fn metrics(
 /// is something to say and it was not hidden, and once hidden gone. At a
 /// table only a ready update's restart offer stands, at the top, and never
 /// appears in the middle of a question of this player's ([`RestartOffer`]):
-/// it waits for the answer and appears after it, and then stays. The menu's
-/// line says the rest there.
+/// it waits for the answer and appears after it, and then stays. At a
+/// networked table it waits for the game's end unless the restart would bring
+/// the seat back (`resume::restart_keeps_a_networked_seat`). The menu's line
+/// says the rest there.
 #[allow(clippy::too_many_arguments)] // one card, drawn from everything it depends on
 pub(super) fn show_toast(
     mut commands: Commands,
@@ -147,6 +149,10 @@ pub(super) fn show_toast(
     place: Res<UpdatePlace>,
     phase: Option<Res<State<DuelPhase>>>,
     duel: Option<Res<crate::Duel>>,
+    (host, lobby): (
+        Option<Res<crate::InstalledHost>>,
+        Option<Res<crate::LobbyState>>,
+    ),
     fonts: Option<Res<UiFonts>>,
     settings: Option<Res<ClientSettings>>,
     input: Option<Res<InputClass>>,
@@ -158,7 +164,12 @@ pub(super) fn show_toast(
 ) {
     let lang = settings.as_ref().map_or(Lang::En, |s| Lang::of(&s.lang));
     let in_lobby = phase.is_none_or(|p| *p.get() == DuelPhase::Closed);
-    let ready = matches!(notice.shown, Some(Shown::Ready { .. }));
+    let ready = match &notice.shown {
+        Some(Shown::Ready { version, .. }) => {
+            restart_keeps_the_seat(version, host.as_deref(), lobby.as_deref())
+        }
+        _ => false,
+    };
     let at_table = if in_lobby {
         *offer = RestartOffer::default();
         false
@@ -436,6 +447,30 @@ pub(super) fn scroll_toasts(
             current = parents.get(entity).ok().map(ChildOf::parent);
         }
     }
+}
+
+/// Whether restarting into `ready` keeps this client at its table: always at
+/// a game it hosts itself, which resumes from its record; at a networked one
+/// only when the gateway already runs that release in this client's protocol
+/// (`resume::restart_keeps_a_networked_seat`).
+fn restart_keeps_the_seat(
+    ready: &str,
+    host: Option<&crate::InstalledHost>,
+    lobby: Option<&crate::LobbyState>,
+) -> bool {
+    use baylee_client_core::lobby::gateway_info::Probe;
+    if host.is_none_or(|host| matches!(host.0.link(), crate::host::LinkState::Local)) {
+        return true;
+    }
+    let gateway = lobby.and_then(|lobby| match lobby.probes.get(&lobby.gateway) {
+        Some(Probe::Known(info)) => Some(info),
+        _ => None,
+    });
+    baylee_client_core::resume::restart_keeps_a_networked_seat(
+        ready,
+        gateway,
+        baylee_protocol::PROTOCOL_VERSION,
+    )
 }
 
 /// The question this player owes the table now, by its view's `seq`: the

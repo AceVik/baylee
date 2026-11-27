@@ -891,7 +891,7 @@ fn attached_aura_with_host(
         let state = engine
             .dev_state_mut(seat)
             .ok_or("the harness was refused the board")?;
-        if face != 0 && !state.transform(aura, def, face) {
+        if face != 0 && !state.turn_over(aura, def, face) {
             return Err(format!("refused to turn over to face {face}"));
         }
         state.attach(aura, host);
@@ -959,7 +959,7 @@ fn placed_x_counter_face(
         let state = engine
             .dev_state_mut(seat)
             .ok_or("the harness was refused the board")?;
-        if face != 0 && !state.transform(object, def, face) {
+        if face != 0 && !state.turn_over(object, def, face) {
             return Err(format!("refused to turn over to face {face}"));
         }
         state

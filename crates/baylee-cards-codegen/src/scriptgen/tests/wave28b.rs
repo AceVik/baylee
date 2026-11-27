@@ -576,11 +576,11 @@ fn wave28b_honest_refusal_boundaries() {
          T:Mode$ Attacks | ValidCard$ Card.Self | TriggerZones$ Battlefield | Execute$ TrigDraw\n\
          SVar:TrigDraw:AB$ Draw | Cost$ tapXType<2/Creature>\n\
          Oracle:Whenever BadMissingOtherTap attacks, you may tap two other untapped creatures you control. If you do, draw a card.",
-        // Multi-target SP$ Animate | Abilities$ (CreateContinuousEffect(&Filter::This) only affects targets[0]).
-        "Name:BadMultiTargetAnimateAbilities\nManaCost:1 G\nTypes:Instant\n\
+        // Multi-target SP$ Animate | SetPower$ X cannot lower SetPTByCountFilter across ModifyTargets.
+        "Name:BadMultiTargetAnimateCountPT\nManaCost:1 G\nTypes:Instant\n\
          A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +1 | NumDef$ +1 | TargetMin$ 0 | TargetMax$ 2 | SubAbility$ DBAnimate\n\
-         SVar:DBAnimate:DB$ Animate | Defined$ Targeted | Abilities$ ABFight\n\
-         SVar:ABFight:AB$ Fight | Cost$ T | Defined$ Self | ValidTgts$ Creature.Other",
+         SVar:DBAnimate:DB$ Animate | Defined$ Targeted | Power$ X\n\
+         SVar:X:Count$Valid Creature.YouCtrl",
         // PayEnergy<0> is invalid; PayEnergy<X> without consuming ResolutionChosenNumber stays refused.
         "Name:BadPayZeroEnergy\nManaCost:2 R\nTypes:Creature\nPT:2/2\n\
          T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ TrigPump\n\
@@ -1225,6 +1225,109 @@ fn wave28b_p3_honest_refusal_boundaries() {
          A:SP$ PutCounter | ValidTgts$ Creature | CounterType$ FEATHER | CounterNum$ 1 | RememberCards$ True | SubAbility$ DBEffect\n\
          SVar:DBEffect:DB$ Effect | RememberObjects$ Remembered | StaticAbilities$ S | ForgetCounter$ CHARGE | Duration$ Permanent\n\
          SVar:S:Mode$ Continuous | Affected$ Card.IsRemembered | AddKeyword$ Flying",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn shield_broker_put_counter_without_remember_cards_grants_control() {
+    let broker = read(
+        "Name:Shield Broker\nManaCost:3 U U\nTypes:Creature Wizard\nPT:3/4\n\
+T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigPutCounter\n\
+SVar:TrigPutCounter:DB$ PutCounter | ValidTgts$ Creature.!IsCommander+YouDontCtrl | CounterType$ SHIELD | SubAbility$ DBEffect\n\
+SVar:DBEffect:DB$ Effect | RememberObjects$ Targeted | StaticAbilities$ GainControl | ForgetOnMoved$ Battlefield | ForgetCounter$ SHIELD | Duration$ Permanent\n\
+SVar:GainControl:Mode$ Continuous | Affected$ Card.IsRemembered | GainControl$ You",
+    );
+    assert!(
+        broker.abilities[0].contains("Duration::WhileCounterRemains(CounterKind::Shield)")
+            && broker.abilities[0].contains("CounterKind::Shield")
+            && broker.abilities[0].contains("Modifier::GainControl"),
+        "{}",
+        broker.abilities[0]
+    );
+}
+
+#[test]
+fn exile_self_dies_triggers_and_granted_sacrifice_grantor() {
+    let rector = read(
+        "Name:Academy Rector\nManaCost:3 W\nTypes:Creature Human Cleric\nPT:1/2\n\
+         T:Mode$ ChangesZone | ValidCard$ Card.Self | Origin$ Battlefield | Destination$ Graveyard | Execute$ TrigExile | TriggerDescription$ When CARDNAME dies, you may exile it. If you do, search your library for an enchantment card and put that card onto the battlefield, then shuffle.\n\
+         SVar:TrigExile:AB$ ChangeZone | Cost$ ExileAnyGrave<1/Card.TriggeredNewCard> | Origin$ Library | Destination$ Battlefield | ChangeType$ Enchantment.YouOwn | ChangeNum$ 1\n\
+         Oracle:When Academy Rector dies, you may exile it. If you do, search your library for an enchantment card, put that card onto the battlefield, then shuffle.",
+    );
+    assert!(
+        rector.abilities[0]
+            .contains("Effect::MayDo { effects: &[Effect::ExileSource, Effect::SearchLibrary {")
+            && rector.abilities[0].contains("Find::BATTLEFIELD"),
+        "{}",
+        rector.abilities[0]
+    );
+
+    let greenwarden = read(
+        "Name:Greenwarden of Murasa\nManaCost:4 G G\nTypes:Creature Elemental\nPT:5/4\n\
+         T:Mode$ ChangesZone | ValidCard$ Card.Self | Origin$ Battlefield | Destination$ Graveyard | Execute$ TrigExile | TriggerDescription$ When CARDNAME dies, you may exile it. If you do, return target card from your graveyard to your hand.\n\
+         SVar:TrigExile:AB$ ChangeZone | Cost$ ExileAnyGrave<1/Card.TriggeredNewCard> | Origin$ Graveyard | Destination$ Hand | ValidTgts$ Card.YouCtrl",
+    );
+    assert!(
+        greenwarden.abilities[0]
+            .contains("Effect::MayDo { effects: &[Effect::ExileSource, Effect::GraveyardToHand")
+            && greenwarden.abilities[0]
+                .contains("targets = Some(TargetReq::one(TargetSpec::CardInGraveyard("),
+        "{}",
+        greenwarden.abilities[0]
+    );
+
+    let balrog = read(
+        "Name:The Balrog of Moria\nManaCost:4 B B R\nTypes:Legendary Creature Avatar Demon\nPT:8/8\n\
+         T:Mode$ ChangesZone | ValidCard$ Card.Self | Origin$ Battlefield | Destination$ Graveyard | Execute$ TrigImmediateTrig | TriggerDescription$ When CARDNAME dies, you may exile it. When you do, for each opponent, exile up to one target creature that player controls.\n\
+         SVar:TrigImmediateTrig:AB$ ImmediateTrigger | Cost$ ExileAnyGrave<1/Card.TriggeredNewCard> | Execute$ TrigExile | TriggerDescription$ When you do, for each opponent, exile up to one target creature that player controls.\n\
+         SVar:TrigExile:DB$ ChangeZone | Origin$ Battlefield | Destination$ Exile | ValidTgts$ Creature.OppCtrl | TargetMin$ 0 | TargetMax$ OneEach | TargetsForEachPlayer$ True\n\
+         SVar:OneEach:PlayerCountOpponents$Amount",
+    );
+    let ba = &balrog.abilities[0];
+    assert!(
+        ba.contains("Effect::MayDo { effects: &[Effect::ExileSource] }")
+            && ba.contains("when: ReflexiveWhen::Event(ReflexiveEvent::ExiledThis)")
+            && ba.contains("TargetSpec::ObjectOfEachOpponent(&Filter::CREATURE)")
+            && !ba.contains(", targets = Some("),
+        "{ba}"
+    );
+
+    let dagger = read(
+        "Name:Spare Dagger\nManaCost:1\nTypes:Artifact Equipment\nK:Equip:1\n\
+         S:Mode$ Continuous | AffectedDefined$ Equipped | Affected$ Creature | AddPower$ 1 | AddTrigger$ AttackTrigger\n\
+         SVar:AttackTrigger:Mode$ Attacks | ValidCard$ Card.Self | Execute$ TrigDealDamage | TriggerDescription$ Whenever CARDNAME attacks, you may sacrifice ORIGINALHOST. When you do, CARDNAME deals 1 damage to any target.\n\
+         SVar:TrigDealDamage:AB$ ImmediateTrigger | Cost$ Sac<1/OriginalHost/Spare Dagger> | Execute$ TrigDamage | TriggerDescription$ When you do, CARDNAME deals 1 damage to any target.\n\
+         SVar:TrigDamage:DB$ DealDamage | ValidTgts$ Any | NumDmg$ 1",
+    );
+    assert!(
+        dagger
+            .statics
+            .contains("Effect::MayDo { effects: &[Effect::SacrificeGrantor] }")
+            && dagger
+                .statics
+                .contains("when: ReflexiveWhen::Event(ReflexiveEvent::SacrificedGrantor)"),
+        "{}",
+        dagger.statics
+    );
+
+    for bad in [
+        // `ExileAnyGrave<1/Card.TriggeredNewCard>` only lowers on `Trigger::Dies(&Filter::This)`.
+        "Name:BadNonDiesExileSelf\nManaCost:2 W\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ Trig\n\
+         SVar:Trig:AB$ Draw | Cost$ ExileAnyGrave<1/Card.TriggeredNewCard> | NumCards$ 1",
+        // Reflexive dies-exile must not emit `Amount::SourcePower` (reads exile version rather than battlefield LKI).
+        "Name:BadSandbenderLki\nManaCost:W B\nTypes:Creature\nPT:1/1\n\
+         T:Mode$ ChangesZone | ValidCard$ Card.Self | Origin$ Battlefield | Destination$ Graveyard | Execute$ TrigImmediateTrig | TriggerDescription$ When this creature dies, you may exile it. When you do, return target creature card with mana value less than or equal to this creature's power from your graveyard to the battlefield.\n\
+         SVar:TrigImmediateTrig:AB$ ImmediateTrigger | Cost$ ExileAnyGrave<1/Card.TriggeredNewCard> | Execute$ TrigChangeZone\n\
+         SVar:TrigChangeZone:DB$ ChangeZone | Origin$ Graveyard | Destination$ Battlefield | ValidTgts$ Creature.YouOwn+cmcLEX\n\
+         SVar:X:Count$CardPower",
+        // `Sac<1/OriginalHost>` without `ImmediateTrigger` must stay refused.
+        "Name:BadGrantInline\nManaCost:1\nTypes:Artifact Equipment\n\
+         S:Mode$ Continuous | AffectedDefined$ Equipped | Affected$ Creature | AddTrigger$ A\n\
+         SVar:A:Mode$ Attacks | ValidCard$ Card.Self | Execute$ D | TriggerDescription$ Whenever CARDNAME attacks, you may sacrifice ORIGINALHOST. If you do, draw a card.\n\
+         SVar:D:AB$ Draw | Cost$ Sac<1/OriginalHost> | NumCards$ 1",
     ] {
         assert!(refused(bad), "must refuse: {bad}");
     }

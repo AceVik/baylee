@@ -7,6 +7,7 @@ use std::{
     collections::BTreeSet,
     sync::{Mutex, mpsc},
 };
+use worker::Metadata;
 
 /// How often the inbox and contacts are read while Central's push socket is
 /// live, in milliseconds. A push wakes a read at once; this is the floor
@@ -157,6 +158,19 @@ fn apply_personal_snapshot(host: &mut SocialHost, snapshot: Option<wire::Snapsho
     apply(host, Down::Snapshot(merged));
 }
 
+/// Contacts and groups this build could not read, on a session that stands
+/// (`worker::Metadata::Unreadable`): chat goes on with the ones read last,
+/// and they are asked for again a minute on rather than with every read.
+fn unreadable_metadata(host: &mut SocialHost, now: u64) {
+    let Some(bridge) = host.central.as_mut() else {
+        return;
+    };
+    bridge.metadata_at = now + LIVE_POLL_MS;
+    bevy::log::warn!(
+        "chat: Central's contacts and groups could not be read; this build may be older than Central"
+    );
+}
+
 fn complete(host: &mut SocialHost, job: Job, result: Result<Reply, Error>, now: u64) {
     let Some(bridge) = host.central.as_mut() else {
         return;
@@ -196,7 +210,7 @@ fn complete(host: &mut SocialHost, job: Job, result: Result<Reply, Error>, now: 
                 }
                 Reply::Poll {
                     generation,
-                    snapshot,
+                    metadata,
                     keys: fetched,
                     messages,
                     after,
@@ -205,7 +219,13 @@ fn complete(host: &mut SocialHost, job: Job, result: Result<Reply, Error>, now: 
                     if generation != bridge.generation || !bridge.wanted {
                         return;
                     }
-                    apply_personal_snapshot(host, snapshot, now);
+                    match metadata {
+                        Metadata::Read(snapshot) => {
+                            apply_personal_snapshot(host, Some(snapshot), now);
+                        }
+                        Metadata::Unreadable => unreadable_metadata(host, now),
+                        Metadata::Skipped => {}
+                    }
                     let tags = messages
                         .iter()
                         .map(|message| message.from.tag.clone())

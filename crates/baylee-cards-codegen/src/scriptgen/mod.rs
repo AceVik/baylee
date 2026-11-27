@@ -42,8 +42,14 @@ mod alternative_cost;
 mod animation;
 mod archon_kismet;
 mod atoms;
+mod attachments;
 mod chains;
+mod choices_players;
 mod constants;
+mod cost_modifiers;
+mod counters;
+
+mod copy;
 mod creature_type;
 mod damage_pair;
 mod dig;
@@ -52,16 +58,20 @@ mod effects;
 mod final_portals;
 mod gond_gate;
 mod guardian52;
+mod hand_and_draw;
 mod horse_johan;
 mod imprison;
 mod keywords;
 mod kicker;
 mod mana;
+mod meld;
+mod names;
 mod prevention;
 mod protection52;
 mod regeneration;
 mod riftstone_portal;
 mod saga_ward_convoke;
+mod set_state;
 mod song52;
 mod statics;
 mod support;
@@ -96,6 +106,8 @@ mod wave30a;
 mod wave30b;
 mod wave30c;
 mod wave30d;
+mod zone_grants;
+mod zones;
 
 use atoms::{
     Bound, amount, color_atom, count_bound, hybrid_pair, keyword_atom, mana_color_const,
@@ -130,8 +142,14 @@ pub struct CardScript {
     pub oracle: String,
     /// `PT:` line (e.g. `*/4`, `2/1+*`), used by single-sided P/T CDAs.
     pub pt: Option<String>,
+    /// `Colors:` line, used when constructing melded back-face `TokenDef`s.
+    pub colors: Option<String>,
+    /// `Loyalty:` line, used when constructing melded planeswalker `TokenDef`s.
+    pub loyalty: Option<String>,
+    /// `MeldPair:<partner>` header on meld cards (`CR 701.42`).
+    pub meld_pair: Option<String>,
     /// `AlternateMode:<mode>` header on multi-face scripts (`Split`,
-    /// `Adventure`, `Modal`, `DoubleFaced`, …).
+    /// `Adventure`, `Omen`, `Flip`, `Meld`, `Modal`, `DoubleFaced`, …).
     pub alternate_mode: Option<String>,
     /// Verbatim `Name:` header on this face, used when resolving `CopyFaceFrom:`.
     pub script_name: String,
@@ -225,7 +243,15 @@ fn parse_face(lines: &[&str]) -> CardScript {
                 out.mana_cost = rest.trim().to_string();
             }
             "PT" => out.pt = Some(rest.trim().to_string()),
+            "Colors" => out.colors = Some(rest.trim().to_string()),
             "Oracle" => out.oracle = rest.to_string(),
+            "MeldPair" => {
+                if out.meld_pair.is_none() {
+                    out.meld_pair = Some(rest.trim().to_string());
+                } else {
+                    out.unknown_lines.push(line.to_string());
+                }
+            }
             "AlternateMode" => {
                 if out.alternate_mode.is_none() {
                     out.alternate_mode = Some(rest.trim().to_string());
@@ -234,7 +260,9 @@ fn parse_face(lines: &[&str]) -> CardScript {
                 }
             }
             "Variant" if rest.starts_with("UniversesWithin:FlavorName:") => {}
-            "Loyalty" if rest.trim().parse::<u32>().is_ok() => {}
+            "Loyalty" if rest.trim().parse::<u32>().is_ok() => {
+                out.loyalty = Some(rest.trim().to_string());
+            }
             "Text" if rest.trim() == "CARDNAME can be your commander." => {
                 out.has_commander_text = true;
             }
@@ -256,39 +284,37 @@ fn parse_face(lines: &[&str]) -> CardScript {
         }
     }
     if cast_only_declare_blockers {
-        let spells: Vec<&str> = out
-            .rules
-            .iter()
-            .filter(|(kind, spec)| *kind == 'A' && spec.trim_start().starts_with("SP$"))
-            .map(|(_, spec)| spec.as_str())
-            .collect();
-        if spells.is_empty()
-            || !spells.iter().all(|spec| {
-                spec.split(" | ")
-                    .any(|part| part.trim_start() == "ActivationPhases$ Declare Blockers")
-            })
-        {
-            out.unknown_lines.push(DECLARE_BLOCKERS_TEXT.to_string());
-        }
+        validate_spell_phase_text(
+            &mut out,
+            "ActivationPhases$ Declare Blockers",
+            DECLARE_BLOCKERS_TEXT,
+        );
     }
     if cast_only_after_blockers {
-        let spells: Vec<&str> = out
-            .rules
-            .iter()
-            .filter(|(kind, spec)| *kind == 'A' && spec.trim_start().starts_with("SP$"))
-            .map(|(_, spec)| spec.as_str())
-            .collect();
-        if spells.is_empty()
-            || !spells.iter().all(|spec| {
-                spec.split(" | ").any(|part| {
-                    part.trim_start() == "ActivationPhases$ Declare Blockers->EndCombat"
-                })
-            })
-        {
-            out.unknown_lines.push(AFTER_BLOCKERS_TEXT.to_string());
-        }
+        validate_spell_phase_text(
+            &mut out,
+            "ActivationPhases$ Declare Blockers->EndCombat",
+            AFTER_BLOCKERS_TEXT,
+        );
     }
     out
+}
+
+fn validate_spell_phase_text(out: &mut CardScript, phase_clause: &str, text_line: &str) {
+    let spells: Vec<&str> = out
+        .rules
+        .iter()
+        .filter(|(kind, spec)| *kind == 'A' && spec.trim_start().starts_with("SP$"))
+        .map(|(_, spec)| spec.as_str())
+        .collect();
+    if spells.is_empty()
+        || !spells.iter().all(|spec| {
+            spec.split(" | ")
+                .any(|part| part.trim_start() == phase_clause)
+        })
+    {
+        out.unknown_lines.push(text_line.to_string());
+    }
 }
 
 /// Parameter keys that are pure prose or AI hints: they change no rule, so
@@ -428,6 +454,7 @@ struct Chain {
     target_exact: Option<u8>,
     target_range: Option<(u8, u8)>,
     target_unique: bool,
+    target_distinct_mana_values: bool,
     target_constraint: Option<&'static str>,
     second_target: Option<String>,
     second_target_is_x: bool,
@@ -493,6 +520,18 @@ struct BlockHalf {
 }
 
 #[allow(clippy::struct_excessive_bools)]
+struct ScriptFlags {
+    has_single_kicker: bool,
+    has_hexproof_from_abilities_pair: bool,
+    has_x_kicker: bool,
+    has_flash: bool,
+    has_delve: bool,
+    has_named_card_static: bool,
+    is_split_front: bool,
+    is_double_faced_front: bool,
+}
+
+#[allow(clippy::struct_excessive_bools)]
 struct Tx<'a> {
     svars: &'a BTreeMap<String, String>,
     script_name: &'a str,
@@ -536,20 +575,35 @@ struct Tx<'a> {
     /// Whether the chain being read is a delayed trigger's `Execute$`, where
     /// `Defined$ DelayTriggerRememberedLKI` is the object it remembers.
     in_delayed: bool,
+    in_repeat_each_object: bool,
+
+    /// True while reading a `TriggerZones$ Graveyard` trigger's `Execute$` chain.
+    in_graveyard_trigger: bool,
     /// An earlier unconditional effect in this resolution chain chose a number.
     has_resolution_chosen_number: bool,
     /// This permanent or an earlier effect in this resolution chain chose a color.
     has_resolution_chosen_color: bool,
     /// An earlier effect in this resolution chain chose a card name.
     has_resolution_chosen_name: bool,
+    /// Whether the script declares a static ability reading `NamedCard`.
+    has_named_card_static: bool,
     /// Whether the activated ability being read sacrifices `CARDNAME` in its cost.
     cost_sacrifices_self: bool,
     /// Whether the activated ability being read sacrifices another object in its cost.
     cost_sacrifices_other: bool,
     /// Whether the spell/ability cost discards a single card (`Discard<1/...>`).
     cost_discards_single_for_cost: bool,
+    /// Whether the activated ability cost exiles a single card from a graveyard
+    /// (excluding graveyard-zone activations like `ExileFromGrave<1/CARDNAME>`).
+    cost_exiles_single_from_grave_activated: bool,
+    /// Whether the spell cast cost exiles a single card from a graveyard.
+    cost_exiles_single_from_grave_spell: bool,
+    /// Whether the chain reader is currently inside `RepeatEach` (`RepeatPlayers$`).
+    in_repeat_player: bool,
     /// Whether the active damage trigger binds `event_object` to the damage source.
     damage_trigger_binds_source: bool,
+    /// Whether the active damage trigger binds `event_player` to the damaged player.
+    damage_trigger_binds_player: bool,
     /// Whether the active damage trigger's `ValidSource$` is the attached permanent.
     damage_trigger_source_is_attached: bool,
     /// Whether the active damage trigger is a combat-damage trigger.
@@ -560,6 +614,13 @@ struct Tx<'a> {
     in_resolution_chosen_x: bool,
     /// Whether an earlier instruction in this chain emitted `Effect::LoseLife`.
     chain_prev_lose_life: bool,
+    /// Whether the immediately preceding `RemoveCounter` line removed all counters
+    /// with `RememberRemoved$ True` so `Count$RememberedSize` maps to
+    /// `Amount::ThisWay(ThisWay::CountersRemovedFromTargets)`.
+    chain_prev_removed_counters: bool,
+    /// Temporary `Amount::ThisWay(...)` binding while walking follow-up steps of a
+    /// `RemoveCounter | RememberRemoved$/RememberAmount$` or `MoveCounter | RememberPut$/RememberAmount$` chain.
+    chain_remembered_amount_expr: Option<&'static str>,
     /// Whether the line currently being lowered has a single object target.
     single_object_target: bool,
     /// Whether the spell being read beholds or reveals a card in its `Cost$`.
@@ -581,6 +642,9 @@ struct Tx<'a> {
     dual_kicker_remap: Option<[u8; 2]>,
     /// Whether the triggered ability being read triggers on `Card.Self`.
     trigger_is_self: bool,
+    /// Whether the triggered ability being read is a dies / battlefield-to-graveyard
+    /// trigger (`Trigger::Dies(...)` / `Trigger::DiesThis`).
+    trigger_changes_zone_to_graveyard: bool,
     /// Whether the cost being read belongs to `S: Mode$ AlternativeCost`,
     /// where `cast_wizard` pays `ExileFromHand`, `TapN` and multi-return
     /// parts that an activated ability does not.
@@ -604,6 +668,13 @@ struct Tx<'a> {
     /// `Card.Self+kicked <1|2>` on a dual-kicker permanent, carrying the
     /// remapped 0-based Oracle kicker index for `Condition::KickedWith`.
     trigger_self_etb_kicked_with: Option<u8>,
+    /// Set by `spell_cast_trigger` when a zoneless self-cast trigger carries an
+    /// inline cast predicate (`+kicked`, `+wasCastFromYourHandByYou`,
+    /// `+!wasCastFromExile`) alongside `Trigger::SpellCast(&Filter::This)`.
+    trigger_self_spell_cond: Option<String>,
+    /// True while lowering a granted trigger inside `S:Mode$ Continuous | AddTrigger$`,
+    /// whose battlefield zone is inherited from the granting static.
+    in_granted_trigger: bool,
     /// While splitting a line whose numeric parameter references a
     /// `Count$Kicked.<A>.<B>` `SVar` into `Effect::IfKicked { then, otherwise }`,
     /// holds `Some(true)` for the kicked arm and `Some(false)` for the
@@ -676,18 +747,39 @@ struct Tx<'a> {
     vote_option_idx: Option<u8>,
     /// True while lowering `Effect | ImprintCards$ Targeted` delayed body or its trailing `Cleanup`.
     wave30a_allow_clear_imprinted: bool,
+    /// True while inspecting optional trigger prices for `Trigger::Dies(&Filter::This)`.
+    is_dies_self_trigger: bool,
     /// True while parsing an activated ability's `Cost$` whose `{X}` is
     /// defined by `SVar:X:Imprinted$CardManaCost` on `ChooseZone::LinkedExile`.
     pub(super) allow_defined_cost_x: bool,
+    /// True while lowering sub-abilities inside `ChoosePlayerEx::then` (`ChosenPlayer` scope).
+    in_chosen_player: bool,
+    /// True while lowering follow-up arms after `SecretChooseNumbers` (`RememberHighest$ True`).
+    in_secret_remembered_player: bool,
+    /// True while lowering `SecretNumberGuess` arms (`RememberedPlayer` -> `PlayerRel::Chosen`).
+    in_secret_guesser_ctx: bool,
+    /// Active Join forces accumulator `SVar` name while lowering post-`RepeatEach` steps.
+    join_forces_acc_var: Option<String>,
+    /// Active `(min, max)` bounds while lowering `ChooseNumberAtRandom::then` (`Count$Random.<lo>.<hi>`).
+    random_number_range: Option<(String, String)>,
     /// Named `SetChosenMode$ True` ETB choices in prompt order (`0..n`).
     etb_chosen_modes: Vec<String>,
     /// Named `NotedFor<Name>` tags for `ETBReplacement:Other` `EachPlayerChooseMode` (`0..n`).
     etb_player_chosen_modes: Vec<String>,
+    /// True when the face declares the exact pair `K:Hexproof:Activated:...` and
+    /// `K:Hexproof:Triggered:...` (*Volatile Stormdrake*, `CR 702.11d`).
+    has_hexproof_from_abilities_pair: bool,
+    /// Paired `ReduceCost` + `RaiseCost` for *Liesa, Shroud of Dusk* commander tax life replacement.
+    commander_tax_pair: cost_modifiers::CommanderTaxLifePair,
+    /// Melded back-face `(name, static_ident)` while transcoding a primary `AlternateMode:Meld` front face.
+    melded_face: Option<(String, String)>,
     body: CardBody,
     /// The first `Api.Key` no rule claimed, if that is why this
     /// script was refused. Recorded rather than derived, because a
     /// second list of each rule's keys would rot the first time a
     /// rule learned a new one.
+    current_rule_idx: Option<usize>,
+    paired_may_play: zone_grants::PairedMayPlayState,
     unclaimed: std::cell::RefCell<Option<String>>,
 }
 
@@ -697,11 +789,14 @@ impl<'a> Tx<'a> {
     /// the resolving effect chain (`Effect::ChooseCreatureType`).
     pub(super) fn has_chosen_creature_type(&self) -> bool {
         self.in_chosen_creature_type
-            || self
-                .body
-                .enter_modifiers
-                .iter()
-                .any(|m| m == "EnterModifier::ChooseSubtype")
+            || self.body.enter_modifiers.iter().any(|m| {
+                matches!(
+                    m.as_str(),
+                    "EnterModifier::ChooseSubtype"
+                        | "EnterModifier::OpponentChoosesCreatureType"
+                        | "EnterModifier::NoteMostPrevalentCreatureTypeInOpponentLibrary"
+                )
+            })
     }
 
     pub(super) fn has_chosen_basic_land_type(&self) -> bool {
@@ -713,14 +808,15 @@ impl<'a> Tx<'a> {
         })
     }
 
-    pub(super) fn new(
-        script: &'a CardScript,
-        cats: &'a SubtypeCatalogs,
-        tokens: Option<&'a TokenLookup>,
-    ) -> Self {
-        let mut single_kickers = 0usize;
-        let mut multi_or_dual = false;
+    fn scan_script_flags(script: &CardScript) -> ScriptFlags {
+        let (mut single_kickers, mut multi_or_dual, mut hex_act, mut hex_trig) =
+            (0usize, false, 0usize, 0usize);
         for kw in &script.keywords {
+            if kw.starts_with("Hexproof:Activated") {
+                hex_act += 1;
+            } else if kw.starts_with("Hexproof:Triggered") {
+                hex_trig += 1;
+            }
             if let Some(rest) = kw.strip_prefix("Kicker:") {
                 if rest.contains(':') {
                     multi_or_dual = true;
@@ -731,6 +827,27 @@ impl<'a> Tx<'a> {
                 multi_or_dual = true;
             }
         }
+        ScriptFlags {
+            has_single_kicker: !multi_or_dual && single_kickers == 1,
+            has_hexproof_from_abilities_pair: hex_act == 1 && hex_trig == 1,
+            has_x_kicker: Self::wave29b_script_has_x_kicker(script),
+            has_flash: script.keywords.iter().any(|k| k.trim() == "Flash"),
+            has_delve: script.keywords.iter().any(|kw| kw == "Delve"),
+            has_named_card_static: script
+                .rules
+                .iter()
+                .any(|(k, s)| *k == 'S' && s.contains("NamedCard")),
+            is_split_front: script.alternate_mode.as_deref() == Some("Split"),
+            is_double_faced_front: script.alternate_mode.as_deref() == Some("DoubleFaced"),
+        }
+    }
+
+    pub(super) fn new(
+        script: &'a CardScript,
+        cats: &'a SubtypeCatalogs,
+        tokens: Option<&'a TokenLookup>,
+    ) -> Self {
+        let f = Self::scan_script_flags(script);
         Self {
             svars: &script.svars,
             script_name: &script.script_name,
@@ -745,37 +862,50 @@ impl<'a> Tx<'a> {
             block_line_one_or_more: false,
             block_half: None,
             in_delayed: false,
+            in_repeat_each_object: false,
+
+            in_graveyard_trigger: false,
             has_resolution_chosen_number: false,
             has_resolution_chosen_color: false,
             has_resolution_chosen_name: false,
+            has_named_card_static: f.has_named_card_static,
             cost_sacrifices_self: false,
             cost_sacrifices_other: false,
             cost_discards_single_for_cost: false,
+            cost_exiles_single_from_grave_activated: false,
+            cost_exiles_single_from_grave_spell: false,
+            in_repeat_player: false,
             damage_trigger_binds_source: false,
+            damage_trigger_binds_player: false,
             damage_trigger_source_is_attached: false,
             damage_trigger_is_combat: false,
             in_discard_hand_may: false,
             in_resolution_chosen_x: false,
             chain_prev_lose_life: false,
+            chain_prev_removed_counters: false,
+            chain_remembered_amount_expr: None,
             single_object_target: false,
             cost_beholds_or_reveals: false,
             cost_sacrifices_all: false,
             cost_sacrifices_x: false,
             cost_returns_self: false,
-            has_x_kicker: Self::wave29b_script_has_x_kicker(script),
+            has_x_kicker: f.has_x_kicker,
             in_chain_resolution: false,
             has_x_mana_cost: script.has_x_mana_cost,
-            has_flash: script.keywords.iter().any(|k| k.trim() == "Flash"),
-            has_single_kicker: !multi_or_dual && single_kickers == 1,
-            has_delve: script.keywords.iter().any(|kw| kw == "Delve"),
+            has_flash: f.has_flash,
+            has_single_kicker: f.has_single_kicker,
+            has_delve: f.has_delve,
             dual_kicker_remap: None,
             trigger_is_self: false,
+            trigger_changes_zone_to_graveyard: false,
             in_alternative_cost: false,
             has_evoke: false,
             is_etb_self_trigger: false,
             trigger_blocks_creature: false,
             trigger_self_etb_kicked: false,
             trigger_self_etb_kicked_with: None,
+            trigger_self_spell_cond: None,
+            in_granted_trigger: false,
             kicked_branch: None,
             kicked_branch_used: std::cell::Cell::new(false),
             counter_on_source: false,
@@ -783,9 +913,9 @@ impl<'a> Tx<'a> {
             in_graveyard_activation: false,
             in_hand_activation: false,
             in_forecast_activation: false,
-            is_split_front: script.alternate_mode.as_deref() == Some("Split"),
+            is_split_front: f.is_split_front,
             room_door: None,
-            is_double_faced_front: script.alternate_mode.as_deref() == Some("DoubleFaced"),
+            is_double_faced_front: f.is_double_faced_front,
             pt: script.pt.as_deref(),
             backup_grants: BTreeMap::new(),
             class_next_level: 2,
@@ -799,10 +929,21 @@ impl<'a> Tx<'a> {
             remembered_cmc: false,
             vote_option_idx: None,
             wave30a_allow_clear_imprinted: false,
+            is_dies_self_trigger: false,
             allow_defined_cost_x: false,
+            in_chosen_player: false,
+            in_secret_remembered_player: false,
+            in_secret_guesser_ctx: false,
+            join_forces_acc_var: None,
+            random_number_range: None,
             etb_chosen_modes: Vec::new(),
             etb_player_chosen_modes: Vec::new(),
+            has_hexproof_from_abilities_pair: f.has_hexproof_from_abilities_pair,
+            commander_tax_pair: cost_modifiers::CommanderTaxLifePair::default(),
+            melded_face: None,
             body: CardBody::default(),
+            current_rule_idx: None,
+            paired_may_play: zone_grants::PairedMayPlayState::detect(script),
             unclaimed: std::cell::RefCell::new(None),
         }
     }
@@ -891,7 +1032,9 @@ impl<'a> Tx<'a> {
                 return Some(format!("Amount::Fixed({value})"));
             }
         }
-        amount(raw, self.svars, self.has_x).or_else(|| self.wave16a_amount_num(raw))
+        amount(raw, self.svars, self.has_x)
+            .or_else(|| self.choices_amount_num(raw))
+            .or_else(|| self.wave16a_amount_num(raw))
     }
 
     /// [`plain_number`], resolving a non-zero `Count$Kicked.<A>.<B>` `SVar` when
@@ -1054,6 +1197,26 @@ fn transcode_face(
     allow_vanilla: bool,
     room_door: Option<u8>,
 ) -> Option<CardBody> {
+    transcode_face_with_meld(
+        script,
+        cats,
+        tokens,
+        statics,
+        allow_vanilla,
+        room_door,
+        None,
+    )
+}
+
+fn transcode_face_with_meld(
+    script: &CardScript,
+    cats: &SubtypeCatalogs,
+    tokens: Option<&TokenLookup>,
+    statics: String,
+    allow_vanilla: bool,
+    room_door: Option<u8>,
+    melded_face: Option<(String, String)>,
+) -> Option<CardBody> {
     if !script.unknown_lines.is_empty() {
         return None;
     }
@@ -1072,6 +1235,7 @@ fn transcode_face(
     }
     let mut tx = Tx::new(script, cats, tokens);
     tx.room_door = room_door;
+    tx.melded_face = melded_face;
     tx.body.statics = statics;
     if song52::song_candidate(script) {
         tx.song_whole_card(script)?;
@@ -1102,13 +1266,28 @@ fn transcode_face(
     {
         tx.keyword(line)?;
     }
-    for (kind, spec) in &script.rules {
+    for (idx, (kind, spec)) in script.rules.iter().enumerate() {
         if *kind == 'S' && is_optional_cost_static(spec) {
             continue;
         }
-        tx.rule(*kind, spec)?;
+        tx.rule_with_index(idx, *kind, spec)?;
+    }
+    tx.paired_may_play_all_consumed()?;
+    if tx
+        .body
+        .abilities
+        .iter()
+        .any(|a| a.contains("AltCastZones::LinkedExile"))
+        && tx.body.abilities.iter().any(|a| {
+            a.contains("Effect::ExileTop {")
+                || a.contains("Effect::ExileGraveyard {")
+                || a.contains("Effect::exile(")
+        })
+    {
+        return tx.deny("linked-exile `MayPlay` beside an unlinked exile producer".to_string());
     }
     tx.block_halves_paired()?;
+    tx.commander_tax_pair_complete()?;
     tx.align_dual_kicker_order();
     tx.apply_overload()?;
     if !(tx.body.has_own_rules() || allow_vanilla && is_vanilla_face(script)) {
@@ -1213,13 +1392,57 @@ pub fn transcode(
         return Some(body);
     }
     let mode = script.alternate_mode.as_deref()?;
+    if mode == "Meld" {
+        let partner = script.meld_pair.as_ref()?.trim();
+        if partner.is_empty() {
+            return None;
+        }
+        if let Some(melded_script) = script.alternate.as_deref() {
+            if melded_script.alternate_mode.is_some()
+                || melded_script.alternate.is_some()
+                || !melded_script.unknown_lines.is_empty()
+            {
+                return None;
+            }
+            let melded_statics = meld::build_melded_token_static(melded_script, cats, tokens)?;
+            let mut front = transcode_face_with_meld(
+                script,
+                cats,
+                tokens,
+                melded_statics,
+                false,
+                None,
+                Some((
+                    melded_script.script_name.trim().to_string(),
+                    meld::MELDED_STATIC.to_string(),
+                )),
+            )?;
+            front.meld_partner = Some(partner.to_string());
+            front.prune_unused_statics();
+            front.notes.push("transcoded from the card's rules".into());
+            return Some(front);
+        }
+        let mut front = transcode_face(script, cats, tokens, String::new(), false, None)?;
+        front.meld_partner = Some(partner.to_string());
+        front.prune_unused_statics();
+        front.notes.push("transcoded from the card's rules".into());
+        return Some(front);
+    }
     if !matches!(
         mode,
-        "Split" | "Adventure" | "Modal" | "DoubleFaced" | "Prepare"
+        "Split" | "Adventure" | "Omen" | "Flip" | "Modal" | "DoubleFaced" | "Prepare"
     ) {
         return None;
     }
     let back_script = script.alternate.as_deref()?;
+    if mode == "Omen"
+        && !back_script
+            .type_line
+            .split_whitespace()
+            .any(|w| w == "Omen")
+    {
+        return None;
+    }
     let is_room = script.is_room || back_script.is_room;
     if (is_room && (mode != "Split" || !script.is_room || !back_script.is_room))
         || back_script.copy_face_from.is_some()
@@ -1244,6 +1467,8 @@ pub fn transcode(
         return None;
     }
     front.back_is_adventure = mode == "Adventure";
+    front.back_is_flip = mode == "Flip";
+    front.back_is_omen = mode == "Omen";
     front.back_is_prepare = mode == "Prepare";
     front.back = Some(Box::new(back));
     front.prune_unused_statics();

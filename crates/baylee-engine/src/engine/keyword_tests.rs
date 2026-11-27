@@ -204,6 +204,7 @@ const ENFORCED: &[(&str, baylee_cards_dsl::KeywordSet)] = {
         ("delve", K::DELVE),         // casting::has_delve + stack Modifier::AddKeyword (CR 702.66a)
         ("demonstrate", K::DEMONSTRATE), // casting / stack Modifier::AddKeyword (CR 702.148a)
         ("assist", K::ASSIST),       // cast_wizard + AssistWizardState (CR 702.132a)
+        ("decayed", K::DECAYED),     // combat::can_block + trigger::combat_keywords (CR 702.147a)
     ]
 };
 

@@ -17,6 +17,10 @@ serde.workspace = true
 sha2.workspace = true
 serde_json = { workspace = true, features = ["raw_value"] }
 
+[dev-dependencies]
+# Reads the schema protoc compiled (`tests/engine_link.rs`).
+prost-types.workspace = true
+
 [build-dependencies]
 prost-build.workspace = true
 protoc-bin-vendored.workspace = true

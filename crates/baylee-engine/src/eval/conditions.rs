@@ -145,12 +145,14 @@ pub fn condition_holds_with_context(
         | Condition::SourceWasBlockedThisTurn
         | Condition::SoulbondEventCanPair
         | Condition::TargetSpellWouldDestroy(_)
-        | Condition::EvolveFromEvent => false,
+        | Condition::EvolveFromEvent
+        | Condition::RememberedMatches(_)
+        | Condition::YouAreRememberedPlayer => false,
         // "Only after combat": a main or ending phase after this turn's
         // combat (the postcombat main phase or the end phase).
         Condition::ChosenOpponentControls(filter) => state
             .object(source)
-            .and_then(crate::object::GameObject::chosen_opponent)
+            .and_then(crate::object::GameObject::chosen_opponent_for_rules)
             .filter(|p| !state.has_left(*p))
             .is_some_and(|opponent| {
                 state.battlefield_seen().any(|id| {
@@ -164,7 +166,8 @@ pub fn condition_holds_with_context(
             let Some(object) = state.object(source) else {
                 return false;
             };
-            let (Some(opponent), Some(color)) = (object.chosen_opponent(), object.chosen_color)
+            let (Some(opponent), Some(color)) =
+                (object.chosen_opponent_for_rules(), object.chosen_color)
             else {
                 return false;
             };
@@ -790,6 +793,20 @@ pub fn condition_holds_with_context(
                 .riders
                 .contains(&crate::object::Rider::ChosenMode(mode))
         }),
+        Condition::WasForetold => object_was_foretold(state, source, None),
+        Condition::WasSneaked => object_was_sneaked(state, source, None),
+        Condition::TreasureManaWasSpent => object_spent_treasure_mana(state, source, None),
+        Condition::OpponentLifeAtMost(max) => state
+            .players
+            .iter()
+            .any(|p| !p.has_lost() && state.is_opponent(p.id, you) && p.life <= max),
+        Condition::PlayerAttackedYouThisTurn(who) => {
+            super::players_for_source(who, state, you, Some(source)).is_some_and(|seats| {
+                seats
+                    .into_iter()
+                    .any(|seat| state.per_turn.attacked_players.items.contains(&(seat, you)))
+            })
+        }
         Condition::CapturedCountAtLeast(min) => state
             .resolution_remembered
             .as_ref()
@@ -858,6 +875,28 @@ pub fn condition_holds_with_context(
                 })
             })
         }
+        Condition::OpponentHasNoCardsInHand => state.players.iter().any(|p| {
+            !p.has_lost()
+                && state.is_opponent(p.id, you)
+                && state
+                    .zones
+                    .list(crate::zone::ZoneLocation::Hand(p.id))
+                    .is_empty()
+        }),
+        Condition::AnyPlayerLifeAtMostHalfStarting => state
+            .players
+            .iter()
+            .any(|p| !p.has_lost() && p.life <= p.starting_life.div_euclid(2)),
+        Condition::YouControlSharingCreatureType(min_count) => {
+            you_control_sharing_creature_type(state, you, min_count)
+        }
+        Condition::PlayerAttackedYouLastTurn => state
+            .last_turn_attacked_players
+            .items
+            .iter()
+            .any(|rec| rec.defender == you),
+        Condition::IsNight => state.day_night == Some(crate::turn::DayNight::Night),
+        Condition::IsDay => state.day_night == Some(crate::turn::DayNight::Day),
         Condition::TriggerOnly(inner) => condition_holds_with_context(state, you, context, *inner),
     }
 }
@@ -1057,6 +1096,9 @@ pub(crate) fn intervening_if_for_incarnation(
                     .contains(&crate::object::Rider::ChosenMode(mode))
             })
         }
+        Some(Condition::WasForetold) => object_was_foretold(state, source, version),
+        Some(Condition::WasSneaked) => object_was_sneaked(state, source, version),
+        Some(Condition::TreasureManaWasSpent) => object_spent_treasure_mana(state, source, version),
         Some(Condition::SourceCameUnderYourControlSinceYourLastUpkeep) => {
             super::upkeep_history::came_under_your_control(state, you, source, version)
         }
@@ -1400,6 +1442,87 @@ pub(crate) fn graveyard_card_types(
         })
 }
 
+pub(crate) fn object_was_foretold(
+    state: &GameState,
+    source: ObjectId,
+    version: Option<u32>,
+) -> bool {
+    let Some(obj) = state
+        .damage_source(source, version)
+        .or_else(|| state.object_or_departed(source))
+    else {
+        return false;
+    };
+    if obj
+        .riders
+        .iter()
+        .any(|r| matches!(r, crate::object::Rider::Foretold { .. }))
+    {
+        return true;
+    }
+    if obj.cast_history.caster().is_some()
+        && let Some(prev_v) = obj.version.checked_sub(1)
+        && let Some(prev) = state.source_object(baylee_core::ids::DamageSourceRef {
+            object: source,
+            version: prev_v,
+        })
+        && prev.zone == Zone::Stack
+    {
+        return prev
+            .riders
+            .iter()
+            .any(|r| matches!(r, crate::object::Rider::Foretold { .. }));
+    }
+    false
+}
+
+pub(crate) fn object_was_sneaked(
+    state: &GameState,
+    source: ObjectId,
+    version: Option<u32>,
+) -> bool {
+    let Some(obj) = state
+        .damage_source(source, version)
+        .or_else(|| state.object_or_departed(source))
+    else {
+        return false;
+    };
+    if obj.riders.contains(&crate::object::Rider::Sneaked) {
+        return true;
+    }
+    if obj.cast_history.caster().is_some()
+        && let Some(prev_v) = obj.version.checked_sub(1)
+        && let Some(prev) = state.source_object(baylee_core::ids::DamageSourceRef {
+            object: source,
+            version: prev_v,
+        })
+        && prev.zone == Zone::Stack
+    {
+        return prev.riders.contains(&crate::object::Rider::Sneaked);
+    }
+    false
+}
+
+pub(crate) fn object_spent_treasure_mana(
+    state: &GameState,
+    source: ObjectId,
+    version: Option<u32>,
+) -> bool {
+    let Some(obj) = state
+        .damage_source(source, version)
+        .or_else(|| state.object_or_departed(source))
+    else {
+        return false;
+    };
+    if obj.treasure_mana_spent() {
+        return true;
+    }
+    if let Some(paid) = obj.paid.as_ref() {
+        return crate::mana_provenance::paid_spent_treasure_mana(state, paid);
+    }
+    false
+}
+
 fn object_was_bargained(_state: &GameState, object: &crate::object::GameObject) -> bool {
     object.riders.contains(&crate::object::Rider::Bargained)
 }
@@ -1472,4 +1595,43 @@ pub(crate) fn counters_placed_on_source_this_turn(
             .counter_placements
             .contains(&(reference, kind))
     }
+}
+
+/// Whether `you` control at least `min_count` creatures on the battlefield
+/// that all share at least one creature subtype.
+fn you_control_sharing_creature_type(state: &GameState, you: PlayerId, min_count: u32) -> bool {
+    let min = usize::try_from(min_count).unwrap_or(usize::MAX);
+    if min == 0 {
+        return true;
+    }
+    let mut types_per_creature: smallvec::SmallVec<[baylee_core::types::SubtypeSet; 8]> =
+        smallvec::SmallVec::new();
+    for id in state.battlefield_seen() {
+        let Some(obj) = state.object(id) else {
+            continue;
+        };
+        if obj.controller == you
+            && obj
+                .characteristics()
+                .types
+                .contains(baylee_core::types::TypeSet::CREATURE)
+        {
+            types_per_creature.push(obj.characteristics().subtypes);
+        }
+    }
+    if types_per_creature.len() < min {
+        return false;
+    }
+    if min == 1 {
+        return true;
+    }
+    let mut candidate_types = baylee_core::types::SubtypeSet::EMPTY;
+    for &subtypes in &types_per_creature[..=types_per_creature.len() - min] {
+        candidate_types.union_with(subtypes);
+    }
+    let all_creature_types = baylee_core::generated::subtypes::ALL_CREATURE_TYPES;
+    candidate_types.iter().any(|t| {
+        all_creature_types.contains(t)
+            && types_per_creature.iter().filter(|s| s.contains(t)).count() >= min
+    })
 }

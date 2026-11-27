@@ -19,6 +19,8 @@ use baylee_core::{
 
 static EXPLOIT_EFFECTS: &[Effect] = &[Effect::Exploit];
 
+static EVOKE_GRANT_SACRIFICE: &[Effect] = &[Effect::SacrificeSelf];
+
 static EVOLVE_EFFECTS: &[Effect] = &[Effect::AddCounterSource {
     kind: CounterKind::P1P1,
     amount: Amount::Fixed(1),
@@ -65,6 +67,29 @@ pub(super) fn collect(
                     state.event_object_identity(*object, entry.seq),
                     n,
                     EXPLOIT_EFFECTS,
+                    None,
+                    triggers,
+                );
+            }
+            // CR 702.74a: Evoke granted by a static ability ("When this
+            // permanent enters, if its evoke cost was paid, its controller
+            // sacrifices it.").
+            if source.riders.contains(&crate::object::Rider::EvokedGrant)
+                && source.characteristics().abilities_lost.is_none()
+                && !source.characteristics().rules_text_lost
+            {
+                let mult = super::matching::times_triggered_for_entry(
+                    state,
+                    TriggerEventKind::EntersBattlefield,
+                    source,
+                    Some(entry),
+                );
+                push_entry_trigger(
+                    source,
+                    *object,
+                    state.event_object_identity(*object, entry.seq),
+                    mult,
+                    EVOKE_GRANT_SACRIFICE,
                     None,
                     triggers,
                 );

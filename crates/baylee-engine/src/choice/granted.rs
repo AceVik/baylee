@@ -25,6 +25,11 @@ pub enum GrantedActionKind {
         /// Damage prevented by this use.
         amount: u32,
     },
+    /// End the linked continuous-effect group on `target` (e.g. Licid revert, CR 116.2a).
+    EndContinuousEffects {
+        /// Battlefield incarnation whose continuous effects are ended.
+        target: DamageSourceRef,
+    },
 }
 
 /// One legal special action. Its ID is never reused after expiry.

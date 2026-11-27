@@ -95,6 +95,28 @@ impl Hash for PerTurnTrackedFlag {
 /// `ModalRestriction::OncePerTurn`, CR 700.2i), keyed by `(incarnation, ability_index)`.
 /// Writes nothing into [`Hash`] while empty so existing snapshot hashes are preserved;
 /// tags populated maps with disjoint hash tag `361_u16`.
+/// Per-turn `(attacker_player, attacked_player)` records for
+/// `Condition::PlayerAttackedYouThisTurn`. Emits zero bytes into [`Hash`]
+/// while untracked or empty; tags populated tracked entries with `555_u16`.
+#[derive(Clone, Default, PartialEq, Eq, Debug)]
+pub struct PerTurnAttackedPlayers {
+    /// Whether any card in this game reads `Condition::PlayerAttackedYouThisTurn`.
+    pub tracked: bool,
+    /// Distinct `(attacking_player, attacked_player)` pairs declared this turn.
+    pub items: Vec<(PlayerId, PlayerId)>,
+}
+
+impl Hash for PerTurnAttackedPlayers {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        if self.tracked && !self.items.is_empty() {
+            255_u8.hash(state);
+            555_u16.hash(state);
+            1_u8.hash(state);
+            self.items.as_slice().hash(state);
+        }
+    }
+}
+
 #[derive(Clone, Default, PartialEq, Eq, Debug)]
 pub struct PerTurnModalMasks(
     pub std::collections::BTreeMap<(baylee_core::ids::DamageSourceRef, u32), u64>,
@@ -106,6 +128,45 @@ impl Hash for PerTurnModalMasks {
             255_u8.hash(state);
             361_u16.hash(state);
             self.0.hash(state);
+        }
+    }
+}
+
+/// Seats that have already performed or replaced a non-(first-in-draw-step)
+/// draw this turn (`ReplacementRule::ReplaceDrawWithDrawsThen { first_extra_this_turn: true }`;
+/// *Reed Richards, Smartest Man*). Emits reserved hash tag `581` only when
+/// tracked and non-empty so unrelated games keep identical replay hashes.
+#[derive(Clone, Default, PartialEq, Eq, Debug)]
+pub struct PerTurnExtraDraws {
+    /// Whether any card in this game reads first-extra-draw history.
+    pub tracked: bool,
+    /// Seats that already had an extra draw this turn.
+    pub seats: Vec<PlayerId>,
+}
+
+impl PerTurnExtraDraws {
+    /// Record an extra draw for `player` (idempotent, canonical sorted order).
+    pub fn mark(&mut self, player: PlayerId) {
+        if let Err(pos) = self.seats.binary_search(&player) {
+            self.seats.insert(pos, player);
+        }
+    }
+
+    /// Whether `player` already had an extra draw this turn.
+    #[must_use]
+    pub fn has(&self, player: PlayerId) -> bool {
+        self.seats.contains(&player)
+    }
+}
+
+impl Hash for PerTurnExtraDraws {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        if self.tracked && !self.seats.is_empty() {
+            let mut seats = self.seats.clone();
+            seats.sort_unstable();
+            255_u8.hash(state);
+            581_u16.hash(state);
+            seats.as_slice().hash(state);
         }
     }
 }
@@ -338,6 +399,9 @@ pub struct PerTurn {
     /// Whether any card in this game reads `CastFromZone` / `SourceCastFromZone`
     /// for `Exile`, `Library`, or `Command` (`Rider::CastOriginZone`).
     pub track_cast_origin_zone: PerTurnTrackedFlag,
+    /// Whether any card in this game reads `Filter::ExiledByYou` or
+    /// `AltCastZones::ExiledByYou` (`Rider::ExiledBy`).
+    pub track_exilers: PerTurnTrackedFlag,
     /// Graveyard card incarnations put there while surveilling this turn,
     /// paired with the surveilling player (`Filter::SurveilledByYouThisTurn`).
     pub surveilled_cards: PerTurnTracked<(baylee_core::ids::DamageSourceRef, PlayerId)>,
@@ -347,6 +411,20 @@ pub struct PerTurn {
     /// Chronological log of cards discarded this turn (with pre-discard hand
     /// snapshots) for `Trigger::OneOrMoreCardsDiscarded { first_this_turn: true, .. }`.
     pub discard_history: PerTurnTracked<DiscardHistoryRecord>,
+    /// Seats that already had a non-(first-in-draw-step) draw this turn.
+    pub extra_draw_occurred: PerTurnExtraDraws,
+    /// `(attacking_player, attacked_player)` pairs declared this turn
+    /// (`Condition::PlayerAttackedYouThisTurn`).
+    pub attacked_players: PerTurnAttackedPlayers,
+    /// Whether any card in this game reads `PlayerFilter::OpponentNotAttackedBySourceLastCombat`.
+    pub track_last_combat_attacked: PerTurnTrackedFlag,
+    /// Energy counters paid or lost per player this turn (`Amount::EnergyRemovedThisTurn`).
+    pub energy_removed: PerTurnTracked<EnergyRemovedRecord>,
+    /// Distinct `(attacker, defender)` pairs attacked directly this turn
+    /// (`Amount::OpponentsAttackedThisTurn`).
+    pub opponents_attacked: PerTurnTracked<OpponentAttackedRecord>,
+    /// Activated abilities activated this turn (`Modifier::FirstActivatedAbilityEachTurnCostLess`).
+    pub activated_abilities_this_turn: PerTurnTracked<ActivatedAbilityRecord>,
 }
 
 /// One discarded card recorded this turn ([`PerTurn::discard_history`]).
@@ -441,6 +519,84 @@ impl std::hash::Hash for SpellCastRecord {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         (372_u16, self.spell, self.caster).hash(state);
         super::hash::sacrifice_snapshot_digest(&self.snapshot).hash(state);
+    }
+}
+
+/// One activated ability activated this turn
+/// ([`PerTurn::activated_abilities_this_turn`]).
+#[derive(Clone, Debug)]
+pub struct ActivatedAbilityRecord {
+    /// Player who activated the ability.
+    pub activator: PlayerId,
+    /// Source permanent incarnation whose ability was activated.
+    pub source: baylee_core::ids::DamageSourceRef,
+    /// Frozen snapshot of the source permanent when activated.
+    pub snapshot: std::sync::Arc<crate::object::GameObject>,
+    /// Activation-time frozen snapshots of object targets chosen across all
+    /// target slots (`targets`, `second_targets`, `third_targets`).
+    pub target_snapshots: Vec<std::sync::Arc<crate::object::GameObject>>,
+}
+
+impl std::hash::Hash for ActivatedAbilityRecord {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (
+            603_u16,
+            self.activator,
+            self.source,
+            self.target_snapshots.len(),
+        )
+            .hash(state);
+        super::hash::sacrifice_snapshot_digest(&self.snapshot).hash(state);
+        for snap in &self.target_snapshots {
+            snap.id.hash(state);
+            super::hash::sacrifice_snapshot_digest(snap).hash(state);
+        }
+    }
+}
+
+/// Tagged energy counter loss this turn ([`PerTurn::energy_removed`]).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct EnergyRemovedRecord {
+    /// Player who paid or lost energy.
+    pub player: PlayerId,
+    /// Energy counters removed.
+    pub amount: u32,
+}
+
+impl std::hash::Hash for EnergyRemovedRecord {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (601_u16, self.player, self.amount).hash(state);
+    }
+}
+
+/// Tagged attacker->defender pair this turn ([`PerTurn::opponents_attacked`]).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct OpponentAttackedRecord {
+    /// Attacking player.
+    pub attacker: PlayerId,
+    /// Defending player attacked directly.
+    pub defender: PlayerId,
+}
+
+impl std::hash::Hash for OpponentAttackedRecord {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (602_u16, self.attacker, self.defender).hash(state);
+    }
+}
+
+/// Tagged attacker->defender pair from a player's most recent completed turn
+/// ([`crate::state::GameState::last_turn_attacked_players`]).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct LastTurnAttackedRecord {
+    /// Player whose last completed turn this records.
+    pub attacker: PlayerId,
+    /// Player attacked directly during that turn.
+    pub defender: PlayerId,
+}
+
+impl std::hash::Hash for LastTurnAttackedRecord {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (604_u16, self.attacker, self.defender).hash(state);
     }
 }
 
@@ -796,9 +952,16 @@ impl PerTurn {
             cast_spells_this_turn: PerTurnTracked::default(),
             track_mana_types_spent: PerTurnTrackedFlag::default(),
             track_cast_origin_zone: PerTurnTrackedFlag::default(),
+            track_exilers: PerTurnTrackedFlag::default(),
             surveilled_cards: PerTurnTracked::default(),
             cards_foretold: PerTurnTracked::default(),
             discard_history: PerTurnTracked::default(),
+            extra_draw_occurred: PerTurnExtraDraws::default(),
+            attacked_players: PerTurnAttackedPlayers::default(),
+            track_last_combat_attacked: PerTurnTrackedFlag::default(),
+            energy_removed: PerTurnTracked::default(),
+            opponents_attacked: PerTurnTracked::default(),
+            activated_abilities_this_turn: PerTurnTracked::default(),
         }
     }
 
@@ -972,6 +1135,11 @@ impl PerTurn {
         self.surveilled_cards.items.clear();
         self.cards_foretold.items.clear();
         self.discard_history.items.clear();
+        self.extra_draw_occurred.seats.clear();
+        self.attacked_players.items.clear();
+        self.energy_removed.items.clear();
+        self.opponents_attacked.items.clear();
+        self.activated_abilities_this_turn.items.clear();
     }
 
     /// Resets all counters (called at every turn start).
@@ -1048,9 +1216,16 @@ impl PerTurn {
             cast_spells_this_turn: _,
             track_mana_types_spent: _,
             track_cast_origin_zone: _,
+            track_exilers: _,
             surveilled_cards: _,
             cards_foretold: _,
             discard_history: _,
+            extra_draw_occurred: _,
+            attacked_players: _,
+            track_last_combat_attacked: _,
+            energy_removed: _,
+            opponents_attacked: _,
+            activated_abilities_this_turn: _,
         } = self;
         *untapped_lands_at_start = 0;
         *hand_size_at_start = 0;

@@ -371,7 +371,9 @@ fn collect_named_from_effects(
 ) {
     let mut seen = 0;
     Effect::walk(effects, &mut seen, &mut |eff| match eff {
-        Effect::MeldWithNamed { partner_name, .. } => out.push(partner_name),
+        Effect::MeldWithNamed { partner_name, .. } | Effect::MeldPair { partner_name, .. } => {
+            out.push(partner_name);
+        }
         Effect::SearchLibrary { filter, .. }
         | Effect::SearchLibraryBeforeShuffle { filter, .. }
         | Effect::SearchLibraryOrGraveyard { filter, .. }

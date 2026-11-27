@@ -649,6 +649,82 @@ pub enum Amount {
     /// resolution (`CR 608.2h`; *Command the Dreadhorde*). Appended to preserve
     /// replay identities.
     TotalTargetsManaValue,
+    /// Number of distinct nonempty names (`CR 201.2`, `CR 201.2a`) among objects
+    /// in `zone` matching `filter` (*All-Fates Scroll*, *Audience with Trostani*,
+    /// *Branching Timeline*, *Cloak and Phaser*, *Deep Space Scan*, *Eerie
+    /// Ultimatum*, *Warp Speed*). Face-down and nameless objects contribute
+    /// nothing. Appended to preserve replay identities.
+    DistinctNames {
+        /// Zone scanned.
+        zone: ZoneSel,
+        /// Filter matched against each object in `zone`.
+        filter: &'static Filter,
+    },
+    /// Toughness of this ability's source (or its LKI toughness if departed;
+    /// *Exuberant Wolfbear*, *Galion*, *Woodcaller Automaton*). Appended to
+    /// preserve replay identities.
+    SourceToughness,
+    /// Mana value of the card discarded to pay this spell or ability's cost
+    /// (`CR 608.2h`; *Slumbering Tora*). Appended to preserve replay identities.
+    DiscardedManaValue,
+    /// Number of distinct basic land types among lands controlled by `who`
+    /// (`Domain`, `CR 305.6`; *Collective Restraint*). Appended to preserve
+    /// replay identities.
+    Domain(super::PlayerRel),
+    /// Total number of counters of all kinds on the subject object (the
+    /// prospective attacker for [`crate::Modifier::AttackManaTax`] on *Nils,
+    /// Discipline Enforcer*, or the source object elsewhere). Appended to
+    /// preserve replay identities.
+    TotalCountersOnSubject,
+    /// Number of counters of `kind` on player(s) matching `player`
+    /// (*Bring the Ending* poison counters, *Vexing Radgull* rad counters).
+    /// Appended to preserve replay identities.
+    PlayerCounters {
+        /// Player(s) whose counters are read.
+        player: super::PlayerRel,
+        /// Counter kind counted (e.g. `CounterKind::Poison`, `CounterKind::Rad`).
+        kind: super::CounterKind,
+    },
+    /// Total number of times the Ring has tempted `player` this game
+    /// (`CR 701.54`; *Frodo, Sauron's Bane*). Appended to preserve replay
+    /// identities.
+    RingTemptedCount(super::PlayerRel),
+    /// Cumulative sum accumulated during this resolution by
+    /// [`super::Effect::AccumulateChosenNumber`] (Join forces: *Alliance of
+    /// Arms*, *Collective Voyage*, *Mana-Charged Dragon*, *Minds Aglow*,
+    /// *Shared Trauma*). Appended to preserve replay identities.
+    ResolutionAccumulatedNumber,
+    /// Number of distinct card types (`CR 300.1`) among objects in `zone`
+    /// matching `filter` (*Emrakul, the Promised End*). Appended to preserve
+    /// replay identities.
+    DistinctCardTypesInZone {
+        /// Zone scanned.
+        zone: ZoneSel,
+        /// Filter matched against each object in `zone`.
+        filter: &'static Filter,
+    },
+    /// Number of distinct card types (`CR 300.1`) among permanents sacrificed
+    /// this turn by players matching `PlayerRel`, using each permanent's
+    /// pre-departure LKI types (*Korvold, Gleeful Glutton*). Appended to
+    /// preserve replay identities.
+    DistinctSacrificedCardTypesThisTurn(super::PlayerRel),
+    /// Number of distinct opponents you attacked this turn (*Fast Forward*,
+    /// *Own the Day*). Appended to preserve replay identities.
+    OpponentsAttackedThisTurn,
+    /// Number of distinct opponents still in the game who were dealt damage
+    /// this turn (*Gnoll War Band*). Appended to preserve replay identities.
+    OpponentsDealtDamageThisTurn,
+    /// Total noncombat damage dealt to opponents this turn (*Chandra's
+    /// Incinerator*). Appended to preserve replay identities.
+    NonCombatDamageDealtToOpponentsThisTurn,
+    /// Total `{E}` (energy counters) paid or lost this turn by players
+    /// matching `PlayerRel` (*Blaster Hulk*). Appended to preserve replay
+    /// identities.
+    EnergyRemovedThisTurn(super::PlayerRel),
+    /// Power of the permanent this source is currently attached to, floored at
+    /// 0 (`CR 107.1b`; *Glamdring, Foe-hammer*). Appended to preserve replay
+    /// identities.
+    AttachedPower,
 }
 
 /// The recipient [`Amount::DamageThisTurn`] counts.
@@ -766,6 +842,12 @@ pub enum ThisWay {
     BeheldOrRevealedPower,
     /// Number of objects countered by the preceding effect.
     Countered,
+    /// Total counters actually moved by [`super::Effect::MoveCounters`] earlier
+    /// in this resolution (`CR 122.5`). Appended to preserve replay identities.
+    CountersMoved,
+    /// Total counters actually removed by counter-removal effects earlier in
+    /// this resolution. Appended to preserve replay identities.
+    CountersRemovedAny,
 }
 
 impl Amount {

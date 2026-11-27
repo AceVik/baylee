@@ -78,7 +78,7 @@ parking_lot.workspace = true
 prost.workspace = true
 sea-orm.workspace = true
 serde.workspace = true
-serde_json.workspace = true
+serde_json = { workspace = true, features = ["raw_value"] }
 sha2.workspace = true
 subtle.workspace = true
 time = { workspace = true, features = ["parsing"] }

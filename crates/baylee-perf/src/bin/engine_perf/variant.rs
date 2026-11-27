@@ -9,7 +9,7 @@ pub(super) type Detection = baylee_engine::engine::DetectLoops;
 #[cfg(feature = "tower")]
 pub(super) type Registry = baylee_engine::extensions::NativeLookup<
     baylee_gamehost::RegistryLookup,
-    baylee_engine_server::tower::Pack,
+    engine_server::tower::Pack,
 >;
 #[cfg(not(feature = "tower"))]
 pub(super) type Registry = baylee_gamehost::RegistryLookup;

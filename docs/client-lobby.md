@@ -180,7 +180,14 @@ location instead.
 
 After gateway selection, the authenticated Lobby places Ranked, Tower, Daily
 and Weekly beside the table list as two rows of two equal tiles (Ranked beside
-the Tower, the Daily beside the Weekly; one column on a phone), the Daily and
+the Tower, the Daily beside the Weekly; one column on a phone), the Tower
+only where the account's Central delegates one: the client asks once per
+account, on the account worker, for a Tower grant (`echoes::native::reach`),
+and a Central without a Tower answers `Unavailable` (owner, 27.11.2026: Tower
+Echoes is not live for the open beta; a tile that opened onto an error must not
+stand). Until it is known there is no tile, no Tower collection in the account
+menu and Ranked takes its row alone; a yes keeps its connection for the first
+visit. the Daily and
 the Weekly counting down what is left of their task under its name. There is no
 Tasks navigation tab. Each new Echoes run chooses one of five 39+1 Commander
 starters and enters its own shop. The current shop displays six equipment

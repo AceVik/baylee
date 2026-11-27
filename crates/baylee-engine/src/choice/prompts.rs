@@ -191,6 +191,8 @@ pub enum SpellEnding {
     /// Exile on an adventure, from where its controller may play it
     /// (CR 716.3d).
     Adventure,
+    /// Shuffled into its owner's library as an Omen spell resolves (CR 720.3d).
+    Omen,
     /// Exile and nothing more: an effect that replaces the graveyard, such
     /// as Yawgmoth's Will's or Dauthi Voidwalker's.
     Exile,

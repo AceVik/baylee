@@ -45,6 +45,7 @@ use baylee_core::types::TypeSet;
 pub use attack::{
     AttackRules, blocking_player, can_attack, defender_options, defending_player, summoning_sick,
 };
+pub(crate) use attack::{can_afford_attack_mana_and_phyrexian, mana_symbol_of};
 pub use block::{
     BlockRules, block_bound, block_options, can_block, controls_land_of_type, menace_satisfiable,
     ready_blockers,
@@ -256,6 +257,13 @@ pub struct CombatState {
     /// wins. Cleared with the combat.
     defended: Vec<(ObjectId, u32, Defender)>,
     defender_contexts: std::collections::BTreeMap<ObjectId, defenders::DefenderContext>,
+    /// Exact `(creature, attacked_player)` pairs declared as attackers against
+    /// a player during this combat (`CR 508.1`). Preserved even if removed from
+    /// combat before combat ends, and never populated for creatures put onto
+    /// the battlefield attacking (`CR 508.4`). Hashed conditionally in
+    /// `GameState::snapshot_hash` / `hash_loop_combat` only when
+    /// `per_turn.track_last_combat_attacked` is active.
+    pub(crate) declared_against_players: Vec<(baylee_core::ids::DamageSourceRef, PlayerId)>,
 }
 
 /// The declared lists and the chosen divisions: `attacking` is derived

@@ -405,7 +405,8 @@ fn consumes(cost: &Cost) -> bool {
             | CostPart::CollectEvidence(_)
             | CostPart::BeholdAndExile(_)
             | CostPart::CraftMaterials { .. }
-            | CostPart::PutCounterOnOther { .. } => true,
+            | CostPart::PutCounterOnOther { .. }
+            | CostPart::RevealChosenPlayer => true,
             CostPart::ExileTopOfLibrary(n) => *n > 0,
             CostPart::Waterbend(n) => *n > 0,
             CostPart::TapN { count, .. } => *count > 0,

@@ -67,7 +67,22 @@ struct Server {
     wasm_target: bool,
     /// A game running here, so `finish` waits; otherwise it swaps.
     game_running: bool,
+    /// The deploy keeps games (`BAYLEE_DEPLOY_KEEP_GAMES=1`, an agent unit
+    /// that reads its list of engines), and what `/health` says of them.
+    keep: Option<Keeping>,
 }
+
+/// What `/health` says of the running games to a deploy that keeps them.
+#[derive(Clone, Copy, Debug)]
+struct Keeping {
+    /// How many of the one running game a restart brings back.
+    kept: u8,
+    /// How many have a seat bridge.
+    bridged: u8,
+}
+
+/// The release deployed before: the build the running game plays on.
+const DEPLOYED: &str = "fedcba9876543210fedcba9876543210fedcba98";
 
 impl Server {
     /// The server the feedback tests were written against: no browser
@@ -79,6 +94,7 @@ impl Server {
             trunk: Trunk::Absent,
             wasm_target: false,
             game_running: true,
+            keep: None,
         }
     }
 
@@ -90,6 +106,7 @@ impl Server {
             trunk,
             wasm_target: true,
             game_running,
+            keep: None,
         }
     }
 }
@@ -109,7 +126,8 @@ fn machine_stubs(stubs: &Path, feedback_installed: bool) {
         stubs,
         "systemctl",
         &format!(
-            r#"[ "$1 $2" = "cat baylee-feedback" ] && exit {}; exit 0"#,
+            r#"[ "$1 $2" = "show baylee-agent" ] && echo "${{AGENT_ENV_FILES:-}}" && exit 0
+[ "$1 $2" = "cat baylee-feedback" ] && exit {}; exit 0"#,
             u8::from(!feedback_installed)
         ),
     );
@@ -227,6 +245,7 @@ fn stage_run(
         trunk,
         wasm_target,
         game_running,
+        keep,
     } = server;
     let scratch = std::env::temp_dir().join(format!(
         "baylee-deploy-test-{}-{}-{feedback_installed}-{npm:?}-{trunk:?}",
@@ -236,6 +255,9 @@ fn stage_run(
     let _ = std::fs::remove_dir_all(&scratch);
     let (root, stubs) = (scratch.join("opt"), scratch.join("stubs"));
     stage_files(&root);
+    if keep.is_some() {
+        std::fs::write(root.join("state/deployed"), format!("{DEPLOYED}\n")).unwrap();
+    }
     std::fs::create_dir_all(&stubs).unwrap();
     let calls: PathBuf = scratch.join("calls");
 
@@ -283,6 +305,12 @@ fn stage_run(
     .unwrap();
     command.env("BAYLEE_DEPLOY_ETC", etc.unwrap_or(&no_etc));
     command.env("SUDO_REFUSES", refused);
+    let health = health_and_keeping(
+        &mut command,
+        game_running,
+        keep,
+        &etc.unwrap_or(&no_etc).join("agent-engines.env"),
+    );
     if profile_fails {
         command.env("PROFILE_FAILS", "1");
     }
@@ -296,11 +324,7 @@ fn stage_run(
         .env("RUSTUP", stubs.join("rustup"))
         .env("DEPLOY_CALLS", &calls)
         .env("OPS_FAKE_CALLS", &calls)
-        .env("OPS_FAKE_HEALTH", serde_json::json!({
-            "admission": "held", "games": {
-                "running": u8::from(game_running), "local_running": u8::from(game_running), "waiting": 0,
-            }
-        }).to_string())
+        .env("OPS_FAKE_HEALTH", health.to_string())
         .env(
             "PATH",
             format!(
@@ -311,9 +335,39 @@ fn stage_run(
         )
         .output()
         .expect("baylee-deploy runs");
-    let ran = std::fs::read_to_string(&calls).unwrap_or_default();
+    let mut ran = std::fs::read_to_string(&calls).unwrap_or_default();
+    // What the agent is told to install, written before sudo puts it in place.
+    if let Ok(list) = std::fs::read_to_string(root.join("state/agent-engines.env")) {
+        ran.push_str(&list);
+    }
     let _ = std::fs::remove_dir_all(&scratch);
     (out, root, ran)
+}
+
+/// What `/health` answers, and with `keep`, the setting and an agent unit
+/// that reads `agent_env` (`deploy/keep.rs`).
+fn health_and_keeping(
+    command: &mut std::process::Command,
+    game_running: bool,
+    keep: Option<Keeping>,
+    agent_env: &Path,
+) -> serde_json::Value {
+    let mut health = serde_json::json!({
+        "admission": "held", "games": {
+            "running": u8::from(game_running), "local_running": u8::from(game_running), "waiting": 0,
+        }
+    });
+    if let Some(Keeping { kept, bridged }) = keep {
+        command.env("BAYLEE_DEPLOY_KEEP_GAMES", "1");
+        command.env(
+            "AGENT_ENV_FILES",
+            format!("{} (ignore_errors=yes)", agent_env.display()),
+        );
+        health["games"]["kept"] = kept.into();
+        health["games"]["bridged"] = bridged.into();
+        health["games"]["engine_revisions"] = serde_json::json!([DEPLOYED]);
+    }
+    health
 }
 
 fn assert_stage_success(out: &std::process::Output) {
@@ -434,15 +488,19 @@ fn without_the_browser_toolchain_or_with_a_failed_build_the_backend_still_deploy
 /// a step of its own after the plain build, and needs the toolchain's tool.
 #[test]
 fn stage_profiles_the_engine_server_from_this_commit() {
-    let (_, ran) = stage(false, Npm::Builds);
+    let (_, ran, said) = stage_on(Server::with_feedback(false, Npm::Builds));
     assert!(ran.contains("rustup component add llvm-tools"), "{ran}");
     let builds: Vec<&str> = ran
         .lines()
         .filter(|l| l.starts_with("cargo build"))
         .collect();
     assert!(
-        builds.len() >= 10,
-        "base build plus three isolated training, shipping and proof builds:\n{ran}"
+        builds.len() >= 8,
+        "base build, training, shipping and proof builds for two variants, and Tower plain:\n{ran}"
+    );
+    assert!(
+        said.contains("the tower engine is built without a profile"),
+        "an unprofiled engine is said aloud:\n{said}"
     );
     assert!(builds[0].contains("-p baylee-gateway"), "{ran}");
     assert!(
@@ -454,9 +512,16 @@ fn stage_profiles_the_engine_server_from_this_commit() {
     assert!(ran.contains("llvm-profdata merge"), "{ran}");
     for artifact in baylee_pgo::EngineArtifact::ALL {
         let args = artifact.cargo_args().join(" ");
+        // Tower's workload does not play the run generation yet, so its engine
+        // is one plain build (`deploy/engine.rs`, `UNPROFILED`).
+        let expected = if artifact == baylee_pgo::EngineArtifact::Tower {
+            1
+        } else {
+            3
+        };
         assert_eq!(
             builds.iter().filter(|build| build.contains(&args)).count(),
-            3,
+            expected,
             "{} trains, ships and proves with identical features: {ran}",
             artifact.name()
         );
@@ -473,6 +538,7 @@ fn a_failed_profile_stops_the_deploy_before_anything_is_staged() {
         trunk: Trunk::Absent,
         wasm_target: false,
         game_running: false,
+        keep: None,
     };
     let (out, _, ran) = stage_run(server, None, "", true);
     assert!(!out.status.success(), "stage went on:\n{ran}");
@@ -725,5 +791,92 @@ fn a_token_that_cannot_be_set_up_does_not_stop_the_deploy() {
         );
         assert!(!shows_a_token(&said), "{refused}: {said}");
         let _ = std::fs::remove_dir_all(&etc);
+    }
+}
+
+/// A deploy that keeps games does not wait for a running game every restart
+/// brings back: it keeps the engines that game plays on, stops the gateway
+/// first (which stores the game) and only then the agent, and names the kept
+/// engines in the agent's list before the agent starts again.
+#[test]
+fn a_deploy_that_keeps_games_stops_the_gateway_first_and_keeps_their_engines() {
+    let server = Server {
+        keep: Some(Keeping {
+            kept: 1,
+            bridged: 0,
+        }),
+        ..Server::with_trunk(Trunk::Absent, true)
+    };
+    let (root, ran, said) = stage_on(server);
+    let lines: Vec<&str> = ran.lines().collect();
+    let at = |wanted: &dyn Fn(&str) -> bool, what: &str| {
+        lines
+            .iter()
+            .position(|l| wanted(l))
+            .unwrap_or_else(|| panic!("no {what} in:\n{ran}\n{said}"))
+    };
+    let kept = root.join("engines").join(DEPLOYED);
+    let keep = at(
+        &|l| l == format!("sudo install -d -m755 {}", kept.display()),
+        "copy of the deployed engines",
+    );
+    let gateway = at(
+        &|l| l == "sudo systemctl stop baylee-gateway",
+        "gateway stop",
+    );
+    let agent = at(&|l| l == "sudo systemctl stop baylee-agent", "agent stop");
+    let list = at(
+        &|l| l.starts_with("sudo install -m644 ") && l.ends_with("/agent-engines.env"),
+        "the agent's list",
+    );
+    let restart = at(
+        &|l| l == "sudo systemctl restart baylee-gateway",
+        "gateway start",
+    );
+    let start = at(&|l| l == "sudo systemctl start baylee-agent", "agent start");
+    assert!(
+        keep < gateway && gateway < agent && agent < list && list < restart && restart < start,
+        "{ran}"
+    );
+    let bin = root.join("bin");
+    assert!(
+        ran.contains(&format!(
+            "BAYLEE_ENGINE_BINS={b}/baylee-engine-standard-loops:{b}/baylee-engine-tower:\
+             {k}/baylee-engine-server:{k}/baylee-engine-standard-loops\n",
+            b = bin.display(),
+            k = kept.display()
+        )),
+        "{ran}"
+    );
+}
+
+/// It waits as before, and says why, for a running game a restart would not
+/// bring back, and for one with a seat bridge, which the release replaces.
+#[test]
+fn a_deploy_that_keeps_games_waits_for_one_it_cannot_keep() {
+    for (keeping, why) in [
+        (
+            Keeping {
+                kept: 0,
+                bridged: 0,
+            },
+            "1 of 1 running game(s) would not be kept",
+        ),
+        (
+            Keeping {
+                kept: 1,
+                bridged: 1,
+            },
+            "1 game(s) with a seat bridge",
+        ),
+    ] {
+        let server = Server {
+            keep: Some(keeping),
+            ..Server::with_trunk(Trunk::Absent, true)
+        };
+        let (_, ran, said) = stage_on(server);
+        assert!(said.contains(why), "{why}:\n{said}");
+        assert!(!ran.contains("systemctl stop baylee-gateway"), "{ran}");
+        assert!(!ran.contains("systemctl restart baylee-gateway"), "{ran}");
     }
 }

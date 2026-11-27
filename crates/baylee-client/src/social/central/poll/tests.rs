@@ -18,12 +18,76 @@ fn answer(generation: u64) -> Reply {
     });
     Reply::Poll {
         generation,
-        snapshot: Some(snapshot),
+        metadata: Metadata::Read(snapshot),
         keys: vec![],
         messages: vec![],
         after: 99,
         more: false,
     }
+}
+/// The same read, its contacts refused while its inbox was served.
+fn unreadable(generation: u64) -> Reply {
+    let mut reply = answer(generation);
+    if let Reply::Poll { metadata, .. } = &mut reply {
+        *metadata = Metadata::Unreadable;
+    }
+    reply
+}
+
+#[test]
+fn only_a_refused_contacts_read_is_taken_for_one_this_build_cannot_read() {
+    let read =
+        |result| worker::judged(result).map(|metadata| matches!(metadata, Metadata::Unreadable));
+    assert_eq!(read(Err(Error::Rejected)), Ok(true));
+    assert_eq!(read(Ok(wire::Snapshot::default())), Ok(false));
+    for error in [
+        Error::Unavailable,
+        Error::Busy,
+        Error::Conflict,
+        Error::TermsRequired,
+        Error::UpdateRequired,
+    ] {
+        assert_eq!(read(Err(error)), Err(error), "{error:?} keeps its own way");
+    }
+}
+
+/// Seen on 26.11.2026: a build pinned to an older Central could not read the
+/// group list once its account had a group (Central had added `admin` to a
+/// member), and every read after that ended the chat for good, a new sign-in
+/// included.
+#[test]
+fn contacts_this_build_cannot_read_leave_the_session_and_the_ones_read_last() {
+    let mut host = host();
+    complete(&mut host, poll(0), Ok(answer(0)), 100);
+    complete(&mut host, poll(0), Ok(unreadable(0)), 200);
+    assert!(host.machine.is_some(), "the chat goes on");
+    assert!(!host.vault.attempted, "no sign-in is taken for refused");
+    let bridge = host.central.as_mut().expect("the session stands");
+    assert_eq!(
+        bridge.personal.blocked.len(),
+        1,
+        "the contacts read last stay"
+    );
+    assert_eq!(bridge.cursor, 99, "the inbox read beside it counts");
+    assert_eq!(
+        bridge.metadata_at,
+        200 + LIVE_POLL_MS,
+        "asked again a minute on"
+    );
+    bridge.jobs.clear();
+    bridge.ready = true;
+    bridge.welcomed = true;
+    tick(&mut host, 2200);
+    assert!(
+        matches!(
+            host.central.as_ref().unwrap().jobs.front(),
+            Some(Job::Poll {
+                metadata: false,
+                ..
+            })
+        ),
+        "the inbox is still read, without the contacts"
+    );
 }
 #[test]
 fn a_late_inbox_cannot_overwrite_a_restarted_or_locked_sessions_cursor_and_contacts() {
@@ -224,8 +288,8 @@ fn a_socket_lost_mid_read_leaves_no_contacts_read_waiting_for_ever() {
     bridge.next = 0;
     bridge.handle.set_ws_live_for_test(false);
     let mut quiet = answer(0);
-    if let Reply::Poll { snapshot, .. } = &mut quiet {
-        *snapshot = None;
+    if let Reply::Poll { metadata, .. } = &mut quiet {
+        *metadata = Metadata::Skipped;
     }
     complete(&mut host, poll(0), Ok(quiet), 200);
     let bridge = host.central.as_ref().unwrap();

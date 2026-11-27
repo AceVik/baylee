@@ -11,6 +11,7 @@ use super::Precon;
 pub static PLAYABLE: &[Precon] = &[
     Precon { key: "10E/black-deck-b", text: include_str!("../../../../data/decks/precon/10E/black-deck-b.txt") },
     Precon { key: "10E/cho-manno-s-resolve", text: include_str!("../../../../data/decks/precon/10E/cho-manno-s-resolve.txt") },
+    Precon { key: "10E/kamahl-s-temper", text: include_str!("../../../../data/decks/precon/10E/kamahl-s-temper.txt") },
     Precon { key: "10E/red-deck-b", text: include_str!("../../../../data/decks/precon/10E/red-deck-b.txt") },
     Precon { key: "5ED/deck-a", text: include_str!("../../../../data/decks/precon/5ED/deck-a.txt") },
     Precon { key: "5ED/deck-b", text: include_str!("../../../../data/decks/precon/5ED/deck-b.txt") },
@@ -94,6 +95,8 @@ pub static PLAYABLE: &[Precon] = &[
     Precon { key: "S00/player-b-s-deck", text: include_str!("../../../../data/decks/precon/S00/player-b-s-deck.txt") },
     Precon { key: "S99/deadly-instinct", text: include_str!("../../../../data/decks/precon/S99/deadly-instinct.txt") },
     Precon { key: "S99/preconstructed-deck-1", text: include_str!("../../../../data/decks/precon/S99/preconstructed-deck-1.txt") },
+    Precon { key: "UDS/battle-surge-enhanced-deck", text: include_str!("../../../../data/decks/precon/UDS/battle-surge-enhanced-deck.txt") },
+    Precon { key: "USG/special-delivery-enhanced-deck", text: include_str!("../../../../data/decks/precon/USG/special-delivery-enhanced-deck.txt") },
     Precon { key: "W17/amonkhet-welcome-deck-black", text: include_str!("../../../../data/decks/precon/W17/amonkhet-welcome-deck-black.txt") },
     Precon { key: "WC01/tom-van-de-logt-machine-head", text: include_str!("../../../../data/decks/precon/WC01/tom-van-de-logt-machine-head.txt") },
     Precon { key: "WC99/mark-le-pine-sped-red", text: include_str!("../../../../data/decks/precon/WC99/mark-le-pine-sped-red.txt") },

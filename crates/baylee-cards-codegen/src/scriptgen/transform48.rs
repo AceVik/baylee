@@ -83,7 +83,7 @@ impl Tx<'_> {
         self.body.abilities.push(output);
         Some(())
     }
-    fn transform48_source_mana(&self, p: &mut Params, execute: &str) -> Option<String> {
+    fn transform48_source_mana(&mut self, p: &mut Params, execute: &str) -> Option<String> {
         Some({
             if p.take("ValidSA").as_deref() != Some("Spell.ManaFromCard.StrictlySelf")
                 || p.take("ValidActivatingPlayer").as_deref() != Some("You")
@@ -102,7 +102,7 @@ impl Tx<'_> {
                 "Artifact,Creature" => "Filter::ARTIFACT_OR_CREATURE",
                 _ => return None,
             };
-            let effect = if filter == "Filter::ARTIFACT_OR_CREATURE" {
+            if filter == "Filter::ARTIFACT_OR_CREATURE" {
                 let child = self.transform48_node(
                     execute,
                     "Token",
@@ -114,7 +114,31 @@ impl Tx<'_> {
                 if !child.exhausted() {
                     return None;
                 }
-                "Effect::CreateToken { token: &generated_tokens::GNOME_SOLDIER_WHITE_DYNAMIC }"
+                format!(
+                    "triggered!(Trigger::SpellCastUsingSourceMana(&{filter}), &[Effect::CreateToken {{ token: &generated_tokens::GNOME_SOLDIER_WHITE_DYNAMIC }}])"
+                )
+            } else if let Some(child) = self.transform48_node(
+                execute,
+                "Clone",
+                &[
+                    ("Defined", "TriggeredCardLKICopy"),
+                    ("CloneTarget", "Targeted"),
+                    ("ValidTgts", "Permanent.YouCtrl+Other"),
+                    ("TargetMin", "0"),
+                    ("TargetMax", "1"),
+                    ("Duration", "UntilEndOfTurn"),
+                ],
+            ) {
+                if !child.exhausted() {
+                    return None;
+                }
+                let target_filter = self.body.filter_static(
+                    "TARGET",
+                    "Filter::And(&[Filter::PERMANENT, Filter::ControlledByYou, Filter::Another])",
+                );
+                format!(
+                    "triggered!(Trigger::SpellCastUsingSourceMana(&{filter}), &[Effect::TargetsCopyEventSpellUntilEndOfTurn], targets = Some(TargetReq::up_to_one(TargetSpec::Object(&{target_filter}))))"
+                )
             } else {
                 let child = self.transform48_node(
                     execute,
@@ -124,9 +148,10 @@ impl Tx<'_> {
                 if !child.exhausted() {
                     return None;
                 }
-                "Effect::DiscoverAmount { mana_value: Amount::EventManaValue }"
-            };
-            format!("triggered!(Trigger::SpellCastUsingSourceMana(&{filter}), &[{effect}])")
+                format!(
+                    "triggered!(Trigger::SpellCastUsingSourceMana(&{filter}), &[Effect::DiscoverAmount {{ mana_value: Amount::EventManaValue }}])"
+                )
+            }
         })
     }
     fn transform48_phase(&self, p: &mut Params, execute: &str) -> Option<String> {

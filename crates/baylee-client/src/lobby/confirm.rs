@@ -39,6 +39,12 @@ pub(crate) enum Destructive {
     // Constructed by `lobby::ranked`, which is native-only.
     #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     RankedOpponents(Option<baylee_client_core::aiplayers::Opponents>),
+    /// A friend invite a `baylee:` link brings (`invites::link`), once Central
+    /// said who made it: asked as a gateway is, "Not now" what `Esc` and a
+    /// tap beside the panel do. Carried out by the press itself, which
+    /// takes it up at Central; the question stands until Central answers.
+    #[cfg(not(target_arch = "wasm32"))]
+    FriendInvite(Box<super::invites::link::Asked>),
 }
 
 impl Destructive {
@@ -54,6 +60,7 @@ impl Destructive {
             Destructive::LeaveHosting(_) => "leave-hosting",
             Destructive::AddGateway(_) => "add-gateway",
             Destructive::RankedOpponents(_) => "ranked-opponents",
+            Destructive::FriendInvite(_) => "friend-invite",
         }
     }
 }
@@ -99,6 +106,8 @@ pub(super) fn accept(state: &mut LobbyState) -> Option<LobbyRequest> {
         Destructive::SignOutGuest { .. }
         | Destructive::AddGateway(_)
         | Destructive::RankedOpponents(_) => None,
+        #[cfg(not(target_arch = "wasm32"))]
+        Destructive::FriendInvite(_) => None,
         Destructive::LeaveHosting(game) => state.lobby.leave_table(&game),
     }
 }
@@ -132,6 +141,11 @@ pub(super) fn draw(
         draw_opponents(commands, root, state, fonts, metrics, *picked);
         #[cfg(target_arch = "wasm32")]
         let _ = picked;
+        return;
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    if let Destructive::FriendInvite(asked) = action {
+        draw_invite(commands, root, state, fonts, metrics, asked);
         return;
     }
     let mut chosen = String::new();
@@ -184,6 +198,8 @@ pub(super) fn draw(
         ),
         Destructive::AddGateway(_) => unreachable!("drawn by `draw_proposal`"),
         Destructive::RankedOpponents(_) => unreachable!("drawn by `draw_opponents`"),
+        #[cfg(not(target_arch = "wasm32"))]
+        Destructive::FriendInvite(_) => unreachable!("drawn by `draw_invite`"),
     };
     let panel = modal(
         commands,
@@ -526,6 +542,105 @@ fn option_dot(commands: &mut Commands, fonts: &UiFonts, metrics: Metrics, on: bo
     dot
 }
 
+/// A friend invite a link brought (`invites::link`), asked about: who made
+/// it, with their disc, until when it holds, what being friends means and
+/// the greeting they wrote; "Not now" and "Accept". The name, the greeting
+/// and the date are Central's, never the link's: the link carries only the
+/// code. Accept is held, with the veil's hint, while Central takes it up.
+#[cfg(not(target_arch = "wasm32"))]
+fn draw_invite(
+    commands: &mut Commands,
+    root: Entity,
+    state: &LobbyState,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    asked: &super::invites::link::Asked,
+) {
+    use baylee_client_core::social::invites;
+    let lang = state.lobby.lang();
+    let inviter = asked.inviter();
+    let panel = modal(
+        commands,
+        root,
+        metrics,
+        Press::Shared(SharedPress::CancelDestructive),
+        DialogKind::Proposal,
+    );
+    let disc = crate::shellkit::avatar::disc(commands, fonts, &inviter, 44.0);
+    let valid = Phrase::InviteLinkValid.fill(
+        lang,
+        &[&invites::when(
+            asked.preview.expires_at,
+            super::invites::link::local_offset(),
+            lang,
+        )],
+    );
+    let head = headed(
+        commands,
+        fonts,
+        metrics,
+        disc,
+        &Phrase::InviteLinkTitle.fill(lang, &[&inviter]),
+        Some(&valid),
+    );
+    let body = dialog_body(commands, fonts, metrics, Phrase::InviteLinkBody.text(lang));
+    let mut kids = vec![head, body];
+    // The greeting is the inviter's own words: plain text in quotes under
+    // its caption, never a link or anything the client acts on.
+    if let Some(greeting) = asked.preview.note.as_deref() {
+        kids.push(note(
+            commands,
+            fonts,
+            metrics,
+            Phrase::InviteLinkNote.text(lang),
+        ));
+        kids.push(
+            commands
+                .spawn((
+                    Text::new(Phrase::InviteLinkGreeting.fill(lang, &[greeting])),
+                    tf(fonts, metrics.text),
+                    TextColor(tokens::INK.with_alpha(0.86)),
+                    Node {
+                        width: percent(100),
+                        padding: UiRect::left(px(12)),
+                        border: UiRect::left(px_fixed(2.0)),
+                        ..default()
+                    },
+                    BorderColor::all(tokens::ACCENT.with_alpha(0.55)),
+                    Pickable::IGNORE,
+                ))
+                .id(),
+        );
+    }
+    let not_now = split_button(
+        commands,
+        fonts,
+        metrics,
+        Phrase::LinkNotNow.text(lang),
+        Press::Shared(SharedPress::CancelDestructive),
+        SplitTone::Neutral,
+        true,
+    );
+    let can_accept = !state.invite_link.taking();
+    let accept = split_button(
+        commands,
+        fonts,
+        metrics,
+        Phrase::InviteLinkAccept.text(lang),
+        Press::Shared(SharedPress::ConfirmDestructive),
+        SplitTone::Accent,
+        can_accept,
+    );
+    if !can_accept {
+        commands.entity(accept).insert((
+            crate::shellkit::controls::Disabled,
+            super::hint::HoverHint(Phrase::VeilTalking.text(lang).to_string()),
+        ));
+    }
+    kids.push(dialog_actions(commands, &[not_now, accept]));
+    commands.entity(panel).add_children(&kids);
+}
+
 /// The sign-in from baylee.app (`central::pairing`), over Central's sign-in:
 /// while the page is asked, the code it shows beside its Approve; then whom
 /// the session signs in as, with Cancel and Sign in. Cancel is what `Esc`
@@ -814,18 +929,6 @@ fn dialog_header(
             "\u{f544}",
         ),
     };
-    let head = commands
-        .spawn((
-            Node {
-                width: percent(100),
-                flex_direction: FlexDirection::Row,
-                align_items: AlignItems::Center,
-                column_gap: px(12),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
     let badge = commands
         .spawn((
             Node {
@@ -846,6 +949,31 @@ fn dialog_header(
             Text::new(glyph),
             crate::hud::icon_tf(fonts, (metrics.head - 1.0).max(14.0)),
             TextColor(badge_fg),
+            Pickable::IGNORE,
+        ))
+        .id();
+    headed(commands, fonts, metrics, badge, title_text, subtitle)
+}
+
+/// A dialog's head: `badge` (a kind's glyph, or a person's disc) beside
+/// the title and, under it, a quieter line.
+fn headed(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    badge: Entity,
+    title_text: &str,
+    subtitle: Option<&str>,
+) -> Entity {
+    let head = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: px(12),
+                ..default()
+            },
             Pickable::IGNORE,
         ))
         .id();

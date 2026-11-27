@@ -1791,6 +1791,7 @@ pub fn ability_taps_its_source(view: &PlayerView, source: ObjectId, index: u32) 
                     | baylee_cards_dsl::CostPart::SacrificeSelf
                     | baylee_cards_dsl::CostPart::ExileSelf
                     | baylee_cards_dsl::CostPart::ReturnSelfToHand
+                    | baylee_cards_dsl::CostPart::RevealChosenPlayer
             )
         }),
         Some(AbilityDef::Encore { .. }) => true,

@@ -25,6 +25,52 @@ mod tests;
 
 pub(crate) use restore::{order_restored, restore};
 
+/// Whether a restart of the gateway now brings `game` back: one that is kept
+/// ([`row::keepable`]) and whose engine attached or that waits to be resumed.
+/// A stop stores every such game's record and writes its row
+/// ([`Keeper::settle`]); a game whose engine never attached has no record to
+/// go on from. What a deploy that keeps games asks (`GET /health`).
+pub(crate) fn resumable(game: &crate::lobby::LobbyGame) -> bool {
+    row::keepable(game) && (game.engine.is_some() || game.restored())
+}
+
+/// What a restart of the gateway would do to the running games, as `GET
+/// /health` says it to a deploy that keeps them (`docs/deploy-hooks.md`).
+pub(crate) struct Restart {
+    /// How many it brings back ([`resumable`]).
+    pub(crate) kept: usize,
+    /// How many have a chair a seat bridge or a hosted model sits in: a
+    /// bridge is replaced with a release and speaks its protocol, so at a
+    /// table an older build goes on with it is refused.
+    pub(crate) bridged: usize,
+    /// The source revisions of the engine builds they play on, sorted.
+    pub(crate) engine_revisions: Vec<String>,
+}
+
+impl Restart {
+    /// The running games of `lobby`.
+    pub(crate) fn of(lobby: &crate::lobby::Lobby) -> Self {
+        let revisions: std::collections::BTreeSet<String> = lobby
+            .running()
+            .filter_map(|game| game.execution.as_ref())
+            .filter_map(|identity| identity.cards.strip_prefix("registry@"))
+            .map(str::to_owned)
+            .collect();
+        Self {
+            kept: lobby.running().filter(|game| resumable(game)).count(),
+            bridged: lobby
+                .running()
+                .filter(|game| {
+                    game.seats
+                        .iter()
+                        .any(|chair| chair.delegate.is_some() || chair.hosted.is_some())
+                })
+                .count(),
+            engine_revisions: revisions.into_iter().collect(),
+        }
+    }
+}
+
 use crate::Shared;
 use parking_lot::Mutex;
 use std::collections::HashMap;

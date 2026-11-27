@@ -48,6 +48,46 @@ pub fn health(body: &str) -> Option<(u64, u64, String)> {
     Some((running, waiting, admission))
 }
 
+/// What `/health` says about the running games a restart brings back
+/// (`docs/protocol.md` §"Health"): read only from a gateway that says it all.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Kept {
+    /// Games being played, on any agent.
+    pub running: u64,
+    /// Of those, the ones a restart of the gateway brings back.
+    pub kept: u64,
+    /// Of those running, the ones with a seat bridge or hosted model in a chair.
+    pub bridged: u64,
+    /// The source revisions of the engine builds they play on.
+    pub revisions: Vec<String>,
+}
+
+/// `/health`'s [`Kept`], or nothing from a gateway too old to say, or one
+/// that names a revision that is not 40 or 64 lowercase hex digits.
+pub fn kept(body: &str) -> Option<Kept> {
+    let data: Value = serde_json::from_str(body).ok()?;
+    let games = data.get("games")?;
+    let revisions = games
+        .get("engine_revisions")?
+        .as_array()?
+        .iter()
+        .map(|revision| {
+            let revision = revision.as_str()?;
+            (matches!(revision.len(), 40 | 64)
+                && revision
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)))
+            .then(|| revision.to_owned())
+        })
+        .collect::<Option<Vec<_>>>()?;
+    Some(Kept {
+        running: count(games.get("running")?)?,
+        kept: count(games.get("kept")?)?,
+        bridged: count(games.get("bridged")?)?,
+        revisions,
+    })
+}
+
 /// `/info`'s commit and whether it was built clean (`clean`, `dirty` or
 /// `unknown`); a commit that is not 40 hex digits is no commit.
 pub fn info(body: &str) -> Option<(String, &'static str)> {
@@ -67,6 +107,34 @@ pub fn info(body: &str) -> Option<(String, &'static str)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn kept_games_are_read_only_from_a_gateway_that_says_them_all() {
+        let rev = "257eed7a28df650934f50d4ff2557933d25ad713";
+        let body = format!(
+            r#"{{"games":{{"running":3,"kept":2,"bridged":1,"engine_revisions":["{rev}"]}}}}"#
+        );
+        assert_eq!(
+            kept(&body),
+            Some(Kept {
+                running: 3,
+                kept: 2,
+                bridged: 1,
+                revisions: vec![rev.into()],
+            })
+        );
+        assert_eq!(
+            kept(r#"{"games":{"running":3,"waiting":0}}"#),
+            None,
+            "too old to say"
+        );
+        for bad in ["../etc", "257EED7A28DF650934F50D4FF2557933D25AD713", "abc"] {
+            let body = format!(
+                r#"{{"games":{{"running":1,"kept":1,"bridged":0,"engine_revisions":["{bad}"]}}}}"#
+            );
+            assert_eq!(kept(&body), None, "{bad}");
+        }
+    }
 
     #[test]
     fn local_counts_fall_back_only_when_the_field_is_absent() {

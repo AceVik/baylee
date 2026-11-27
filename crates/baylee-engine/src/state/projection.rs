@@ -36,6 +36,13 @@ impl GameState {
             return;
         }
         let generation = self.effects.generation;
+        if self.effects.may_set_name() {
+            for fx in self.effects.as_slice() {
+                if let baylee_cards_dsl::Modifier::SetName(name) = fx.modifier {
+                    let _ = self.names.intern(name);
+                }
+            }
+        }
         // Bucket and prepare the object-independent dependency orders
         // once for the whole pass. Conditional animation's type-layer
         // order is decided during projection (see `layers::LayerPlan`).

@@ -114,6 +114,7 @@ mod wave18b;
 pub(crate) mod wave3_ops;
 mod zones;
 
+mod animate;
 mod answers;
 mod awaiting;
 mod choices;
@@ -137,6 +138,7 @@ mod meld;
 pub(crate) mod mutate;
 mod permissions;
 mod piles;
+mod player_number_choices;
 mod private_hand;
 #[cfg(test)]
 mod private_hand_tests;
@@ -149,6 +151,7 @@ mod repeated_graveyard_choice;
 mod repeated_graveyard_tests;
 #[cfg(test)]
 mod reveal_search_tests;
+mod set_state;
 pub mod tap_energy;
 pub(crate) mod tap_group;
 use permissions::grant_play;
@@ -827,6 +830,29 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .damage_source(res.source, source_version(state, res))
             .and_then(|source| source.characteristics().power)
             .map_or(0, |power| power.max(0) as u32),
+        Amount::SourceToughness => state
+            .damage_source(res.source, source_version(state, res))
+            .and_then(|source| source.characteristics().toughness)
+            .map_or(0, |toughness| toughness.max(0) as u32),
+        Amount::DiscardedManaValue => state
+            .object(res.on_stack)
+            .and_then(|o| o.paid.as_ref())
+            .map_or(0, |paid| {
+                paid.discarded
+                    .iter()
+                    .filter_map(|&card| state.source_object(card))
+                    .fold(0u32, |acc, obj| {
+                        acc.saturating_add(obj.characteristics().mana_value())
+                    })
+            }),
+        Amount::AttachedPower => eval::attached_for_ability(
+            state,
+            res.source,
+            source_version(state, res),
+            source_attachment_lki(state, res.on_stack),
+        )
+        .and_then(|host| host.characteristics().power)
+        .map_or(0, |power| u32::try_from(power.max(0)).unwrap_or(0)),
         Amount::EventPower => {
             let Some(source) = res.event_object else {
                 return 0;
@@ -1232,6 +1258,39 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .map(|seat| crate::layers::counts::live_party_size(state, seat))
             .max()
             .unwrap_or(0),
+        Amount::Domain(who) => players_of(*who, state, you, res)
+            .into_iter()
+            .map(|seat| eval::domain_for_player(state, seat))
+            .max()
+            .unwrap_or(0),
+        Amount::TotalCountersOnSubject => {
+            let subject_id = res.targets.first().copied().unwrap_or(res.source);
+            state
+                .object(subject_id)
+                .or_else(|| state.damage_source(subject_id, None))
+                .map_or(0, |obj| {
+                    obj.counters
+                        .iter()
+                        .map(|(_, n)| u32::from(n))
+                        .fold(0_u32, u32::saturating_add)
+                })
+        }
+        Amount::PlayerCounters { player, kind } => players_of(*player, state, you, res)
+            .into_iter()
+            .fold(0_u32, |acc, seat| {
+                acc.saturating_add(eval::player_counter_count(state, seat, *kind))
+            }),
+        Amount::RingTemptedCount(who) => players_of(*who, state, you, res)
+            .into_iter()
+            .map(|seat| {
+                state
+                    .players
+                    .get(usize::from(seat.get()))
+                    .map_or(0, |p| u32::from(p.ring_temptations))
+            })
+            .max()
+            .unwrap_or(0),
+        Amount::ResolutionAccumulatedNumber => res.subject.accumulated_number,
         Amount::SpellsCastThisTurn(who) => players_of(*who, state, you, res)
             .into_iter()
             .fold(0_u32, |acc, p| {
@@ -1459,6 +1518,23 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             }
             u32::try_from(values.len()).unwrap_or(u32::MAX)
         }
+        Amount::DistinctNames { zone, filter } => {
+            let require_card = !matches!(zone, baylee_cards_dsl::ZoneSel::Battlefield);
+            let candidates = wave12a::snapshot_zone_candidates(state, res, *zone);
+            let mut names = std::collections::BTreeSet::<baylee_core::ids::NameRef>::new();
+            for id in candidates {
+                if let Some(o) = state.object(id)
+                    && (!require_card || o.is_card())
+                    && matches_in_resolution(filter, state, o, you, res, None)
+                {
+                    let name = o.characteristics().name;
+                    if name != crate::state::NAMELESS {
+                        names.insert(name);
+                    }
+                }
+            }
+            u32::try_from(names.len()).unwrap_or(u32::MAX)
+        }
         Amount::DistinctPowersAmong(filter) => {
             let mut powers = std::collections::BTreeSet::<i32>::new();
             for id in state.battlefield_seen() {
@@ -1550,6 +1626,30 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             }
             u32::try_from(seen.len()).unwrap_or(u32::MAX)
         }
+        Amount::DistinctCardTypesInZone { zone, filter } => {
+            let require_card = !matches!(zone, baylee_cards_dsl::ZoneSel::Battlefield);
+            let candidates = wave12a::snapshot_zone_candidates(state, res, *zone);
+            let mut seen = baylee_core::types::TypeSet::EMPTY;
+            for id in candidates {
+                if let Some(o) = state.object(id)
+                    && (!require_card || o.is_card())
+                    && matches_in_resolution(filter, state, o, you, res, None)
+                {
+                    seen = seen.union(o.characteristics().types);
+                }
+            }
+            seen.intersection(remembered::PAPER_CARD_TYPES)
+                .bits()
+                .count_ones()
+        }
+        Amount::DistinctSacrificedCardTypesThisTurn(who) => {
+            let seats = players_of(*who, state, you, res);
+            eval::distinct_sacrificed_card_types_for_seats(state, &seats)
+        }
+        Amount::EnergyRemovedThisTurn(who) => {
+            let seats = players_of(*who, state, you, res);
+            eval::energy_removed_for_seats(state, &seats)
+        }
         other => eval::amount_with_context(other, state, you, res.rule_context(), res.x),
     }
 }
@@ -1627,6 +1727,15 @@ pub(super) fn amount_for_player(
         Amount::LifeTotal(PlayerRel::Recipient) => {
             u32::try_from(state.players[usize::from(player.get())].life).unwrap_or(0)
         }
+        Amount::Domain(PlayerRel::Recipient) => eval::domain_for_player(state, player),
+        Amount::PlayerCounters {
+            player: PlayerRel::Recipient,
+            kind,
+        } => eval::player_counter_count(state, player, *kind),
+        Amount::RingTemptedCount(PlayerRel::Recipient) => state
+            .players
+            .get(usize::from(player.get()))
+            .map_or(0, |p| u32::from(p.ring_temptations)),
         Amount::StartingLifeTotal(PlayerRel::Recipient) => {
             u32::try_from(state.players[usize::from(player.get())].starting_life).unwrap_or(0)
         }
@@ -1703,6 +1812,12 @@ pub(super) fn amount_for_player(
         Amount::DistinctCardTypesCastThisTurn(PlayerRel::Recipient) => {
             eval::distinct_card_types_cast_for_seats(state, &[player])
         }
+        Amount::DistinctSacrificedCardTypesThisTurn(PlayerRel::Recipient) => {
+            eval::distinct_sacrificed_card_types_for_seats(state, &[player])
+        }
+        Amount::EnergyRemovedThisTurn(PlayerRel::Recipient) => {
+            eval::energy_removed_for_seats(state, &[player])
+        }
         Amount::CreaturesAttackedThisTurn {
             filter,
             controller: PlayerRel::Recipient,
@@ -1730,6 +1845,33 @@ pub(super) fn amount_for_player(
                 }
             }
             u32::try_from(values.len()).unwrap_or(u32::MAX)
+        }
+        Amount::DistinctNames {
+            zone:
+                zone @ (baylee_cards_dsl::ZoneSel::GraveyardOf(PlayerRel::Recipient)
+                | baylee_cards_dsl::ZoneSel::HandOf(PlayerRel::Recipient)
+                | baylee_cards_dsl::ZoneSel::LibraryOf(PlayerRel::Recipient)),
+            filter,
+        } => {
+            let loc = match zone {
+                baylee_cards_dsl::ZoneSel::GraveyardOf(_) => ZoneLocation::Graveyard(player),
+                baylee_cards_dsl::ZoneSel::HandOf(_) => ZoneLocation::Hand(player),
+                baylee_cards_dsl::ZoneSel::LibraryOf(_) => ZoneLocation::Library(player),
+                _ => unreachable!(),
+            };
+            let mut names = std::collections::BTreeSet::<baylee_core::ids::NameRef>::new();
+            for &id in state.zones.list(loc) {
+                if let Some(o) = state.object(id)
+                    && o.is_card()
+                    && matches_in_resolution(filter, state, o, you, res, None)
+                {
+                    let name = o.characteristics().name;
+                    if name != crate::state::NAMELESS {
+                        names.insert(name);
+                    }
+                }
+            }
+            u32::try_from(names.len()).unwrap_or(u32::MAX)
         }
         Amount::Plus { base, offset } => each(base).saturating_add(*offset),
         Amount::SaturatingSub { base, subtract } => each(base).saturating_sub(*subtract),
@@ -1965,7 +2107,9 @@ fn amount_reads_resolution_player_at(amount: &baylee_cards_dsl::Amount, depth: u
         | A::ManaExpendedOnSpellsThisTurn(r)
         | A::CommanderCasts(r)
         | A::HighestCardsDrawnThisTurn(r)
-        | A::DistinctCardTypesCastThisTurn(r) => rel_needs_res(*r),
+        | A::DistinctCardTypesCastThisTurn(r)
+        | A::DistinctSacrificedCardTypesThisTurn(r)
+        | A::EnergyRemovedThisTurn(r) => rel_needs_res(*r),
         A::ControlledCount { who, filter }
         | A::EnteredThisTurn {
             owner_or_ctrl: who,
@@ -1994,8 +2138,10 @@ fn amount_reads_resolution_player_at(amount: &baylee_cards_dsl::Amount, depth: u
             rel_needs_res(*who) || filter_reads_resolution_player_at(filter, depth + 1)
         }
         A::DistinctManaValuesInZone { zone, filter }
+        | A::DistinctNames { zone, filter }
         | A::TotalManaValueInZone { zone, filter }
-        | A::DistinctExactManaCostsInZone { zone, filter } => {
+        | A::DistinctExactManaCostsInZone { zone, filter }
+        | A::DistinctCardTypesInZone { zone, filter } => {
             matches!(
                 zone,
                 baylee_cards_dsl::ZoneSel::GraveyardOf(r)
@@ -2163,15 +2309,42 @@ pub(super) fn players_of(
             .collect(),
         PlayerRel::ChosenBySource => state
             .damage_source(res.source, source_version(state, res))
-            .and_then(crate::object::GameObject::chosen_opponent)
+            .and_then(crate::object::GameObject::chosen_opponent_for_rules)
             .or_else(|| {
                 state
                     .object_or_departed(res.source)
-                    .and_then(crate::object::GameObject::chosen_opponent)
+                    .and_then(crate::object::GameObject::chosen_opponent_for_rules)
             })
             .filter(|p| !state.has_left(*p))
             .into_iter()
             .collect(),
+        PlayerRel::SecondChosenBySource => state
+            .damage_source(res.source, source_version(state, res))
+            .and_then(crate::object::GameObject::second_chosen_player)
+            .or_else(|| {
+                state
+                    .object_or_departed(res.source)
+                    .and_then(crate::object::GameObject::second_chosen_player)
+            })
+            .filter(|p| !state.has_left(*p))
+            .into_iter()
+            .collect(),
+        PlayerRel::YouAndTargetOpponent => {
+            let mut out = Vec::with_capacity(2);
+            if !state.has_left(you) {
+                out.push(you);
+            }
+            if let Some(opp) = res
+                .target_players
+                .iter()
+                .chain(res.chosen_player.iter().copied())
+                .find(|&p| state.is_opponent(p, you) && !state.has_left(p))
+                && !out.contains(&opp)
+            {
+                out.push(opp);
+            }
+            out
+        }
         PlayerRel::Chosen => res.chosen_player.into_iter().collect(),
         // Only an instruction applying to each player names one, and it
         // reads its amounts through `amount_for_player`.
@@ -2328,6 +2501,10 @@ fn event_controller_of_resolution(state: &GameState, res: &Resolution) -> Option
                     state
                         .damage_source(id, Some(version))
                         .map(|object| object.controller)
+                } else if let Some(version) = res.subject.event_source_version {
+                    state
+                        .damage_source(id, Some(version))
+                        .map(|object| object.controller)
                 } else {
                     state.last_known_controller(id)
                 }
@@ -2425,6 +2602,7 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
     let prev_color = state.resolution_chosen_color;
     let prev_number = state.resolution_chosen_number;
     let prev_remembered = state.resolution_remembered.take();
+    let prev_exiler = state.active_exiler.replace(res.controller);
     state.resolution_chosen_color = res.subject.chosen_color.map(|c| (res.source, c));
     state.resolution_chosen_number = res.subject.chosen_number.map(|n| (res.source, n));
     state.resolution_remembered = res
@@ -2436,6 +2614,7 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
     state.resolution_chosen_color = prev_color;
     state.resolution_chosen_number = prev_number;
     state.resolution_remembered = prev_remembered;
+    state.active_exiler = prev_exiler;
     flow
 }
 
@@ -2641,18 +2820,23 @@ fn order_before_continuing(
 
 /// Continue the original instruction after every entry replacement has finished.
 pub(crate) fn resume_entries(state: &mut GameState, res: &mut Resolution) -> Flow {
+    let prev_exiler = state.active_exiler.replace(res.controller);
     linked_reanimation::flush(state, res);
     let Some(AwaitingOp::Entry { next, after }) = res.awaiting.take() else {
+        state.active_exiler = prev_exiler;
         unreachable!("entry continuation")
     };
     if let Some(after) = after {
         debug_assert!(next.is_none(), "post-entry work owns its next decision");
         if let Some(pending) = after_entry::resume(state, res, after) {
+            state.active_exiler = prev_exiler;
             return Flow::Wait(pending);
         }
         advance_program(res);
+        state.active_exiler = prev_exiler;
         return run(state, res);
     }
+    state.active_exiler = prev_exiler;
     if let Some(next) = next {
         let (awaiting, pending) = *next;
         res.awaiting = Some(awaiting);
@@ -2744,11 +2928,16 @@ pub(crate) fn commit_damage_rider(
     state.refresh_characteristics();
     let since = state.journal.last_seq();
     state.entries.begin_event(since, Some(res.controller));
-    let choice = exec(state, res, rider.instruction()[0]);
-    assert!(
-        choice.is_none(),
-        "damage riders commit one immediate instruction"
-    );
+    for &op in rider.instruction() {
+        let choice = exec(state, res, op);
+        if choice.is_some() {
+            if let Some(AwaitingOp::Damage(mut dmg)) = res.awaiting.take() {
+                dmg.finish_immediately(state);
+            } else {
+                panic!("damage riders commit immediate instructions");
+            }
+        }
+    }
     crate::graveyard_order::capture(state, since);
     state.refresh_characteristics();
 }
@@ -2816,8 +3005,15 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::DrawIfGuessWrong
         | Effect::ChooseNumber { .. }
         | Effect::ChooseNumberEx { .. }
+        | Effect::ChoosePlayerEx { .. }
+        | Effect::SecretChooseNumbers(_)
+        | Effect::SecretNumberGuess { .. }
+        | Effect::RepeatEachPlayerPayUntilNone { .. }
         | Effect::MoveAttachment { .. }
         | Effect::AttachChosen { .. }
+        | Effect::MoveAllAttachments { .. }
+        | Effect::AttachChosenThen { .. }
+        | Effect::RelocateAttachment { .. }
         | Effect::DestroyWeakest { .. }
         | Effect::ExchangeGreatestManaValue { .. }
         | Effect::PlayerMayPayCostThen { .. }

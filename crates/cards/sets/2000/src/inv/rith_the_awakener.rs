@@ -2,8 +2,9 @@
 //! Oracle: Flying
 //! Oracle: Whenever Rith deals combat damage to a player, you may pay {2}{G}. If you do, choose a color, then create a 1/1 green Saproling creature token for each permanent of that color.
 //! Set: DMR #198 — Dominaria Remastered | Scryfall ID: e1a75961-39a3-4221-9367-a763cf871d42 | Oracle ID: 97e5d788-2dd3-4c8e-9ab6-f4ea9c7a9a3d
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — flying and combat damage trigger creating Saprolings for each permanent of a chosen color.
 
+use crate::generated_tokens;
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
@@ -13,6 +14,8 @@ card!(
     scryfall_id = "e1a75961-39a3-4221-9367-a763cf871d42",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Red, Color::White]),
     commander = CommanderRule::Legendary,
+    keywords = KeywordSet::FLYING,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rith, the Awakener",
         mana_cost = mana!("{3}{R}{G}{W}"),
@@ -22,6 +25,21 @@ card!(
         power = Some(6),
         toughness = Some(6),
     ),],
+    abilities = &[triggered!(
+        Trigger::DealsCombatDamageToPlayer(&Filter::This),
+        &[Effect::PlayerMayPayManaThen {
+            player: PlayerRel::You,
+            cost: mana!("{2}{G}"),
+            effects: &[
+                Effect::ChooseColor,
+                Effect::CreateTokenN {
+                    token: &generated_tokens::SAPROLING_1_1_GREEN,
+                    amount: Amount::CountOf {
+                        filter: &Filter::OfSourceChosenColor,
+                        zone: ZoneSel::Battlefield,
+                    },
+                },
+            ],
+        }]
+    ),],
 );
-
-// TODO(card): implement abilities, see docs/card-dsl.md.

@@ -61,6 +61,15 @@ pub(super) fn exec_immediate(
                 options: ManaColor::ALL[..5].to_vec(),
             })
         }
+        Effect::ChooseNumberAtRandom { min, max, then } => {
+            super::player_number_choices::choose_number_at_random(state, res, min, max, then)
+        }
+        Effect::AccumulateChosenNumber => {
+            if let Some(n) = res.subject.chosen_number {
+                res.subject.accumulated_number = res.subject.accumulated_number.saturating_add(n);
+            }
+            None
+        }
         Effect::PlayerMayPayManaAndLifeEachThenElse {
             player,
             mana,
@@ -178,11 +187,15 @@ pub(super) fn exec_immediate(
 
         Effect::Sequence(_) => unreachable!("sequences are flattened"),
         Effect::TakklemaggotDeath => takklemaggot_death(state, res),
-        Effect::MeldWithNamed {
-            source_name,
-            partner_name,
-            melded,
-        } => super::meld::meld_with_named(state, res, source_name, partner_name, melded),
+        op @ (Effect::MeldWithNamed { .. } | Effect::MeldPair { .. }) => {
+            let spec = super::meld::MeldSpec::from_effect(op).expect("meld effect");
+            super::meld::meld(state, res, spec)
+        }
+        Effect::SetState {
+            subject,
+            transition,
+            if_cant,
+        } => super::set_state::exec(state, res, subject, transition, if_cant),
         Effect::DungeonSacrificeThree => super::dungeon::sacrifice_three(state, res),
         Effect::DungeonDrawThree => super::dungeon::draw_three(state, res),
         Effect::DungeonExileTwo => super::dungeon::exile_two(state, res),
@@ -476,8 +489,44 @@ pub(super) fn exec_immediate(
         | Effect::PreventNextFromMatchingSources { .. }
         | Effect::PreventAllDamageFromMatchingThisTurn { .. }
         | Effect::RedirectNextFromChosenSource { .. }
-        | Effect::DealDamageToEachOpponentAndPlaneswalkerDamagedThisGame { .. } => {
-            life::exec(state, res, op)
+        | Effect::DealDamageToEachOpponentAndPlaneswalkerDamagedThisGame { .. }
+        | Effect::DealDamageToEventSourceOrController { .. }
+        | Effect::RedirectNextDamageTo { .. }
+        | Effect::PreventNextFromChosenSourceWithThen { .. } => life::exec(state, res, op),
+        Effect::AddCounterDamagedObject { kind, amount } => {
+            let n = super::amount2(&amount, state, you, res);
+            if n > 0
+                && let Some(target) = res.subject.damaged_object
+                && state
+                    .object(target)
+                    .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+            {
+                crate::replacement::put_counters_by(
+                    state,
+                    you,
+                    target,
+                    kind,
+                    u16::try_from(n).unwrap_or(u16::MAX),
+                );
+            }
+            None
+        }
+        Effect::ShuffleDamagedObjectIntoLibrary => {
+            if let Some(target) = res.subject.damaged_object
+                && let Some(owner) = state
+                    .object(target)
+                    .filter(|o| o.zone == crate::zone::Zone::Battlefield)
+                    .map(|o| o.owner)
+            {
+                let _ = state.move_object(
+                    target,
+                    ZoneLocation::Library(owner),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+                state.shuffle_library(owner);
+            }
+            None
         }
         Effect::ExileEventFromGraveyardWithCounters { .. }
         | Effect::RemoveCountersFromChosenExile { .. } => exile_counters::exec(state, res, op),
@@ -625,6 +674,7 @@ pub(super) fn exec_immediate(
         | Effect::NoteActivationMana
         | Effect::AddManaFor { .. }
         | Effect::AddManaAmountFor { .. }
+        | Effect::AddManaChoiceFor { .. }
         | Effect::ManaForColorsAmong(_)
         | Effect::AddManaLikeEvent { .. } => mana::exec(state, res, op),
         Effect::ModifySource { .. }
@@ -648,6 +698,9 @@ pub(super) fn exec_immediate(
         | Effect::AddCounterFilter { .. }
         | Effect::AddCounterCreatedTokens { .. }
         | Effect::DoubleCountersFilter { .. }
+        | Effect::MultiplyCounters { .. }
+        | Effect::MoveCounters { .. }
+        | Effect::RemoveCounters { .. }
         | Effect::DrainAllCountersIntoSelf
         | Effect::SetPTFilter { .. }
         | Effect::SetPTByCountFilter { .. }
@@ -2372,14 +2425,15 @@ pub(super) fn exec_immediate(
             super::empower::start(state, res, token, n)
         }
         Effect::ModifyEvent { modifier, duration } => {
+            if !super::continuous_subjects::source_duration_starts(state, res, duration) {
+                return None;
+            }
             let subject =
                 subjects::event(state, res).filter(|r| subjects::is_current(state, *r))?;
-            if !crate::permanent_guards::permits_resolution_effect(
-                state,
-                crate::effects::EffectFilter::ObjectIs(subject.object, subject.version),
-                modifier,
-                you,
-            ) {
+            let filter = crate::effects::EffectFilter::ObjectIs(subject.object, subject.version);
+            if !crate::permanent_guards::permits_resolution_effect(state, filter, modifier, you)
+                || !state.source_duration_holds(duration, res.source, you, filter)
+            {
                 return None;
             }
             let timestamp = state.next_timestamp();
@@ -2391,9 +2445,13 @@ pub(super) fn exec_immediate(
                 layer: modifier.layer(),
                 timestamp,
                 duration,
-                filter: crate::effects::EffectFilter::ObjectIs(subject.object, subject.version),
+                filter,
                 modifier,
             });
+            if matches!(modifier, baylee_cards_dsl::Modifier::GrantStatic { .. }) {
+                state.refresh_characteristics();
+                crate::effects::sync_granted_statics(state);
+            }
             None
         }
         Effect::ModifyTargets { modifier, duration } => {
@@ -4318,8 +4376,15 @@ pub(super) fn exec_immediate(
         | Effect::DrawIfGuessWrong
         | Effect::ChooseNumber { .. }
         | Effect::ChooseNumberEx { .. }
+        | Effect::ChoosePlayerEx { .. }
+        | Effect::SecretChooseNumbers(_)
+        | Effect::SecretNumberGuess { .. }
+        | Effect::RepeatEachPlayerPayUntilNone { .. }
         | Effect::MoveAttachment { .. }
         | Effect::AttachChosen { .. }
+        | Effect::MoveAllAttachments { .. }
+        | Effect::AttachChosenThen { .. }
+        | Effect::RelocateAttachment { .. }
         | Effect::DestroyWeakest { .. }
         | Effect::ExchangeGreatestManaValue { .. }
         | Effect::PlayerMayPayCostThen { .. }
@@ -4564,6 +4629,57 @@ pub(super) fn exec_immediate(
         }
         Effect::Flickerform => super::wave18b::exec_flickerform(state, res),
         Effect::FlickerformReturnFromRelated => super::wave18b::exec_flickerform_return(state, res),
+        Effect::BecomeAura {
+            target,
+            enchant,
+            lose_this_ability,
+            revert_cost,
+        } => {
+            super::animate::become_aura(
+                state,
+                res,
+                target,
+                enchant,
+                lose_this_ability,
+                revert_cost,
+            );
+            None
+        }
+        Effect::SetDynamicPT {
+            subject,
+            power,
+            toughness,
+            power_offset,
+            toughness_offset,
+            duration,
+        } => {
+            super::animate::set_dynamic_pt(
+                state,
+                res,
+                subject,
+                power,
+                toughness,
+                power_offset,
+                toughness_offset,
+                duration,
+            );
+            None
+        }
+        Effect::Unattach { target } => {
+            super::attachments::unattach(state, res, target);
+            None
+        }
+        Effect::AttachObject {
+            object,
+            to,
+            optional,
+        } => super::attachments::attach_object(state, res, object, to, optional),
+        Effect::AttachLtbAttachments {
+            of,
+            filter,
+            to,
+            optional,
+        } => super::attachments::attach_ltb_attachments(state, res, of, filter, to, optional),
         Effect::AttachSlot {
             object,
             to,
@@ -5315,6 +5431,47 @@ pub(super) fn resolution_condition(
                 kind,
                 by_you,
             )
+        }
+        Condition::WasForetold => state
+            .object(res.on_stack)
+            .filter(|o| o.kind == crate::object::ObjectKind::Spell)
+            .map_or_else(
+                || eval::object_was_foretold(state, res.source, source_version(state, res)),
+                |o| {
+                    o.riders
+                        .iter()
+                        .any(|r| matches!(r, crate::object::Rider::Foretold { .. }))
+                },
+            ),
+        Condition::WasSneaked => state
+            .object(res.on_stack)
+            .filter(|o| o.kind == crate::object::ObjectKind::Spell)
+            .map_or_else(
+                || eval::object_was_sneaked(state, res.source, source_version(state, res)),
+                |o| o.riders.contains(&crate::object::Rider::Sneaked),
+            ),
+        Condition::TreasureManaWasSpent => {
+            state
+                .object(res.on_stack)
+                .and_then(|o| o.paid.as_ref())
+                .is_some_and(|paid| crate::mana_provenance::paid_spent_treasure_mana(state, paid))
+                || eval::object_spent_treasure_mana(state, res.source, source_version(state, res))
+        }
+        Condition::RememberedMatches(filter) => res.subject.remembered().is_some_and(|list| {
+            list.iter()
+                .any(|rem| remembered::remembered_item_matches_filter(filter, state, res, rem))
+        }),
+        Condition::PlayerAttackedYouThisTurn(who) => players_of(who, state, res.controller, res)
+            .into_iter()
+            .any(|seat| {
+                state
+                    .per_turn
+                    .attacked_players
+                    .items
+                    .contains(&(seat, res.controller))
+            }),
+        Condition::YouAreRememberedPlayer => {
+            res.subject.remembered_players.contains(&res.controller)
         }
         _ => {
             eval::condition_holds_with_context(state, res.controller, res.rule_context(), condition)

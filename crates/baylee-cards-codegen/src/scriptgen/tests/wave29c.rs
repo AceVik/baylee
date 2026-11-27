@@ -748,3 +748,47 @@ fn wave29c_pass3_unlocks_and_refusals() {
          SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True"
     ));
 }
+
+#[test]
+fn sacrifice_immediate_trigger_remembered_lki_and_toughness() {
+    let tip = read_w29c(
+        "Name:Tip the Scales\nManaCost:2 B\nTypes:Sorcery\n\
+         A:SP$ Sacrifice | SacValid$ Creature | RememberSacrificed$ True | SubAbility$ DBImmediateTrigger | SpellDescription$ Sacrifice a creature.\n\
+         SVar:DBImmediateTrigger:DB$ ImmediateTrigger | Execute$ TrigPumpAll | ConditionDefined$ RememberedLKI | ConditionPresent$ Creature | RememberObjects$ RememberedLKI | SubAbility$ DBCleanup | SpellDescription$ When you do, all creatures get -X/-X until end of turn, where X is the sacrificed creature's toughness.\n\
+         SVar:TrigPumpAll:DB$ PumpAll | ValidCards$ Creature | NumAtt$ -X | NumDef$ -X\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:TriggerRemembered$CardToughness",
+    );
+    assert!(
+        tip.abilities[0].contains("Effect::SacrificeFilter")
+            && tip.abilities[0].contains("ReflexiveEvent::Sacrificed(&Filter::CREATURE)")
+            && tip.abilities[0].contains("Amount::Negated(&Amount::EventLastToughness)"),
+        "{}",
+        tip.abilities[0]
+    );
+
+    let minsc = read_w29c(
+        "Name:Minsc & Boo, Timeless Heroes\nManaCost:2 R G\nTypes:Legendary Planeswalker Minsc\nLoyalty:3\n\
+         A:AB$ Sacrifice | Cost$ SubCounter<2/LOYALTY> | Planeswalker$ True | Defined$ You | SacValid$ Creature | RememberSacrificed$ True | SubAbility$ DBImmediateTrigger\n\
+         SVar:DBImmediateTrigger:DB$ ImmediateTrigger | Execute$ TrigDamage | ConditionDefined$ RememberedLKI | ConditionPresent$ Creature | RememberObjects$ RememberedLKI | SubAbility$ DBCleanup\n\
+         SVar:TrigDamage:DB$ DealDamage | ValidTgts$ Any | NumDmg$ X | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw | ConditionDefined$ DelayTriggerRememberedLKI | ConditionPresent$ Goblin | NumCards$ X\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:TriggerRemembered$CardPower",
+    );
+    assert!(
+        minsc.abilities[0].contains("Effect::ReflexiveTrigger")
+            && minsc.abilities[0].contains("Amount::EventPower")
+            && minsc.abilities[0].contains("Effect::IfCondition"),
+        "{}",
+        minsc.abilities[0]
+    );
+
+    assert!(refused_w29c(
+        "Name:BadSacLkiCompare\nManaCost:2 B\nTypes:Sorcery\n\
+         A:SP$ Sacrifice | SacValid$ Creature | RememberSacrificed$ True | SubAbility$ DBTrig\n\
+         SVar:DBTrig:DB$ ImmediateTrigger | Execute$ TrigPump | ConditionDefined$ RememberedLKI | ConditionPresent$ Creature | ConditionCompare$ EQ2 | RememberObjects$ RememberedLKI | SubAbility$ DBCleanup\n\
+         SVar:TrigPump:DB$ PumpAll | ValidCards$ Creature | NumAtt$ -1 | NumDef$ -1\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True"
+    ));
+}

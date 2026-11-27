@@ -135,17 +135,19 @@ pub use build::{
 };
 pub use cost::{AltCondition, AlternativeCost, Cost, CostPart, CostReduction};
 pub use effect::{
-    Amount, AnyPlayerCost, AttachHost, ChooseMove, ChooseZone, ColorSubject, CombatWatchEvent,
-    CopyCleanup, CounterDestination, CounterDonor, CounterKind, CounterScope, DamageRedirectTo,
-    DamageRider, DamageTo, DefinedObjects, DelayedDuration, DelayedObservation, DelayedStep,
-    DelayedTriggerWhen, DivisionAmount, DoublePtSubject, Effect, ExileMana, ExilePermission,
-    ExilePlay, ExileUntil, Find, LookRest, ManaDistribution, ManaRestriction, ManaSource, ManaUse,
-    ManaValueBound, ManaValueCmp, ModalRestriction, MoveSubject, MultiPlayerChoice,
-    MultiPlayerChoiceAggregate, NumberChoiceKind, PeekPickDest, PeekRestDest, PlayCostMode,
-    PlayCount, PlaySource, PlayWindow, PlayerRel, ReflexiveEvent, ReflexiveWhen, RepeatDomain,
-    RevealUntilFound, RevealUntilRest, SearchDest, SourceLeaveAction, SpendRider, TargetChooser,
-    TargetConstraint, TargetReq, TargetSlot, TargetSpec, ThisWay, TokenDef, TriggerRemember,
-    VariablePayKind, VoteObjectAction, VoteOption, VoteOutcome, ZoneSel,
+    Amount, AnyPlayerCost, AttachHost, AttachmentSource, ChooseMove, ChooseZone, ColorSubject,
+    CombatWatchEvent, CopyCleanup, CounterDestination, CounterDonor, CounterKind, CounterScope,
+    CounterSubject, DamageRedirectTo, DamageRider, DamageTo, DefinedObjects, DelayedDuration,
+    DelayedObservation, DelayedStep, DelayedTriggerWhen, DivisionAmount, DoublePtSubject, Effect,
+    ExileMana, ExilePermission, ExilePlay, ExileUntil, FaceDownSpec, Find, LookRest,
+    ManaDistribution, ManaRestriction, ManaSource, ManaUse, ManaValueBound, ManaValueCmp,
+    ModalRestriction, MoveCounterCount, MoveCounterDest, MoveCounterSource, MoveSubject,
+    MultiPlayerChoice, MultiPlayerChoiceAggregate, NumberChoiceKind, PeekPickDest, PeekRestDest,
+    PlayCostMode, PlayCount, PlaySource, PlayWindow, PlayerFilter, PlayerRel, ReflexiveEvent,
+    ReflexiveWhen, RemoveCounterCount, RemoveCounterSubject, RepeatDomain, RevealUntilFound,
+    RevealUntilRest, SearchDest, SecretNumberChoice, SourceLeaveAction, SpendRider, StateSubject,
+    StateTransition, TargetChooser, TargetConstraint, TargetReq, TargetSlot, TargetSpec, ThisWay,
+    TokenDef, TriggerRemember, VariablePayKind, VoteObjectAction, VoteOption, VoteOutcome, ZoneSel,
 };
 pub use filter::{Filter, OriginalExpansion, ZoneRef, ZoneRef as ZoneKind};
 pub use manaread::{
@@ -161,9 +163,13 @@ pub use baylee_core::mana;
 pub use baylee_core::mana::{ManaColor, ManaCost};
 pub use baylee_core::types::{SupertypeSet, TypeSet};
 pub use static_ability::{
-    AbilityDonorZone, AltCastPrice, AltCastZones, CounterReplaceOp, DamageAmountReplacement,
-    DamageRecipients, DamagedByScope, Duration, GraveyardAltKind, LAYERS, Layer, LifeGainOp,
-    Modifier, PtCount, ReplacementRule, SpellCastMetric, StaticAbility, TriggerCause,
+    AbilityDonorZone, ActivatedAbilityKind, AltCastPrice, AltCastZones, AttackTaxTarget,
+    CounterReplaceOp, DamageAmountReplacement, DamageRecipients, DamageRiderScope, DamagedByScope,
+    Duration, EntryInsteadZone, EntryPredicate, EquipTargetMetric, GraveyardAltKind,
+    GraveyardExileRider, GraveyardRedirectDest, LAYERS, Layer, LifeGainOp, MiracleGrant, Modifier,
+    MultiDrawReplacementKind, NextDrawReplacement, PtCount, ReplacementRule, SpellCastMetric,
+    StaticAbility, TargetCostCheck, TriggerCause, ZonePlayCastRider, ZonePlayGrant,
+    ZonePlayManaSpending,
 };
 
 /// A compiled card definition: zero-cost, `'static`, registry-resident.
@@ -331,9 +337,64 @@ impl CardDef {
             && [left, right].iter().all(|half| {
                 (half.castable_from_hand || half.aftermath)
                     && !half.adventure
+                    && !half.omen
+                    && !half.flip
                     && !half.types.is_empty()
                     && half.types.difference(spells).is_empty()
             })
+    }
+
+    /// Whether this is a Kamigawa flip card (CR 710.1): two halves printed on
+    /// one physical face, where `faces[1]` is the flipped version.
+    #[must_use]
+    pub fn is_flip_card(&self) -> bool {
+        self.faces.len() >= 2 && self.faces[1].flip
+    }
+
+    /// Whether this is an Omen card (CR 720): a main face with an inset Omen
+    /// instant/sorcery face (`faces[1].omen`).
+    #[must_use]
+    pub fn is_omen_card(&self) -> bool {
+        self.faces.len() >= 2 && self.faces[1].omen
+    }
+
+    /// Whether this card is half of a meld pair (CR 712.1, CR 701.42).
+    #[must_use]
+    pub fn is_meld_card(&self) -> bool {
+        self.faces.first().is_some_and(|f| f.meld_partner.is_some())
+    }
+
+    /// Whether this card uses the Prepare inset-spell layout (CR 723.3).
+    #[must_use]
+    pub fn is_prepare_card(&self) -> bool {
+        self.abilities_for_face(0)
+            .iter()
+            .any(|a| matches!(a, crate::ability::AbilityDef::Prepared { .. }))
+    }
+
+    /// Whether this is a double-faced card under CR 712.1 (transforming DFC,
+    /// modal DFC, or meld card). Split, Adventure, Omen, Flip, and Prepare
+    /// cards are single-faced physical cards.
+    #[must_use]
+    pub fn is_double_faced(&self) -> bool {
+        self.is_meld_card()
+            || (self.faces.len() >= 2
+                && !self.is_split_spell_card()
+                && !self.is_flip_card()
+                && !self.is_omen_card()
+                && !self.faces[1].adventure
+                && !self.is_prepare_card())
+    }
+
+    /// Whether this card can transform (CR 701.27d, CR 712.10): a double-faced
+    /// card that is not a meld card. Modal double-faced cards transform too:
+    /// Eddie Brock, Tony Stark, Monica Rambeau, King T'Challa and Bruce
+    /// Banner are printed as modal double-faced cards whose own abilities say
+    /// "Transform", and Scryfall and `xtask validate` keep their backs
+    /// castable from hand.
+    #[must_use]
+    pub fn can_transform(&self) -> bool {
+        self.faces.len() >= 2 && self.is_double_faced() && !self.is_meld_card()
     }
 
     /// Whether this is a split card with one shared type line (CR 709.5), a
@@ -868,6 +929,18 @@ pub struct FaceDef {
     /// Paying `optional_cost` also lets this spell be cast as though it had
     /// flash. The ordinary route keeps its printed timing and cost.
     pub optional_cost_grants_flash: bool,
+    /// Flip (CR 710): this face (`faces[1]`) is the alternative (flipped) half
+    /// of a Kamigawa flip card. Never cast from hand (`castable_from_hand = false`);
+    /// once flipped, its name, type line, text box, power, and toughness replace
+    /// face 0 while retaining face 0's mana cost and color.
+    pub flip: bool,
+    /// Omen (CR 720): this face (`faces[1]`) is an Omen spell — when cast as an
+    /// Omen and it resolves, its owner shuffles it into their library instead of
+    /// putting it into their graveyard.
+    pub omen: bool,
+    /// Meld partner card name (CR 701.42, CR 712.1): marks both halves of a meld
+    /// pair as double-faced meld cards (`MeldPair:`).
+    pub meld_partner: Option<&'static str>,
 }
 
 impl FaceDef {
@@ -967,6 +1040,9 @@ impl FaceDef {
         mayhem: None,
         optional_cost: None,
         optional_cost_grants_flash: false,
+        flip: false,
+        omen: false,
+        meld_partner: None,
     };
 }
 
@@ -1353,6 +1429,54 @@ pub enum EnterModifier {
     /// "As this enters, each player chooses [mode0] or [mode1]..." (`CR 614.12`:
     /// *Archangel of Strife*). Appended to preserve replay identities.
     EachPlayerChooseMode(&'static [&'static str]),
+    /// "This permanent enters under the control of an opponent of your choice"
+    /// (`CR 614.1c`, `CR 614.12`: *Xantcha, Sleeper Agent*, *Captive Audience*,
+    /// *Pendant of Prosperity*). Appended to preserve replay identities.
+    EntersUnderChosenOpponentControl,
+    /// "As this enters, turn all [filter] permanents face down" (`CR 614.1c`,
+    /// `CR 708.2`: *Ixidron*). Applied as the permanent enters before SBAs
+    /// check `*/*` characteristic-defining P/T. Appended to preserve replay identities.
+    TurnMatchingFaceDown(&'static Filter),
+    /// "As this enters, choose a number between `min` and `max` at random"
+    /// (`CR 614.12`; *Haktos the Unscarred*). Appended to preserve replay
+    /// identities.
+    ChooseNumberAtRandom {
+        /// Lowest permitted choice, inclusive.
+        min: u8,
+        /// Highest permitted choice, inclusive.
+        max: u8,
+    },
+    /// "As this enters, secretly choose a number between `min` and `max`"
+    /// (`CR 614.12`; *Ominous Lockbox*). Stored on the permanent and hidden from
+    /// other players' views until revealed. Appended to preserve replay
+    /// identities.
+    SecretlyChooseNumber {
+        /// Lowest permitted choice, inclusive.
+        min: u8,
+        /// Highest permitted choice, inclusive.
+        max: u8,
+    },
+    /// "As this enters, secretly choose an opponent" (`CR 614.12`; *Guardian
+    /// Archon*, *Emissary of Grudges*, *Stalking Leonin*). Stored on the
+    /// permanent and hidden from other players' views until revealed (e.g. via
+    /// [`CostPart::RevealChosenPlayer`]). Appended to preserve replay identities.
+    SecretlyChooseOpponent,
+    /// "As this enters, choose two players" (`CR 614.12`; *Bitter Feud*, *Sower
+    /// of Discord*). Stores two distinct players accessible via
+    /// [`PlayerRel::ChosenBySource`] and [`PlayerRel::SecondChosenBySource`].
+    /// Appended to preserve replay identities.
+    ChooseTwoPlayers,
+    /// "As this enters, an opponent chooses a creature type" (`CR 614.12`;
+    /// *Callous Oppressor*). Prompts the controller to choose an opponent when
+    /// multiple exist, then prompts that opponent to choose a creature subtype.
+    /// Appended to preserve replay identities.
+    OpponentChoosesCreatureType,
+    /// "As this enters, note the most prevalent creature type in an opponent's
+    /// library" (`CR 614.12`; *Favored Enemy*). Prompts the controller to choose
+    /// an opponent when multiple exist, then records the most prevalent creature
+    /// subtype in that opponent's library (prompting on ties) as the
+    /// permanent's chosen subtype. Appended to preserve replay identities.
+    NoteMostPrevalentCreatureTypeInOpponentLibrary,
 }
 
 impl EnterModifier {
@@ -1541,6 +1665,7 @@ keywords! {
     DELVE = 124, "Delve (CR 702.66).";
     DEMONSTRATE = 125, "Demonstrate (CR 702.148).";
     ASSIST = 126, "Assist (CR 702.132).";
+    DECAYED = 127, "Decayed (CR 702.147).";
 }
 
 impl KeywordSet {
@@ -1706,6 +1831,7 @@ pub const PRINTED_KEYWORDS: &[(KeywordSet, &str)] = &[
     (KeywordSet::DELVE, "Delve"),
     (KeywordSet::DEMONSTRATE, "Demonstrate"),
     (KeywordSet::ASSIST, "Assist"),
+    (KeywordSet::DECAYED, "Decayed"),
     (KeywordSet::UNBLOCKABLE, "This creature can't be blocked."),
     (KeywordSet::CANT_BLOCK, "This creature can't block."),
     (KeywordSet::CANT_ATTACK, "This creature can't attack."),

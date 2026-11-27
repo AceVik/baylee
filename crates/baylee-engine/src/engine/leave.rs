@@ -187,7 +187,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             let filter = match self.resolution.as_ref().and_then(|r| r.awaiting.as_ref()) {
                 Some(
                     AwaitingOp::ShieldFromChosenSource { sources, .. }
-                    | AwaitingOp::ShieldFromChosenSourceWithLifeCondition { sources, .. },
+                    | AwaitingOp::ShieldFromChosenSourceWithLifeCondition { sources, .. }
+                    | AwaitingOp::RedirectNextToChosenSource { sources, .. }
+                    | AwaitingOp::ShieldNextWithThenFromChosenSource { sources, .. },
                 ) => *sources,
                 _ => &baylee_cards_dsl::Filter::Any,
             };

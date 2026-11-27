@@ -24,10 +24,11 @@ card!(
     ),],
     abilities = &[activated!(
         cost!("{1}"),
-        &[Effect::RedirectNextDamage {
-            target: TargetSpec::Object(&TARGET1),
+        &[Effect::RedirectNextDamageTo {
+            from: TargetSpec::Object(&TARGET1),
+            choose_source: None,
             amount: Amount::Fixed(1),
-            to: PlayerRel::You
+            to: TargetSpec::Player(PlayerRel::You)
         }],
         target = Some(TargetSpec::Object(&TARGET1))
     ),],

@@ -10,7 +10,9 @@ pub(super) fn start(
     claimed: Claimed,
 ) -> Result<crate::routes::SeatGrant, (StatusCode, Json<ErrorBody>)> {
     let identity = &claimed.package.cohort.executor;
-    if state.agents.lock().pick_exact(identity).is_none() {
+    // This build's protocol only: an older Tower build an agent keeps is no
+    // artifact a run is put on (`tower_inventory`).
+    if !identity.valid() || state.agents.lock().pick_exact(identity).is_none() {
         return Err(routes::unavailable());
     }
     let preset = claimed

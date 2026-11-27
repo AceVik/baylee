@@ -8884,3 +8884,23 @@ unfiltered cards. The eight additional cards come from typecycling and dredge.
   through `counter_ability`, and `DestroyCounteredAbilitySource` acts only on
   that recorded source if it remains on the battlefield; spells, uncounterable
   abilities and sources that already left do not qualify.
+
+## 2026-11-27 — Wave 19 integration, prelude re-exports, and `check_text`
+
+- Any new DSL enum or helper type emitted directly by `xtask codegen` (such as
+  `MoveCounterSource`, `MoveCounterDest`, `MoveCounterCount`, `MiracleGrant`,
+  and `ZonePlay*`) must be re-exported from both `baylee-cards-dsl` root
+  **and** `baylee_cards_dsl::build::prelude`, because generated card modules
+  only `use baylee_cards_dsl::prelude::*;`.
+- When adding new DSL permission or combat-tax variants that stand in for
+  printed "you may" or "you control" clauses (e.g.
+  `GrantRememberedExilePermission`, `CantAttackUnlessYouTap`,
+  `CantBlockUnlessYouTap`, `CantAttackUnlessYouReturn`), update
+  `xtask/src/check_text/mod.rs` (`OFFERS_A_CHOICE` / `filters_you`) alongside
+  the DSL/codegen changes so `xtask validate` recognizes them.
+- Running `baylee-tools hooks require-card-tests` non-interactively over SSH
+  requires closing/feeding stdin (`echo "{}" | ...`) because the hook reads
+  stdin to EOF.
+- `Modifier::CantAttackUnlessYouTap` needs cross-creature constraint exposure
+  in `Pending::ChooseAttackers` before the house AI can safely declare attacks
+  alongside the last untapped creature (*Hollow Warrior* held back until then).

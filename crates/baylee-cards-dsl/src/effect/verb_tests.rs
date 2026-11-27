@@ -1414,3 +1414,149 @@ fn may_pay_energy_equal_to_target_cmc_then_body_is_visited() {
     assert_eq!(seen, 2);
     assert!(returned);
 }
+
+#[test]
+fn prevent_next_from_chosen_source_with_then_body_is_visited() {
+    static RIDER_OPS: &[Effect] = &[
+        Effect::DealDamageToEventSourceOrController {
+            amount: Amount::ThisWay(crate::ThisWay::DamagePrevented),
+            creature_source_takes_damage: false,
+        },
+        Effect::DrawCardsFor {
+            who: crate::PlayerRel::You,
+            amount: Amount::ThisWay(crate::ThisWay::DamagePrevented),
+        },
+    ];
+    static EFFECTS: &[Effect] = &[Effect::PreventNextFromChosenSourceWithThen {
+        target: TargetSpec::Player(crate::PlayerRel::You),
+        sources: &Filter::Any,
+        combat_only: false,
+        then: DamageRider::sequence(RIDER_OPS),
+    }];
+    let mut seen = 0;
+    let mut dealt = false;
+    let mut drew = false;
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        dealt |= matches!(effect, Effect::DealDamageToEventSourceOrController { .. });
+        drew |= matches!(effect, Effect::DrawCardsFor { .. });
+    });
+    assert_eq!(seen, 3);
+    assert!(dealt);
+    assert!(drew);
+}
+
+#[test]
+fn set_state_if_cant_body_is_visited() {
+    static EFFECTS: &[Effect] = &[Effect::SetState {
+        subject: StateSubject::Source,
+        transition: StateTransition::TurnFaceUp,
+        if_cant: &[Effect::ExileSource],
+    }];
+    let mut seen = 0;
+    let mut exiled = false;
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        exiled |= matches!(effect, Effect::ExileSource);
+    });
+    assert_eq!(seen, 2);
+    assert!(exiled);
+}
+
+#[test]
+fn attach_chosen_then_and_relocate_attachment_bodies_are_visited() {
+    static EFFECTS: &[Effect] = &[
+        Effect::AttachChosenThen {
+            filter: &Filter::ARTIFACT,
+            to: TargetSpec::Object(&Filter::CREATURE),
+            max: Amount::Fixed(1),
+            optional: true,
+            then_if_attached: &[Effect::Unattach {
+                target: TargetSpec::EventObject,
+            }],
+        },
+        Effect::RelocateAttachment {
+            attachment: crate::AttachmentSource::GrantedSource,
+            chooser: crate::PlayerRel::You,
+            recipient_filter: &Filter::CREATURE,
+            must_change_recipient: true,
+            optional: false,
+            then_if_moved: &[Effect::draw(1)],
+        },
+    ];
+    let mut seen = 0;
+    let (mut unattached, mut drew) = (false, false);
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        unattached |= matches!(effect, Effect::Unattach { .. });
+        drew |= matches!(effect, Effect::DrawCards { .. });
+    });
+    assert_eq!(seen, 4);
+    assert!(unattached && drew);
+}
+
+#[test]
+fn choices_and_players_effect_bodies_are_visited() {
+    static EFFECTS: &[Effect] = &[
+        Effect::ChoosePlayerEx {
+            chooser: crate::PlayerRel::You,
+            filter: crate::PlayerFilter::OpponentWithGreatestLife,
+            random: false,
+            remember: true,
+            if_none: &[Effect::TapSelf],
+            then: &[Effect::draw(1)],
+        },
+        Effect::ChooseNumberAtRandom {
+            min: Amount::Fixed(1),
+            max: Amount::Fixed(3),
+            then: &[Effect::GainLife {
+                amount: Amount::ResolutionChosenNumber,
+            }],
+        },
+        Effect::SecretChooseNumbers(crate::SecretNumberChoice {
+            players: crate::PlayerRel::EachPlayer,
+            min: Amount::Fixed(0),
+            max: Amount::Fixed(u32::MAX),
+            on_each: &[Effect::LoseLife {
+                target: crate::PlayerRel::EventPlayer,
+                amount: Amount::ResolutionChosenNumber,
+            }],
+            on_highest: &[Effect::DealDamage {
+                amount: Amount::ResolutionChosenNumber,
+                target: TargetSpec::Player(crate::PlayerRel::EventPlayer),
+            }],
+            on_lowest: &[Effect::draw(1)],
+            on_not_lowest: &[Effect::draw(7)],
+            on_matched: &[Effect::SacrificeSelf],
+            on_unmatched: &[Effect::TapSelf],
+            remember_highest: true,
+        }),
+        Effect::SecretNumberGuess {
+            min: 1,
+            max: 5,
+            track_used_on_source: true,
+            guesser: crate::PlayerRel::Opponent,
+            on_correct: &[Effect::SacrificeSelf],
+            on_wrong: &[Effect::draw(1)],
+        },
+        Effect::RepeatEachPlayerPayUntilNone {
+            kind: crate::VariablePayKind::Life,
+            max_per_player: Amount::Fixed(10),
+            then_per_player: &[Effect::draw(1)],
+        },
+    ];
+    let mut seen = 0;
+    let mut visited_secret_branches = 0;
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        if matches!(
+            effect,
+            Effect::LoseLife { .. }
+                | Effect::DealDamage { .. }
+                | Effect::SacrificeSelf
+                | Effect::TapSelf
+                | Effect::DrawCards { .. }
+                | Effect::GainLife { .. }
+        ) {
+            visited_secret_branches += 1;
+        }
+    });
+    assert_eq!(seen, 5 + 12);
+    assert_eq!(visited_secret_branches, 12);
+}

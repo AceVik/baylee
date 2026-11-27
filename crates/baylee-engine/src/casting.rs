@@ -47,6 +47,7 @@ pub(crate) use alt_grants::{
     AltCastGrantRoute, alt_cast_face_open, alt_cast_face_with_flash, alt_cast_grant_options,
     alt_cast_graveyard_land_zone_open, alt_cast_route_still_open, alt_cast_zone_spell_open,
     consume_alt_cast_land_allowance, harmonize_max_power, has_alt_cast_grant,
+    zone_play_grant_mana_spending,
 };
 pub(crate) use escape::{escape_grants, granted_escape_options, mana_cost_mode};
 pub(crate) use face_options::{optional_flash_cost_options, ordinary_face_kind};
@@ -78,11 +79,14 @@ pub(crate) use pricing::{
     spell_adjustment, spell_adjustment_with_def, spell_mana_spending,
 };
 pub use pricing::{
-    ability_mana_spending, commander_tax, convoke_sources, delve_sources, effective_blitz_cost,
-    granted_stack_alternatives, has_convoke, has_delve, has_improvise, has_improvise_for,
-    keyword_priced, keyword_priced_for, keyword_reduction, mana_cost_reduction, mana_is_wild,
-    mana_spending, printed_reduction, reduction_amount, tap_colors, tap_colors_for,
-    tap_to_pay_sources, tap_to_pay_sources_for, waterbend_sources,
+    ability_mana_spending, commander_tax, convoke_sources, delve_sources,
+    effective_beam_me_up_cost, effective_blitz_cost, effective_foretell_cost,
+    effective_madness_cost, effective_mayhem_cost, effective_miracle_cost, effective_warp_cost,
+    granted_foretell_reduce, granted_stack_alternatives, has_convoke, has_delve,
+    has_granted_madness, has_improvise, has_improvise_for, keyword_priced, keyword_priced_for,
+    keyword_reduction, mana_cost_reduction, mana_is_wild, mana_spending, printed_reduction,
+    reduction_amount, tap_colors, tap_colors_for, tap_to_pay_sources, tap_to_pay_sources_for,
+    waterbend_sources,
 };
 
 /// Whether `player` can pay all non-mana flashback parts and mandatory
@@ -194,6 +198,7 @@ fn castable_back_faces_in_zone(
         .filter(move |(_, face)| {
             (face.castable_from_hand || (in_own_graveyard && (face.disturb || face.aftermath)))
                 && !face.types.contains(TypeSet::LAND)
+                && !face.flip
                 && !(on_adventure && face.adventure)
         })
 }
@@ -1671,14 +1676,14 @@ pub(crate) fn can_cast_form_paying(
     let beam_cost = obj
         .card
         .and_then(|card| lookup.card(card.index))
-        .and_then(|def| def.faces[0].beam_me_up);
+        .and_then(|def| effective_beam_me_up_cost(state, card, &def.faces[0]));
     let beam_ok = in_own_graveyard
         && beam_cost.is_some()
         && !beam_return_options(state, player, card).is_empty();
     let mayhem_cost = obj
         .card
         .and_then(|card| lookup.card(card.index))
-        .and_then(|def| def.faces[0].mayhem);
+        .and_then(|def| effective_mayhem_cost(state, card, &def.faces[0]));
     let mayhem_ok =
         in_own_graveyard && mayhem_cost.is_some() && mayhem_discarded_this_turn(state, player, obj);
     // Disturb (CR 702.146) and Aftermath (CR 702.127a): a back face with
@@ -1710,7 +1715,7 @@ pub(crate) fn can_cast_form_paying(
     let foretell_cost = obj
         .card
         .and_then(|c| lookup.card(c.index))
-        .and_then(|def| def.faces[0].foretell);
+        .and_then(|def| effective_foretell_cost(obj, &def.faces[0]));
     let foretell_ok = foretell_cost.is_some() && foretell_permission(state, player, card);
     if matches!(form, Some(SpellForm::Foretell(_))) && !foretell_ok {
         return Err(CastError::NotInHand);
@@ -2475,7 +2480,43 @@ pub(crate) fn can_cast_form_paying(
             )
             .is_some()
         });
-        if parts_payable && probe(&cost.with_x(0)) {
+        let fb_form = SpellForm::Flashback(cost);
+        let fb_ok = printed.map_or_else(
+            || probe(&cost.with_x(0)),
+            |def| {
+                let fb_adj = face_adjustment(state, player, card, def, 0, Some(fb_form));
+                let fb_preview = fb_adj.for_preview(preview_cast_metric_bounds_for(
+                    state,
+                    player,
+                    card,
+                    def,
+                    0,
+                    Some(fb_form),
+                    PreviewCastKind::Face,
+                    &fb_adj,
+                ));
+                let fb_printed = printed_reduction(state, &def.faces[0], player, card);
+                let fb_kw = keyword_reduction(state, &def.faces[0], player, card);
+                let fb_cost = keyword_priced_for(
+                    state,
+                    card,
+                    0,
+                    &def.faces[0],
+                    player,
+                    &fb_preview.price(cost.with_x(0), fb_printed),
+                    fb_kw,
+                );
+                let fb_what = SpendFor::SpellAs(card, fb_form);
+                let fb_pool = planning_pool(state, player, fb_what, 0);
+                let fb_pool_ref = fb_pool
+                    .as_ref()
+                    .unwrap_or(&state.players[usize::from(player.get())].mana_pool);
+                let fb_allow =
+                    fb_preview.allowance(state, fb_what, fb_printed.saturating_add(fb_kw));
+                affordable(state, player, fb_pool_ref, &fb_cost, fb_what, fb_allow)
+            },
+        );
+        if parts_payable && fb_ok {
             return Ok(());
         }
         if !flashback_granted(state, card) && !graveyard_ok && !jump_start_ok && !retrace_ok {
@@ -2923,7 +2964,46 @@ pub(crate) fn can_cast_form_paying(
             && front_target_ok
             && !flashback_only
             && !gy_alt_only
-            && face.dash.is_some_and(|dash| probe(&dash));
+            && face.dash.is_some_and(|dash| {
+                let dash_form = SpellForm::Dash(dash);
+                let dash_adj = face_adjustment(state, player, card, def, 0, Some(dash_form));
+                let dash_preview = dash_adj.for_preview(preview_cast_metric_bounds_for(
+                    state,
+                    player,
+                    card,
+                    def,
+                    0,
+                    Some(dash_form),
+                    PreviewCastKind::Face,
+                    &dash_adj,
+                ));
+                let dash_printed = printed_reduction(state, face, player, card);
+                let dash_kw = keyword_reduction(state, face, player, card);
+                let dash_cost = keyword_priced_for(
+                    state,
+                    card,
+                    0,
+                    face,
+                    player,
+                    &dash_preview.price(dash.with_x(0), dash_printed),
+                    dash_kw,
+                );
+                let dash_what = SpendFor::SpellAs(card, dash_form);
+                let dash_pool = planning_pool(state, player, dash_what, 0);
+                let dash_pool_ref = dash_pool
+                    .as_ref()
+                    .unwrap_or(&state.players[usize::from(player.get())].mana_pool);
+                let dash_allow =
+                    dash_preview.allowance(state, dash_what, dash_printed.saturating_add(dash_kw));
+                affordable(
+                    state,
+                    player,
+                    dash_pool_ref,
+                    &dash_cost,
+                    dash_what,
+                    dash_allow,
+                )
+            });
         // Blitz (CR 702.152a), the offer's `CastModeKind::Blitz`.
         let any_blitz = front_now
             && front_target_ok
@@ -2986,7 +3066,7 @@ pub(crate) fn can_cast_form_paying(
             && front_target_ok
             && (in_hand || gy_warp_ok)
             && !flashback_only
-            && face.warp.is_some_and(|warp| {
+            && effective_warp_cost(state, obj, face).is_some_and(|warp| {
                 probe(&warp.mana.with_x(0))
                     && alternative_parts_payable(state, player, card, warp.parts)
                     && additional_payment_capacity_for(
@@ -2994,7 +3074,11 @@ pub(crate) fn can_cast_form_paying(
                         player,
                         card,
                         face,
-                        Some(crate::choice::CastModeKind::Warp),
+                        crate::engine::cast_wizard::CostChoice {
+                            option: Some(crate::choice::CastModeKind::Warp),
+                            warp_parts: warp.parts,
+                            ..Default::default()
+                        },
                         &[],
                     )
                     .is_some()
@@ -3411,6 +3495,7 @@ fn alternative_parts_payable(
         // so there is nothing here an alternative cost could fail to pay.
         // Counted activation costs are not spell additional costs.
         CostPart::ExertSelf
+        | CostPart::RevealChosenPlayer
         | CostPart::SacrificeGrantor
         | CostPart::PayEnergy(_)
         | CostPart::PayEnergyX

@@ -967,7 +967,6 @@ impl Tx<'_> {
             return None;
         }
         let raw_tv = p.peek("TargetValidTargeting")?.to_string();
-        let cleaned_tv = strip_battlefield_you_ctrl_alts(&raw_tv)?;
         let (wrapper_kind, tt_ctrl) = match p.peek("TargetType") {
             None | Some("Spell") => ("Spell", None),
             Some("Spell.OppCtrl") => ("Spell", Some("Filter::ControlledByOpponent")),
@@ -1011,19 +1010,9 @@ impl Tx<'_> {
             }
             _ => return None,
         };
-        let targets_clause = if matches!(cleaned_tv.as_str(), "Permanent" | "Card") {
-            "Filter::TargetsPermanentYouControl".to_string()
-        } else {
-            let Some(expr) = self.filter_expr(&cleaned_tv) else {
-                rollback(self);
-                return None;
-            };
-            if expr.starts_with("Filter::") && !expr.contains([' ', '(', '&']) {
-                format!("Filter::TargetsYouControl(&{expr})")
-            } else {
-                let inner_name = self.body.filter_static("TARGET_PERM", &expr);
-                format!("Filter::TargetsYouControl(&{inner_name})")
-            }
+        let Some(targets_clause) = self.targets_you_control_filter(&raw_tv) else {
+            rollback(self);
+            return None;
         };
         let mut clauses = Vec::new();
         if let Some(vc) = valid_clause {
@@ -1042,6 +1031,20 @@ impl Tx<'_> {
         p.take("TargetValidTargeting");
         let name = self.body.filter_static("TARGET", &combined);
         Some(format!("TargetSpec::{wrapper_kind}(&{name})"))
+    }
+
+    pub(super) fn targets_you_control_filter(&mut self, raw_tv: &str) -> Option<String> {
+        let cleaned_tv = strip_battlefield_you_ctrl_alts(raw_tv)?;
+        if matches!(cleaned_tv.as_str(), "Permanent" | "Card") {
+            return Some("Filter::TargetsPermanentYouControl".to_string());
+        }
+        let expr = self.filter_expr(&cleaned_tv)?;
+        if expr.starts_with("Filter::") && !expr.contains([' ', '(', '&']) {
+            Some(format!("Filter::TargetsYouControl(&{expr})"))
+        } else {
+            let inner_name = self.body.filter_static("TARGET_PERM", &expr);
+            Some(format!("Filter::TargetsYouControl(&{inner_name})"))
+        }
     }
 }
 

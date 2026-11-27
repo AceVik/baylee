@@ -16,7 +16,7 @@ static TRIGGER1: Filter = Filter::Or(&[
     ]),
 ]);
 
-static COND2: Filter = Filter::And(&[
+static EXILE_PLAY2: Filter = Filter::And(&[
     Filter::CREATURE,
     Filter::HasSubtype(subtypes::creature::GOBLIN),
 ]);
@@ -46,21 +46,14 @@ card!(
         ),
         triggered!(
             Trigger::Dies(&TRIGGER1),
-            &[Effect::RevealUntilThen {
-                library: PlayerRel::You,
-                filter: &Filter::Any,
-                count: Amount::Fixed(1),
-                max_revealed: Some(Amount::Fixed(1)),
-                exile_while_revealing: true,
-                found: RevealUntilFound::Exile,
-                rest: RevealUntilRest::Exile,
-                then: &[Effect::IfEventObjectMatches {
-                    filter: &COND2,
-                    then: &[Effect::ExileWithPermission {
-                        target: TargetSpec::EventObject,
-                        until: None,
-                        permission: ExilePermission::cast(PlayWindow::ThroughYourNextTurn)
-                    }]
+            &[Effect::CaptureAffected {
+                first: &[Effect::ExileTop {
+                    who: PlayerRel::You,
+                    count: Amount::Fixed(1)
+                }],
+                then: &[Effect::GrantRememberedExilePermission {
+                    filter: &EXILE_PLAY2,
+                    permission: ExilePermission::cast(PlayWindow::ThroughYourNextTurn)
                 }]
             }]
         ),

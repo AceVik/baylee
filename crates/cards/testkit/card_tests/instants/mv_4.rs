@@ -26,6 +26,7 @@ mod discombobulate;
 mod dismiss;
 mod elephant_ambush;
 mod ensnare;
+mod ether_well;
 mod fact_or_fiction;
 mod fanatical_fever;
 mod fell_the_profane;

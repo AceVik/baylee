@@ -70,12 +70,14 @@ impl super::Agents {
     }
 
     /// Installed compatibility survives full agents; availability is a separate subset.
+    /// Only this build's protocol: an older Tower build an agent keeps is no
+    /// artifact a new run may be put on.
     pub(crate) fn tower_inventory(&self) -> Option<TowerInventory> {
         let mut installed = Vec::new();
         let mut available = Vec::new();
         for agent in self.connected.values() {
             for identity in &agent.engines {
-                if identity.variant != Variant::Tower {
+                if identity.variant != Variant::Tower || !identity.valid() {
                     continue;
                 }
                 if !installed.contains(identity) {
@@ -140,12 +142,14 @@ pub(crate) struct TowerInventory {
 }
 
 /// Every field must agree, including the legacy build used by record/challenge readers.
+/// An older build an agent keeps matches the game it was ordered for: one an
+/// older build began and goes on with.
 pub(crate) fn matches(
     expected: Option<&Identity>,
     hello: &baylee_protocol::v1::EngineHello,
 ) -> bool {
     expected.is_some_and(|expected| {
         hello.build == expected.build
-            && Identity::from_metadata(&hello.execution).as_ref() == Some(expected)
+            && Identity::from_hostable_metadata(&hello.execution).as_ref() == Some(expected)
     })
 }

@@ -263,7 +263,8 @@ pub fn can_block(
     // creature that can't block and a creature that can't be blocked are
     // different cards, and a reader that asked only the attacker answered
     // one of them.
-    if kw(b, K::CANT_BLOCK) {
+    // Decayed (CR 702.147a): "This creature can't block."
+    if kw(b, K::CANT_BLOCK) || kw(b, K::DECAYED) {
         return false;
     }
     // Protection (CR 702.16f): can't be blocked by matching creatures.
@@ -506,6 +507,7 @@ pub struct BlockRules<'a> {
     must_block: Vec<&'a crate::effects::ContinuousEffect>,
     pairs: Vec<crate::state::MustBlockRequirement>,
     unless_pay_mana: Vec<&'a crate::effects::ContinuousEffect>,
+    unless_tap: Vec<&'a crate::effects::ContinuousEffect>,
     unless_more_creatures: Vec<&'a crate::effects::ContinuousEffect>,
     creature_counts: Option<super::CreatureCounts>,
     max_blockers: Option<usize>,
@@ -540,6 +542,7 @@ impl<'a> BlockRules<'a> {
                 })
                 .collect(),
             unless_pay_mana: Vec::new(),
+            unless_tap: Vec::new(),
             unless_more_creatures: Vec::new(),
             creature_counts: None,
             max_blockers: None,
@@ -549,8 +552,12 @@ impl<'a> BlockRules<'a> {
             match fx.modifier {
                 Modifier::CantBlockUnlessPayMana(_)
                 | Modifier::CantBlockUnlessPayManaPerCounter(_)
-                | Modifier::CantBlockMatchingUnlessPayMana { .. } => {
+                | Modifier::CantBlockMatchingUnlessPayMana { .. }
+                | Modifier::BlockManaTax { .. } => {
                     rules.unless_pay_mana.push(fx);
+                }
+                Modifier::CantBlockUnlessYouTap { .. } => {
+                    rules.unless_tap.push(fx);
                 }
                 Modifier::CantBlockUnlessYouControlMoreCreaturesThanAttacker => {
                     rules.unless_more_creatures.push(fx);
@@ -614,12 +621,81 @@ impl<'a> BlockRules<'a> {
         })
     }
 
+    /// Tap-untapped-permanent costs `blocker`'s controller must pay to declare
+    /// `blocker` blocking (Hollow Warrior, CR 509.1d).
+    #[must_use]
+    pub fn tap_tax(
+        &self,
+        blocker: ObjectId,
+    ) -> Vec<(u8, &'static baylee_cards_dsl::Filter, PlayerId, ObjectId)> {
+        if self.unless_tap.is_empty() {
+            return Vec::new();
+        }
+        let Some(obj) = self.state.object(blocker) else {
+            return Vec::new();
+        };
+        self.unless_tap
+            .iter()
+            .filter_map(|fx| {
+                let baylee_cards_dsl::Modifier::CantBlockUnlessYouTap { count, filter } =
+                    fx.modifier
+                else {
+                    return None;
+                };
+                crate::effects::applies_to(self.state, fx, obj).then_some((
+                    count,
+                    filter,
+                    fx.controller,
+                    fx.source.unwrap_or(blocker),
+                ))
+            })
+            .collect()
+    }
+
+    /// Whether declaring `blocker` requires tapping another permanent.
+    #[must_use]
+    pub fn has_tap_tax(&self, blocker: ObjectId) -> bool {
+        !self.tap_tax(blocker).is_empty()
+    }
+
+    /// Whether `blocker`'s controller controls enough other untapped permanents
+    /// to pay `blocker`'s tap-to-block restrictions individually.
+    #[must_use]
+    pub fn can_pay_tap_tax(&self, blocker: ObjectId) -> bool {
+        let taxes = self.tap_tax(blocker);
+        if taxes.is_empty() {
+            return true;
+        }
+        let Some(obj) = self.state.object(blocker) else {
+            return false;
+        };
+        for (count, filter, you, source) in taxes {
+            let have = self
+                .state
+                .battlefield_seen()
+                .filter(|&id| {
+                    id != blocker
+                        && self.state.object(id).is_some_and(|p| {
+                            p.controller == obj.controller
+                                && !p.status.contains(Status::TAPPED)
+                                && crate::eval::matches(filter, self.state, p, you, source)
+                        })
+                })
+                .count();
+            if have < usize::from(count) {
+                return false;
+            }
+        }
+        true
+    }
+
     /// Whether every non-mana restriction permits this exact declaration.
     /// Mana stays separate because its payment window may make it payable.
     #[must_use]
     pub fn can_declare(&self, defending: PlayerId, blocker: ObjectId, attacker: ObjectId) -> bool {
         can_block(self.state, defending, blocker, attacker)
             && self.has_required_creature_advantage(blocker, attacker)
+            && self.can_pay_tap_tax(blocker)
     }
 
     /// All restrictions this offer can answer for one pair. Mana is included
@@ -627,6 +703,7 @@ impl<'a> BlockRules<'a> {
     /// may still make the cost payable.
     fn allows(&self, blocker: ObjectId, attacker: ObjectId) -> bool {
         self.has_required_creature_advantage(blocker, attacker)
+            && self.can_pay_tap_tax(blocker)
             && self.can_pay_mana(blocker, attacker)
     }
 
@@ -696,6 +773,22 @@ impl<'a> BlockRules<'a> {
                         }
                         mana
                     }
+                    baylee_cards_dsl::Modifier::BlockManaTax { amount } => {
+                        if matches!(amount, baylee_cards_dsl::Amount::TotalCountersOnSubject) {
+                            obj.counters
+                                .iter()
+                                .map(|(_, n)| u32::from(n))
+                                .fold(0_u32, u32::saturating_add)
+                        } else {
+                            crate::eval::amount(
+                                &amount,
+                                self.state,
+                                fx.controller,
+                                fx.source.unwrap_or(blocker),
+                                None,
+                            )
+                        }
+                    }
                     _ => return None,
                 };
                 crate::effects::applies_to(self.state, fx, obj).then_some(amount)
@@ -755,7 +848,7 @@ impl<'a> BlockRules<'a> {
     }
 
     fn pair_demands(&self, blocker: ObjectId, attacker: ObjectId) -> usize {
-        if self.mana_tax(blocker, attacker) > 0 {
+        if self.mana_tax(blocker, attacker) > 0 || self.has_tap_tax(blocker) {
             return 0;
         }
         let state = self.state;
@@ -795,7 +888,7 @@ impl<'a> BlockRules<'a> {
     /// Minimum number of mandatory blocks demanded for `(blocker, attacker)`.
     #[must_use]
     pub fn demands(&self, blocker: ObjectId, attacker: ObjectId) -> usize {
-        if self.mana_tax(blocker, attacker) > 0 {
+        if self.mana_tax(blocker, attacker) > 0 || self.has_tap_tax(blocker) {
             return 0;
         }
         self.pair_demands(blocker, attacker) + self.must_block_count(blocker)
@@ -818,7 +911,7 @@ impl<'a> BlockRules<'a> {
         let mut counted = std::collections::BTreeSet::new();
         let mut blocker_total = 0_usize;
         for &(b, a) in declared {
-            if self.mana_tax(b, a) == 0 && counted.insert(b) {
+            if self.mana_tax(b, a) == 0 && !self.has_tap_tax(b) && counted.insert(b) {
                 blocker_total += self.must_block_count(b);
             }
         }

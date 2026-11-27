@@ -39,6 +39,18 @@ static PERSIST_RETURN: &[baylee_cards_dsl::Effect] =
         1,
     )];
 
+/// Granted death trigger from `ZonePlayCastRider::GrantDeathExileAndGainLife`
+/// (*Serra Paragon*): "When this permanent is put into a graveyard from the
+/// battlefield, exile it and you gain N life."
+static GRANTED_DEATH_EXILE_AND_GAIN_LIFE: &[baylee_cards_dsl::Effect] = &[
+    baylee_cards_dsl::Effect::Exile {
+        target: baylee_cards_dsl::TargetSpec::ThisObject,
+    },
+    baylee_cards_dsl::Effect::GainLife {
+        amount: baylee_cards_dsl::Amount::EventAmount,
+    },
+];
+
 /// Count independent return abilities before departure, after copy and ability
 /// layers. The common case without either keyword needs no effect scan.
 pub(crate) fn return_keyword_counts(state: &GameState, object: &GameObject) -> [u32; 2] {
@@ -239,6 +251,76 @@ pub(super) fn collect_modular(
                 synthetic_condition: None,
                 in_chosen_order: false,
             });
+        }
+    }
+}
+
+/// Collects granted death triggers attached by `ZonePlayCastRider::GrantDeathExileAndGainLife`
+/// (*Serra Paragon*, CR 603.10a).
+pub(super) fn collect_granted_death(
+    state: &GameState,
+    obj: &GameObject,
+    events: &[crate::event::JournalEntry],
+    triggers: &mut Vec<PendingTrigger>,
+) {
+    for entry in events {
+        if !matches!(entry.event, GameEvent::ZoneChanged {
+            object, from: crate::zone::Zone::Battlefield, to: crate::zone::Zone::Graveyard, ..
+        } if object == obj.id)
+        {
+            continue;
+        }
+        let source = source_at_event(state, obj, events, entry, true);
+        if source.characteristics().abilities_lost.is_some()
+            || source.characteristics().rules_text_lost
+        {
+            continue;
+        }
+        for rider in &source.riders {
+            let crate::object::Rider::GrantDeathExileAndGainLife(life) = *rider else {
+                continue;
+            };
+            let times = super::matching::times_triggered_for_entry(
+                state,
+                baylee_cards_dsl::TriggerEventKind::Any,
+                source,
+                Some(entry),
+            );
+            for _ in 0..times {
+                triggers.push(PendingTrigger {
+                    text: TextChangeMap::IDENTITY,
+                    source_version: Some(source.version),
+                    related_objects: None,
+                    found_objects: None,
+                    grantor: None,
+                    event_subject: None,
+                    event_ability: None,
+                    event_object_identity: Some((
+                        source.version.wrapping_add(1),
+                        source.characteristics().power.unwrap_or(0),
+                    )),
+                    counter_source_version: None,
+                    event_mana: None,
+                    event_mana_value: None,
+                    event_tap_snapshot: None,
+                    event_departure: None,
+                    event_amount: Some(life),
+                    event_player: None,
+                    source: obj.id,
+                    ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
+                    controller: source.controller,
+                    timestamp: source.timestamp,
+                    event_object: Some(obj.id),
+                    implicit_target: Some(obj.id),
+                    abilities: None,
+                    synthetic_effects: Some(GRANTED_DEATH_EXILE_AND_GAIN_LIFE),
+                    once_per_turn: false,
+                    synthetic_target: None,
+                    chosen_mode: None,
+                    synthetic_condition: None,
+                    in_chosen_order: false,
+                });
+            }
         }
     }
 }

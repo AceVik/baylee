@@ -145,7 +145,28 @@ reaches Central, so nobody's load can cost another account its session.
 
 ## Bigint advisory scope
 
-The dependency upgrade of 25.11.2026 pins Central to
+The AI players' pin of 27.11.2026 moves Central to
+`1c7c990ea80d8f154a3884406e1437f1d653bd1e` (Central's branch
+`claude/ai-players`, pull request 98, not merged yet), which contains the
+open-beta pin below; its migration 000055 and grants come with it, the
+integration fixture's copy of `ops/grants.sql` following. The
+`central-crypto` Git tree is unchanged
+(`fecfee3b4b4433a4bfd5a57ae9b1fb4154c141f8`), and so is Central's own lock
+file, so this review stands; only the `central-*` entries of Baylee's lock
+file moved.
+
+The open-beta release of 27.11.2026 pinned Central to
+`8d6ac023040b2e3c31189df4c3fa4903b2333056`: Central's pull requests 92 to 103
+on top of the pin below, without 95 and 98 (minimum age 13, the `bgt_` token
+prefix, feedback report tokens, erasure after a restore, Rust 1.100, the ranked
+privacy texts and terms, ranked data in the account download, pruned queue
+tickets and the friend-invite link). Its `central-crypto` Git tree is still
+`fecfee3b4b4433a4bfd5a57ae9b1fb4154c141f8` and Central's lock file is
+unchanged, so the advisory scope below holds as it is. Baylee's lock file
+moves only the Central crates' source revision, and the gateway's copy of
+Central's runtime grants follows its `ops/grants.sql` (report tokens).
+
+The dependency upgrade of 25.11.2026 pinned Central to
 `e96792ffd170a62fe038444fb7fe1a14a85f6e35` (Central's pull request 91 on top
 of its test pull request 90). Against the ranked-seat pin below, the
 `central-crypto` Git tree (now `fecfee3b4b4433a4bfd5a57ae9b1fb4154c141f8`)
@@ -158,21 +179,12 @@ unchanged, and Central's own source check pins the crate's new fingerprint
 follows to `hyper` 1.13.0 and `sha2` 0.11.2; the native shipping gate checks
 the all-feature reverse dependency graph at this pin.
 
-The AI players' pin of 27.11.2026 moves Central to
-`1c7c990ea80d8f154a3884406e1437f1d653bd1e` (Central's branch
-`claude/ai-players`, pull request 98, not merged yet; its migration 000055
-and grants come with it, the integration fixture's copy of `ops/grants.sql`
-following). The `central-crypto`
-Git tree is unchanged (`fecfee3b4b4433a4bfd5a57ae9b1fb4154c141f8`), and so is
-Central's own lock file, so this review stands; only the `central-*` entries
-of Baylee's lock file moved.
-
 ## Central's protocol
 
 Every native request to Central names the protocol it speaks in the
 `Baylee-Central-Protocol` header (`central_api::PROTOCOL_HEADER`), and the
 client, the gateway, the Tower service and the ranked runner all send
-`central_api::PROTOCOL_VERSION`, so the pin decides it. Since the pin above
+`central_api::PROTOCOL_VERSION`, so the pin decides it. Since the AI players' pin
 Baylee speaks Central protocol **3**: it reads AI players' badges (the
 `ai` and `opponent_ai` fields), a search says which AI opponents it accepts
 (`SeatRequest::Join.ai`, `AiOpponents::None` until the search card asks),

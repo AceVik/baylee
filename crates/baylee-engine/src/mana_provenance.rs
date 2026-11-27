@@ -20,6 +20,8 @@ pub struct ManaProvenance {
     pub(crate) source_watermark: Option<WatermarkId>,
     /// Exact exile that `ManaUse::LastLinkedExile` alone admits.
     pub(crate) last_linked_exile: Option<baylee_core::ids::DamageSourceRef>,
+    /// Whether this mana was produced by a Treasure (`Condition::TreasureManaWasSpent`).
+    pub(crate) from_treasure: bool,
     /// What the snapshot hash takes the entry as. Made as [`deposit`] keeps
     /// it: an entry is never written again and a game keeps every one, so
     /// the hash after every answer reads this instead of digesting them all.
@@ -34,6 +36,11 @@ impl ManaProvenance {
         restriction: Option<ManaRestriction>,
     ) -> Self {
         let object = state.damage_source(context.source, version);
+        let from_treasure = object.is_some_and(|o| {
+            o.characteristics()
+                .subtypes
+                .contains(baylee_core::generated::subtypes::artifact::TREASURE)
+        });
         let last_linked_exile = if restriction
             .is_some_and(|restriction| restriction.uses == ManaUse::LastLinkedExile)
         {
@@ -55,6 +62,7 @@ impl ManaProvenance {
             chosen_subtype: object.and_then(|object| object.chosen_subtype),
             source_watermark: object.and_then(GameObject::watermark),
             last_linked_exile,
+            from_treasure,
             restriction: restriction.unwrap_or(ManaRestriction {
                 uses: ManaUse::SpellsOrAbilities,
                 filter: &Filter::Any,
@@ -151,6 +159,26 @@ impl ManaProvenance {
             _ => crate::eval::matches_with_context(filter, state, object, player, self.context),
         }
     }
+}
+
+/// Whether any unit of mana recorded in `paid` was produced by a Treasure
+/// (`Condition::TreasureManaWasSpent`, CR 106.12).
+#[must_use]
+pub(crate) fn paid_spent_treasure_mana(
+    state: &GameState,
+    paid: &crate::object::PaidRecord,
+) -> bool {
+    paid.mana_paid
+        .ridden()
+        .iter()
+        .chain(paid.mana_paid.restricted().iter())
+        .any(|entry| {
+            entry.amount > 0
+                && state
+                    .restriction_info
+                    .get(&entry.restriction.0)
+                    .is_some_and(|prov| prov.from_treasure)
+        })
 }
 
 impl GameState {
@@ -255,6 +283,7 @@ impl
             chosen_subtype: None,
             source_watermark: None,
             last_linked_exile: None,
+            from_treasure: false,
             digest: 0,
         }
     }
@@ -316,6 +345,11 @@ fn reads_source(filter: &Filter) -> bool {
         | Filter::CastFromZone(_)
         | Filter::IsCommander
         | Filter::HasAdventure
+        | Filter::HasOmen
+        | Filter::HasMorph
+        | Filter::DoubleFaced
+        | Filter::CanTransform
+        | Filter::Flipped
         | Filter::Any
         | Filter::HasType(_)
         | Filter::LacksType(_)
@@ -344,6 +378,8 @@ fn reads_source(filter: &Filter) -> bool {
         | Filter::Untapped
         | Filter::EnteredThisTurn
         | Filter::SurveilledByYouThisTurn
+        | Filter::EnteredCurrentZoneThisTurn(_)
+        | Filter::ExiledByYou
         | Filter::HasCounter(_)
         | Filter::HasAnyCounter
         | Filter::CountersAtLeast(..)

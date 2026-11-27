@@ -40,6 +40,23 @@ pub(super) fn hash(h: &mut Hasher, state: &GameState, position: &impl Fn(ObjectI
             positions.hash(h);
         }
     }
+    if !front.multi_applied.is_empty() || front.multi_settled || !front.multi_pending.is_empty() {
+        h.u8(255);
+        h.u16(580);
+        front.multi_settled.hash(h);
+        let mut positions: Vec<_> = front.multi_applied.iter().map(|&id| position(id)).collect();
+        positions.sort_unstable();
+        positions.dedup();
+        positions.hash(h);
+        h.u32(u32::try_from(front.multi_pending.len()).unwrap_or(u32::MAX));
+        for (player, applied) in &front.multi_pending {
+            player.hash(h);
+            let mut pos: Vec<_> = applied.iter().map(|&id| position(id)).collect();
+            pos.sort_unstable();
+            pos.dedup();
+            pos.hash(h);
+        }
+    }
     // Past instruction draws are not a future rule input on their own: a new
     // instruction starts at the ledger's current length. An active loot hashes
     // its eligible hand positions through resolve::loot::loop_progress instead.

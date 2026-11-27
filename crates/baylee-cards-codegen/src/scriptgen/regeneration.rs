@@ -57,6 +57,64 @@ impl Tx<'_> {
         Some(true)
     }
 
+    /// Consume `RememberDamaged$ True` on `DealDamage | Defined$ You | UnlessCost$`
+    /// followed by `DB$ Tap | [Defined$ Self] | ConditionPlayerDefined$ Remembered | ConditionPlayerContains$ You`
+    /// and a `ClearRemembered$ True` cleanup (*Minion of Leshrac*, *Mishra's War Machine*).
+    pub(super) fn take_damage_to_you_tap_self(
+        &self,
+        api: &str,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        initial: bool,
+    ) -> Option<bool> {
+        if !initial
+            || api != "DealDamage"
+            || self.on_a_spell
+            || p.peek("RememberDamaged") != Some("True")
+            || p.peek("Defined") != Some("You")
+            || !p.has("UnlessCost")
+            || !matches!(p.peek("UnlessResolveSubs"), None | Some("WhenNotPaid"))
+        {
+            return Some(false);
+        }
+        let Some(sub_name) = sub.as_deref() else {
+            return Some(false);
+        };
+        let Some(body) = self.svars.get(sub_name.trim()) else {
+            return Some(false);
+        };
+        let Some((tap_api, mut sp)) = Params::parse(body) else {
+            return Some(false);
+        };
+        sp.drop_prose();
+        if tap_api != "Tap"
+            || !matches!(sp.take("Defined").as_deref(), None | Some("Self"))
+            || sp.take("ConditionPlayerDefined").as_deref() != Some("Remembered")
+            || sp.take("ConditionPlayerContains").as_deref() != Some("You")
+        {
+            return Some(false);
+        }
+        let cleanup_name = sp.take("SubAbility")?;
+        if !sp.exhausted() {
+            return Some(false);
+        }
+        let cleanup_body = self.svars.get(cleanup_name.trim())?;
+        let (cleanup_api, mut cp) = Params::parse(cleanup_body)?;
+        cp.drop_prose();
+        if cleanup_api != "Cleanup"
+            || cp.take("ClearRemembered").as_deref() != Some("True")
+            || !cp.exhausted()
+        {
+            return Some(false);
+        }
+        p.take("RememberDamaged");
+        if p.peek("UnlessResolveSubs") == Some("WhenNotPaid") {
+            p.take("UnlessResolveSubs");
+        }
+        *sub = None;
+        Some(true)
+    }
+
     /// Returns `true` iff the `SubAbility$` chain reaches a `Cleanup` with
     /// `ClearRemembered$ True` and no earlier instruction in the chain reads
     /// `Remembered` (preserving any follow-up after `Cleanup`, e.g. shuffle or
@@ -375,6 +433,12 @@ impl Tx<'_> {
                             let saved_unclaimed = self.unclaimed.borrow().clone();
                             let saved_statics_len = self.body.statics.len();
                             if let Some(fx) = self.etb_additional_counter_turn_effect(p) {
+                                return Some(fx);
+                            }
+                            *p = saved_params.clone();
+                            (*self.unclaimed.borrow_mut()).clone_from(&saved_unclaimed);
+                            self.body.statics.truncate(saved_statics_len);
+                            if let Some(fx) = self.permanents_enter_tapped_effect(p) {
                                 return Some(fx);
                             }
                             *p = saved_params;
@@ -1690,5 +1754,90 @@ impl Tx<'_> {
             }
         }
         slice[start..].trim() == "Filter::ControlledByYou"
+    }
+
+    /// `DB$ Effect | ReplacementEffects$ <R>` where `<R>` is
+    /// `Event$ Moved | ValidCard$ <filter> | Destination$ Battlefield |
+    /// ReplacementResult$ Updated | ReplaceWith$ <DB$ Tap | ETB$ True>`
+    /// -> `Effect::AddGlobalTempModifier { modifier: Modifier::PermanentsEnterTapped(...) }`
+    /// (*Due Respect*).
+    fn permanents_enter_tapped_effect(&mut self, p: &mut Params) -> Option<Vec<String>> {
+        if p.has("RememberObjects")
+            || p.has("Triggers")
+            || p.has("StaticAbilities")
+            || p.has("Abilities")
+            || p.entries.iter().any(|(k, _)| k.starts_with("Condition"))
+        {
+            return None;
+        }
+        p.drop_prose();
+        p.take("Name");
+        if let Some(v) = p.take("NonStackingEffect")
+            && v != "True"
+        {
+            return None;
+        }
+        if let Some(v) = p.take("Stackable")
+            && v != "False"
+        {
+            return None;
+        }
+        let duration = match p.take("Duration").as_deref() {
+            None | Some("UntilEndOfTurn") => "Duration::UntilEndOfTurn",
+            Some("UntilYourNextTurn") => "Duration::UntilYourNextTurn",
+            Some(_) => return None,
+        };
+        let rep_name = p.take("ReplacementEffects")?;
+        if rep_name.contains(',') || !p.exhausted() {
+            return None;
+        }
+        let rep_body = self.svars.get(rep_name.trim())?.clone();
+        let (event, mut r) = Params::parse(&rep_body)?;
+        r.drop_prose();
+        if event != "Moved"
+            || !matches!(
+                r.take("ActiveZones").as_deref(),
+                None | Some("Command" | "Battlefield")
+            )
+            || !matches!(r.take("Origin").as_deref(), None | Some("Any"))
+            || r.take("Destination").as_deref() != Some("Battlefield")
+            || r.take("ReplacementResult").as_deref() != Some("Updated")
+        {
+            return None;
+        }
+        let valid_card = r.take("ValidCard")?;
+        if valid_card.contains("Self") {
+            return None;
+        }
+        let rw = r.take("ReplaceWith")?;
+        if !r.exhausted() {
+            return None;
+        }
+        let rw_body = self.svars.get(rw.trim())?.clone();
+        let (tap_api, mut tp) = Params::parse(&rw_body)?;
+        tp.drop_prose();
+        if tap_api != "Tap"
+            || tp.take("ETB").as_deref() != Some("True")
+            || !matches!(
+                tp.take("Defined").as_deref(),
+                None | Some("ReplacedCard" | "Self")
+            )
+            || !tp.exhausted()
+        {
+            return None;
+        }
+        let filter_ref = if valid_card == "Permanent" {
+            "&Filter::Any".to_string()
+        } else {
+            let expr = self.filter_expr(&valid_card)?;
+            if expr == "Filter::Any" {
+                "&Filter::Any".to_string()
+            } else {
+                format!("&{}", self.body.filter_static("ENTER", &expr))
+            }
+        };
+        Some(vec![format!(
+            "Effect::AddGlobalTempModifier {{ filter: &Filter::Any,              modifier: Modifier::PermanentsEnterTapped({filter_ref}), duration: {duration} }}"
+        )])
     }
 }

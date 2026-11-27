@@ -1,7 +1,7 @@
 //! Serra Avatar — {4}{W}{W}{W} — Creature — Avatar
 //! Oracle: Serra Avatar's power and toughness are each equal to your life total.
 //! Oracle: When Serra Avatar is put into a graveyard from anywhere, shuffle it into its owner's library.
-//! Set: DMR #26 — Dominaria Remastered | Scryfall ID: 5041dcfd-c1af-448c-91f7-75fd1d34e93e | Oracle ID: c363725f-15cf-4955-aaf1-536b1f8daaed
+//! Set: USG #45 — Urza's Saga | Scryfall ID: 288b0976-78e8-4fbe-8607-2e55d8761d3e | Oracle ID: c363725f-15cf-4955-aaf1-536b1f8daaed
 // GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
 
 // Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
@@ -12,7 +12,7 @@ use baylee_core::generated::subtypes;
 card!(
     index = index::SERRA_AVATAR,
     oracle_id = "c363725f-15cf-4955-aaf1-536b1f8daaed",
-    scryfall_id = "5041dcfd-c1af-448c-91f7-75fd1d34e93e",
+    scryfall_id = "288b0976-78e8-4fbe-8607-2e55d8761d3e",
     color_identity = ColorSet::from_slice(&[Color::White]),
     faces = &[face!(
         name = "Serra Avatar",

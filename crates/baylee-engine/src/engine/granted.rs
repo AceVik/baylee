@@ -34,6 +34,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .iter()
                 .filter(|g| {
                     g.player == player
+                        && self.state.granted_action_active(g)
                         && (self.state.granted_action_payable(g)
                             || (matches!(g.offer.cost, SpecialActionCost::Mana(_))
                                 && can_make_mana))
@@ -48,6 +49,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             .iter()
             .filter(|g| {
                 g.player == player
+                    && self.state.granted_action_active(g)
                     && (matches!(g.offer.cost, SpecialActionCost::Mana(_))
                         || self.state.granted_action_payable(g))
             })
@@ -104,6 +106,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             .find(|g| g.player == player && g.offer.id == id)
             .cloned()
             .ok_or(EngineError::IllegalAction("special action expired"))?;
+        if !self.state.granted_action_active(&action) {
+            return Err(EngineError::IllegalAction("special action expired"));
+        }
         if self.mana_window.is_some() && action.offer.timing != SpecialActionTiming::ManaAbility {
             return Err(EngineError::IllegalAction(
                 "special action requires priority",
@@ -469,6 +474,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                 baylee_cards_dsl::CostPart::TapSelf
                                     | baylee_cards_dsl::CostPart::UntapSelf
                                     | baylee_cards_dsl::CostPart::ExertSelf
+                                    | baylee_cards_dsl::CostPart::RevealChosenPlayer
                             )
                         })
                     }

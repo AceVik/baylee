@@ -143,8 +143,14 @@ pub struct CardBody {
     pub back: Option<Box<Self>>,
     /// Whether `back` is an Adventure face (CR 716, `FaceDef::adventure`).
     pub back_is_adventure: bool,
+    /// Whether `back` is a Kamigawa Flip face (CR 710, `FaceDef::flip`).
+    pub back_is_flip: bool,
+    /// Whether `back` is a Tarkir Omen face (CR 720, `FaceDef::omen`).
+    pub back_is_omen: bool,
     /// Whether `back` is a Prepare inset face (CR 723.3, `AbilityDef::Prepared`).
     pub back_is_prepare: bool,
+    /// Partner card name for a meld card (`MeldPair:<partner>`, CR 701.42).
+    pub meld_partner: Option<String>,
     /// Whether the script declares bare `K:Partner` (emitted on `CardDef::partner`).
     pub has_partner: bool,
     /// Short human notes for the `// IMPLEMENTED — …` line.

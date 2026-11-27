@@ -250,9 +250,6 @@ fn wave28d_discard_tgt_choose_and_refusals() {
         "Name:CrackedSkull\nManaCost:2 B\nTypes:Sorcery\n\
          A:SP$ Discard | ValidTgts$ Player | Mode$ RevealYouChoose | Optional$ True | DiscardValid$ Card.nonLand | DiscardValidDesc$ nonland card\n\
          Oracle:Look at target player's hand. You may choose a nonland card from it. That player discards that card.",
-        // RevealNumber$ subset reveal (Blackmail) MUST refuse!
-        "Name:Blackmail\nManaCost:B\nTypes:Sorcery\n\
-         A:SP$ Discard | ValidTgts$ Player | Mode$ RevealYouChoose | RevealNumber$ 3 | NumCards$ 1",
         // Optional LookYouChoose MUST refuse!
         "Name:OptLook\nManaCost:B\nTypes:Sorcery\n\
          A:SP$ Discard | ValidTgts$ Opponent | Mode$ LookYouChoose | Optional$ True | NumCards$ 1",
@@ -1261,10 +1258,6 @@ fn wave28d_p2_refusals() {
         // Rivals' Duel: TargetsWithoutSameCreatureType$ -> MUST refuse!
         "Name:RivalsDuel\nManaCost:3 R\nTypes:Sorcery\n\
          A:SP$ Fight | ValidTgts$ Creature | TargetMin$ 2 | TargetMax$ 2 | TargetsWithoutSameCreatureType$ True",
-        // RemoveCounter fixed-N on target (no kind-scoped RemoveUpToCountersTarget) -> MUST refuse!
-        "Name:ShedWeaknessLike\nManaCost:G\nTypes:Instant\n\
-         A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +2 | NumDef$ +2 | SubAbility$ DBRem\n\
-         SVar:DBRem:DB$ RemoveCounter | Defined$ Targeted | CounterType$ M1M1 | CounterNum$ 1",
         // GainControl with unsupported LoseControl$ Never -> MUST refuse!
         "Name:TreasureNabberLike\nManaCost:2 R\nTypes:Sorcery\n\
          A:SP$ GainControl | ValidTgts$ Artifact | LoseControl$ Never",
@@ -1559,9 +1552,6 @@ fn wave28d_p3_refusals() {
         "Name:SokenzanLike\nManaCost:1 R\nTypes:Creature Goblin Artificer\nPT:2/2\n\
          T:Mode$ Phase | Phase$ BeginCombat | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigToken\n\
          SVar:TrigToken:AB$ Token | Cost$ 1 Sac<1/Artifact/an artifact> | TokenScript$ r_3_1_a_construct_haste",
-        // RevealNumber$ N (Blackmail) -> MUST refuse!
-        "Name:BlackmailLike\nManaCost:B\nTypes:Sorcery\n\
-         A:SP$ Discard | ValidTgts$ Player | Mode$ RevealYouChoose | RevealNumber$ 3 | NumCards$ 1",
     ] {
         assert!(refused_w28d(bad), "must refuse:\n{bad}");
     }

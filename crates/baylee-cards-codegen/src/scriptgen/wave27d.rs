@@ -508,6 +508,7 @@ impl Tx<'_> {
         // `resolve/wave14d.rs` binds resolution-scoped `MustAttackPlayer(Chosen)`
         // via `Rider::MustAttackPlayerThisTurn` exclusively for `Duration::UntilEndOfTurn`.
         let has_chosen_player = self.has_chosen_source_player()
+            || self.in_chosen_player
             || matches!(
                 target,
                 Some(

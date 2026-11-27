@@ -67,6 +67,38 @@ fn screen(lang: Lang) -> (App, std::sync::mpsc::Receiver<central::Job>) {
     (app, jobs)
 }
 
+/// Tower Echoes is not live for the open beta (owner, 27.11.2026): until
+/// Central is found to delegate a Tower, its tile is not drawn and nothing in
+/// the lobby opens onto an error; once Central answers that one is there,
+/// the tile stands beside Ranked.
+#[test]
+fn without_a_tower_at_central_its_tile_is_not_drawn() {
+    let (mut app, _jobs) = screen(Lang::En);
+    stocked(&mut app);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.gateway_selected = true;
+        state.lobby.apply(LobbyEvent::Games(GameListing::default()));
+    }
+    press(
+        &mut app,
+        crate::lobby::header::nav_press(crate::lobby::header::NavTab::Play),
+    );
+    settle(&mut app);
+    let open = Press::Echoes(crate::lobby::echoes::Action::Open);
+    assert!(!presses(&mut app).contains(&open));
+    assert!(
+        !labels(&mut app).contains(&Phrase::TowerRunTitle.text(Lang::En).to_string()),
+        "no Tower tile before Central says there is a Tower"
+    );
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .echoes
+        .tower_answered(true);
+    settle(&mut app);
+    assert!(presses(&mut app).contains(&open), "answered, it stands");
+}
+
 #[test]
 fn gateway_lobby_exposes_three_activities_beside_the_table_controls() {
     let (mut app, _jobs) = screen(Lang::De);
@@ -80,6 +112,7 @@ fn gateway_lobby_exposes_three_activities_beside_the_table_controls() {
             api::Period::containing(api::Kind::Weekly, state.challenges.model.now).unwrap();
         state.challenges.model.catalogue = vec![task, weekly];
         state.gateway_selected = true;
+        state.echoes.tower_answered(true);
         state.lobby.apply(LobbyEvent::Games(GameListing::default()));
     }
     press(

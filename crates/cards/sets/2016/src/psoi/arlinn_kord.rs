@@ -83,7 +83,11 @@ card!(
                             amount: Amount::Fixed(3),
                             target: TargetSpec::AnyTarget
                         },
-                        Effect::TransformSource
+                        Effect::SetState {
+                            subject: StateSubject::Source,
+                            transition: StateTransition::Transform,
+                            if_cant: &[]
+                        }
                     ],
                     targets = Some(TargetReq::one(TargetSpec::AnyTarget))
                 ),

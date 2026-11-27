@@ -147,8 +147,11 @@ pub struct AttackRules<'a> {
     cant_be_attacked_by: Vec<&'a crate::effects::ContinuousEffect>,
     attack_tax_life: Vec<&'a crate::effects::ContinuousEffect>,
     attack_tax_mana: Vec<&'a crate::effects::ContinuousEffect>,
+    attack_phyrexian_tax: Vec<&'a crate::effects::ContinuousEffect>,
     unless_pay_mana: Vec<&'a crate::effects::ContinuousEffect>,
     unless_sacrifice: Vec<&'a crate::effects::ContinuousEffect>,
+    unless_return: Vec<&'a crate::effects::ContinuousEffect>,
+    unless_tap: Vec<&'a crate::effects::ContinuousEffect>,
     creature_counts: Option<super::CreatureCounts>,
     max_attackers: Option<usize>,
     /// Mana the attacking player could still make before paying a mana tax
@@ -174,8 +177,11 @@ impl<'a> AttackRules<'a> {
         let mut cant_be_attacked_by = Vec::new();
         let mut attack_tax_life = Vec::new();
         let mut attack_tax_mana = Vec::new();
+        let mut attack_phyrexian_tax = Vec::new();
         let mut unless_pay_mana = Vec::new();
         let mut unless_sacrifice = Vec::new();
+        let mut unless_return = Vec::new();
+        let mut unless_tap = Vec::new();
         let mut max_attackers: Option<usize> = None;
         for fx in state.effects.iter() {
             match fx.modifier {
@@ -193,10 +199,15 @@ impl<'a> AttackRules<'a> {
                 Modifier::CantAttackYouOrYourPlaneswalkers => cant_attack_you_or_pws.push(fx),
                 Modifier::CantBeAttackedBy(_) => cant_be_attacked_by.push(fx),
                 Modifier::AttackTaxLife { .. } => attack_tax_life.push(fx),
-                Modifier::AttackTaxMana { .. } => attack_tax_mana.push(fx),
+                Modifier::AttackTaxMana { .. } | Modifier::AttackManaTax { .. } => {
+                    attack_tax_mana.push(fx);
+                }
+                Modifier::AttackPhyrexianTax { .. } => attack_phyrexian_tax.push(fx),
                 Modifier::CantAttackUnlessPayMana(_)
                 | Modifier::CantAttackUnlessPayManaPerCounter(_) => unless_pay_mana.push(fx),
                 Modifier::CantAttackUnlessYouSacrifice { .. } => unless_sacrifice.push(fx),
+                Modifier::CantAttackUnlessYouReturn { .. } => unless_return.push(fx),
+                Modifier::CantAttackUnlessYouTap { .. } => unless_tap.push(fx),
                 Modifier::MaxAttackersPerCombat(n)
                     if crate::effects::source_is_present(state, fx) =>
                 {
@@ -223,8 +234,11 @@ impl<'a> AttackRules<'a> {
             cant_be_attacked_by,
             attack_tax_life,
             attack_tax_mana,
+            attack_phyrexian_tax,
             unless_pay_mana,
             unless_sacrifice,
+            unless_return,
+            unless_tap,
             creature_counts,
             max_attackers,
             mana_reach: 0,
@@ -293,13 +307,16 @@ impl<'a> AttackRules<'a> {
     }
 
     /// Whether `creature` can legally attack `defender` without paying any
-    /// mana, life, or sacrifice attack tax (CR 508.1d).
+    /// mana, life, Phyrexian, sacrifice, return, or tap attack tax (CR 508.1d).
     #[must_use]
     pub fn untaxed_allows(&self, creature: ObjectId, defender: Defender) -> bool {
         self.allows(creature, defender)
             && self.sacrifice_tax(creature).is_empty()
+            && self.return_tax(creature).is_empty()
+            && self.tap_tax(creature).is_empty()
             && self.mana_tax_for(creature, defender) == 0
             && self.life_tax(creature, defender) == 0
+            && self.phyrexian_tax_for(creature, defender).is_empty()
     }
 
     /// Maximum number of requirements `creature` can obey across `legal`
@@ -412,7 +429,9 @@ impl<'a> AttackRules<'a> {
     /// so that asking what mana its controller could make is worth it.
     #[must_use]
     pub fn has_mana_tax(&self) -> bool {
-        !self.unless_pay_mana.is_empty() || !self.attack_tax_mana.is_empty()
+        !self.unless_pay_mana.is_empty()
+            || !self.attack_tax_mana.is_empty()
+            || !self.attack_phyrexian_tax.is_empty()
     }
 
     /// The same rules for a declaration whose mana tax may also be paid with
@@ -470,31 +489,126 @@ impl<'a> AttackRules<'a> {
     }
 
     /// Total generic mana for this particular defender, including effects
-    /// that protect only their own controller and planeswalkers.
+    /// that protect only their own controller, planeswalkers, or any defender.
     #[must_use]
     pub fn mana_tax_for(&self, creature: ObjectId, defender: Defender) -> u32 {
         let base = self.mana_tax(creature);
-        if self.attack_tax_mana.is_empty()
-            || !matches!(defender, Defender::Player(_) | Defender::Planeswalker(_))
-        {
+        if self.attack_tax_mana.is_empty() {
             return base;
         }
         let Some(obj) = self.state.object(creature) else {
             return base;
         };
-        let Some(defending) = defending_player(self.state, defender) else {
-            return base;
-        };
+        let defending = defending_player(self.state, defender);
         self.attack_tax_mana
             .iter()
-            .filter_map(|fx| {
-                let baylee_cards_dsl::Modifier::AttackTaxMana { mana } = fx.modifier else {
-                    return None;
-                };
-                (fx.controller == defending && crate::effects::applies_to(self.state, fx, obj))
+            .filter_map(|fx| match fx.modifier {
+                baylee_cards_dsl::Modifier::AttackTaxMana { mana } => {
+                    if !matches!(defender, Defender::Player(_) | Defender::Planeswalker(_)) {
+                        return None;
+                    }
+                    (defending == Some(fx.controller)
+                        && crate::effects::applies_to(self.state, fx, obj))
                     .then_some(mana)
+                }
+                baylee_cards_dsl::Modifier::AttackManaTax { target, amount } => {
+                    (matches_attack_tax_target(self.state, target, fx.controller, defender)
+                        && crate::effects::applies_to(self.state, fx, obj))
+                    .then(|| attack_mana_tax_amount(self.state, fx, obj, amount))
+                }
+                _ => None,
             })
             .fold(base, u32::saturating_add)
+    }
+
+    /// Phyrexian mana symbols required for `creature` to attack `defender`
+    /// (Norn's Annex, CR 508.1h, CR 107.4f).
+    #[must_use]
+    pub fn phyrexian_tax_for(
+        &self,
+        creature: ObjectId,
+        defender: Defender,
+    ) -> Vec<(baylee_core::mana::ManaColor, ObjectId)> {
+        if self.attack_phyrexian_tax.is_empty() {
+            return Vec::new();
+        }
+        let Some(obj) = self.state.object(creature) else {
+            return Vec::new();
+        };
+        self.attack_phyrexian_tax
+            .iter()
+            .filter_map(|fx| {
+                let baylee_cards_dsl::Modifier::AttackPhyrexianTax { target, color } = fx.modifier
+                else {
+                    return None;
+                };
+                (matches_attack_tax_target(self.state, target, fx.controller, defender)
+                    && crate::effects::applies_to(self.state, fx, obj))
+                .then_some((color, fx.source.unwrap_or(creature)))
+            })
+            .collect()
+    }
+
+    /// Return-to-hand costs `creature`'s controller must pay to declare
+    /// `creature` attacking (Floodtide Serpent, CR 508.1h).
+    #[must_use]
+    pub fn return_tax(
+        &self,
+        creature: ObjectId,
+    ) -> Vec<(u8, &'static baylee_cards_dsl::Filter, PlayerId, ObjectId)> {
+        if self.unless_return.is_empty() {
+            return Vec::new();
+        }
+        let Some(obj) = self.state.object(creature) else {
+            return Vec::new();
+        };
+        self.unless_return
+            .iter()
+            .filter_map(|fx| {
+                let baylee_cards_dsl::Modifier::CantAttackUnlessYouReturn { count, filter } =
+                    fx.modifier
+                else {
+                    return None;
+                };
+                crate::effects::applies_to(self.state, fx, obj).then_some((
+                    count,
+                    filter,
+                    fx.controller,
+                    fx.source.unwrap_or(creature),
+                ))
+            })
+            .collect()
+    }
+
+    /// Tap-untapped-permanent costs `creature`'s controller must pay to declare
+    /// `creature` attacking (Hollow Warrior, CR 508.1h).
+    #[must_use]
+    pub fn tap_tax(
+        &self,
+        creature: ObjectId,
+    ) -> Vec<(u8, &'static baylee_cards_dsl::Filter, PlayerId, ObjectId)> {
+        if self.unless_tap.is_empty() {
+            return Vec::new();
+        }
+        let Some(obj) = self.state.object(creature) else {
+            return Vec::new();
+        };
+        self.unless_tap
+            .iter()
+            .filter_map(|fx| {
+                let baylee_cards_dsl::Modifier::CantAttackUnlessYouTap { count, filter } =
+                    fx.modifier
+                else {
+                    return None;
+                };
+                crate::effects::applies_to(self.state, fx, obj).then_some((
+                    count,
+                    filter,
+                    fx.controller,
+                    fx.source.unwrap_or(creature),
+                ))
+            })
+            .collect()
     }
 
     /// Sacrifice costs `creature`'s controller must pay to declare `creature`
@@ -570,8 +684,11 @@ impl<'a> AttackRules<'a> {
             && self.cant_be_attacked_by.is_empty()
             && self.attack_tax_life.is_empty()
             && self.attack_tax_mana.is_empty()
+            && self.attack_phyrexian_tax.is_empty()
             && self.unless_pay_mana.is_empty()
             && self.unless_sacrifice.is_empty()
+            && self.unless_return.is_empty()
+            && self.unless_tap.is_empty()
         {
             return true;
         }
@@ -580,15 +697,21 @@ impl<'a> AttackRules<'a> {
             return false;
         };
         let mana_tax = self.mana_tax_for(creature, defender);
-        if mana_tax > 0 {
-            let pool = &state.players[usize::from(obj.controller.get())].mana_pool;
-            let pays = crate::mana_pay::can_pay(
-                pool,
-                &baylee_core::mana::ManaCost::ZERO.with_more_generic(mana_tax),
-            );
-            if !pays && pool.total().saturating_add(self.mana_reach) < u64::from(mana_tax) {
-                return false;
-            }
+        let life_tax = self.life_tax(creature, defender);
+        let phyrexian: Vec<baylee_core::mana::ManaColor> = self
+            .phyrexian_tax_for(creature, defender)
+            .into_iter()
+            .map(|(color, _)| color)
+            .collect();
+        if !can_afford_attack_mana_and_phyrexian(
+            state,
+            obj.controller,
+            baylee_core::mana::ManaCost::ZERO.with_more_generic(mana_tax),
+            life_tax,
+            &phyrexian,
+            self.mana_reach,
+        ) {
+            return false;
         }
         for (count, filter, you, source) in self.sacrifice_tax(creature) {
             let have = state
@@ -599,6 +722,36 @@ impl<'a> AttackRules<'a> {
                             && state.can_be_sacrificed(id, None)
                             && crate::eval::matches(filter, state, p, you, source)
                     })
+                })
+                .count();
+            if have < usize::from(count) {
+                return false;
+            }
+        }
+        for (count, filter, you, source) in self.return_tax(creature) {
+            let have = state
+                .battlefield_seen()
+                .filter(|&id| {
+                    state.object(id).is_some_and(|p| {
+                        p.controller == obj.controller
+                            && crate::eval::matches(filter, state, p, you, source)
+                    })
+                })
+                .count();
+            if have < usize::from(count) {
+                return false;
+            }
+        }
+        for (count, filter, you, source) in self.tap_tax(creature) {
+            let have = state
+                .battlefield_seen()
+                .filter(|&id| {
+                    id != creature
+                        && state.object(id).is_some_and(|p| {
+                            p.controller == obj.controller
+                                && !p.status.contains(Status::TAPPED)
+                                && crate::eval::matches(filter, state, p, you, source)
+                        })
                 })
                 .count();
             if have < usize::from(count) {
@@ -663,10 +816,7 @@ impl<'a> AttackRules<'a> {
         {
             return false;
         }
-        let tax = self.life_tax(creature, defender);
-        if tax > 0 && !state.can_pay_life(obj.controller, tax) {
-            return false;
-        }
+        // Life tax was validated jointly with mana and Phyrexian taxes above.
         // "You can't be attacked except by …" protects the player, and a
         // planeswalker they control is a defender of its own (CR 506.3).
         if let Defender::Player(attacked) = defender
@@ -754,6 +904,131 @@ impl<'a> AttackRules<'a> {
             .collect()
     }
 }
+fn matches_attack_tax_target(
+    state: &GameState,
+    target: baylee_cards_dsl::AttackTaxTarget,
+    fx_controller: PlayerId,
+    defender: Defender,
+) -> bool {
+    use baylee_cards_dsl::AttackTaxTarget;
+    let is_you = matches!(defender, Defender::Player(p) if p == fx_controller);
+    let is_your_pw = matches!(defender, Defender::Planeswalker(id) if state.object(id).is_some_and(|o| {
+        o.zone == crate::zone::Zone::Battlefield
+            && !o.status.contains(Status::PHASED_OUT)
+            && o.controller == fx_controller
+    }));
+    match target {
+        AttackTaxTarget::You => is_you,
+        AttackTaxTarget::PlaneswalkersYouControl => is_your_pw,
+        AttackTaxTarget::YouOrYourPlaneswalkers => is_you || is_your_pw,
+        AttackTaxTarget::AnyDefender => true,
+    }
+}
+
+fn attack_mana_tax_amount(
+    state: &GameState,
+    fx: &crate::effects::ContinuousEffect,
+    obj: &GameObject,
+    amount: baylee_cards_dsl::Amount,
+) -> u32 {
+    if matches!(amount, baylee_cards_dsl::Amount::TotalCountersOnSubject) {
+        return obj
+            .counters
+            .iter()
+            .map(|(_, n)| u32::from(n))
+            .fold(0_u32, u32::saturating_add);
+    }
+    crate::eval::amount(
+        &amount,
+        state,
+        fx.controller,
+        fx.source.unwrap_or(obj.id),
+        None,
+    )
+}
+
+pub(crate) fn mana_symbol_of(color: baylee_core::mana::ManaColor) -> baylee_core::mana::ManaSymbol {
+    use baylee_core::mana::{ManaColor, ManaSymbol};
+    match color {
+        ManaColor::White => ManaSymbol::White,
+        ManaColor::Blue => ManaSymbol::Blue,
+        ManaColor::Black => ManaSymbol::Black,
+        ManaColor::Red => ManaSymbol::Red,
+        ManaColor::Green => ManaSymbol::Green,
+        ManaColor::Colorless => ManaSymbol::Colorless,
+    }
+}
+
+/// Whether `player` can pay `mana_cost`, `life_tax`, and every Phyrexian
+/// attack tax symbol in `phyrexian` (each as 2 life or one mana of its color),
+/// given up to `mana_reach` additional mana producible in a payment window.
+#[must_use]
+pub(crate) fn can_afford_attack_mana_and_phyrexian(
+    state: &GameState,
+    player: PlayerId,
+    mana_cost: baylee_core::mana::ManaCost,
+    life_tax: i32,
+    phyrexian: &[baylee_core::mana::ManaColor],
+    mana_reach: u64,
+) -> bool {
+    if life_tax > 0 && !state.can_pay_life(player, life_tax) {
+        return false;
+    }
+    let pool = &state.players[usize::from(player.get())].mana_pool;
+    if phyrexian.is_empty() {
+        if mana_cost.is_empty() || crate::mana_pay::can_pay(pool, &mana_cost) {
+            return true;
+        }
+        return mana_reach > 0
+            && pool.total().saturating_add(mana_reach) >= u64::from(mana_cost.cmc());
+    }
+    let mut max_life_pips = 0_usize;
+    for j in 1..=phyrexian.len() {
+        let extra = i32::try_from(j).unwrap_or(i32::MAX).saturating_mul(2);
+        let total_life = life_tax.saturating_add(extra);
+        if state.can_pay_life(player, total_life) {
+            max_life_pips = j;
+        } else {
+            break;
+        }
+    }
+    let min_mana_pips = phyrexian.len().saturating_sub(max_life_pips);
+    if mana_reach > 0 {
+        let min_mv = u64::from(mana_cost.cmc())
+            .saturating_add(u64::try_from(min_mana_pips).unwrap_or(u64::MAX));
+        if pool.total().saturating_add(mana_reach) >= min_mv {
+            return true;
+        }
+    }
+    // Exact check against pool alone: convert colored deficits to life first,
+    // then any remaining pips up to `max_life_pips`, checking `can_pay` along
+    // the way.
+    let mut rem: Vec<baylee_core::mana::ManaColor> = phyrexian.to_vec();
+    let cost_of = |pips: &[baylee_core::mana::ManaColor]| {
+        pips.iter()
+            .fold(mana_cost, |acc, &c| acc.with_symbol(mana_symbol_of(c), 1))
+    };
+    if crate::mana_pay::can_pay(pool, &cost_of(&rem)) {
+        return true;
+    }
+    for _ in 0..max_life_pips {
+        if rem.is_empty() {
+            break;
+        }
+        // Prefer removing a pip whose color demand exceeds pool availability.
+        let deficit_idx = rem.iter().position(|&c| {
+            let demand = rem.iter().filter(|&&x| x == c).count() as u32;
+            demand > pool.available(c)
+        });
+        let idx = deficit_idx.unwrap_or(0);
+        rem.swap_remove(idx);
+        if crate::mana_pay::can_pay(pool, &cost_of(&rem)) {
+            return true;
+        }
+    }
+    false
+}
+
 /// Summoning sickness (CR 302.6): a creature must be controlled
 /// continuously since the beginning of its controller's most recent turn
 /// (haste excepted).

@@ -416,8 +416,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                 | resolve::AwaitingOp::ChooseEffectRestricted { .. }
                                 | resolve::AwaitingOp::ChoosePayCostOrDecline { .. }
                                 | resolve::AwaitingOp::PlayersChooseMode { .. }
+                                | resolve::AwaitingOp::SecretGuessChoose { .. }
                                 | resolve::AwaitingOp::Colors { .. }
                                 | resolve::AwaitingOp::MoveCounter { .. }
+                                | resolve::AwaitingOp::MoveCounters(_)
+                                | resolve::AwaitingOp::RemoveCountersChoice(_)
                                 | resolve::AwaitingOp::OptionVote(_)
                         )
                     )
@@ -654,9 +657,14 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         Some(
                             resolve::AwaitingOp::ChooseNumber
                                 | resolve::AwaitingOp::ChooseNumberEx { .. }
+                                | resolve::AwaitingOp::SecretNumbers { .. }
+                                | resolve::AwaitingOp::SecretGuessAnswer { .. }
+                                | resolve::AwaitingOp::RepeatPayUntilNone { .. }
                                 | resolve::AwaitingOp::TapEnergy(_)
                                 | resolve::AwaitingOp::Counters { .. }
                                 | resolve::AwaitingOp::RemoveUpToCountersTarget { .. }
+                                | resolve::AwaitingOp::MoveCounters(_)
+                                | resolve::AwaitingOp::RemoveCountersChoice(_)
                                 | resolve::AwaitingOp::DamagePayment { .. }
                                 | resolve::AwaitingOp::TextReplacement { .. }
                                 | resolve::AwaitingOp::RemoveCountersSelfCreateTokens { .. }
@@ -765,7 +773,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         .ok_or(EngineError::IllegalAction("no assistant selected"))?;
                     if n > 0 {
                         let face = self.wizard_face(&wizard);
-                        let spend = cast_wizard::spend_for(&wizard, face);
+                        let spend = cast_wizard::spend_for(&self.state, &wizard, face);
                         let allowance = self.wizard_source_allowance(&wizard);
                         let cost = baylee_core::mana::ManaCost::from_symbol_generic(n);
                         if casting::pay_mana_scoped_recording_x(
@@ -1114,6 +1122,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                 | resolve::AwaitingOp::PutAttachedHostPlayer(_)
                                 | resolve::AwaitingOp::CreateTokenAttachedPlayer { .. }
                                 | resolve::AwaitingOp::DemonstrateOpponent
+                                | resolve::AwaitingOp::ChoosePlayerEx { .. }
+                                | resolve::AwaitingOp::SecretGuessPickGuesser { .. }
                         )
                     )
                 }) {
@@ -1624,7 +1634,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     // anything that could be.
                     PlanKind::UntapChoice
                     | PlanKind::UntapLimit { .. }
-                    | PlanKind::UntapReplacements(_) => {
+                    | PlanKind::UntapReplacements(_)
+                    | PlanKind::BlockTapCost(_) => {
                         self.pending_plan = Some(plan);
                         return Err(EngineError::IllegalAction(
                             "the untap determination is not a target choice",
@@ -2193,6 +2204,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 Ok(())
             }
             (Pending::YesNo { player: p, .. }, PlayerAction::YesNo(answer)) if *p == player => {
+                if self.attack_sacrifice.is_some() {
+                    return self.answer_attack_phyrexian(answer);
+                }
                 if let Some(PlanKind::CombatUnblockedDamage { attacker }) = self.pending_plan {
                     self.pending_plan = None;
                     self.answer_unblocked_damage(attacker, answer);
@@ -2812,7 +2826,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             opt.cost = priced;
                         }
                     }
-                    wizard.reduction = Some(self.frozen_spell_reduction(&wizard));
+                    self.sync_wizard_reduction(&mut wizard);
                     wizard.stage = cast_wizard::WizardStage::XValue;
                     self.cast_wizard = Some(wizard);
                     self.continue_cast_wizard();
@@ -3109,6 +3123,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     // (CR 508.1e, 702.22c).
                     Some(PlanKind::Band { leader }) => {
                         return self.answer_band(player, leader, objects);
+                    }
+                    // Tap-to-block cost choices (Hollow Warrior, CR 509.1d).
+                    Some(PlanKind::BlockTapCost(work)) => {
+                        return self.answer_block_tap(*work, objects);
                     }
                     // Camouflage's piles, instead of declaring blockers.
                     Some(PlanKind::CamouflagePiles {

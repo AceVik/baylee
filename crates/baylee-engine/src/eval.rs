@@ -29,6 +29,7 @@ pub(crate) use amounts::{
     beheld_or_revealed_mana_value, beheld_or_revealed_power, cards_discarded_for_seats,
     colors_among, colors_in_zone, colors_of_mana_spent_on, convoked_count_on, count_controlled_by,
     creatures_attacked_for_seats, devotion_for_players, distinct_card_types_cast_for_seats,
+    distinct_sacrificed_card_types_for_seats, energy_removed_for_seats,
     entered_this_turn_for_seats, entry_sacrifices_on, highest_life_lost_for_seats,
     highest_opponent_hand_size, left_zone_this_turn_for_seats, life_lost_for_seats,
     linked_exile_cards, mana_color_spent_on, mana_spent_on, object_colors_of_mana_spent,
@@ -560,6 +561,21 @@ pub(crate) fn matches_projected_with_choices(
                     you,
                 ))
         }
+        Filter::EnteredCurrentZoneThisTurn(from) => {
+            state.per_turn.zone_changes.items.iter().any(|record| {
+                record.object.object == obj.id
+                    && record.object.version == obj.version
+                    && record.to == obj.zone
+                    && from.is_none_or(|expected| {
+                        record
+                            .from
+                            .is_some_and(|actual| actual.matches_ref(expected))
+                    })
+            })
+        }
+        Filter::ExiledByYou => {
+            obj.zone == Zone::Exile && obj.riders.contains(&crate::object::Rider::ExiledBy(you))
+        }
         // The object's own counters. A leaves-the-battlefield trigger asks
         // the object as it last existed there, and `trigger::departed_matches`
         // hands in that object, counters and all.
@@ -569,6 +585,33 @@ pub(crate) fn matches_projected_with_choices(
             .printed_face()
             .and_then(|face| crate::state::CardLookup::card(state.bases.as_ref(), face.card()))
             .is_some_and(|def| def.faces.iter().any(|f| f.adventure)),
+        Filter::HasOmen => obj
+            .printed_face()
+            .and_then(|face| crate::state::CardLookup::card(state.bases.as_ref(), face.card()))
+            .is_some_and(baylee_cards_dsl::CardDef::is_omen_card),
+        Filter::HasMorph => {
+            !obj.status.contains(crate::object::Status::FACE_DOWN)
+                && !chars.rules_text_lost
+                && chars.abilities_lost.is_none()
+                && obj
+                    .printed_face()
+                    .and_then(|face| {
+                        crate::state::CardLookup::card(state.bases.as_ref(), face.card())
+                            .and_then(|def| def.faces.get(usize::from(face.face())))
+                    })
+                    .is_some_and(|f| f.morph.is_some() || f.megamorph.is_some())
+        }
+        Filter::DoubleFaced => state.is_double_faced_object(obj.id),
+        Filter::CanTransform => {
+            !obj.status.contains(crate::object::Status::FACE_DOWN)
+                && !state.is_melded_permanent(obj.id)
+                && (obj
+                    .card
+                    .and_then(|c| crate::state::CardLookup::card(state.bases.as_ref(), c.index))
+                    .is_some_and(baylee_cards_dsl::CardDef::can_transform)
+                    || obj.token.is_some_and(|t| t.back_face.is_some()))
+        }
+        Filter::Flipped => obj.status.contains(crate::object::Status::FLIPPED),
         Filter::HasRampage => {
             let printed = chars.abilities_lost.is_none()
                 && !chars.rules_text_lost
@@ -767,6 +810,8 @@ pub(crate) fn matches_projected_with_choices(
             .and_then(|reference| state.object(reference))
             .is_some_and(|reference| chars.types.intersects(reference.characteristics().types)),
         Filter::CastForBlitz => obj.riders.contains(&crate::object::Rider::Blitzed),
+        Filter::CastForFlashback => obj.riders.contains(&crate::object::Rider::Flashback),
+        Filter::CastForDash => obj.riders.contains(&crate::object::Rider::Dashed),
         Filter::FirstMatchingSpellThisTurn(inner) => {
             let items = &state.per_turn.cast_spells_this_turn.items;
             let limit = items
@@ -1150,7 +1195,7 @@ pub(crate) fn matches_projected_with_choices(
             let Some(chosen) = state
                 .object(this)
                 .or_else(|| state.damage_source(this, None))
-                .and_then(crate::object::GameObject::chosen_number)
+                .and_then(crate::object::GameObject::chosen_number_for_rules)
             else {
                 return false;
             };
@@ -1421,6 +1466,28 @@ fn source_power(state: &GameState, this: ObjectId) -> Option<i16> {
     state.object(this).and_then(|o| o.characteristics().power)
 }
 
+/// Projected toughness of `this` on the battlefield, or as it last existed there
+/// if it has left (CR 608.2h).
+fn source_toughness(state: &GameState, this: ObjectId) -> Option<i16> {
+    if let Some(obj) = state
+        .object(this)
+        .filter(|o| o.zone == crate::zone::Zone::Battlefield)
+    {
+        return obj.characteristics().toughness;
+    }
+    if let Some(version) = last_battlefield_version(state, this)
+        && let Some(departed) = state.source_object(baylee_core::ids::DamageSourceRef {
+            object: this,
+            version,
+        })
+    {
+        return departed.characteristics().toughness;
+    }
+    state
+        .object(this)
+        .and_then(|o| o.characteristics().toughness)
+}
+
 /// Whether `stat` is less than the source's projected power (using last-known
 /// battlefield power if the source left, CR 608.2h).
 fn below_source_power(stat: Option<i16>, state: &GameState, this: ObjectId) -> bool {
@@ -1522,6 +1589,7 @@ fn amount_reads_announced_x(amt: &baylee_cards_dsl::Amount, depth: u8) -> bool {
         | A::SpellsCastMatchingThisTurn { filter: f, .. }
         | A::CreaturesAttackedThisTurn { filter: f, .. }
         | A::DistinctManaValuesInZone { filter: f, .. }
+        | A::DistinctNames { filter: f, .. }
         | A::DistinctPowersAmong(f)
         | A::HighestControlledCount { filter: f, .. }
         | A::TotalManaValueInZone { filter: f, .. }
@@ -1707,3 +1775,6 @@ pub(crate) fn object_was_cast_from_zone(
 
 #[cfg(test)]
 mod tests;
+
+pub(crate) use amounts::{domain_for_player, player_counter_count};
+pub(crate) use conditions::{object_spent_treasure_mana, object_was_foretold, object_was_sneaked};

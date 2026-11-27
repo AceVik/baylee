@@ -79,6 +79,7 @@ async fn engine(start: &v1::StartEngine) -> Socket {
                 protocol_version: baylee_protocol::PROTOCOL_VERSION,
                 pid: 0,
                 build: baylee_build::short().into(),
+                link: baylee_protocol::ENGINE_LINK,
             })),
         },
     )
@@ -161,6 +162,7 @@ async fn the_requested_artifact_is_checked_after_auth_and_before_private_setup()
                     protocol_version: baylee_protocol::PROTOCOL_VERSION,
                     pid: 0,
                     build: expected.build.clone(),
+                    link: baylee_protocol::ENGINE_LINK,
                     execution: wrong.to_metadata(),
                 })),
             },

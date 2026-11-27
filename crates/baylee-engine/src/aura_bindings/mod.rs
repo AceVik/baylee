@@ -48,6 +48,68 @@ pub(crate) enum EnchantRestriction {
     ReturnedBy(DamageSourceRef),
 }
 
+fn restriction_from_target_spec(
+    target: TargetSpec,
+    context: RuleContext,
+) -> Option<EnchantRestriction> {
+    match target {
+        TargetSpec::Object(filter) => Some(EnchantRestriction::Permanent(filter, context)),
+        spec @ (TargetSpec::AnyPlayer
+        | TargetSpec::AnyOpponent
+        | TargetSpec::Player(_)
+        | TargetSpec::PlayerWhoAttackedThisTurn
+        | TargetSpec::OpponentWithMoreThanActivePlayer(_)
+        | TargetSpec::OpponentWithMoreThanPlayer(..)) => Some(EnchantRestriction::Player(spec)),
+        TargetSpec::PlayerOrObject(filter) => Some(EnchantRestriction::PlayerOrPermanent {
+            any_player: true,
+            filter,
+            context,
+        }),
+        TargetSpec::OpponentOrObject(filter) => Some(EnchantRestriction::PlayerOrPermanent {
+            any_player: false,
+            filter,
+            context,
+        }),
+        TargetSpec::AnyTarget => Some(EnchantRestriction::PlayerOrPermanent {
+            any_player: true,
+            filter: &ANY_TARGET_PERMANENT,
+            context,
+        }),
+        TargetSpec::CardInGraveyard(filter, who) => {
+            Some(EnchantRestriction::GraveyardCard(filter, who, context))
+        }
+        _ => None,
+    }
+}
+
+/// Layer 6 `Modifier::GrantEnchant` (e.g. Licids becoming Auras with enchant creature),
+/// respecting `abilities_lost` timestamps (CR 613.1f). Latest timestamp wins.
+fn granted_enchant_restriction(state: &GameState, aura: &GameObject) -> Option<EnchantRestriction> {
+    if !state.effects.may_grant_enchant() {
+        return None;
+    }
+    let lost = aura.characteristics().abilities_lost;
+    state.effects.as_slice().iter().rev().find_map(|fx| {
+        let baylee_cards_dsl::Modifier::GrantEnchant(spec) = fx.modifier else {
+            return None;
+        };
+        if lost.is_some_and(|l| crate::object::Characteristics::lost_at(fx.timestamp) <= l) {
+            return None;
+        }
+        if !crate::effects::applies_to(state, fx, aura) {
+            return None;
+        }
+        let context = RuleContext {
+            source: aura.id,
+            text: state.effect_text(fx),
+            resolved_name: None,
+            resolved_subtype: None,
+            reference: None,
+        };
+        restriction_from_target_spec(spec, context)
+    })
+}
+
 pub(crate) fn printed_restriction_with(
     state: &GameState,
     aura: &GameObject,
@@ -75,42 +137,7 @@ pub(crate) fn printed_restriction_with(
                 reference: None,
             };
             effects.iter().find_map(|effect| match effect {
-                Effect::AttachSelf {
-                    target: TargetSpec::Object(filter),
-                } => Some(EnchantRestriction::Permanent(filter, context)),
-                Effect::AttachSelf {
-                    target:
-                        spec @ (TargetSpec::AnyPlayer
-                        | TargetSpec::AnyOpponent
-                        | TargetSpec::Player(_)
-                        | TargetSpec::PlayerWhoAttackedThisTurn
-                        | TargetSpec::OpponentWithMoreThanActivePlayer(_)
-                        | TargetSpec::OpponentWithMoreThanPlayer(..)),
-                } => Some(EnchantRestriction::Player(*spec)),
-                Effect::AttachSelf {
-                    target: TargetSpec::PlayerOrObject(filter),
-                } => Some(EnchantRestriction::PlayerOrPermanent {
-                    any_player: true,
-                    filter,
-                    context,
-                }),
-                Effect::AttachSelf {
-                    target: TargetSpec::OpponentOrObject(filter),
-                } => Some(EnchantRestriction::PlayerOrPermanent {
-                    any_player: false,
-                    filter,
-                    context,
-                }),
-                Effect::AttachSelf {
-                    target: TargetSpec::AnyTarget,
-                } => Some(EnchantRestriction::PlayerOrPermanent {
-                    any_player: true,
-                    filter: &ANY_TARGET_PERMANENT,
-                    context,
-                }),
-                Effect::AttachSelf {
-                    target: TargetSpec::CardInGraveyard(filter, who),
-                } => Some(EnchantRestriction::GraveyardCard(filter, *who, context)),
+                Effect::AttachSelf { target } => restriction_from_target_spec(*target, context),
                 _ => None,
             })
         })
@@ -134,6 +161,7 @@ pub(crate) fn restriction_with(
             (binding.aura.object == aura.id && binding.aura.version == aura.version)
                 .then_some(EnchantRestriction::ReturnedBy(binding.aura))
         })
+        .or_else(|| granted_enchant_restriction(state, aura))
         .or_else(|| printed_restriction_with(state, aura, lookup))
 }
 

@@ -70,6 +70,7 @@ impl Tx<'_> {
             || tp.take("ValidActivatingPlayer").as_deref() != Some("You")
             || !matches!(tp.take("TriggerZones").as_deref(), None | Some("Command"))
             || !matches!(tp.take("ValidSA").as_deref(), None | Some("Spell"))
+            || !matches!(tp.take("Static").as_deref(), None | Some("True"))
         {
             return None;
         }
@@ -120,7 +121,7 @@ impl Tx<'_> {
         if rep_name.contains(',') {
             return None;
         }
-        if let Some(after) = ep.take("SubAbility")
+        if let Some(after) = ep.take("SubAbility").or_else(|| ep.take("Execute"))
             && !self.wave29a_is_command_self_exile(after.trim())
         {
             return None;
@@ -132,6 +133,7 @@ impl Tx<'_> {
         let (event, mut rp) = Params::parse(rep_body)?;
         rp.drop_prose();
         if event != "Moved"
+            || !matches!(rp.take("Origin").as_deref(), None | Some("Stack"))
             || rp.take("Destination").as_deref() != Some("Battlefield")
             || !matches!(
                 rp.take("ValidCard").as_deref(),
@@ -465,6 +467,9 @@ impl Tx<'_> {
                     saw_remembered = true;
                 }
                 _ => return None,
+            }
+            if !matches!(st.take("Secondary").as_deref(), None | Some("True")) {
+                return None;
             }
             let vb = st.take("ValidBlocker");
             if !st.exhausted() {

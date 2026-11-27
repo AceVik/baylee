@@ -369,3 +369,42 @@ fn no_text_upsets_the_reader() {
         }
     }
 }
+
+/// A canonical invite code: 22 characters of URL-safe base64 whose last
+/// one leaves the four bits past the 16th byte clear.
+const INVITE: &str = "Zm9vYmFyLWJheWxlZS0xMA";
+
+#[test]
+fn an_invite_link_is_read_with_its_code_and_never_prints_it() {
+    let Some(Link::Invite(link)) = read(&format!("baylee://invite/{INVITE}"), Origins::Public)
+    else {
+        panic!("an invite link");
+    };
+    assert_eq!(link.code(), INVITE);
+    let printed = format!("{:?}", Link::Invite(link.clone()));
+    assert!(!printed.contains(INVITE), "{printed}");
+    assert_eq!(Link::Invite(link).kind(), "an invite link");
+}
+
+#[test]
+fn an_invite_link_is_only_a_canonical_code() {
+    for bad in [
+        "baylee://invite".to_owned(),
+        "baylee://invite/".to_owned(),
+        format!("baylee://invite/{INVITE}/"),
+        format!("baylee://invite/{INVITE}?accept=1"),
+        format!("baylee://invite/{INVITE}#x"),
+        format!("baylee://invite/{INVITE}A"),
+        format!("baylee://invite/{}", &INVITE[1..]),
+        // A non-zero bit past the 16th byte: not how Central writes a code.
+        format!("baylee://invite/{}B", &INVITE[..21]),
+        format!("baylee://invite/{}=", &INVITE[..21]),
+        format!("baylee://invite/%5A{}", &INVITE[1..]),
+        format!("baylee://Invite/{INVITE}"),
+        format!("baylee://user@invite/{INVITE}"),
+        format!("baylee://invite:1/{INVITE}"),
+        format!("baylee://invite/{}+{}", &INVITE[..10], &INVITE[11..]),
+    ] {
+        assert_eq!(read(&bad, Origins::Public), None, "{bad}");
+    }
+}

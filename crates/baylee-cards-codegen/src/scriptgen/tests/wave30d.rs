@@ -76,10 +76,19 @@ fn wave30d_unlocks_remember_valid_prevention_and_graveyard_player_choice() {
 
 #[test]
 fn wave30d_keeps_unsound_refusal_boundaries_strict() {
+    let phantom = read_w30d(
+        "Name:PhantomShape\nManaCost:1 W\nTypes:Creature Spirit\nPT:0/0\n\
+         K:etbCounter:P1P1:2\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.Self | ReplaceWith$ DBRemoveCounters | PreventionEffect$ True | AlwaysReplace$ True\n\
+         SVar:DBRemoveCounters:DB$ RemoveCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1",
+    );
+    assert!(
+        phantom.abilities.iter().any(|a| a.contains("Modifier::PreventDamageRemovingOneCounter { kind: CounterKind::P1P1, require_counter: false }")),
+        "{:?}",
+        phantom.abilities
+    );
+
     for bad in [
-        // CantAttackUnless Target$ You without Planeswalker.YouCtrl (AttackTaxMana hits planeswalkers too).
-        "Name:PropagandaShape\nManaCost:2 U\nTypes:Enchantment\n\
-         S:Mode$ CantAttackUnless | ValidCard$ Creature | Target$ You | Cost$ 2",
         // Player shroud (DSL only has hexproof, not shroud).
         "Name:IvoryMaskShape\nManaCost:2 W W\nTypes:Enchantment\n\
          S:Mode$ Continuous | Affected$ You | AddKeyword$ Shroud",
@@ -87,11 +96,11 @@ fn wave30d_keeps_unsound_refusal_boundaries_strict() {
         "Name:LeyLineShape\nManaCost:3 G\nTypes:Enchantment\n\
          T:Mode$ Phase | Phase$ Upkeep | TriggerZones$ Battlefield | OptionalDecider$ TriggeredPlayer | Execute$ TrigPutCounter\n\
          SVar:TrigPutCounter:DB$ PutCounter | ValidTgts$ Creature | CounterType$ P1P1 | CounterNum$ 1 | TargetingPlayer$ TriggeredPlayer | Placer$ TriggeredPlayer",
-        // Fixed-1 counter removal damage prevention (Phantom* removes 1 even at 0 counters vs PreventDamageRemovingCounters).
-        "Name:PhantomShape\nManaCost:1 W\nTypes:Creature Spirit\nPT:0/0\n\
+        // Fixed-2 counter removal damage prevention remains refused (only fixed-1 is modeled).
+        "Name:PhantomTwoShape\nManaCost:1 W\nTypes:Creature Spirit\nPT:0/0\n\
          K:etbCounter:P1P1:2\n\
          R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.Self | ReplaceWith$ DBRemoveCounters | PreventionEffect$ True | AlwaysReplace$ True\n\
-         SVar:DBRemoveCounters:DB$ RemoveCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1",
+         SVar:DBRemoveCounters:DB$ RemoveCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 2",
         // Graveyard-to-battlefield conditional ETB counter based on battlefield entry types (CR 614.12 lookahead).
         "Name:RecommissionShape\nManaCost:1 W\nTypes:Sorcery\n\
          A:SP$ Effect | RememberObjects$ Targeted & Self | ReplacementEffects$ ETBCreat | ExileOnMoved$ Graveyard,Stack | SubAbility$ DBReturn\n\
@@ -101,10 +110,6 @@ fn wave30d_keeps_unsound_refusal_boundaries_strict() {
         // keyword CARDNAME "must be blocked if able" (not Lure MustBeBlockedByAllAble).
         "Name:LureCheckShape\nManaCost:2 G\nTypes:Creature\nPT:3/3\n\
          K:CARDNAME must be blocked if able.",
-        // OppOwn in graveyard/exile count (2HG teammate semantics).
-        "Name:UmbrisShape\nManaCost:3 U B\nTypes:Creature\nPT:1/1\n\
-         S:Mode$ Continuous | Affected$ Card.Self | AddPower$ X | AddToughness$ X\n\
-         SVar:X:Count$ValidExile Card.OppOwn",
         // RememberObjects$ Valid with non-prevent ReplaceWith must stay refused.
         "Name:BadValidEffect\nManaCost:2 G\nTypes:Instant\n\
          A:SP$ Effect | ReplacementEffects$ R\n\

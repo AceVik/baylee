@@ -461,104 +461,6 @@ fn sep(commands: &mut Commands, kit: Kit) -> Entity {
     controls::label(commands, kit, "\u{b7}", kit.m.small, tokens::INK)
 }
 
-/// Shared card title lockup for both the Login form (`Baylee Authentifizierung`)
-/// and the Gateway Selection form (`Wähle dein Gateway`), with a glowing
-/// emblem badge and an accent underline bar.
-pub(super) fn card_title_lockup(
-    commands: &mut Commands,
-    kit: Kit,
-    glyph: char,
-    title: &str,
-) -> Entity {
-    let row = commands
-        .spawn((
-            Node {
-                align_items: AlignItems::Center,
-                column_gap: kit.m.px(10.0),
-                flex_shrink: 1.0,
-                min_width: px_fixed(0.0),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    let badge_bg = Color::srgba(0.09, 0.22, 0.25, 0.92);
-    let badge_rim = tokens::ACCENT.with_alpha(0.50);
-    let badge = commands
-        .spawn((
-            Node {
-                width: px_fixed(30.0),
-                height: px_fixed(30.0),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                border: UiRect::all(px_fixed(1.0)),
-                border_radius: BorderRadius::all(px_fixed(8.0)),
-                flex_shrink: 0.0,
-                ..default()
-            },
-            BackgroundColor(badge_bg),
-            BorderColor::all(badge_rim),
-            BoxShadow(vec![ShadowStyle {
-                color: tokens::ACCENT.with_alpha(0.24),
-                x_offset: px_fixed(0.0),
-                y_offset: px_fixed(0.0),
-                spread_radius: px_fixed(0.5),
-                blur_radius: px_fixed(10.0),
-            }]),
-            crate::shellkit::sheen::Sheen,
-            Pickable::IGNORE,
-        ))
-        .id();
-    let badge_icon = commands
-        .spawn((
-            Text::new(glyph.to_string()),
-            crate::hud::icon_tf(kit.fonts, kit.m.small * 0.96),
-            TextColor(tokens::ACCENT),
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(badge).add_child(badge_icon);
-
-    let title_col = commands
-        .spawn((
-            Node {
-                flex_direction: FlexDirection::Column,
-                align_items: AlignItems::FlexStart,
-                row_gap: px_fixed(3.0),
-                flex_shrink: 1.0,
-                min_width: px_fixed(0.0),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    let words = commands
-        .spawn((
-            Text::new(title),
-            crate::hud::tf_bold(kit.fonts, kit.m.head),
-            TextColor(tokens::INK),
-            Pickable::IGNORE,
-        ))
-        .id();
-    let accent_bar = commands
-        .spawn((
-            Node {
-                width: px_fixed(32.0),
-                height: px_fixed(2.0),
-                border_radius: BorderRadius::all(px_fixed(1.0)),
-                ..default()
-            },
-            BackgroundColor(tokens::ACCENT.with_alpha(0.72)),
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands
-        .entity(title_col)
-        .add_children(&[words, accent_bar]);
-    commands.entity(row).add_children(&[badge, title_col]);
-    row
-}
-
 /// Compact square icon button (`30x30` px) for the utility header bar (Music,
 /// Settings), matching the height and border of the Language Dropdown.
 pub(in crate::lobby) fn header_icon_btn(
@@ -2086,21 +1988,11 @@ pub(super) fn community_dialog(
     commands.entity(root).add_child(scrim);
 }
 
-/// A QR code in its thin dark frame (used in the About sheet).
+/// A QR code in its thin dark frame (used in the About sheet), at its
+/// modules' own size.
 pub(super) fn qr(commands: &mut Commands, code: &super::super::source::Code) -> Entity {
     let side = px_fixed(code.side as f32 * super::super::source::MODULE_PX);
-    let picture = commands
-        .spawn((
-            ImageNode::new(code.image.clone()),
-            Node {
-                width: side,
-                height: side,
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    qr_frame(commands, picture)
+    crate::shellkit::qr::framed(commands, code.image.clone(), side)
 }
 
 /// A code drawn `side` wide whatever its module count, in its frame: the
@@ -2110,36 +2002,7 @@ pub(super) fn qr_sized(
     code: &super::super::source::Code,
     side: Val,
 ) -> Entity {
-    let picture = commands
-        .spawn((
-            ImageNode::new(code.image.clone()),
-            Node {
-                width: side,
-                height: side,
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    qr_frame(commands, picture)
-}
-
-/// The thin dark frame a code stands in.
-fn qr_frame(commands: &mut Commands, picture: Entity) -> Entity {
-    commands
-        .spawn((
-            Node {
-                padding: UiRect::all(px_fixed(5.0)),
-                border: UiRect::all(px_fixed(1.0)),
-                border_radius: BorderRadius::all(px_fixed(8.0)),
-                flex_shrink: 0.0,
-                ..default()
-            },
-            BackgroundColor(Color::srgba(0.02, 0.04, 0.07, 0.96)),
-            BorderColor::all(Color::srgba(1.0, 1.0, 1.0, 0.14)),
-        ))
-        .add_child(picture)
-        .id()
+    crate::shellkit::qr::framed(commands, code.image.clone(), side)
 }
 
 /// The tagline on its airy cut-glass mist plate.

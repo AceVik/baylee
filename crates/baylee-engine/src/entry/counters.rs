@@ -24,6 +24,8 @@ pub(super) fn needs_entry(state: &GameState, id: ObjectId) -> bool {
                 baylee_cards_dsl::Modifier::AdditionalCounterPlacement { n: 1.. }
                     | baylee_cards_dsl::Modifier::AdditionalCounterOnEntryByCount { .. }
                     | baylee_cards_dsl::Modifier::DoubleCountersPlacedByYou
+                    | baylee_cards_dsl::Modifier::GrantBloodthirst(1..)
+                    | baylee_cards_dsl::Modifier::GrantSunburst
             )
         })
         || state.replacement_rules.iter().any(|entry| {
@@ -35,7 +37,7 @@ pub(super) fn needs_entry(state: &GameState, id: ObjectId) -> bool {
 }
 
 pub(super) fn question(state: &mut GameState, entry: &mut Attempt) -> Option<Pending> {
-    if entry.refusal.is_some() {
+    if entry.is_cancelled() {
         return None;
     }
     if !entry.counters_prepared {
@@ -140,6 +142,61 @@ fn collect_modifier_counters(
     }
 }
 
+/// Entry counters from Layer 6 continuous effects that grant Bloodthirst (CR 702.54)
+/// or Sunburst (CR 702.44), including stack-to-battlefield effects (CR 400.7b).
+fn collect_granted_entry_counters(
+    state: &GameState,
+    entry: &mut Attempt,
+    prospective: &crate::object::GameObject,
+    from_stack: bool,
+) {
+    let chars = prospective.characteristics();
+    let lost = chars.abilities_lost;
+    let bloodthirst_active = crate::eval::condition_holds(
+        state,
+        entry.controller,
+        entry.object,
+        baylee_cards_dsl::Condition::OpponentDealtDamageThisTurn,
+    );
+    let sunburst_colors = if from_stack {
+        prospective
+            .paid
+            .as_ref()
+            .map_or(0, |p| p.colors_spent.len())
+    } else {
+        0
+    };
+    let is_creature = chars.types.contains(baylee_core::types::TypeSet::CREATURE);
+    for fx in state.effects.as_slice() {
+        match fx.modifier {
+            baylee_cards_dsl::Modifier::GrantBloodthirst(n) if n > 0 && bloodthirst_active => {
+                if lost.is_some_and(|l| crate::object::Characteristics::lost_at(fx.timestamp) <= l)
+                    || !crate::effects::applies_to(state, fx, prospective)
+                {
+                    continue;
+                }
+                entry.counters.push((None, CounterKind::P1P1, u16::from(n)));
+            }
+            baylee_cards_dsl::Modifier::GrantSunburst if sunburst_colors > 0 => {
+                if lost.is_some_and(|l| crate::object::Characteristics::lost_at(fx.timestamp) <= l)
+                    || !crate::effects::applies_to(state, fx, prospective)
+                {
+                    continue;
+                }
+                let kind = if is_creature {
+                    CounterKind::P1P1
+                } else {
+                    CounterKind::Charge
+                };
+                entry
+                    .counters
+                    .push((None, kind, u16::from(sunburst_colors)));
+            }
+            _ => {}
+        }
+    }
+}
+
 fn prepare(state: &mut GameState, entry: &mut Attempt) {
     let Some(mut prospective) = state.object(entry.object).cloned() else {
         return;
@@ -150,7 +207,6 @@ fn prepare(state: &mut GameState, entry: &mut Attempt) {
     } else {
         0
     };
-    collect_modifier_counters(state, entry, &prospective, from_stack, x);
     if let Some(values) = crate::layers::copiable_values(state, entry.object)
         && values
             .types
@@ -183,8 +239,15 @@ fn prepare(state: &mut GameState, entry: &mut Attempt) {
             entry.counters.push((None, CounterKind::Time, u16::from(n)));
         }
     }
+    let entered_version = prospective.version.wrapping_add(1);
     prospective.zone = Zone::Battlefield;
-    prospective.version = prospective.version.wrapping_add(1);
+    // CR 400.7b: resolution effects on the stack spell carry over onto the
+    // entering permanent (`EffectTable::follow_into_permanent` rebinds them
+    // inside `move_object`), so keep the spell's version while projecting a
+    // stack-to-battlefield entry and reading stack-applied modifiers.
+    if !from_stack {
+        prospective.version = entered_version;
+    }
     let layers = crate::layers::LayerPlan::before_entries(&state.effects, unavailable(state));
     let projection = crate::layers::recompute_with(state, &prospective, &layers);
     prospective
@@ -192,6 +255,8 @@ fn prepare(state: &mut GameState, entry: &mut Attempt) {
         .store(projection.characteristics, &prospective.base);
     prospective.controller = projection.controller;
     entry.controller = projection.controller;
+    collect_modifier_counters(state, entry, &prospective, from_stack, x);
+    collect_granted_entry_counters(state, entry, &prospective, from_stack);
     if prospective
         .abilities(state.bases.as_ref())
         .iter()
@@ -204,6 +269,9 @@ fn prepare(state: &mut GameState, entry: &mut Attempt) {
         entry.counters.push((None, CounterKind::Defense, defense));
     }
     entry.counter_caps = prospective_caps(state, &prospective);
+    // `counter_order::build_plan` stamps `plan.recipient` with the post-move
+    // battlefield incarnation version checked by `counters::commit`.
+    prospective.version = entered_version;
     let mut groups: Vec<(PlayerId, Vec<(CounterKind, u16)>)> = Vec::new();
     for (by, kind, count) in std::mem::take(&mut entry.counters) {
         // A prohibition removes the placement before replacement ordering.

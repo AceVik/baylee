@@ -2022,3 +2022,261 @@ fn wave22d_computed_pt_and_static_refusals() {
         assert!(refused(bad), "must refuse:\n{bad}");
     }
 }
+
+#[test]
+fn solo_becomes_blocked_by_grants_and_turn_scalar_and_mana_color_conditions() {
+    let retaliation = read(
+        "Name:Retaliation\nManaCost:2 G\nTypes:Enchantment\n\
+S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddTrigger$ TrigBlocked | AddSVar$ RetaliationTrigPump\n\
+SVar:TrigBlocked:Mode$ AttackerBlockedByCreature | ValidCard$ Card.Self | ValidBlocker$ Creature | Execute$ RetaliationTrigPump | TriggerZones$ Battlefield\n\
+SVar:RetaliationTrigPump:DB$ Pump | NumAtt$ +1 | NumDef$ +1",
+    );
+    assert!(
+        retaliation.statics.contains("Trigger::BecomesBlockedBy("),
+        "{}",
+        retaliation.statics
+    );
+
+    let integrant = read(
+        "Name:Extraction Integrant\nManaCost:1 B\nTypes:Artifact Creature Wizard\nPT:1/1\n\
+S:Mode$ Continuous | Affected$ Creature.Artifact+YouCtrl | AddKeyword$ Menace | AddTrigger$ BlockTrig\n\
+SVar:BlockTrig:Mode$ AttackerBlockedByCreature | ValidCard$ Card.Self | ValidBlocker$ Creature | TriggerZones$ Battlefield | Execute$ TrigPump\n\
+SVar:TrigPump:DB$ Pump | Defined$ TriggeredBlockerLKICopy | NumAtt$ -1 | NumDef$ -1",
+    );
+    assert!(
+        integrant.statics.contains("Trigger::BecomesBlockedBy(")
+            && integrant.statics.contains("Effect::PumpEventObject"),
+        "{}",
+        integrant.statics
+    );
+
+    for bad in [
+        "Name:BadOneOrMore\nManaCost:2 G\nTypes:Enchantment\n\
+S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddTrigger$ Trig\n\
+SVar:Trig:Mode$ AttackerBlockedByCreature | ValidCard$ Card.Self | ValidBlocker$ Creature | OneOrMoreBlockers$ True | Execute$ Pump | TriggerZones$ Battlefield\n\
+SVar:Pump:DB$ Pump | Defined$ Self | NumAtt$ 1 | NumDef$ 1",
+        "Name:BadBlocksOnly\nManaCost:2 G\nTypes:Enchantment\n\
+S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddTrigger$ Trig\n\
+SVar:Trig:Mode$ AttackerBlockedByCreature | ValidCard$ Creature | ValidBlocker$ Card.Self | Execute$ Pump | TriggerZones$ Battlefield\n\
+SVar:Pump:DB$ Pump | Defined$ Self | NumAtt$ 1 | NumDef$ 1",
+        "Name:BadSecondaryBlock\nManaCost:2 G\nTypes:Enchantment\n\
+S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddTrigger$ Trig\n\
+SVar:Trig:Mode$ AttackerBlockedByCreature | ValidCard$ Card.Self | ValidBlocker$ Creature | Secondary$ True | Execute$ Pump | TriggerZones$ Battlefield\n\
+SVar:Pump:DB$ Pump | Defined$ Self | NumAtt$ 1 | NumDef$ 1",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+
+    let channeler = read(
+        "Name:Essence Channeler\nManaCost:1 W\nTypes:Creature Wizard\nPT:2/1\n\
+A:AB$ Pump | Cost$ 0 | Defined$ Self | CheckSVar$ Lost | SVarCompare$ GE1 | KW$ Flying\n\
+SVar:Lost:Count$LifeYouLostThisTurn",
+    );
+    assert!(
+        channeler.abilities[0].contains("Amount::LifeLostThisTurn(PlayerRel::You)"),
+        "{}",
+        channeler.abilities[0]
+    );
+
+    let blast_runner = read(
+        "Name:Goblin Blast-Runner\nManaCost:R\nTypes:Creature Goblin\nPT:1/2\n\
+A:AB$ Pump | Cost$ 0 | Defined$ Self | CheckSVar$ Sac | SVarCompare$ GE1 | NumAtt$ 2\n\
+SVar:Sac:PlayerCountPropertyYou$SacrificedThisTurn Permanent",
+    );
+    assert!(
+        blast_runner.abilities[0].contains("Amount::PermanentsSacrificedThisTurn"),
+        "{}",
+        blast_runner.abilities[0]
+    );
+
+    let paragon = read(
+        "Name:Paragon of Modernity\nManaCost:4\nTypes:Artifact Creature Goblin\nPT:2/2\n\
+A:AB$ Branch | Cost$ 3 | BranchConditionSVar$ X | BranchConditionSVarCompare$ EQ3 | FalseSubAbility$ DBPump | TrueSubAbility$ DBPutCounter\n\
+SVar:DBPump:DB$ Pump | Defined$ Self | NumAtt$ +1 | NumDef$ +1\n\
+SVar:DBPutCounter:DB$ PutCounter | Defined$ Self | CounterType$ P1P1\n\
+SVar:X:Count$ManaColorsPaid",
+    );
+    assert!(
+        paragon.abilities[0].contains("Amount::ColorsOfManaSpentToCast"),
+        "{}",
+        paragon.abilities[0]
+    );
+}
+
+#[test]
+fn continuous_check_svar_turn_and_linked_exile_unlocks() {
+    let blast_runner = read(
+        "Name:Goblin Blast-Runner\nManaCost:R\nTypes:Creature Goblin\nPT:1/2\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Menace | AddPower$ 2 | CheckSVar$ SaccThisTurn\n\
+         SVar:SaccThisTurn:PlayerCountPropertyYou$SacrificedThisTurn Permanent",
+    );
+    assert!(
+        blast_runner.abilities.iter().any(|a| a.contains("Modifier::ModifyPT(2, 0)")
+            && a.contains("Condition::AmountAtLeast(Amount::PermanentsSacrificedThisTurn { who: PlayerRel::You, filter: &Filter::Any }, 1)")),
+        "{:?}",
+        blast_runner.abilities
+    );
+    assert!(
+        blast_runner
+            .abilities
+            .iter()
+            .any(|a| a.contains("Modifier::AddKeyword(KeywordSet::MENACE)")),
+        "{:?}",
+        blast_runner.abilities
+    );
+
+    let survivor = read(
+        "Name:Veteran Survivor\nManaCost:W\nTypes:Creature Human\nPT:2/1\n\
+         T:Mode$ Phase | Phase$ Main | PhaseCount$ 2 | ValidPlayer$ You | PresentDefined$ Self | IsPresent$ Card.tapped | TriggerZones$ Battlefield | Execute$ Trig\n\
+         SVar:Trig:DB$ ChangeZone | Origin$ Graveyard | Destination$ Exile | ValidTgts$ Card | TargetMin$ 0 | TargetMax$ 1\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddPower$ 3 | AddToughness$ 3 | AddKeyword$ Hexproof | CheckSVar$ X | SVarCompare$ GE3\n\
+         SVar:X:ExiledWith$Amount",
+    );
+    assert!(
+        survivor.abilities.iter().any(|a| a.contains("Modifier::ModifyPT(3, 3)")
+            && a.contains("Condition::AmountCompare { left: &Amount::CountOf { filter: &Filter::Any, zone: ZoneSel::LinkedExile }, op: AmountCmp::AtLeast, right: &Amount::Fixed(3) }")),
+        "{:?}",
+        survivor.abilities
+    );
+
+    let life_lost_static = read(
+        "Name:LifeLostStatic\nManaCost:1 W\nTypes:Creature\nPT:2/1\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Flying | CheckSVar$ X\n\
+         SVar:X:PlayerCountPropertyYou$LifeLostThisTurn",
+    );
+    assert!(
+        life_lost_static.abilities[0]
+            .contains("Condition::AmountAtLeast(Amount::LifeLostThisTurn(PlayerRel::You), 1)"),
+        "{:?}",
+        life_lost_static.abilities
+    );
+
+    for bad in [
+        "Name:BadSacSelf\nTypes:Creature\nPT:1/1\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Flying | CheckSVar$ S\n\
+         SVar:S:PlayerCountPropertyYou$SacrificedThisTurn Permanent.Self",
+        "Name:BadOppLowestLifeEq\nTypes:Creature\nPT:2/1\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Haste | CheckSVar$ X | SVarCompare$ EQ10\n\
+         SVar:X:PlayerCountOpponents$LowestLifeTotal",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
+}
+
+#[test]
+fn cant_block_by_defender_ctrl() {
+    let hazy = read(
+        "Name:Hazy Homunculus\nManaCost:1 U\nTypes:Creature Homunculus Illusion\nPT:1/1\n\
+         S:Mode$ CantBlockBy | ValidAttacker$ Card.Self | IsPresent$ Land.DefenderCtrl+untapped | \
+         Description$ CARDNAME can't be blocked as long as defending player controls an untapped land.\n\
+         Oracle:Hazy Homunculus can't be blocked as long as defending player controls an untapped land.",
+    );
+    assert!(
+        hazy.abilities[0]
+            .contains("Condition::Not(&Condition::SomeDefendingPlayerControlsNone(&TARGET1))")
+            && hazy.statics.contains("Filter::LAND")
+            && hazy.statics.contains("Filter::Untapped"),
+        "{}\n{}",
+        hazy.abilities[0],
+        hazy.statics
+    );
+
+    let beebles = read(
+        "Name:Bubbling Beebles\nManaCost:4 U\nTypes:Creature Beeble\nPT:3/3\n\
+         S:Mode$ CantBlockBy | ValidAttacker$ Card.Self | IsPresent$ Enchantment.DefenderCtrl",
+    );
+    assert!(
+        beebles.abilities[0].contains(
+            "Condition::Not(&Condition::SomeDefendingPlayerControlsNone(&Filter::ENCHANTMENT))"
+        ),
+        "{}",
+        beebles.abilities[0]
+    );
+
+    let tangle = read(
+        "Name:Tanglewalker\nManaCost:2 G\nTypes:Creature Dryad\nPT:2/2\n\
+         S:Mode$ CantBlockBy | ValidAttacker$ Creature.YouCtrl | IsPresent$ Artifact.DefenderCtrl+Land",
+    );
+    assert!(
+        tangle.abilities[0].contains("Filter::YOUR_CREATURE")
+            && tangle.abilities[0].contains("Modifier::AddKeyword(KeywordSet::UNBLOCKABLE)")
+            && tangle.abilities[0].contains("SomeDefendingPlayerControlsNone("),
+        "{}",
+        tangle.abilities[0]
+    );
+
+    let arctic = read(
+        "Name:Arctic Foxes\nManaCost:1 W\nTypes:Creature Fox\nPT:1/1\n\
+         S:Mode$ CantBlockBy | ValidAttacker$ Card.Self | ValidBlocker$ Creature.powerGE2 | \
+         IsPresent$ Land.Snow+DefenderCtrl",
+    );
+    assert!(
+        arctic.abilities[0].contains("Modifier::CantBeBlockedBy(&BLOCKER2)")
+            && arctic.abilities[0].contains("SomeDefendingPlayerControlsNone("),
+        "{}",
+        arctic.abilities[0]
+    );
+
+    for bad in [
+        "Name:BadAyeshaCount\nManaCost:2 W U\nTypes:Legendary Creature Human\nPT:2/4\n\
+         S:Mode$ CantBlockBy | ValidAttacker$ Card.Self | IsPresent$ Artifact.DefenderCtrl | PresentCompare$ GE3",
+        "Name:BadPartialDefenderCtrl\nManaCost:1 U\nTypes:Creature\nPT:1/1\n\
+         S:Mode$ CantBlockBy | ValidAttacker$ Card.Self | IsPresent$ Artifact.DefenderCtrl,Land",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
+}
+
+#[test]
+fn nonartifact_mana_value_animation() {
+    let mut rich_cats = cats();
+    rich_cats.enchantment.push("Aura".into());
+    rich_cats.normalize();
+    let read_rich = |text: &str| {
+        let parsed = parse(text);
+        transcode(&parsed, &rich_cats, None).unwrap_or_else(|| {
+            panic!(
+                "should be read in full, refused: {:?}",
+                refusal_reason(&parsed, &rich_cats, None)
+            )
+        })
+    };
+    let opalescence = read_rich(
+        "Name:Opalescence\nManaCost:2 W W\nTypes:Enchantment\n\
+         S:Mode$ Continuous | Affected$ Enchantment.nonAura+Other | SetPower$ AffectedX | \
+         SetToughness$ AffectedX | AddType$ Creature\n\
+         SVar:AffectedX:Count$CardManaCost",
+    );
+    assert!(
+        opalescence.abilities[0].contains("Modifier::CreatureWithManaValuePT")
+            && !opalescence.abilities[0].contains("AnimateNoncreatureArtifact"),
+        "{}",
+        opalescence.abilities[0]
+    );
+
+    let starfield = read_rich(
+        "Name:Starfield of Nyx\nManaCost:4 W\nTypes:Enchantment\n\
+         S:Mode$ Continuous | IsPresent$ Enchantment.YouCtrl | PresentCompare$ GE5 | \
+         Affected$ Enchantment.YouCtrl+nonAura+Other | SetPower$ AffectedX | SetToughness$ AffectedX | \
+         AddType$ Creature\n\
+         SVar:AffectedX:Count$CardManaCost",
+    );
+    assert!(
+        starfield.abilities[0].contains("Modifier::CreatureWithManaValuePT")
+            && starfield.abilities[0].contains("Condition::ControlCount("),
+        "{}",
+        starfield.abilities[0]
+    );
+
+    let karn = read(
+        "Name:KarnAnimate\nManaCost:4\nTypes:Artifact\n\
+         S:Mode$ Continuous | Affected$ Artifact.nonCreature+YouCtrl | SetPower$ AffectedX | \
+         SetToughness$ AffectedX | AddType$ Creature\n\
+         SVar:AffectedX:Count$CardManaCost",
+    );
+    assert!(
+        karn.abilities[0].contains("Modifier::AnimateNoncreatureArtifact"),
+        "{}",
+        karn.abilities[0]
+    );
+}

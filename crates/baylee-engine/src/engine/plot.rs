@@ -23,7 +23,26 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             .state
             .object(card)
             .filter(|o| o.zone == crate::zone::Zone::Hand && o.zone_owner == Some(player))?;
-        self.lookup.card(object.card?.index)?.faces[0].plot
+        let mut cost = self.lookup.card(object.card?.index)?.faces[0].plot?;
+        for effect in self.state.effects.iter() {
+            let baylee_cards_dsl::Modifier::PlotActionCostsLess { who, amount } = effect.modifier
+            else {
+                continue;
+            };
+            if amount > 0
+                && crate::effects::source_is_present(&self.state, effect)
+                && crate::eval::players_for_source(
+                    who,
+                    &self.state,
+                    effect.controller,
+                    effect.source,
+                )
+                .is_some_and(|players| players.contains(&player))
+            {
+                cost = cost.with_less_generic(u32::from(amount));
+            }
+        }
+        Some(cost)
     }
 
     /// Offers `PLOT_CARD` in `legal.abilities` (when currently payable) or in

@@ -1228,23 +1228,28 @@ pub mod prelude {
     /// of every card file.
     pub use crate::counters;
     pub use crate::effect::{
-        Amount, AnyPlayerCost, AttachHost, ChooseMove, ChooseZone, ColorSubject, CombatWatchEvent,
-        CopyCleanup, CounterDestination, CounterDonor, CounterKind, CounterScope, DamageRedirectTo,
-        DamageRider, DamageTo, DefinedObjects, DelayedDuration, DelayedObservation, DelayedStep,
-        DelayedTriggerWhen, DivisionAmount, DoublePtSubject, Effect, ExileMana, ExilePermission,
-        ExilePlay, ExileUntil, Find, LookRest, ManaDistribution, ManaRestriction, ManaSource,
-        ManaUse, ManaValueBound, ManaValueCmp, ModalRestriction, MoveSubject, MultiPlayerChoice,
-        MultiPlayerChoiceAggregate, NumberChoiceKind, PeekPickDest, PeekRestDest, PlayCostMode,
-        PlayCount, PlaySource, PlayWindow, PlayerRel, ReflexiveEvent, ReflexiveWhen, RepeatDomain,
-        RevealUntilFound, RevealUntilRest, SearchDest, SourceLeaveAction, SpendRider,
+        Amount, AnyPlayerCost, AttachHost, AttachmentSource, ChooseMove, ChooseZone, ColorSubject,
+        CombatWatchEvent, CopyCleanup, CounterDestination, CounterDonor, CounterKind, CounterScope,
+        DamageRedirectTo, DamageRider, DamageTo, DefinedObjects, DelayedDuration,
+        DelayedObservation, DelayedStep, DelayedTriggerWhen, DivisionAmount, DoublePtSubject,
+        Effect, ExileMana, ExilePermission, ExilePlay, ExileUntil, FaceDownSpec, Find, LookRest,
+        ManaDistribution, ManaRestriction, ManaSource, ManaUse, ManaValueBound, ManaValueCmp,
+        ModalRestriction, MoveCounterCount, MoveCounterDest, MoveCounterSource, MoveSubject,
+        MultiPlayerChoice, MultiPlayerChoiceAggregate, NumberChoiceKind, PeekPickDest,
+        PeekRestDest, PlayCostMode, PlayCount, PlaySource, PlayWindow, PlayerFilter, PlayerRel,
+        ReflexiveEvent, ReflexiveWhen, RepeatDomain, RevealUntilFound, RevealUntilRest, SearchDest,
+        SecretNumberChoice, SourceLeaveAction, SpendRider, StateSubject, StateTransition,
         TargetChooser, TargetConstraint, TargetReq, TargetSlot, TargetSpec, ThisWay, TokenDef,
         TriggerRemember, VariablePayKind, VoteObjectAction, VoteOption, VoteOutcome, ZoneSel,
     };
     pub use crate::filter::{Filter, OriginalExpansion, ZoneRef, ZoneRef as ZoneKind};
     pub use crate::static_ability::{
-        AbilityDonorZone, AltCastPrice, AltCastZones, CounterReplaceOp, DamageAmountReplacement,
-        DamageRecipients, DamagedByScope, Duration, GraveyardAltKind, LAYERS, Layer, LifeGainOp,
-        Modifier, PtCount, ReplacementRule, SpellCastMetric, StaticAbility, TriggerCause,
+        AbilityDonorZone, AltCastPrice, AltCastZones, AttackTaxTarget, CounterReplaceOp,
+        DamageAmountReplacement, DamageRecipients, DamageRiderScope, DamagedByScope, Duration,
+        EntryInsteadZone, EntryPredicate, GraveyardAltKind, GraveyardExileRider,
+        GraveyardRedirectDest, LAYERS, Layer, LifeGainOp, MiracleGrant, Modifier,
+        MultiDrawReplacementKind, NextDrawReplacement, PtCount, ReplacementRule, SpellCastMetric,
+        StaticAbility, TriggerCause, ZonePlayCastRider, ZonePlayGrant, ZonePlayManaSpending,
     };
     pub use crate::{
         ALL_MANA_COLORS, ANY_COLOR_MANA, BeholdOrPay, CardDef, CommanderRule, Coverage,

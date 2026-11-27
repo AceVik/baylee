@@ -51,6 +51,21 @@ impl ManaSpending {
     /// Any actual mana may pay any type, including colorless (CR 118.14).
     pub const ANY_TYPE: Self = Self([63; 6]);
 
+    /// Spare bit in `self.0[0]` indicating snow mana may be spent as any color
+    /// (*Kaldring, the Rimestaff*). Zero on all existing values.
+    const SNOW_ANY_COLOR_BIT: u8 = 1 << 6;
+
+    /// Grants spending snow mana as though it were mana of any color.
+    pub fn allow_snow_as_any_color(&mut self) {
+        self.0[0] |= Self::SNOW_ANY_COLOR_BIT;
+    }
+
+    /// Whether snow mana may be spent as though it were mana of any color.
+    #[must_use]
+    pub const fn snow_as_any_color(self) -> bool {
+        self.0[0] & Self::SNOW_ANY_COLOR_BIT != 0
+    }
+
     /// Adds a directed permission. Compatible "as though" effects combine
     /// (CR 609.4a), independent of their registration order.
     pub fn allow(&mut self, from: ManaColor, to: ManaColor) {
@@ -58,7 +73,7 @@ impl ManaSpending {
         for via in 0..6 {
             for actual in 0..6 {
                 if self.0[actual] & (1 << via) != 0 {
-                    self.0[actual] |= self.0[via];
+                    self.0[actual] |= self.0[via] & 0x3f;
                 }
             }
         }

@@ -204,6 +204,13 @@ pub enum PlayerRel {
     ChosenBySource,
     /// The player seated immediately to the resolving controller's right (preceding in turn order).
     PlayerToYourRight,
+    /// The second player chosen as the resolving ability's source permanent
+    /// entered (`EnterModifier::ChooseTwoPlayers`; *Bitter Feud*, *Sower of
+    /// Discord*). Appended to preserve replay identities.
+    SecondChosenBySource,
+    /// The resolving controller and the first targeted opponent, in APNAP
+    /// order (*Expert-Level Safe*). Appended to preserve replay identities.
+    YouAndTargetOpponent,
 }
 
 impl PlayerRel {
@@ -544,6 +551,17 @@ pub enum TargetSlot {
     /// The object chosen for its third instance
     /// (`third_targets` on the ability).
     Third,
+}
+
+/// Which battlefield attachment [`crate::Effect::RelocateAttachment`] moves.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum AttachmentSource {
+    /// Attachment resolved through a [`TargetSpec`] (`ThisObject`, `EventObject`,
+    /// targeted permanent, etc.).
+    Spec(TargetSpec),
+    /// The permanent that granted the currently resolving triggered/activated
+    /// ability (`Rider::GrantedSource`, e.g. *Nettlevine Blight*).
+    GrantedSource,
 }
 
 /// Which permanent(s) [`crate::Effect::DoublePT`] doubles (`CR 701.10b–c`).

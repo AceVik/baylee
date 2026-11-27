@@ -208,7 +208,7 @@ pub const PLAY: char = '\u{f04b}';
 pub const BELL: char = '\u{f0f3}';
 /// The bell, struck through: nothing to notify.
 pub const BELL_SLASH: char = '\u{f1f6}';
-/// A person joining.
+/// A person with a plus: a person joining, inviting a friend.
 pub const USER_PLUS: char = '\u{f234}';
 /// A person leaving.
 pub const USER_MINUS: char = '\u{f503}';
@@ -216,7 +216,23 @@ pub const USER_MINUS: char = '\u{f503}';
 pub const PERCENT: char = '\u{f295}';
 /// A clock turning back: everything so far, a history.
 pub const HISTORY: char = '\u{f1da}';
+/// A chair: a table's seats, the list of tables.
+pub const CHAIR: char = '\u{f6c0}';
 /// Flag with a chequered field: the best finish, the turn a task was won on.
 pub const FINISH: char = '\u{f11e}';
 /// Calendar: a calendar with nothing on it yet.
 pub const CALENDAR: char = '\u{f073}';
+/// Chain links: an invite's link.
+pub const LINK: char = '\u{f0c1}';
+/// Two sheets: copy.
+pub const COPY: char = '\u{f0c5}';
+/// Waste bin: withdraw, delete.
+pub const TRASH: char = '\u{f2ed}';
+/// Envelope: an e-mail address, a mail sent.
+pub const ENVELOPE: char = '\u{f0e0}';
+/// An opening quote: a greeting in someone's words.
+pub const QUOTE: char = '\u{f10d}';
+/// A tag: a name only the player sees.
+pub const TAG: char = '\u{f02b}';
+/// A circle struck through: withdrawn.
+pub const BAN: char = '\u{f05e}';

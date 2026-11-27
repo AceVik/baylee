@@ -181,6 +181,10 @@ pub struct LobbyState {
     /// the same link again is dropped without a word.
     #[cfg(not(target_arch = "wasm32"))]
     pub(crate) claimed_pairings: central::pairing::Claimed,
+    /// A friend invite from a link, while Central is asked about it or
+    /// takes it up (`invites::link`).
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) invite_link: invites::link::Flow,
     /// The deck builder's own view state: its tabs, panes, menus, the
     /// keyboard's place and the save state (`crate::buildui::BuildUi`).
     pub(crate) build: crate::buildui::BuildUi,
@@ -601,6 +605,8 @@ impl LobbyState {
             link_asked_central: false,
             #[cfg(not(target_arch = "wasm32"))]
             claimed_pairings: central::pairing::Claimed::default(),
+            #[cfg(not(target_arch = "wasm32"))]
+            invite_link: invites::link::Flow::default(),
             build: crate::buildui::BuildUi::default(),
             drafts: crate::buildui::draft::Drafts::default(),
             deck_saves: baylee_client_core::deckbuilder::saves::SaveLine::default(),
@@ -905,6 +911,13 @@ impl LobbyState {
         self.lobby.can_enter_tower(self.central_ready())
     }
 
+    /// Whether the Tower stands in the lobby: an account that may enter it,
+    /// at a Central that delegates one (`echoes::Ui::tower_reached`). Its
+    /// tile, its collection in the account menu and its key follow this.
+    pub(crate) fn tower_live(&self) -> bool {
+        self.can_enter_tower() && self.echoes.tower_reached()
+    }
+
     /// Whether server-hosted replays (`GET /replays`) are available.
     #[must_use]
     pub(crate) fn can_use_server_replays(&self) -> bool {
@@ -1133,6 +1146,8 @@ mod hint;
 mod history;
 pub(crate) mod http;
 mod hub;
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) mod invites;
 mod keyboard;
 mod library_ui;
 #[cfg(not(target_arch = "wasm32"))]

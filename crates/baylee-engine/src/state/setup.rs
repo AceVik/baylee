@@ -63,6 +63,7 @@ impl GameState {
                     turns_to_skip: 0,
                     combats_to_skip: 0,
                     last_turn_attackers: Vec::new(),
+                    last_combat_attacked: Vec::new(),
                     blocked_since_upkeep: Vec::new(),
                     blocked_before_upkeep: Vec::new(),
                     upkeep_began: 0,
@@ -126,6 +127,7 @@ impl GameState {
             resolution_chosen_color: None,
             resolution_chosen_number: None,
             resolution_remembered: None,
+            active_exiler: None,
             discovered: Vec::new(),
             divided: Vec::new(),
             synthetic_copies: Vec::new(),
@@ -136,6 +138,7 @@ impl GameState {
             game_end: None,
             day_night: None,
             previous_turn: None,
+            last_turn_attacked_players: super::per_turn::PerTurnTracked::default(),
             starting_player,
             ability_fires: rustc_hash::FxHashMap::default(),
             modal_modes_used: std::collections::BTreeMap::new(),
@@ -149,11 +152,13 @@ impl GameState {
             effect_text_overrides: Vec::new(),
             copy_snapshots: Vec::new(),
             temporary_copy_origins: Vec::new(),
+            face_down_copied_bases: Vec::new(),
             numeric_failure: None,
             constrained_payments: Vec::new(),
             replacement_rules: Vec::new(),
             shields: crate::prevention::ShieldStore::default(),
             granted_actions: Vec::new(),
+            endable_effect_groups: Vec::new(),
             next_granted_action: 0,
             next_damage_batch: 0,
             damage_sources: Vec::new(),
@@ -464,10 +469,22 @@ impl GameState {
             super::reads::card_reads_first_spell_each_turn(def);
         self.per_turn.track_mana_types_spent.0 |= super::reads::card_reads_mana_types_spent(def);
         self.per_turn.track_cast_origin_zone.0 |= super::reads::card_reads_cast_origin_zone(def);
+        self.per_turn.track_exilers.0 |= super::reads::card_reads_exiled_by(def);
         self.per_turn.surveilled_cards.tracked |=
             super::reads::card_reads_surveilled_this_turn(def);
         self.per_turn.cards_foretold.tracked |= super::reads::card_reads_foretold_count(def);
         self.per_turn.discard_history.tracked |= super::reads::card_reads_first_discard_batch(def);
+        self.per_turn.extra_draw_occurred.tracked |= super::reads::card_reads_first_extra_draw(def);
+        self.per_turn.attacked_players.tracked |= super::reads::card_reads_attacked_players(def);
+        self.per_turn.track_last_combat_attacked.0 |=
+            super::reads::card_reads_last_combat_attacked(def);
+        self.per_turn.energy_removed.tracked |= super::reads::card_reads_energy_removed(def);
+        let reads_last_turn_attacked = super::reads::card_reads_last_turn_attacked(def);
+        self.per_turn.opponents_attacked.tracked |=
+            super::reads::card_reads_opponents_attacked(def) || reads_last_turn_attacked;
+        self.per_turn.activated_abilities_this_turn.tracked |=
+            super::reads::card_reads_first_activated_each_turn(def);
+        self.last_turn_attacked_players.tracked |= reads_last_turn_attacked;
         let base = self.card_base(def, entry.card);
         let card = CardRef {
             index: entry.card,
@@ -591,10 +608,22 @@ impl GameState {
             super::reads::card_reads_first_spell_each_turn(def);
         self.per_turn.track_mana_types_spent.0 |= super::reads::card_reads_mana_types_spent(def);
         self.per_turn.track_cast_origin_zone.0 |= super::reads::card_reads_cast_origin_zone(def);
+        self.per_turn.track_exilers.0 |= super::reads::card_reads_exiled_by(def);
         self.per_turn.surveilled_cards.tracked |=
             super::reads::card_reads_surveilled_this_turn(def);
         self.per_turn.cards_foretold.tracked |= super::reads::card_reads_foretold_count(def);
         self.per_turn.discard_history.tracked |= super::reads::card_reads_first_discard_batch(def);
+        self.per_turn.extra_draw_occurred.tracked |= super::reads::card_reads_first_extra_draw(def);
+        self.per_turn.attacked_players.tracked |= super::reads::card_reads_attacked_players(def);
+        self.per_turn.track_last_combat_attacked.0 |=
+            super::reads::card_reads_last_combat_attacked(def);
+        self.per_turn.energy_removed.tracked |= super::reads::card_reads_energy_removed(def);
+        let reads_last_turn_attacked = super::reads::card_reads_last_turn_attacked(def);
+        self.per_turn.opponents_attacked.tracked |=
+            super::reads::card_reads_opponents_attacked(def) || reads_last_turn_attacked;
+        self.per_turn.activated_abilities_this_turn.tracked |=
+            super::reads::card_reads_first_activated_each_turn(def);
+        self.last_turn_attacked_players.tracked |= reads_last_turn_attacked;
         Ok(PrintedCard {
             base: self.card_base(def, index),
             cda: printed_pt_cda(def),

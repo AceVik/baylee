@@ -134,3 +134,4 @@ a26288bc-3bb2-483d-80a1-fb99961be971	A-Mightstone's Animation	identity-clash: Al
 6ca4328e-1326-435f-819e-554133f0d63e	A-Warm Welcome	identity-clash: Alchemy A-* card collides on paper card path
 9726cf0e-5fd2-4699-8192-2fafa2b36963	Padishah Emperor Shaddam IV	reference-script defect: adds trample absent from Oracle text
 7abbd5af-a04b-476d-aee5-2b2f5114b019	Thief of Existence	The cast trigger must grant a leaves-the-battlefield ability to the source spell and its permanent successor (CR 400.7a). The generated effect targeted the exiled card.
+18ca77d9-4740-4be4-913a-e21c9ed9e43f	Hollow Warrior	Pending::ChooseAttackers does not yet expose CantAttackUnlessYouTap cross-creature non-attacking tap constraints for the house AI.
