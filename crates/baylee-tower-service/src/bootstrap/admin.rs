@@ -2,7 +2,7 @@
 use super::config;
 use baylee_tower::v2::{MAX_STAGES, package::Build};
 use baylee_tower_service::Error;
-use baylee_tower_store::{Publication, Recovery, Role, Store};
+use baylee_tower_store::{Erasure, Publication, Recovery, Role, Store};
 use central_api::Token;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -59,6 +59,10 @@ pub(super) enum Operation {
     GrantRuntime {
         role: String,
     },
+    /// Erase one account's Tower data on an individual request.
+    EraseAccount {
+        account: Uuid,
+    },
 }
 
 /// The store's closed recovery, spelt so an extra field is refused: serde would
@@ -87,6 +91,7 @@ pub(super) enum Reply {
     Operator { id: Uuid },
     Published { cohort: Uuid },
     Supervised { revision: u64 },
+    Erased { erasure: Erasure },
     Done,
 }
 
@@ -165,6 +170,7 @@ impl Operation {
                 .map_err(|_| Error::Contract)?;
             }
             Self::PauseEnrollment { cohort } => uuid7(*cohort)?,
+            Self::EraseAccount { account } => uuid7(*account)?,
             Self::GrantRuntime { role } => {
                 if !baylee_tower_store::valid_schema(role) {
                     return Err(Error::Contract);
@@ -241,6 +247,9 @@ impl Operation {
                 store.grant_runtime(&role).await?;
                 Ok(Reply::Done)
             }
+            Self::EraseAccount { account } => Ok(Reply::Erased {
+                erasure: store.erase_account(account).await?,
+            }),
         }
     }
 }

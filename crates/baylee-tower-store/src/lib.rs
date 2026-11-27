@@ -38,6 +38,7 @@ mod requests;
 mod reservation;
 mod runs;
 mod state;
+pub use administration::Erasure;
 pub use execution::verification::{Award, VerificationFailure, VerificationJob, VerificationLease};
 pub use execution::{Acknowledged, Claimed, ExpiredExecution, Lease, Recovery, StoredChunk};
 pub use operators::{Principal, Role};

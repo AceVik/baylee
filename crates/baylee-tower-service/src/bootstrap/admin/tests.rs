@@ -187,3 +187,15 @@ fn modes_never_accept_credentials_or_extra_arguments() {
     }
     assert!(mode(["--admin=PRIVATE_ARGUMENT_CANARY".into()].into_iter()).is_err());
 }
+
+#[test]
+fn erase_account_names_one_v7_account_and_nothing_else() {
+    let erase = input(json!({ "action": "erase_account", "account": Uuid::now_v7() }));
+    assert!(parses(&erase));
+    let mut extra = erase.clone();
+    extra["operation"]["cohort"] = json!(Uuid::now_v7());
+    assert!(!parses(&extra));
+    let mut v4 = erase.clone();
+    v4["operation"]["account"] = json!("2f1a6e3c-8b1d-4c7e-9a2b-3c4d5e6f7a8b");
+    assert!(!parses(&v4));
+}

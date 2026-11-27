@@ -47,6 +47,43 @@ impl Store {
         self.changed_partition(db, &mut partition).await
     }
 
+    /// Take every eligible echo of `account` out of the dense pool, one partition at
+    /// a time in a fixed order, inside the caller's transaction (which holds the
+    /// player's row lock). A plain delete would leave a hole in the slots, and the
+    /// snapshot key refuses the player's deletion while one is eligible.
+    pub(crate) async fn remove_account_echoes(
+        &self,
+        db: &impl ConnectionTrait,
+        account: Uuid,
+    ) -> Result<(), Error> {
+        let partitions = db
+            .query_all_raw(self.statement(
+                "SELECT cohort,stage FROM @tower.eligible_echoes WHERE account=$1 ORDER BY cohort,stage",
+                vec![account.into()],
+            ))
+            .await
+            .map_err(|_| Error::Unavailable)?;
+        for row in partitions {
+            let cohort: Uuid = column(&row, "cohort")?;
+            let stage =
+                u8::try_from(column::<i16>(&row, "stage")?).map_err(|_| Error::Unavailable)?;
+            let mut partition = self.partition(db, cohort, stage).await?;
+            // Read the slot under the partition's lock: another removal moves slots.
+            let held = db
+                .query_one_raw(self.statement(
+                    "SELECT slot FROM @tower.eligible_echoes WHERE cohort=$1 AND stage=$2 AND account=$3",
+                    vec![cohort.into(), i16::from(stage).into(), account.into()],
+                ))
+                .await
+                .map_err(|_| Error::Unavailable)?;
+            if let Some(held) = held {
+                self.remove_slot(db, &mut partition, unsigned(column(&held, "slot")?)?)
+                    .await?;
+            }
+        }
+        Ok(())
+    }
+
     /// Withdraw future echo use/attribution immediately. Old snapshots never become
     /// eligible again merely because a later start explicitly reenrolls the account.
     /// Existing private reservations keep their committed rules material.

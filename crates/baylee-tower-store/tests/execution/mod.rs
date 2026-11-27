@@ -2,6 +2,7 @@
 #![forbid(unsafe_code)]
 mod batches;
 mod discovery;
+mod erasure;
 mod expiry;
 mod grants;
 mod location;

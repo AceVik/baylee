@@ -70,6 +70,76 @@ impl Store {
         }
         Ok(())
     }
+
+    /// Erase one account's Tower data on an individual request (`docs/privacy.md`
+    /// §"Tower authority personal bests"): its echoes leave the pool, then the
+    /// player row goes and takes its enrollment, runs, receipts, reservations,
+    /// records, settlements, echo snapshots, personal bests and undelivered
+    /// awards with it. Other players' duels against its echoes keep their
+    /// immutable packages, which name the account as an attribution, and settle
+    /// as before; their `opponent_account` stays, since a missing one means a
+    /// house opponent. A later signed-in request may enroll the account anew.
+    /// # Errors
+    /// Non-owner SQL role, malformed identity or storage failure.
+    pub async fn erase_account(&self, account: Uuid) -> Result<Erasure, Error> {
+        uuid7(account)?;
+        self.require_administrator().await?;
+        let tx = self.transaction().await?;
+        let held = tx
+            .query_one_raw(self.statement(
+                "SELECT account FROM @tower.players WHERE account=$1 FOR UPDATE",
+                vec![account.into()],
+            ))
+            .await
+            .map_err(|_| Error::Unavailable)?;
+        if held.is_none() {
+            tx.commit().await.map_err(|_| Error::Unavailable)?;
+            return Ok(Erasure::Absent);
+        }
+        // A duel the gateway hosts or a verifier replays is left alone: the
+        // operator ends it first (`supervise` quarantine, then interrupt). A
+        // run reaches these phases again only under this row's lock.
+        let busy = tx
+            .query_one_raw(self.statement(
+                "SELECT EXISTS(SELECT 1 FROM @tower.runs WHERE account=$1
+                 AND pg_catalog.convert_from(state,'UTF8')::jsonb->>'phase' IN ('reserved','playing','verifying','quarantined')) AS busy",
+                vec![account.into()],
+            ))
+            .await
+            .map_err(|_| Error::Unavailable)?
+            .ok_or(Error::Unavailable)?;
+        if column::<bool>(&busy, "busy")? {
+            tx.commit().await.map_err(|_| Error::Unavailable)?;
+            return Ok(Erasure::Busy);
+        }
+        self.remove_account_echoes(&tx, account).await?;
+        let removed = tx
+            .execute_raw(self.statement(
+                "DELETE FROM @tower.players WHERE account=$1",
+                vec![account.into()],
+            ))
+            .await
+            .map_err(|_| Error::Unavailable)?;
+        if removed.rows_affected() != 1 {
+            return Err(Error::Unavailable);
+        }
+        tx.commit().await.map_err(|_| Error::Unavailable)?;
+        Ok(Erasure::Removed)
+    }
+}
+
+/// What [`Store::erase_account`] did.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Erasure {
+    /// The account's Tower data is gone.
+    Removed,
+    /// Tower holds nothing for this account: never enrolled, or already
+    /// erased. Check the identity before answering a request with it.
+    Absent,
+    /// A duel of the account is reserved, playing, being verified or
+    /// quarantined; nothing changed.
+    Busy,
 }
 
 /// The reviewed runtime grants (`runtime_grants.sql`), before substitution.

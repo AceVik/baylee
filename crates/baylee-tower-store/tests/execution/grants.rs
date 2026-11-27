@@ -316,6 +316,7 @@ async fn a_whole_run_plays_under_the_runtime_grants_and_administration_is_refuse
             );
             assert!(runtime.revoke_operator(host.id()).await.is_err());
             assert!(runtime.pause_enrollment(cohort).await.is_err());
+            assert!(runtime.erase_account(account).await.is_err());
             assert!(
                 runtime
                     .publish_house(
