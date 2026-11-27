@@ -381,6 +381,10 @@ fn every_lent_deck_is_legal_deterministic_and_admitted() {
         assert!(host_admits(format, &other.rows, &facts));
         assert!(one.rows.sideboard.is_empty());
         assert_eq!(one.rows.commanders.is_empty(), format != Format::Commander);
+        if format == Format::Standard {
+            assert_eq!(one.rows.main_count(), 60, "a lent Standard deck is sixty");
+            assert_eq!(other.rows.main_count(), 60);
+        }
         let text = file::text(&one.rows, format).unwrap();
         assert!(
             text.contains(&format!("# format: {}", format.as_str())),
@@ -790,4 +794,27 @@ fn the_brief_names_its_actions_and_the_format() {
     let system = super::brief::system(Format::Commander, Job::Build, 40);
     assert!(system.contains("exactly 100 cards") && system.contains("40 replies"));
     assert!(super::brief::system(Format::Standard, Job::Improve(6), 9).contains("at most 6 cards"));
+}
+
+/// A deck in one line: colours, lands, creatures, curve.
+#[test]
+fn a_deck_is_summed_up_in_one_line() {
+    let facts = facts(&[
+        (card("Island"), "lll"),
+        (card("Counterspell"), "lll"),
+        (card("Llanowar Elves"), "lll"),
+    ]);
+    let rows = rows(
+        "UG",
+        &["52 Island", "4 Counterspell", "4 Llanowar Elves"],
+        &[],
+    );
+    let frozen = Checker::new(&facts)
+        .check(Format::Standard, &rows, NOW)
+        .frozen
+        .unwrap();
+    assert_eq!(
+        super::check::summary(&frozen.loaded),
+        "UG · 52 lands · 4 creatures · curve 0:0 1:4 2:4 3:0 4:0 5:0 6:0 7+:0"
+    );
 }

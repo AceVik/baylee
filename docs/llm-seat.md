@@ -1656,8 +1656,9 @@ baylee-seat deck improve (the options of build) [--most 6] [--recent 20] [--game
   fair house levels, the trained net). The deck generator
   (`baylee_cards::deckgen::build_synergistic`) builds from the format's pool
   in its shape, and the deck is held to the same check. A refused seed is
-  passed over for the next, up to 64, and the archetype goes round with the
-  seed. The same seed and the same facts lend the same deck. The precons are
+  passed over for the next, up to 64, and so is a Standard deck longer than
+  sixty (the generator makes one in four of 61 to 75 cards, for its training
+  variety). The archetype goes round with the seed. The same seed and the same facts lend the same deck. The precons are
   not drawn on: of the 89 this build plays, none is a hundred-card singleton
   or Commander deck, and the sixty-card ones are lists of the 1990s.
 - **Improving** reads the newest version, its note, the format's last
@@ -1669,8 +1670,14 @@ baylee-seat deck improve (the options of build) [--most 6] [--recent 20] [--game
   (`deckbuild/tests.rs`), and a stand-in Messages API answers
   `llm::deckchat`. The fake agent CLI converses as Claude Code and as Codex,
   and plays `deck build` end to end (`tests/cli_mind/deck.rs`). The facts
-  are read from a stand-in gateway. Lent decks are proven on a table where
-  every card is legal, not yet on a real host's.
+  are read from a stand-in gateway. Measured against a real catalog
+  (27.11.2026: a local gateway in `guests` mode on a copy of the full
+  catalog, its default terms of 2026-10-21 in force): a fresh guest read
+  both routes without accepting them; of the 25,824 cards this build plays
+  completely, 3,846 are in the Standard pool, 25,185 in Highlander's and
+  25,153 in Commander's; four seeds a format each lent a deck the host's
+  check passed, none passed over but one Standard seed of more than sixty
+  cards.
 
 ## What the game's record says played
 

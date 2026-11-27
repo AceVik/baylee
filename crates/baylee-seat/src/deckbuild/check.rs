@@ -411,3 +411,39 @@ fn plain_rows(rows: &[String], complaints: &mut Vec<String>) -> Vec<String> {
     }
     out
 }
+
+/// `deck` in one line: its colours, its lands and creatures, and the curve
+/// of its other cards by mana value (`7` is seven and more).
+#[must_use]
+pub fn summary(deck: &baylee_cards::decks::LoadedDeck) -> String {
+    use baylee_core::types::TypeSet;
+    let mut identity = baylee_core::color::ColorSet::EMPTY;
+    let (mut lands, mut creatures) = (0, 0);
+    let mut curve = [0u32; 8];
+    for card in deck.main.iter().chain(&deck.commanders) {
+        let Some(def) = baylee_cards::by_index(card.index) else {
+            continue;
+        };
+        identity = identity.union(def.color_identity);
+        let face = &def.faces[0];
+        if face.types.contains(TypeSet::LAND) {
+            lands += 1;
+            continue;
+        }
+        if face.types.contains(TypeSet::CREATURE) {
+            creatures += 1;
+        }
+        let at = usize::try_from(face.mana_cost.cmc()).unwrap_or(7).min(7);
+        curve[at] += 1;
+    }
+    let curve: Vec<String> = curve
+        .iter()
+        .enumerate()
+        .map(|(mv, n)| format!("{}{}:{n}", mv, if mv == 7 { "+" } else { "" }))
+        .collect();
+    format!(
+        "{} · {lands} lands · {creatures} creatures · curve {}",
+        super::pool::letters(identity),
+        curve.join(" ")
+    )
+}

@@ -5,9 +5,10 @@
 //! The deck generator (`baylee_cards::deckgen::build_synergistic`) builds
 //! from the format's pool ([`super::pool::Pool`]) in the format's shape,
 //! and the deck is held to the host's check ([`super::check`]); a deck the
-//! check refuses is passed over for the next seed, up to [`TRIES`]. The
-//! archetype goes round with the seed, so seeds in a row lend different
-//! kinds of deck.
+//! check refuses is passed over for the next seed, up to [`TRIES`], and so is
+//! a Standard deck of more than sixty cards (the generator makes one in four
+//! longer, for its training variety). The archetype goes round with the
+//! seed, so seeds in a row lend different kinds of deck.
 //!
 //! The precons (`docs/precons.md`) are not drawn on: of the 89 this build
 //! plays, none is a hundred-card singleton or Commander deck, and the
@@ -18,7 +19,7 @@ use super::pool::{Pool, letters};
 use crate::ranked::Frozen;
 use baylee_account::ranked::Format;
 use baylee_cards::deckgen::{Archetype, DeckBuildRequest, Generated, build_synergistic};
-use baylee_cards::formats::Shape;
+use baylee_cards::formats::{CONSTRUCTED_MIN, Shape};
 use baylee_core::ids::CardIndex;
 use std::collections::BTreeMap;
 
@@ -101,6 +102,17 @@ pub fn lend(
                 continue;
             }
         };
+        // The generator makes one constructed deck in four 61 to 75 cards
+        // for its training variety; a lent deck is the sixty a player
+        // brings, so such a seed is passed over.
+        if format == Format::Standard && generated.main.len() > CONSTRUCTED_MIN {
+            last = format!(
+                "the generator made {} cards, and a lent Standard deck is {CONSTRUCTED_MIN}",
+                generated.main.len()
+            );
+            passed_over.push((made_with, last.clone()));
+            continue;
+        }
         let rows = rows_of(&generated, format);
         match checker.check(format, &rows, now) {
             Verdict {
