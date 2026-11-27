@@ -46,23 +46,37 @@ fn codex_runs_exec_with_our_instructions_and_no_tools() {
         "include_permissions_instructions=false",
         "include_apps_instructions=false",
         "model_reasoning_summary=\"none\"",
+        // What 0.166 and 0.172 add for a code-mode, multi-agent v2 model.
+        "include_collaboration_mode_instructions=false",
+        "skills.include_instructions=false",
+        "tools.experimental_request_user_input.enabled=false",
+        "features.multi_agent_v2.disable_native_tools=true",
+        "features.multi_agent_v2.root_agent_usage_hint_text=\"\"",
+        "features.multi_agent_v2.multi_agent_mode_hint_text=\"\"",
         "model_reasoning_effort=\"low\"",
     ] {
         expected.push("-c".into());
         expected.push(config.into());
     }
+    // As `-c`, never `--disable`: Codex refuses a `--disable` name it does
+    // not know ("Unknown feature flag", 0.166 and 0.172) and ignores the
+    // same name in `-c`.
     for feature in DISABLED_FEATURES {
-        expected.push("--disable".into());
-        expected.push(feature.into());
+        expected.push("-c".into());
+        expected.push(format!("features.{feature}=false"));
     }
     expected.extend(["--model", "gpt-6.1-sol", "-"].map(str::to_string));
     assert_eq!(args, expected);
+    assert!(!args.iter().any(|a| a == "--disable" || a == "--enable"));
     for feature in [
         "shell_tool",
         "unified_exec",
         "plugins",
         "hooks",
         "multi_agent",
+        "browser_use_external",
+        "send_message_to_user_async",
+        "request_permissions_tool",
     ] {
         assert!(DISABLED_FEATURES.contains(&feature), "{feature}");
     }
@@ -141,6 +155,14 @@ fn codex_takes_a_tool_item_as_a_breach() {
         "mcp_tool_call",
         "web_search",
         "todo_list",
+        // What a sub-agent, a dynamic tool (code mode's `exec`, the async
+        // message GPT-6.2's catalog adds) or an image would be, by the item
+        // names Codex 0.166 carries: none of them is the answer.
+        "collab_tool_call",
+        "collab_agent_tool_call",
+        "dynamic_tool_call",
+        "send_message_to_user_async",
+        "image_view",
     ] {
         for event in ["item.started", "item.completed"] {
             let line = json!({"type": event, "item": {"id": "i", "type": kind}}).to_string();
