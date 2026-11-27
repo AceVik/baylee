@@ -877,7 +877,7 @@ pub(crate) fn mount_virtual_list(
     let metrics = env.lobby_metrics();
     let list = crate::lobby::scroller(commands, metrics, which, env.scrolled.get(which));
     commands.entity(list).insert(stop(stop_id));
-    crate::lobby::scrollbars::attach(commands, wrapper, list, metrics);
+    crate::lobby::scrollbars::attach_stable(commands, wrapper, list, metrics);
     commands.entity(list).add_child(content);
     attach_soft_list_edges(commands, wrapper);
 }
