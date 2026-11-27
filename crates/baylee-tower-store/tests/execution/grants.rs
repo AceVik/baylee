@@ -68,6 +68,7 @@ async fn a_whole_run_plays_under_the_runtime_grants_and_administration_is_refuse
             let host = operator(&owner, Role::Host, 32).await;
             let verifier = operator(&owner, Role::Verifier, 33).await;
             let courier = operator(&owner, Role::Courier, 34).await;
+            operator(&owner, Role::Supervisor, 35).await;
             owner
                 .approve_host(host.id(), "http://127.0.0.1:29881", true)
                 .await
@@ -95,12 +96,17 @@ async fn a_whole_run_plays_under_the_runtime_grants_and_administration_is_refuse
             let host = runtime.authenticate_operator([32; 32]).await.unwrap();
             let verifier_rt = runtime.authenticate_operator([33; 32]).await.unwrap();
             let courier_rt = runtime.authenticate_operator([34; 32]).await.unwrap();
+            let supervisor = runtime.authenticate_operator([35; 32]).await.unwrap();
             assert_eq!(verifier_rt.id(), verifier.id());
             assert_eq!(courier_rt.id(), courier.id());
             let executor = std::slice::from_ref(&published.cohort.executor);
             runtime.advertise(&host, executor, executor).await.unwrap();
 
             let account = Uuid::now_v7();
+            runtime
+                .starter_choices(account, cohort, [8; 32])
+                .await
+                .unwrap();
             let mut snapshot = runtime
                 .start(
                     account,
@@ -141,11 +147,35 @@ async fn a_whole_run_plays_under_the_runtime_grants_and_administration_is_refuse
                     .claim(&host, snapshot.id, Uuid::now_v7(), 120_000)
                     .await
                     .unwrap();
-                let ack = runtime
-                    .append(&host, claimed.lease, claimed.prefix, b"synthetic record\n")
+                runtime
+                    .renew(&host, claimed.lease, 120_000)
                     .await
                     .unwrap();
+                let ack = if duel == 0 {
+                    runtime
+                        .append_batch(
+                            &host,
+                            claimed.lease,
+                            claimed.prefix,
+                            &[b"synthetic record\n".to_vec(), b"second chunk\n".to_vec()],
+                        )
+                        .await
+                        .unwrap()
+                } else {
+                    runtime
+                        .append(&host, claimed.lease, claimed.prefix, b"synthetic record\n")
+                        .await
+                        .unwrap()
+                };
+                runtime.read_chunk(&host, claimed.lease, 0).await.unwrap();
                 runtime.seal(&host, claimed.lease, ack.prefix).await.unwrap();
+                assert!(
+                    runtime
+                        .verification_candidates(&verifier_rt, cohort, 8)
+                        .await
+                        .unwrap()
+                        .contains(&claimed.lease.reservation)
+                );
                 let job = runtime
                     .claim_verification(
                         &verifier_rt,
@@ -153,6 +183,14 @@ async fn a_whole_run_plays_under_the_runtime_grants_and_administration_is_refuse
                         Uuid::now_v7(),
                         120_000,
                     )
+                    .await
+                    .unwrap();
+                runtime
+                    .renew_verification(&verifier_rt, job.lease, 120_000)
+                    .await
+                    .unwrap();
+                runtime
+                    .verification_chunk(&verifier_rt, job.lease, 0)
                     .await
                     .unwrap();
                 let report = Settlement {
@@ -207,6 +245,58 @@ async fn a_whole_run_plays_under_the_runtime_grants_and_administration_is_refuse
                 .listing(account, listing.revision + 1, false, None)
                 .await
                 .unwrap();
+            // A second player meets the first one's echo, and its duel's lease
+            // runs out: the supervisor finds and recovers it.
+            runtime.prune_echoes(&supervisor, cohort, 1, 8).await.unwrap();
+            let second = Uuid::now_v7();
+            let theirs = runtime
+                .start(
+                    second,
+                    Uuid::now_v7(),
+                    Start {
+                        cohort,
+                        starter: 1,
+                        consent: CONSENT_REVISION,
+                    },
+                    [10; 32],
+                )
+                .await
+                .unwrap();
+            assert!(
+                !runtime
+                    .hosts(second, theirs.id, None, 8)
+                    .await
+                    .unwrap()
+                    .is_empty()
+            );
+            runtime
+                .reserve(
+                    second,
+                    Uuid::now_v7(),
+                    Reserve {
+                        run: theirs.id,
+                        revision: theirs.state.revision,
+                        host: host.id(),
+                    },
+                    entropy(90),
+                    4096,
+                )
+                .await
+                .unwrap();
+            runtime
+                .claim(&host, theirs.id, Uuid::now_v7(), 1_000)
+                .await
+                .unwrap();
+            tokio::time::sleep(std::time::Duration::from_millis(1_500)).await;
+            let expired = runtime
+                .expired_executions(&supervisor, cohort, 8)
+                .await
+                .unwrap();
+            let observed = expired
+                .into_iter()
+                .find(|execution| execution.run == theirs.id)
+                .expect("the lapsed lease is found");
+            runtime.recover_expired(&supervisor, observed).await.unwrap();
             runtime.withdraw_echoes(account).await.unwrap();
             runtime.runs(account, None, 8).await.unwrap();
 
