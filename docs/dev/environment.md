@@ -289,8 +289,9 @@ On the server a deploy that keeps games (`BAYLEE_DEPLOY_KEEP_GAMES=1` in
 `/etc/baylee/deploy.env`, `docs/deploy-hooks.md` §"Keeping games across a
 deploy") writes `BAYLEE_ENGINE_BINS` into `/etc/baylee/agent-engines.env`: this
 release's two siblings of `baylee-engine-server` and the two standard engines
-of every older build a running game still plays on, under `/opt/baylee/engines/<rev>/`. The
-agent's unit reads it with `EnvironmentFile=-/etc/baylee/agent-engines.env`.
+of every older build a running game still plays on, under `/opt/baylee/engines/<rev>/`,
+with the Tower cohort's pinned engine (`BAYLEE_DEPLOY_TOWER_ENGINE` in `deploy.env`)
+in place of this release's Tower engine. The agent's unit reads it with `EnvironmentFile=-/etc/baylee/agent-engines.env`.
 
 ## Feedback service (`baylee-feedback`)
 

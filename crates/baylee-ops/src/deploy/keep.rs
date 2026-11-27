@@ -168,12 +168,16 @@ impl Deploy {
     }
 
     /// Names the current engines and the kept builds of `revisions` in the
-    /// agent's list, before it starts.
+    /// agent's list, before it starts. The Tower cohort's pinned engine, where
+    /// one is set, stands in for the deployed Tower engine: the same identity
+    /// twice would stop the agent, and a newer one is not the cohort's.
     pub(super) fn name_engines(&self, revisions: &[String], rev: &str) -> Run {
-        let mut bins: Vec<PathBuf> = engine::BINARIES[1..]
-            .iter()
-            .map(|name| self.p.bin.join(name))
-            .collect();
+        let tower = self
+            .p
+            .tower_engine
+            .clone()
+            .unwrap_or_else(|| self.p.bin.join(engine::BINARIES[2]));
+        let mut bins: Vec<PathBuf> = vec![self.p.bin.join(engine::BINARIES[1]), tower];
         for kept in revisions.iter().filter(|r| *r != rev) {
             bins.extend(KEPT.iter().map(|name| self.kept_build(kept).join(name)));
         }

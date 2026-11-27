@@ -79,7 +79,12 @@ struct Keeping {
     kept: u8,
     /// How many have a seat bridge.
     bridged: u8,
+    /// Whether `deploy.env` names the Tower cohort's pinned engine.
+    tower_pin: bool,
 }
+
+/// The pinned Tower engine a test names (`BAYLEE_DEPLOY_TOWER_ENGINE`).
+const TOWER_PIN: &str = "/opt/baylee/engines/tower-0123456789/baylee-engine-tower";
 
 /// The release deployed before: the build the running game plays on.
 const DEPLOYED: &str = "fedcba9876543210fedcba9876543210fedcba98";
@@ -357,8 +362,16 @@ fn health_and_keeping(
             "running": u8::from(game_running), "local_running": u8::from(game_running), "waiting": 0,
         }
     });
-    if let Some(Keeping { kept, bridged }) = keep {
+    if let Some(Keeping {
+        kept,
+        bridged,
+        tower_pin,
+    }) = keep
+    {
         command.env("BAYLEE_DEPLOY_KEEP_GAMES", "1");
+        if tower_pin {
+            command.env("BAYLEE_DEPLOY_TOWER_ENGINE", TOWER_PIN);
+        }
         command.env(
             "AGENT_ENV_FILES",
             format!("{} (ignore_errors=yes)", agent_env.display()),
@@ -797,6 +810,7 @@ fn a_deploy_that_keeps_games_stops_the_gateway_first_and_keeps_their_engines() {
         keep: Some(Keeping {
             kept: 1,
             bridged: 0,
+            tower_pin: false,
         }),
         ..Server::with_trunk(Trunk::Absent, true)
     };
@@ -852,6 +866,7 @@ fn a_deploy_that_keeps_games_waits_for_one_it_cannot_keep() {
             Keeping {
                 kept: 0,
                 bridged: 0,
+                tower_pin: false,
             },
             "1 of 1 running game(s) would not be kept",
         ),
@@ -859,6 +874,7 @@ fn a_deploy_that_keeps_games_waits_for_one_it_cannot_keep() {
             Keeping {
                 kept: 1,
                 bridged: 1,
+                tower_pin: false,
             },
             "1 game(s) with a seat bridge",
         ),
@@ -872,4 +888,37 @@ fn a_deploy_that_keeps_games_waits_for_one_it_cannot_keep() {
         assert!(!ran.contains("systemctl stop baylee-gateway"), "{ran}");
         assert!(!ran.contains("systemctl restart baylee-gateway"), "{ran}");
     }
+}
+
+/// The Tower cohort's pinned engine stands in for the deployed Tower engine in
+/// a keeping deploy's list, as the agent's `tower-engine.conf` names it while
+/// no deploy keeps games (`docs/tower-operations.md`): the list replaces that
+/// drop-in, and without the pin the cohort's runs would find no host.
+#[test]
+fn a_keeping_deploy_names_the_tower_cohorts_pinned_engine() {
+    let server = Server {
+        keep: Some(Keeping {
+            kept: 1,
+            bridged: 0,
+            tower_pin: true,
+        }),
+        ..Server::with_trunk(Trunk::Absent, true)
+    };
+    let (root, ran, _) = stage_on(server);
+    let bin = root.join("bin");
+    assert!(
+        ran.contains(&format!(
+            "BAYLEE_ENGINE_BINS={}/baylee-engine-standard-loops:{TOWER_PIN}:",
+            bin.display()
+        )),
+        "{ran}"
+    );
+    let list = ran
+        .lines()
+        .find(|line| line.starts_with("BAYLEE_ENGINE_BINS="))
+        .expect("the agent's list");
+    assert!(
+        !list.contains(&format!("{}/baylee-engine-tower", bin.display())),
+        "the deployed Tower engine is not named beside the pin: {list}"
+    );
 }

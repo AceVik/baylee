@@ -187,8 +187,11 @@ deploy does not wait for running games while every one is kept:
   the current one could be given a new run), checks the stage, stops the
   gateway first (so the games are stored before the agent's engines go), then
   the agent, installs the release, writes `agent-engines.env`
-  (`BAYLEE_ENGINE_BINS`: this release's two siblings of `baylee-engine-server`
-  and every kept build's two), starts the gateway, which restores the
+  (`BAYLEE_ENGINE_BINS`: this release's two siblings of `baylee-engine-server`,
+  the Tower one replaced by the official cohort's pinned engine where
+  `BAYLEE_DEPLOY_TOWER_ENGINE` in `deploy.env` names it, since this list
+  overrides the agent's `tower-engine.conf` (`docs/tower-operations.md`
+  §"Production on one server"), and every kept build's two), starts the gateway, which restores the
   games, and the agent, which resumes them. Once the switch passed it removes
   every kept build no game plays on.
 - **With hooks.** `before-switch` runs with the gateway and the agent stopped
