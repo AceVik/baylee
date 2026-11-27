@@ -81,9 +81,10 @@ display name/tag from live Central introspection, never from request fields.
 Names refresh when the owner reads a board; removing the public identity withdraws
 the listing. Publication and withdrawal use a monotonic compare-and-set revision;
 an old publish retry cannot undo a later withdrawal. Deleting the Tower player
-cascades its bests. This does not implement cross-service Central account-erasure
-delivery: operators must include the Tower player in their deletion workflow and
-must not claim that Central deletion alone has removed Tower data. Private bests
+cascades its bests. A Central account deletion does not delete the Tower player:
+its data stays, pseudonymised, until the season ends, and its listing is
+withdrawn by the next day (§"Deleted accounts"); `erase_account` deletes it on an
+individual request. Private bests
 survive raw-run retention until player/cohort removal; the new projection starts
 with verified completions after migration, without inventing scores for old runs.
 Apply migration with the schema owner and renew the reviewed runtime table grants
@@ -135,6 +136,7 @@ a fixed diagnostic containing no input. A failed preflight never changes state.
 | `pause_enrollment` | `cohort` | `done`. Closes new enrollment, preserving existing runs, receipts and immutable content. Exact repeats succeed. Republishing the same content cannot reopen it. |
 | `supervise` | `supervisor`, `run`, `revision`, `recovery` | `{"result":"supervised","revision":<u64>}`. Additionally requires a live dedicated Supervisor credential and the run's current saved revision. `recovery` is `{"kind":"quarantine"}` (stop a reserved, playing or verifying duel and revoke its generations), `{"kind":"resume","host":<UUIDv7 or null>}` (a quarantined run returns to its exact retained package/prefix; an unsealed duel names an enabled compatible Host, a sealed record names none and returns to verification) or `{"kind":"interrupt"}` (retire a quarantined run without a rules result or compensation). A stale revision or wrong phase refuses without change; the reply's revision is the one to name next. |
 | `grant_runtime` | `role` | `done`. Renews the runtime role's reviewed grants (§"Runtime grants") after taking every earlier one back. Refuses a role that is or inherits the schema owner, and any caller that is not the owner. |
+| `erase_account` | `account` | `{"result":"erased","erasure":<"removed", "absent" or "busy">}`. Erases one account's Tower data on an individual request (§"Deleted accounts"): its echoes leave the pool, then its player row and everything that cascades from it (enrollment, runs, receipts, reservations, records, settlements, echo snapshots, personal bests, undelivered awards). `absent`: nothing is held, never or no longer; check the identity before answering a request with it. `busy`: a duel of the account is reserved, playing, being verified or quarantined, and nothing changed; end it first (`supervise` quarantine, then interrupt). Other players' duels against its echoes keep their committed packages, which name the account as the opponent they met, and settle as before. A later signed-in request may enroll the account anew. |
 
 All IDs must be UUIDv7. There is no arbitrary SQL, script, state patch, currency
 grant, award injection, unrevocation, content rewrite or reopening operation.
@@ -325,6 +327,13 @@ repeating its newest delivered fact exactly (Central deduplicates it and
 changes nothing). Either way the listing is withdrawn as if the owner had
 removed their public identity (`Store::ranking_identity`). The first daily
 check runs ten minutes after the service starts.
+
+On an individual request, `--admin erase_account` (§"Closed operations") removes
+one account's Tower data at once. The account's random identifier then
+remains only inside other players' committed duel packages, as the opponent
+they met; those are integrity-bound to their verified results and go with the
+season's data. Erasures are not replayed after a restore from backup; whoever
+restores keeps their list and runs them again.
 
 ## Production on one server
 

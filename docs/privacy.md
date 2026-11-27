@@ -67,10 +67,12 @@ identifier, which after the deletion belongs to no account, and the account's
 display name and tag leave the leaderboard by the next day, when the
 award courier learns of the deletion from Central's `account_gone`
 ([Tower operations](tower-operations.md) §"Deleted accounts"). Not built yet,
-and promised for the season's end: deleting a season's data when it ends, and
-an operator command that removes one account's Tower data on an individual
-request; until then, such a request is answered by hand. See
-[Tower operations](tower-operations.md) for versioning and retention limits.
+and promised for the season's end: deleting a season's data when it ends. On an
+individual request the operator removes one account's Tower data with
+`erase_account`; the account's random identifier then remains only inside other
+players' committed duel packages, as the opponent they met, until the season's
+data goes. See [Tower operations](tower-operations.md) for versioning and
+retention limits.
 
 ## At a glance
 
