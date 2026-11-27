@@ -23,6 +23,7 @@
 //! here, the trained net beside them. A pilot that cannot go on after a
 //! resume hands the seat to the declared house fallback.
 
+pub mod chain;
 mod deck;
 mod game;
 mod link;

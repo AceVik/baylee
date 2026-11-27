@@ -1,5 +1,8 @@
 use super::*;
 use baylee_client_core::llmseat::keys::{KeyEntry, MemoryKeys};
+use baylee_protocol::v1::seat_mind;
+use baylee_seat::bridge::{Limit, Standby};
+use std::sync::Mutex;
 
 /// A directory of this test's own, removed when dropped.
 struct Scratch(PathBuf);
