@@ -1,1 +1,1 @@
-{"cards":[{"name":"Lotus Bloom","oracle_id":"04cf02dc-f053-414e-87d8-1537f25bcbf4","status":"absent"},{"name":"Sudden Shock","oracle_id":"7b139231-dcd2-4b03-bcf2-fcb040617b69","status":"absent"}],"code":"ptsp"}
+{"cards":[{"img":"db89ae4d-1cc2-41d8-a4de-a54b958c4429","name":"Lotus Bloom","oracle_id":"04cf02dc-f053-414e-87d8-1537f25bcbf4","status":"implemented"},{"img":"5b659a3b-0f66-40f2-8e2e-f13b694e270e","name":"Sudden Shock","oracle_id":"7b139231-dcd2-4b03-bcf2-fcb040617b69","status":"generated"}],"code":"ptsp"}
