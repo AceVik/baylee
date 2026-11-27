@@ -40,9 +40,19 @@ impl Deploy {
         };
         let mut built = Vec::new();
         for artifact in baylee_pgo::EngineArtifact::ALL {
-            built.push((artifact, plan.for_artifact(artifact).build().map_err(fail)?));
+            let plan = plan.for_artifact(artifact);
+            let directory = if UNPROFILED.contains(&artifact) {
+                say(&format!(
+                    "the {} engine is built without a profile: its workload does not play the current generation yet (docs/releasing.md §\"Profile-guided builds\")",
+                    artifact.name()
+                ));
+                plan.build_plain()
+            } else {
+                plan.build()
+            };
+            built.push((artifact, directory.map_err(fail)?));
         }
-        // All three proofs passed. A failed variant never makes a partial
+        // Every build and proof passed. A failed variant never makes a partial
         // immutable stage, and the agent stays alive until the verified drain.
         for (artifact, directory) in built {
             fs::copy(
@@ -50,14 +60,22 @@ impl Deploy {
                 target.join("release").join(artifact.binary()),
             )
             .map_err(|error| {
-                say(&format!("the profiled {} engine: {error}", artifact.name()));
+                say(&format!("the {} engine: {error}", artifact.name()));
                 Stop(1)
             })?;
         }
         say(&format!(
-            "all three engine variants {} profiled",
-            short(rev)
+            "the engine variants of {} built, profiled but for {}",
+            short(rev),
+            UNPROFILED.map(baylee_pgo::EngineArtifact::name).join(", ")
         ));
         Ok(())
     }
 }
+
+/// The variants built without a profile, by name in the log. Tower's workload
+/// (`engine_perf` with `tower`) still plays the retained generation-three pack,
+/// which the shipping Tower engine (the run pack, a Commander deck from the
+/// Tower content) refuses, so its training stops at the first game
+/// (27.11.2026). Out of this list once that workload plays the run pack.
+const UNPROFILED: [baylee_pgo::EngineArtifact; 1] = [baylee_pgo::EngineArtifact::Tower];

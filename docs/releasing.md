@@ -987,6 +987,13 @@ not certify Tower balance.
 Server staging requires the full set:
 `baylee-engine-server` (standard), `baylee-engine-standard-loops`, and
 `baylee-engine-tower`. All proofs must pass before any is handed to staging.
+Since 27.11.2026 the Tower engine is built plain, without a profile, and the
+deployer says so in its log (`UNPROFILED` in `crates/baylee-ops/src/deploy/engine.rs`):
+its workload still plays the retained generation-three pack, which the shipping
+Tower engine's run pack refuses, so its training stopped at the first game. The
+other two variants are profiled and proven as before. The Tower variant returns
+to the profile once `engine_perf`'s `tower` feature plays the run pack, a
+Commander deck from the Tower content.
 Finishing checks that every staged executable exists before stopping the
 drained agent. The default agent discovers only these known siblings and
 probes their exact metadata; explicit operator paths take precedence
@@ -1027,6 +1034,14 @@ A release with a profile, from the top:
 4. The rows marked `profiled` (today `aarch64-apple-darwin`) run
    `cargo tools pgo client ship`, which stops the row when the counts did not reach
    the build. The others run `cargo build-client`. Packing and signing are unchanged.
+
+The repository variable `BAYLEE_CLIENT_PROFILE` set to `off` makes a tag skip
+steps 1 and 3: every row, the profiled ones too, runs `cargo build-client` in
+`dist`, and the run says so in a warning. Unset is the rule above. It was set for
+`0.2.0-beta.o1` (27.11.2026), when the training stopped at its first scene: the
+header has three tabs since the client's polish and the lobby scene still pressed
+a fourth, and an offline client has no social session for the friends and chat
+lines the long lists and the whole game seed. Unset it once the scenes play.
 
 A dry run (`promote-ci`) still promotes the CI run and builds no profile, and CI
 itself never builds one. To profile another row: `profiled: true` on it in
