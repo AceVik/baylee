@@ -3226,9 +3226,21 @@ CheckIllegal =
        *[other] Nicht legal für { $name }: { $count } Probleme
     }
 CheckUnknown = Ob das für { $name } legal ist, lässt sich nicht sagen
-CheckCountAtLeast = { $have } Karten, mindestens { $need }
-CheckCountExactly = { $have } von { $need } Karten
-CheckCount = { $have } Karten
+CheckCountAtLeast =
+    { $have } { $have ->
+        [one] Karte
+       *[other] Karten
+    }, mindestens { $need }
+CheckCountExactly =
+    { $have } von { $need } { $need ->
+        [one] Karte
+       *[other] Karten
+    }
+CheckCount =
+    { $have } { $have ->
+        [one] Karte
+       *[other] Karten
+    }
 CheckWaitsForPool = Die Prüfung wartet auf den Kartenpool.
 CheckNoStatuses = Bann, Beschränkung und welche Karten das Format kennt, konnten nicht geprüft werden: Dafür braucht es die Kartentabelle des Gateways.
 CheckNoShape = Deckgröße, Kopien und Anführer dieses Formats werden hier nicht geprüft.
@@ -3374,26 +3386,48 @@ BuildSortDirDescTip = Sortierung: Absteigend (klicken für Zurücksetzen)
 BuildSortDirUnsetTip = Sortierung: Standardreihenfolge (klicken für Aufsteigend)
 BuildVariantsTitle = Format-Varianten dieses Decks
 BuildVariantSave = + Stand als { $format }-Variante sichern
-BuildVariantsNote = Speichere angepasste Kartenlisten dieses Decks für mehrere Formate gleichzeitig. Jede Variante wird gegen ihr Format und ihre Banlist validiert.
+BuildVariantsNote = Speichere angepasste Kartenlisten dieses Decks für mehrere Formate gleichzeitig. Jede Variante wird gegen ihr Format und ihre Bannliste validiert.
 BuildVariantLegal = Gültig
-BuildVariantIssues = { $count } Probleme
+BuildVariantIssues =
+    { $count } { $count ->
+        [one] Problem
+       *[other] Probleme
+    }
 BuildVariantUnchecked = Ungeprüft
 BuildVariantActivate = Aktivieren
 BuildStatAvgMana = Ø MANABETRAG
 BuildStatManaSub = Σ { $total } Mana · { $spells } Zauber
 BuildStatLandShare = LÄNDER-ANTEIL
-BuildStatInstantSpeed = INSTANT-TEMPO
-BuildStatLegendary = { $count } Legendäre Karten
+BuildStatInstantSpeed = SPONTAN-TEMPO
+BuildStatLegendary =
+    { $count } { $count ->
+        [one] legendäre Karte
+       *[other] legendäre Karten
+    }
 BuildStatRecord = BILANZ & RANG
 BuildStatNoGames = 0 Spiele
 BuildStatRecordLine = { $wins }S / { $games }Sp ({ $percent }%)
 BuildStatTierLine = Stufe { $level }/11 · { $title }
 BuildPipsVsSources = Symbole in Kosten vs. Mana-Quellen
-BuildPipsDetail = { $pips } Pips · { $sources } Quellen
+BuildPipsDetail =
+    { $pips } { $pips ->
+        [one] Pip
+       *[other] Pips
+    } · { $sources } { $sources ->
+        [one] Quelle
+       *[other] Quellen
+    }
 BuildRarityDistribution = Seltenheits-Verteilung
 BuildOddsHead = Starthand-Chancen (7 Karten) & Simulator
 BuildOddsText = ≥ 2 Länder: { $two_plus }% · 2–4 Länder: { $two_to_four }% · Spielzug MV ≤ 2: { $early }%
-BuildHandSummary = Gezogene Hand: { $lands } Länder · { $spells } Nichtländer
+BuildHandSummary =
+    Gezogene Hand: { $lands } { $lands ->
+        [one] Land
+       *[other] Länder
+    } · { $spells } { $spells ->
+        [one] Nichtland
+       *[other] Nichtländer
+    }
 CardFillTileCards = Karten geladen
 CardFillTileSpeed = Geschwindigkeit
 CardFillTileDownloaded = Heruntergeladen
