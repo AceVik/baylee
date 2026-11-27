@@ -19,6 +19,18 @@ pub(super) struct Worker {
     socket: Mutex<socket::Live>,
 }
 
+/// Whether Central delegates a Tower: asked once per account, before the
+/// Tower tile may stand (`Ui::tower_reached`).
+#[derive(Default)]
+pub(super) struct Reach {
+    /// The question went out to the account's worker.
+    asked: bool,
+    /// What the worker found, waiting to be read.
+    answer: Arc<Mutex<Option<bool>>>,
+    /// The answer, once read.
+    pub(super) known: Option<bool>,
+}
+
 struct Finished {
     work: Work,
     response: Option<api::Response>,
@@ -411,6 +423,60 @@ fn execute(
     result
 }
 
+/// Asks Central once per account whether it delegates a Tower at all (owner,
+/// 27.11.2026: Tower Echoes is not live for the open beta, and a tile that
+/// opens onto an error must not stand). A Tower Central cannot issue a token
+/// for, for want of one configured, answers `Unavailable`; any other answer
+/// (a refusal for terms or restoration included) means one is there, and the
+/// connection a yes brings is kept for the first visit. Only the answer
+/// marks the lobby changed, so an idle lobby rebuilds nothing.
+fn reach(state: &mut ResMut<LobbyState>) {
+    if state.echoes.reach.known.is_some() {
+        return;
+    }
+    let found = state
+        .echoes
+        .reach
+        .answer
+        .lock()
+        .ok()
+        .and_then(|mut slot| slot.take());
+    if let Some(live) = found {
+        state.echoes.reach.known = Some(live);
+        return;
+    }
+    // Asked where the answer is drawn, the lobby's play screen with its
+    // tiles, and nowhere else: the account worker has other work on the
+    // Tower's own pages, and a lobby never shown needs no answer.
+    let tiles = matches!(state.lobby.screen(), Screen::Table) && state.showing_play();
+    if state.echoes.reach.asked || !tiles || !ready(state) {
+        return;
+    }
+    let Some(handle) = state.echoes.session.clone() else {
+        return;
+    };
+    let answer = Arc::clone(&state.echoes.reach.answer);
+    let connection = Arc::clone(&state.echoes.worker.connection);
+    let asked = handle.submit(move |account| {
+        let live = match account.tower() {
+            Ok(http) => {
+                if let Ok(mut slot) = connection.lock()
+                    && slot.is_none()
+                {
+                    *slot = Some(http);
+                }
+                true
+            }
+            Err(Error::Unavailable) => false,
+            Err(_) => true,
+        };
+        if let Ok(mut slot) = answer.lock() {
+            *slot = Some(live);
+        }
+    });
+    state.bypass_change_detection().echoes.reach.asked = asked;
+}
+
 pub(super) fn tick(
     time: Res<Time>,
     mut state: ResMut<LobbyState>,
@@ -434,6 +500,7 @@ pub(super) fn tick(
     if changed {
         session(&mut state);
     }
+    reach(&mut state);
     let showing = state.hub == Hub::Challenges
         && state.echoes.opened
         && state.echoes.page != Page::Collection

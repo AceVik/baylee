@@ -911,6 +911,13 @@ impl LobbyState {
         self.lobby.can_enter_tower(self.central_ready())
     }
 
+    /// Whether the Tower stands in the lobby: an account that may enter it,
+    /// at a Central that delegates one (`echoes::Ui::tower_reached`). Its
+    /// tile, its collection in the account menu and its key follow this.
+    pub(crate) fn tower_live(&self) -> bool {
+        self.can_enter_tower() && self.echoes.tower_reached()
+    }
+
     /// Whether server-hosted replays (`GET /replays`) are available.
     #[must_use]
     pub(crate) fn can_use_server_replays(&self) -> bool {

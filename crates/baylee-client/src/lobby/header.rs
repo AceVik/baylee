@@ -1212,7 +1212,7 @@ fn popover(commands: &mut Commands, state: &LobbyState, kit: Kit, menu: HeaderMe
                     action: Press::Header(HeaderPress::PlayerProfile),
                 });
             }
-            if state.can_enter_tower() {
+            if state.tower_live() {
                 items.push(MenuItem {
                     text: Phrase::EchoesCollection.text(lang),
                     keys: None,

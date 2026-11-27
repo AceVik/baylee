@@ -48,6 +48,9 @@ pub(super) fn ranked(commands: &mut Commands, parent: Entity, kit: Kit) -> Entit
 /// The four modes as two rows of two equal tiles (owner, 25.11.2026: tidy and
 /// symmetric): Ranked beside the Tower, the Daily beside the Weekly. A
 /// season's plaque (the Advent calendar) stands over them, full width.
+/// Without a Tower at this Central (`LobbyState::tower_live`, owner
+/// 27.11.2026: not live for the open beta) Ranked takes its row alone, and a
+/// row with nothing in it is not drawn.
 pub(super) fn draw(commands: &mut Commands, parent: Entity, state: &LobbyState, kit: Kit) {
     #[cfg(not(target_arch = "wasm32"))]
     super::super::advent::entry(commands, parent, kit);
@@ -61,7 +64,12 @@ pub(super) fn draw(commands: &mut Commands, parent: Entity, state: &LobbyState, 
     if !state.lobby.offline() {
         cards.push(ranked(commands, modes, kit));
     }
-    cards.push(tower(commands, modes, state, kit));
+    if state.tower_live() {
+        cards.push(tower(commands, modes, state, kit));
+    }
+    if cards.is_empty() {
+        commands.entity(modes).despawn();
+    }
     let tasks = pair(commands, parent, kit);
     cards.extend(challenges(commands, tasks, state, kit));
     // A phone's rail is one tile wide: there the rows stand their tiles

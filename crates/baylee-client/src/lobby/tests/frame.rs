@@ -91,7 +91,7 @@ fn a_phone_drops_what_it_has_no_room_for() {
     assert!(
         narrow
             .iter()
-            .any(|l| l.eq_ignore_ascii_case(Phrase::TowerRunEntry.text(Lang::En))),
+            .any(|l| l.eq_ignore_ascii_case(Phrase::RankedModeEntry.text(Lang::En))),
         "everything that matters is still there: {narrow:?}"
     );
     press(
