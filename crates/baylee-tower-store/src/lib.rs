@@ -85,6 +85,9 @@ pub enum Error {
     /// Database/serialization fault; no credential or private payload included.
     #[error("Tower storage unavailable")]
     Unavailable,
+    /// The runtime connection holds an administrator's privileges.
+    #[error("Tower runtime role has administrative privileges")]
+    Privileged,
 }
 
 /// Owner response. Never contains shop randomness or private opponent packages.

@@ -3,6 +3,7 @@
 mod batches;
 mod discovery;
 mod expiry;
+mod grants;
 mod location;
 mod outbox;
 mod pool;

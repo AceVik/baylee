@@ -5,6 +5,11 @@ use std::sync::Arc;
 use tokio::{net::TcpListener, sync::watch, task::JoinSet};
 
 pub(super) async fn run(store: Store, service: Service, development: bool) -> Result<(), Error> {
+    // Production never serves with an administrator's privileges
+    // (`runtime_grants.sql`); the development stack uses one local role.
+    if !development {
+        store.runtime_least_privilege().await?;
+    }
     let shutdown = Shutdown::new()?;
     let endpoint = service.endpoint(development)?;
     let players = Players::new(
