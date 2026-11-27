@@ -283,15 +283,6 @@ fn stage_run(
     if keep.is_some() {
         std::fs::write(root.join("state/deployed"), format!("{DEPLOYED}\n")).unwrap();
     }
-    // The Tower's root-only documents (`deploy/tower.rs`), which only sudo's
-    // `test` reads here.
-    if tower.is_some_and(|case| case != TowerCase::NoDocuments) {
-        let documents = root.join("tower/etc");
-        std::fs::create_dir_all(&documents).unwrap();
-        for name in ["service.json", "migrate.json", "grants.json"] {
-            std::fs::write(documents.join(name), b"{}").unwrap();
-        }
-    }
     std::fs::create_dir_all(&stubs).unwrap();
     let calls: PathBuf = scratch.join("calls");
 
@@ -349,19 +340,7 @@ fn stage_run(
         command.env("PROFILE_FAILS", "1");
     }
     if let Some(case) = tower {
-        command.env(
-            "BAYLEE_DEPLOY_TOWER_HEALTH",
-            "http://127.0.0.1:9/tower-health",
-        );
-        command.env("BAYLEE_DEPLOY_INFO_TRIES", "2");
-        command.env(
-            "OPS_FAKE_TOWER",
-            if case == TowerCase::Unhealthy {
-                "starting"
-            } else {
-                "ready"
-            },
-        );
+        tower_here(&mut command, &root, case);
     }
     let out = command
         .args(["stage", "0123456789abcdef0123"])
@@ -1061,4 +1040,30 @@ fn a_tower_without_its_documents_or_that_never_answers_does_not_stop_the_deploy(
             TowerCase::Ready => unreachable!(),
         }
     }
+}
+
+/// The Tower of `case` on the server under test (`deploy/tower.rs`): its
+/// root-only documents, which only sudo's `test` reads here, and what its
+/// `/health` answers.
+fn tower_here(command: &mut std::process::Command, root: &Path, case: TowerCase) {
+    if case != TowerCase::NoDocuments {
+        let documents = root.join("tower/etc");
+        std::fs::create_dir_all(&documents).unwrap();
+        for name in ["service.json", "migrate.json", "grants.json"] {
+            std::fs::write(documents.join(name), b"{}").unwrap();
+        }
+    }
+    command.env(
+        "BAYLEE_DEPLOY_TOWER_HEALTH",
+        "http://127.0.0.1:9/tower-health",
+    );
+    command.env("BAYLEE_DEPLOY_INFO_TRIES", "2");
+    command.env(
+        "OPS_FAKE_TOWER",
+        if case == TowerCase::Unhealthy {
+            "starting"
+        } else {
+            "ready"
+        },
+    );
 }
