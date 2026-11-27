@@ -759,17 +759,17 @@ only waits while one runs (`/run/baylee-backup/run.lock`).
   removes its data. The worked example is in that repository's
   `src/set.rs`.
 - **Deleted accounts:** each run records the ids (UUIDs only) of gateway
-  and Central accounts deleted since the run before, in a list that is part
+  and Central accounts deleted, and of accounts whose Tower data was erased
+  (gone from `tower.players`), since the run before, in a list that is part
   of every snapshot. After a restore of an older snapshot those accounts are
   deleted again: on the gateway through its own deletion
   (`DELETE /admin/accounts/{id}`); on Central through its own operator
-  erasure (`central-service --erase-accounts-stdin`) where the installed
-  Central has it, else the program names the ids and the step for a
-  person. The Tower's rows are not on that list: a restore brings them back
-  as they were, and what happens to a deleted account's Tower data is in
+  erasure (`central-service --erase-accounts-stdin`) and on the Tower
+  through its admin action `erase_accounts`, each where the installed
+  service has it, else the program names the ids and the step for a
+  person. When a deleted account's Tower data is erased at all is in
   §"Tower authority personal bests". Until a restore, a deleted account
-  stays in older backups as
-  long as they are kept (above).
+  stays in older backups as long as they are kept (above).
 - **A replaced database on the server:** a restore of a snapshot older
   than the live database's schema (after a deploy whose migration went
   wrong) keeps the live database it replaces, renamed
