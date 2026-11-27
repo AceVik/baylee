@@ -11,8 +11,12 @@ mod expeditions;
 mod house;
 mod presentation;
 mod starters;
-pub use expeditions::expeditions;
-pub use house::development_house;
+pub use expeditions::{Workshop, expeditions};
+pub use house::{
+    Ladder, PATH as HOUSE_PATH, PICKS as HOUSE_PICKS, TRIMS as HOUSE_TRIMS,
+    candidates as house_candidates, check as check_ladder, development_house, ladder,
+    trimmed as house_trimmed,
+};
 pub use presentation::runic;
 
 #[cfg(test)]
@@ -45,6 +49,12 @@ pub enum Error {
     /// The shared curve/synergy/mana-base builder could not make a starter.
     #[error("starter deck generation failed: {0}")]
     Generation(#[from] baylee_cards::deckgen::DeckGenError),
+    /// The house ladder could not be built: a defect, never a balance result.
+    #[error("house ladder: {0}")]
+    House(&'static str),
+    /// The run machine refused a scripted house step.
+    #[error("house ladder step refused: {0}")]
+    Refused(String),
 }
 
 /// Build the five opening archetypes. No random deck changes occur at enrollment.
@@ -211,4 +221,49 @@ pub fn validate_seat(seat: &SeatSpec) -> Result<(), Error> {
     }
     .validate(&catalog)
     .map_err(|_| Error::Formation)
+}
+
+/// A card's reviewed catalog entry for the current generation: native
+/// metadata and its frozen presentation. For calibration candidates only;
+/// a publication takes its catalog from [`runic`].
+/// # Errors
+/// An unsupported card or one without a reviewed printing.
+pub fn run_card(index: CardIndex) -> Result<Card, Error> {
+    let mut card = metadata(index).ok_or(Error::Metadata)?;
+    card.run.as_mut().ok_or(Error::Metadata)?.presentation = Some(presentation::of(index)?);
+    Ok(card)
+}
+
+/// The content the calibration measured (`docs/tower-operations.md`
+/// §"Calibration"): the hex [`fingerprint`] of the catalog and the fifty
+/// starters it played. The starters are frozen data, but every catalog entry
+/// is read from the card registry; the house's `PICKS` and the measured
+/// balance hold only for this content, and the production publication
+/// refuses any other.
+pub const CALIBRATED: &str = "e73066537b36170fda824321f69938fd8b495af58ecfeb640882971738c7abc1";
+
+/// SHA-256 over the canonical JSON of `content`'s catalog and starters, each
+/// card's printing left out: that is the image a client shows (a card wave
+/// may name another reference printing), never a rule, price or weight.
+/// # Errors
+/// Content that does not serialize.
+pub fn fingerprint(content: &Content) -> Result<String, Error> {
+    use sha2::{Digest as _, Sha256};
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut rules = content.clone();
+    for card in &mut rules.catalog.cards {
+        if let Some(art) = card.run.as_mut().and_then(|run| run.presentation.as_mut()) {
+            art.printing = uuid::Uuid::nil();
+        }
+    }
+    let bytes = serde_json::to_vec(&rules).map_err(|_| Error::Metadata)?;
+    let digest = Sha256::new()
+        .chain_update(b"baylee/tower/calibrated-content/v2\0")
+        .chain_update(bytes)
+        .finalize();
+    Ok(digest
+        .iter()
+        .flat_map(|byte| [HEX[usize::from(byte >> 4)], HEX[usize::from(byte & 15)]])
+        .map(char::from)
+        .collect())
 }

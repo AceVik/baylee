@@ -220,6 +220,22 @@ async fn exercise(
         (1, 30),
         "delivery never alters gameplay rewards"
     );
+    // The daily leaderboard check: Central still has the account, so its name
+    // stays; once Central reports it gone, the name leaves and the run stays.
+    let account = uuid::Uuid::from_bytes(stored.account);
+    let name = baylee_tower_api::ranking::Name {
+        display: "Synthetic".into(),
+        tag: 3,
+    };
+    store.listing(account, 0, true, Some(&name)).await.unwrap();
+    assert_eq!(courier.check_listings(pending()).await.unwrap(), 0);
+    assert!(listed(&db, &schema, account).await);
+    let mode = remote.mode.swap(7, Ordering::SeqCst);
+    assert_eq!(courier.check_listings(pending()).await.unwrap(), 1);
+    assert!(!listed(&db, &schema, account).await);
+    assert_eq!(courier.check_listings(pending()).await.unwrap(), 0);
+    store.get(account, run.id).await.unwrap();
+    remote.mode.store(mode, Ordering::SeqCst);
     db.execute_unprepared(&format!(
         "UPDATE \"{schema}\".award_outbox SET delivered_at=NULL,lease_until=1"
     ))
@@ -290,4 +306,17 @@ async fn remote_failures(
     );
     assert_eq!(courier.next(pending()).await.unwrap(), DeliveryStep::Idle);
     assert_eq!(remote.calls.load(Ordering::SeqCst), 8);
+}
+
+async fn listed(db: &sea_orm::DatabaseConnection, schema: &str, account: uuid::Uuid) -> bool {
+    let row = db
+        .query_one_raw(sea_orm::Statement::from_sql_and_values(
+            sea_orm::DbBackend::Postgres,
+            format!("SELECT rank_listed FROM \"{schema}\".players WHERE account=$1"),
+            vec![account.into()],
+        ))
+        .await
+        .unwrap()
+        .unwrap();
+    row.try_get::<bool>("", "rank_listed").unwrap()
 }

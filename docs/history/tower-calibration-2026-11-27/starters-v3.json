@@ -1,0 +1,2321 @@
+{
+  "duels": 24500,
+  "first_chair": {
+    "draws": 5,
+    "interval": [
+      0.451,
+      0.464
+    ],
+    "losses": 13282,
+    "mean_seconds": 0.157,
+    "mean_turns": 19.31,
+    "refused": 0,
+    "score": 0.458,
+    "unfinished": 6,
+    "wins": 11207
+  },
+  "kind": "starters",
+  "seeds": 10,
+  "starters": [
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.484,
+          0.546
+        ],
+        "losses": 475,
+        "mean_seconds": 0.171,
+        "mean_turns": 18.803,
+        "refused": 0,
+        "score": 0.515,
+        "unfinished": 0,
+        "wins": 505
+      },
+      "commander": "Emmara, Soul of the Accord",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.47,
+          0.558
+        ],
+        "losses": 238,
+        "mean_seconds": 0.167,
+        "mean_turns": 18.757,
+        "refused": 0,
+        "score": 0.514,
+        "unfinished": 0,
+        "wins": 252
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.472,
+          0.56
+        ],
+        "losses": 237,
+        "mean_seconds": 0.175,
+        "mean_turns": 18.849,
+        "refused": 0,
+        "score": 0.516,
+        "unfinished": 0,
+        "wins": 253
+      },
+      "starter": 1
+    },
+    {
+      "all": {
+        "draws": 1,
+        "interval": [
+          0.476,
+          0.539
+        ],
+        "losses": 482,
+        "mean_seconds": 0.147,
+        "mean_turns": 18.961,
+        "refused": 0,
+        "score": 0.508,
+        "unfinished": 0,
+        "wins": 497
+      },
+      "commander": "Neva, Stalked by Nightmares",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.484,
+          0.572
+        ],
+        "losses": 231,
+        "mean_seconds": 0.151,
+        "mean_turns": 19.157,
+        "refused": 0,
+        "score": 0.529,
+        "unfinished": 0,
+        "wins": 259
+      },
+      "human_chair": {
+        "draws": 1,
+        "interval": [
+          0.443,
+          0.531
+        ],
+        "losses": 251,
+        "mean_seconds": 0.142,
+        "mean_turns": 18.765,
+        "refused": 0,
+        "score": 0.487,
+        "unfinished": 0,
+        "wins": 238
+      },
+      "starter": 2
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.447,
+          0.51
+        ],
+        "losses": 511,
+        "mean_seconds": 0.12,
+        "mean_turns": 17.728,
+        "refused": 0,
+        "score": 0.479,
+        "unfinished": 0,
+        "wins": 469
+      },
+      "commander": "Talrand, Sky Summoner",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.47,
+          0.558
+        ],
+        "losses": 238,
+        "mean_seconds": 0.121,
+        "mean_turns": 17.753,
+        "refused": 0,
+        "score": 0.514,
+        "unfinished": 0,
+        "wins": 252
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.399,
+          0.487
+        ],
+        "losses": 273,
+        "mean_seconds": 0.119,
+        "mean_turns": 17.702,
+        "refused": 0,
+        "score": 0.443,
+        "unfinished": 0,
+        "wins": 217
+      },
+      "starter": 3
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.404,
+          0.466
+        ],
+        "losses": 554,
+        "mean_seconds": 0.223,
+        "mean_turns": 20.269,
+        "refused": 0,
+        "score": 0.435,
+        "unfinished": 0,
+        "wins": 426
+      },
+      "commander": "Slimefoot, the Stowaway",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.408,
+          0.495
+        ],
+        "losses": 269,
+        "mean_seconds": 0.227,
+        "mean_turns": 20.38,
+        "refused": 0,
+        "score": 0.451,
+        "unfinished": 0,
+        "wins": 221
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.375,
+          0.463
+        ],
+        "losses": 285,
+        "mean_seconds": 0.219,
+        "mean_turns": 20.159,
+        "refused": 0,
+        "score": 0.418,
+        "unfinished": 0,
+        "wins": 205
+      },
+      "starter": 4
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.464,
+          0.526
+        ],
+        "losses": 495,
+        "mean_seconds": 0.139,
+        "mean_turns": 19.243,
+        "refused": 0,
+        "score": 0.495,
+        "unfinished": 0,
+        "wins": 485
+      },
+      "commander": "Pia and Kiran Nalaar",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.505,
+          0.592
+        ],
+        "losses": 221,
+        "mean_seconds": 0.138,
+        "mean_turns": 19.235,
+        "refused": 0,
+        "score": 0.549,
+        "unfinished": 0,
+        "wins": 269
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.397,
+          0.485
+        ],
+        "losses": 274,
+        "mean_seconds": 0.139,
+        "mean_turns": 19.251,
+        "refused": 0,
+        "score": 0.441,
+        "unfinished": 0,
+        "wins": 216
+      },
+      "starter": 5
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.461,
+          0.523
+        ],
+        "losses": 498,
+        "mean_seconds": 0.178,
+        "mean_turns": 19.078,
+        "refused": 0,
+        "score": 0.492,
+        "unfinished": 0,
+        "wins": 482
+      },
+      "commander": "Radha, Heir to Keld",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.454,
+          0.542
+        ],
+        "losses": 246,
+        "mean_seconds": 0.181,
+        "mean_turns": 19.171,
+        "refused": 0,
+        "score": 0.498,
+        "unfinished": 0,
+        "wins": 244
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.442,
+          0.53
+        ],
+        "losses": 252,
+        "mean_seconds": 0.174,
+        "mean_turns": 18.984,
+        "refused": 0,
+        "score": 0.486,
+        "unfinished": 0,
+        "wins": 238
+      },
+      "starter": 6
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.414,
+          0.476
+        ],
+        "losses": 544,
+        "mean_seconds": 0.127,
+        "mean_turns": 18.277,
+        "refused": 0,
+        "score": 0.445,
+        "unfinished": 0,
+        "wins": 436
+      },
+      "commander": "Rishkar, Peema Renegade",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.583,
+          0.668
+        ],
+        "losses": 183,
+        "mean_seconds": 0.135,
+        "mean_turns": 19.153,
+        "refused": 0,
+        "score": 0.627,
+        "unfinished": 0,
+        "wins": 307
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.226,
+          0.304
+        ],
+        "losses": 361,
+        "mean_seconds": 0.118,
+        "mean_turns": 17.4,
+        "refused": 0,
+        "score": 0.263,
+        "unfinished": 0,
+        "wins": 129
+      },
+      "starter": 7
+    },
+    {
+      "all": {
+        "draws": 1,
+        "interval": [
+          0.475,
+          0.538
+        ],
+        "losses": 483,
+        "mean_seconds": 0.163,
+        "mean_turns": 18.199,
+        "refused": 0,
+        "score": 0.507,
+        "unfinished": 0,
+        "wins": 496
+      },
+      "commander": "Sram, Senior Edificer",
+      "house_chair": {
+        "draws": 1,
+        "interval": [
+          0.592,
+          0.677
+        ],
+        "losses": 178,
+        "mean_seconds": 0.157,
+        "mean_turns": 17.8,
+        "refused": 0,
+        "score": 0.636,
+        "unfinished": 0,
+        "wins": 311
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.336,
+          0.421
+        ],
+        "losses": 305,
+        "mean_seconds": 0.169,
+        "mean_turns": 18.598,
+        "refused": 0,
+        "score": 0.378,
+        "unfinished": 0,
+        "wins": 185
+      },
+      "starter": 8
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.55,
+          0.612
+        ],
+        "losses": 410,
+        "mean_seconds": 0.136,
+        "mean_turns": 18.355,
+        "refused": 0,
+        "score": 0.582,
+        "unfinished": 0,
+        "wins": 570
+      },
+      "commander": "Hapatra, Vizier of Poisons",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.466,
+          0.554
+        ],
+        "losses": 240,
+        "mean_seconds": 0.138,
+        "mean_turns": 19.014,
+        "refused": 0,
+        "score": 0.51,
+        "unfinished": 0,
+        "wins": 250
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.61,
+          0.694
+        ],
+        "losses": 170,
+        "mean_seconds": 0.135,
+        "mean_turns": 17.696,
+        "refused": 0,
+        "score": 0.653,
+        "unfinished": 0,
+        "wins": 320
+      },
+      "starter": 9
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.427,
+          0.489
+        ],
+        "losses": 531,
+        "mean_seconds": 0.191,
+        "mean_turns": 19.481,
+        "refused": 0,
+        "score": 0.458,
+        "unfinished": 0,
+        "wins": 449
+      },
+      "commander": "Tatyova, Benthic Druid",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.48,
+          0.568
+        ],
+        "losses": 233,
+        "mean_seconds": 0.197,
+        "mean_turns": 19.929,
+        "refused": 0,
+        "score": 0.524,
+        "unfinished": 0,
+        "wins": 257
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.35,
+          0.436
+        ],
+        "losses": 298,
+        "mean_seconds": 0.184,
+        "mean_turns": 19.033,
+        "refused": 0,
+        "score": 0.392,
+        "unfinished": 0,
+        "wins": 192
+      },
+      "starter": 10
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.542,
+          0.604
+        ],
+        "losses": 418,
+        "mean_seconds": 0.133,
+        "mean_turns": 17.627,
+        "refused": 0,
+        "score": 0.573,
+        "unfinished": 0,
+        "wins": 562
+      },
+      "commander": "Judith, the Scourge Diva",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.564,
+          0.65
+        ],
+        "losses": 192,
+        "mean_seconds": 0.13,
+        "mean_turns": 17.655,
+        "refused": 0,
+        "score": 0.608,
+        "unfinished": 0,
+        "wins": 298
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.495,
+          0.582
+        ],
+        "losses": 226,
+        "mean_seconds": 0.135,
+        "mean_turns": 17.598,
+        "refused": 0,
+        "score": 0.539,
+        "unfinished": 0,
+        "wins": 264
+      },
+      "starter": 11
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.419,
+          0.481
+        ],
+        "losses": 539,
+        "mean_seconds": 0.115,
+        "mean_turns": 17.808,
+        "refused": 0,
+        "score": 0.45,
+        "unfinished": 0,
+        "wins": 441
+      },
+      "commander": "Kykar, Wind's Fury",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.45,
+          0.538
+        ],
+        "losses": 248,
+        "mean_seconds": 0.117,
+        "mean_turns": 17.929,
+        "refused": 0,
+        "score": 0.494,
+        "unfinished": 0,
+        "wins": 242
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.364,
+          0.45
+        ],
+        "losses": 291,
+        "mean_seconds": 0.114,
+        "mean_turns": 17.688,
+        "refused": 0,
+        "score": 0.406,
+        "unfinished": 0,
+        "wins": 199
+      },
+      "starter": 12
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.518,
+          0.58
+        ],
+        "losses": 442,
+        "mean_seconds": 0.148,
+        "mean_turns": 18.699,
+        "refused": 0,
+        "score": 0.549,
+        "unfinished": 0,
+        "wins": 538
+      },
+      "commander": "Alela, Artful Provocateur",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.562,
+          0.648
+        ],
+        "losses": 193,
+        "mean_seconds": 0.143,
+        "mean_turns": 18.494,
+        "refused": 0,
+        "score": 0.606,
+        "unfinished": 0,
+        "wins": 297
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.448,
+          0.536
+        ],
+        "losses": 249,
+        "mean_seconds": 0.152,
+        "mean_turns": 18.904,
+        "refused": 0,
+        "score": 0.492,
+        "unfinished": 0,
+        "wins": 241
+      },
+      "starter": 13
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.466,
+          0.528
+        ],
+        "losses": 493,
+        "mean_seconds": 0.142,
+        "mean_turns": 19.043,
+        "refused": 0,
+        "score": 0.497,
+        "unfinished": 0,
+        "wins": 487
+      },
+      "commander": "Rin and Seri, Inseparable",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.495,
+          0.582
+        ],
+        "losses": 226,
+        "mean_seconds": 0.15,
+        "mean_turns": 19.386,
+        "refused": 0,
+        "score": 0.539,
+        "unfinished": 0,
+        "wins": 264
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.412,
+          0.499
+        ],
+        "losses": 267,
+        "mean_seconds": 0.133,
+        "mean_turns": 18.7,
+        "refused": 0,
+        "score": 0.455,
+        "unfinished": 0,
+        "wins": 223
+      },
+      "starter": 14
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.53,
+          0.592
+        ],
+        "losses": 429,
+        "mean_seconds": 0.214,
+        "mean_turns": 21.909,
+        "refused": 0,
+        "score": 0.561,
+        "unfinished": 2,
+        "wins": 549
+      },
+      "commander": "Loran of the Third Path",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.581,
+          0.667
+        ],
+        "losses": 183,
+        "mean_seconds": 0.217,
+        "mean_turns": 21.918,
+        "refused": 0,
+        "score": 0.625,
+        "unfinished": 2,
+        "wins": 305
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.454,
+          0.542
+        ],
+        "losses": 246,
+        "mean_seconds": 0.21,
+        "mean_turns": 21.9,
+        "refused": 0,
+        "score": 0.498,
+        "unfinished": 0,
+        "wins": 244
+      },
+      "starter": 15
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.425,
+          0.487
+        ],
+        "losses": 533,
+        "mean_seconds": 0.111,
+        "mean_turns": 17.74,
+        "refused": 0,
+        "score": 0.456,
+        "unfinished": 0,
+        "wins": 447
+      },
+      "commander": "Glissa, the Traitor",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.438,
+          0.526
+        ],
+        "losses": 254,
+        "mean_seconds": 0.114,
+        "mean_turns": 17.927,
+        "refused": 0,
+        "score": 0.482,
+        "unfinished": 0,
+        "wins": 236
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.387,
+          0.475
+        ],
+        "losses": 279,
+        "mean_seconds": 0.108,
+        "mean_turns": 17.553,
+        "refused": 0,
+        "score": 0.431,
+        "unfinished": 0,
+        "wins": 211
+      },
+      "starter": 16
+    },
+    {
+      "all": {
+        "draws": 1,
+        "interval": [
+          0.494,
+          0.556
+        ],
+        "losses": 465,
+        "mean_seconds": 0.189,
+        "mean_turns": 20.786,
+        "refused": 0,
+        "score": 0.525,
+        "unfinished": 0,
+        "wins": 514
+      },
+      "commander": "Thrun, the Last Troll",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.544,
+          0.63
+        ],
+        "losses": 202,
+        "mean_seconds": 0.188,
+        "mean_turns": 20.624,
+        "refused": 0,
+        "score": 0.588,
+        "unfinished": 0,
+        "wins": 288
+      },
+      "human_chair": {
+        "draws": 1,
+        "interval": [
+          0.419,
+          0.507
+        ],
+        "losses": 263,
+        "mean_seconds": 0.19,
+        "mean_turns": 20.947,
+        "refused": 0,
+        "score": 0.462,
+        "unfinished": 0,
+        "wins": 226
+      },
+      "starter": 17
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.532,
+          0.594
+        ],
+        "losses": 428,
+        "mean_seconds": 0.18,
+        "mean_turns": 19.854,
+        "refused": 0,
+        "score": 0.563,
+        "unfinished": 0,
+        "wins": 552
+      },
+      "commander": "Derevi, Empyrial Tactician",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.585,
+          0.67
+        ],
+        "losses": 182,
+        "mean_seconds": 0.179,
+        "mean_turns": 19.767,
+        "refused": 0,
+        "score": 0.629,
+        "unfinished": 0,
+        "wins": 308
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.454,
+          0.542
+        ],
+        "losses": 246,
+        "mean_seconds": 0.181,
+        "mean_turns": 19.941,
+        "refused": 0,
+        "score": 0.498,
+        "unfinished": 0,
+        "wins": 244
+      },
+      "starter": 18
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.476,
+          0.538
+        ],
+        "losses": 483,
+        "mean_seconds": 0.163,
+        "mean_turns": 19.734,
+        "refused": 0,
+        "score": 0.507,
+        "unfinished": 0,
+        "wins": 497
+      },
+      "commander": "Titania, Protector of Argoth",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.484,
+          0.572
+        ],
+        "losses": 231,
+        "mean_seconds": 0.158,
+        "mean_turns": 19.712,
+        "refused": 0,
+        "score": 0.529,
+        "unfinished": 0,
+        "wins": 259
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.442,
+          0.53
+        ],
+        "losses": 252,
+        "mean_seconds": 0.167,
+        "mean_turns": 19.755,
+        "refused": 0,
+        "score": 0.486,
+        "unfinished": 0,
+        "wins": 238
+      },
+      "starter": 19
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.548,
+          0.61
+        ],
+        "losses": 412,
+        "mean_seconds": 0.168,
+        "mean_turns": 19.584,
+        "refused": 0,
+        "score": 0.58,
+        "unfinished": 0,
+        "wins": 568
+      },
+      "commander": "Eladamri, Lord of Leaves",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.639,
+          0.721
+        ],
+        "losses": 156,
+        "mean_seconds": 0.161,
+        "mean_turns": 19.273,
+        "refused": 0,
+        "score": 0.682,
+        "unfinished": 0,
+        "wins": 334
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.434,
+          0.522
+        ],
+        "losses": 256,
+        "mean_seconds": 0.176,
+        "mean_turns": 19.894,
+        "refused": 0,
+        "score": 0.478,
+        "unfinished": 0,
+        "wins": 234
+      },
+      "starter": 20
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.541,
+          0.603
+        ],
+        "losses": 419,
+        "mean_seconds": 0.181,
+        "mean_turns": 21.531,
+        "refused": 0,
+        "score": 0.572,
+        "unfinished": 0,
+        "wins": 561
+      },
+      "commander": "Kambal, Consul of Allocation",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.579,
+          0.664
+        ],
+        "losses": 185,
+        "mean_seconds": 0.196,
+        "mean_turns": 22.027,
+        "refused": 0,
+        "score": 0.622,
+        "unfinished": 0,
+        "wins": 305
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.478,
+          0.566
+        ],
+        "losses": 234,
+        "mean_seconds": 0.165,
+        "mean_turns": 21.035,
+        "refused": 0,
+        "score": 0.522,
+        "unfinished": 0,
+        "wins": 256
+      },
+      "starter": 21
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.471,
+          0.533
+        ],
+        "losses": 488,
+        "mean_seconds": 0.146,
+        "mean_turns": 20.34,
+        "refused": 0,
+        "score": 0.502,
+        "unfinished": 0,
+        "wins": 492
+      },
+      "commander": "Padeem, Consul of Innovation",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.488,
+          0.576
+        ],
+        "losses": 229,
+        "mean_seconds": 0.142,
+        "mean_turns": 19.831,
+        "refused": 0,
+        "score": 0.533,
+        "unfinished": 0,
+        "wins": 261
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.428,
+          0.516
+        ],
+        "losses": 259,
+        "mean_seconds": 0.151,
+        "mean_turns": 20.849,
+        "refused": 0,
+        "score": 0.471,
+        "unfinished": 0,
+        "wins": 231
+      },
+      "starter": 22
+    },
+    {
+      "all": {
+        "draws": 1,
+        "interval": [
+          0.39,
+          0.452
+        ],
+        "losses": 567,
+        "mean_seconds": 0.143,
+        "mean_turns": 19.04,
+        "refused": 0,
+        "score": 0.421,
+        "unfinished": 0,
+        "wins": 412
+      },
+      "commander": "Yahenni, Undying Partisan",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.416,
+          0.503
+        ],
+        "losses": 265,
+        "mean_seconds": 0.144,
+        "mean_turns": 19.063,
+        "refused": 0,
+        "score": 0.459,
+        "unfinished": 0,
+        "wins": 225
+      },
+      "human_chair": {
+        "draws": 1,
+        "interval": [
+          0.341,
+          0.426
+        ],
+        "losses": 302,
+        "mean_seconds": 0.143,
+        "mean_turns": 19.016,
+        "refused": 0,
+        "score": 0.383,
+        "unfinished": 0,
+        "wins": 187
+      },
+      "starter": 23
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.371,
+          0.432
+        ],
+        "losses": 587,
+        "mean_seconds": 0.16,
+        "mean_turns": 19.446,
+        "refused": 0,
+        "score": 0.401,
+        "unfinished": 0,
+        "wins": 393
+      },
+      "commander": "Samut, Voice of Dissent",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.43,
+          0.518
+        ],
+        "losses": 258,
+        "mean_seconds": 0.156,
+        "mean_turns": 19.357,
+        "refused": 0,
+        "score": 0.473,
+        "unfinished": 0,
+        "wins": 232
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.288,
+          0.371
+        ],
+        "losses": 329,
+        "mean_seconds": 0.165,
+        "mean_turns": 19.535,
+        "refused": 0,
+        "score": 0.329,
+        "unfinished": 0,
+        "wins": 161
+      },
+      "starter": 24
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.473,
+          0.535
+        ],
+        "losses": 486,
+        "mean_seconds": 0.15,
+        "mean_turns": 18.726,
+        "refused": 0,
+        "score": 0.504,
+        "unfinished": 0,
+        "wins": 494
+      },
+      "commander": "Kess, Dissident Mage",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.47,
+          0.558
+        ],
+        "losses": 238,
+        "mean_seconds": 0.145,
+        "mean_turns": 18.455,
+        "refused": 0,
+        "score": 0.514,
+        "unfinished": 0,
+        "wins": 252
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.45,
+          0.538
+        ],
+        "losses": 248,
+        "mean_seconds": 0.155,
+        "mean_turns": 18.996,
+        "refused": 0,
+        "score": 0.494,
+        "unfinished": 0,
+        "wins": 242
+      },
+      "starter": 25
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.561,
+          0.622
+        ],
+        "losses": 400,
+        "mean_seconds": 0.142,
+        "mean_turns": 19.332,
+        "refused": 0,
+        "score": 0.592,
+        "unfinished": 0,
+        "wins": 580
+      },
+      "commander": "Vona, Butcher of Magan",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.618,
+          0.702
+        ],
+        "losses": 166,
+        "mean_seconds": 0.137,
+        "mean_turns": 19.159,
+        "refused": 0,
+        "score": 0.661,
+        "unfinished": 0,
+        "wins": 324
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.478,
+          0.566
+        ],
+        "losses": 234,
+        "mean_seconds": 0.148,
+        "mean_turns": 19.504,
+        "refused": 0,
+        "score": 0.522,
+        "unfinished": 0,
+        "wins": 256
+      },
+      "starter": 26
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.389,
+          0.451
+        ],
+        "losses": 569,
+        "mean_seconds": 0.105,
+        "mean_turns": 17.531,
+        "refused": 0,
+        "score": 0.419,
+        "unfinished": 0,
+        "wins": 411
+      },
+      "commander": "Selenia, Dark Angel",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.387,
+          0.475
+        ],
+        "losses": 279,
+        "mean_seconds": 0.105,
+        "mean_turns": 17.527,
+        "refused": 0,
+        "score": 0.431,
+        "unfinished": 0,
+        "wins": 211
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.366,
+          0.452
+        ],
+        "losses": 290,
+        "mean_seconds": 0.104,
+        "mean_turns": 17.535,
+        "refused": 0,
+        "score": 0.408,
+        "unfinished": 0,
+        "wins": 200
+      },
+      "starter": 27
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.431,
+          0.494
+        ],
+        "losses": 527,
+        "mean_seconds": 0.122,
+        "mean_turns": 17.867,
+        "refused": 0,
+        "score": 0.462,
+        "unfinished": 0,
+        "wins": 453
+      },
+      "commander": "Garna, the Bloodflame",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.466,
+          0.554
+        ],
+        "losses": 240,
+        "mean_seconds": 0.119,
+        "mean_turns": 17.549,
+        "refused": 0,
+        "score": 0.51,
+        "unfinished": 0,
+        "wins": 250
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.372,
+          0.458
+        ],
+        "losses": 287,
+        "mean_seconds": 0.125,
+        "mean_turns": 18.186,
+        "refused": 0,
+        "score": 0.414,
+        "unfinished": 0,
+        "wins": 203
+      },
+      "starter": 28
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.486,
+          0.548
+        ],
+        "losses": 472,
+        "mean_seconds": 0.211,
+        "mean_turns": 20.508,
+        "refused": 0,
+        "score": 0.517,
+        "unfinished": 3,
+        "wins": 505
+      },
+      "commander": "Soraya the Falconer",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.497,
+          0.585
+        ],
+        "losses": 224,
+        "mean_seconds": 0.209,
+        "mean_turns": 20.246,
+        "refused": 0,
+        "score": 0.541,
+        "unfinished": 2,
+        "wins": 264
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.449,
+          0.537
+        ],
+        "losses": 248,
+        "mean_seconds": 0.214,
+        "mean_turns": 20.769,
+        "refused": 0,
+        "score": 0.493,
+        "unfinished": 1,
+        "wins": 241
+      },
+      "starter": 29
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.427,
+          0.489
+        ],
+        "losses": 531,
+        "mean_seconds": 0.134,
+        "mean_turns": 17.911,
+        "refused": 0,
+        "score": 0.458,
+        "unfinished": 0,
+        "wins": 449
+      },
+      "commander": "Muldrotha, the Gravetide",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.436,
+          0.524
+        ],
+        "losses": 255,
+        "mean_seconds": 0.133,
+        "mean_turns": 17.88,
+        "refused": 0,
+        "score": 0.48,
+        "unfinished": 0,
+        "wins": 235
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.393,
+          0.481
+        ],
+        "losses": 276,
+        "mean_seconds": 0.134,
+        "mean_turns": 17.943,
+        "refused": 0,
+        "score": 0.437,
+        "unfinished": 0,
+        "wins": 214
+      },
+      "starter": 30
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.489,
+          0.551
+        ],
+        "losses": 470,
+        "mean_seconds": 0.118,
+        "mean_turns": 17.539,
+        "refused": 0,
+        "score": 0.52,
+        "unfinished": 1,
+        "wins": 509
+      },
+      "commander": "Pashalik Mons",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.516,
+          0.604
+        ],
+        "losses": 215,
+        "mean_seconds": 0.115,
+        "mean_turns": 17.297,
+        "refused": 0,
+        "score": 0.56,
+        "unfinished": 1,
+        "wins": 274
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.436,
+          0.524
+        ],
+        "losses": 255,
+        "mean_seconds": 0.121,
+        "mean_turns": 17.782,
+        "refused": 0,
+        "score": 0.48,
+        "unfinished": 0,
+        "wins": 235
+      },
+      "starter": 31
+    },
+    {
+      "all": {
+        "draws": 1,
+        "interval": [
+          0.565,
+          0.627
+        ],
+        "losses": 395,
+        "mean_seconds": 0.138,
+        "mean_turns": 19.758,
+        "refused": 0,
+        "score": 0.596,
+        "unfinished": 0,
+        "wins": 584
+      },
+      "commander": "Ayara, First of Locthwain",
+      "house_chair": {
+        "draws": 1,
+        "interval": [
+          0.584,
+          0.669
+        ],
+        "losses": 182,
+        "mean_seconds": 0.138,
+        "mean_turns": 19.904,
+        "refused": 0,
+        "score": 0.628,
+        "unfinished": 0,
+        "wins": 307
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.521,
+          0.609
+        ],
+        "losses": 213,
+        "mean_seconds": 0.137,
+        "mean_turns": 19.612,
+        "refused": 0,
+        "score": 0.565,
+        "unfinished": 0,
+        "wins": 277
+      },
+      "starter": 32
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.393,
+          0.455
+        ],
+        "losses": 565,
+        "mean_seconds": 0.118,
+        "mean_turns": 17.955,
+        "refused": 0,
+        "score": 0.423,
+        "unfinished": 0,
+        "wins": 415
+      },
+      "commander": "Emry, Lurker of the Loch",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.428,
+          0.516
+        ],
+        "losses": 259,
+        "mean_seconds": 0.116,
+        "mean_turns": 17.861,
+        "refused": 0,
+        "score": 0.471,
+        "unfinished": 0,
+        "wins": 231
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.334,
+          0.419
+        ],
+        "losses": 306,
+        "mean_seconds": 0.119,
+        "mean_turns": 18.049,
+        "refused": 0,
+        "score": 0.376,
+        "unfinished": 0,
+        "wins": 184
+      },
+      "starter": 33
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.532,
+          0.594
+        ],
+        "losses": 425,
+        "mean_seconds": 0.346,
+        "mean_turns": 27.387,
+        "refused": 0,
+        "score": 0.564,
+        "unfinished": 6,
+        "wins": 549
+      },
+      "commander": "Linden, the Steadfast Queen",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.58,
+          0.666
+        ],
+        "losses": 184,
+        "mean_seconds": 0.355,
+        "mean_turns": 27.55,
+        "refused": 0,
+        "score": 0.624,
+        "unfinished": 1,
+        "wins": 305
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.459,
+          0.547
+        ],
+        "losses": 241,
+        "mean_seconds": 0.337,
+        "mean_turns": 27.223,
+        "refused": 0,
+        "score": 0.503,
+        "unfinished": 5,
+        "wins": 244
+      },
+      "starter": 34
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.46,
+          0.522
+        ],
+        "losses": 499,
+        "mean_seconds": 0.242,
+        "mean_turns": 22.345,
+        "refused": 0,
+        "score": 0.491,
+        "unfinished": 0,
+        "wins": 481
+      },
+      "commander": "Arasta of the Endless Web",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.484,
+          0.572
+        ],
+        "losses": 231,
+        "mean_seconds": 0.256,
+        "mean_turns": 22.508,
+        "refused": 0,
+        "score": 0.529,
+        "unfinished": 0,
+        "wins": 259
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.41,
+          0.497
+        ],
+        "losses": 268,
+        "mean_seconds": 0.228,
+        "mean_turns": 22.182,
+        "refused": 0,
+        "score": 0.453,
+        "unfinished": 0,
+        "wins": 222
+      },
+      "starter": 35
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.434,
+          0.497
+        ],
+        "losses": 524,
+        "mean_seconds": 0.125,
+        "mean_turns": 17.151,
+        "refused": 0,
+        "score": 0.465,
+        "unfinished": 0,
+        "wins": 456
+      },
+      "commander": "Sab-Sunen, Luxa Embodied",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.41,
+          0.497
+        ],
+        "losses": 268,
+        "mean_seconds": 0.122,
+        "mean_turns": 17.243,
+        "refused": 0,
+        "score": 0.453,
+        "unfinished": 0,
+        "wins": 222
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.434,
+          0.522
+        ],
+        "losses": 256,
+        "mean_seconds": 0.127,
+        "mean_turns": 17.059,
+        "refused": 0,
+        "score": 0.478,
+        "unfinished": 0,
+        "wins": 234
+      },
+      "starter": 36
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.474,
+          0.536
+        ],
+        "losses": 485,
+        "mean_seconds": 0.201,
+        "mean_turns": 21.666,
+        "refused": 0,
+        "score": 0.505,
+        "unfinished": 0,
+        "wins": 495
+      },
+      "commander": "Chevill, Bane of Monsters",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.456,
+          0.544
+        ],
+        "losses": 245,
+        "mean_seconds": 0.199,
+        "mean_turns": 21.816,
+        "refused": 0,
+        "score": 0.5,
+        "unfinished": 0,
+        "wins": 245
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.466,
+          0.554
+        ],
+        "losses": 240,
+        "mean_seconds": 0.202,
+        "mean_turns": 21.516,
+        "refused": 0,
+        "score": 0.51,
+        "unfinished": 0,
+        "wins": 250
+      },
+      "starter": 37
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.533,
+          0.595
+        ],
+        "losses": 427,
+        "mean_seconds": 0.128,
+        "mean_turns": 21.459,
+        "refused": 0,
+        "score": 0.564,
+        "unfinished": 0,
+        "wins": 553
+      },
+      "commander": "Kaervek, the Spiteful",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.552,
+          0.638
+        ],
+        "losses": 198,
+        "mean_seconds": 0.124,
+        "mean_turns": 21.098,
+        "refused": 0,
+        "score": 0.596,
+        "unfinished": 0,
+        "wins": 292
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.488,
+          0.576
+        ],
+        "losses": 229,
+        "mean_seconds": 0.131,
+        "mean_turns": 21.82,
+        "refused": 0,
+        "score": 0.533,
+        "unfinished": 0,
+        "wins": 261
+      },
+      "starter": 38
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.432,
+          0.495
+        ],
+        "losses": 526,
+        "mean_seconds": 0.162,
+        "mean_turns": 19.598,
+        "refused": 0,
+        "score": 0.463,
+        "unfinished": 0,
+        "wins": 454
+      },
+      "commander": "Emiel the Blessed",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.472,
+          0.56
+        ],
+        "losses": 237,
+        "mean_seconds": 0.153,
+        "mean_turns": 19.131,
+        "refused": 0,
+        "score": 0.516,
+        "unfinished": 0,
+        "wins": 253
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.368,
+          0.454
+        ],
+        "losses": 289,
+        "mean_seconds": 0.171,
+        "mean_turns": 20.065,
+        "refused": 0,
+        "score": 0.41,
+        "unfinished": 0,
+        "wins": 201
+      },
+      "starter": 39
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.492,
+          0.555
+        ],
+        "losses": 467,
+        "mean_seconds": 0.22,
+        "mean_turns": 21.584,
+        "refused": 0,
+        "score": 0.523,
+        "unfinished": 0,
+        "wins": 513
+      },
+      "commander": "Ashaya, Soul of the Wild",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.468,
+          0.556
+        ],
+        "losses": 239,
+        "mean_seconds": 0.23,
+        "mean_turns": 22.051,
+        "refused": 0,
+        "score": 0.512,
+        "unfinished": 0,
+        "wins": 251
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.49,
+          0.578
+        ],
+        "losses": 228,
+        "mean_seconds": 0.211,
+        "mean_turns": 21.116,
+        "refused": 0,
+        "score": 0.535,
+        "unfinished": 0,
+        "wins": 262
+      },
+      "starter": 40
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.379,
+          0.44
+        ],
+        "losses": 579,
+        "mean_seconds": 0.122,
+        "mean_turns": 18.151,
+        "refused": 0,
+        "score": 0.409,
+        "unfinished": 0,
+        "wins": 401
+      },
+      "commander": "Ghen, Arcanum Weaver",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.403,
+          0.491
+        ],
+        "losses": 271,
+        "mean_seconds": 0.123,
+        "mean_turns": 18.222,
+        "refused": 0,
+        "score": 0.447,
+        "unfinished": 0,
+        "wins": 219
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.33,
+          0.415
+        ],
+        "losses": 308,
+        "mean_seconds": 0.121,
+        "mean_turns": 18.08,
+        "refused": 0,
+        "score": 0.371,
+        "unfinished": 0,
+        "wins": 182
+      },
+      "starter": 41
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.438,
+          0.501
+        ],
+        "losses": 520,
+        "mean_seconds": 0.123,
+        "mean_turns": 19.667,
+        "refused": 0,
+        "score": 0.469,
+        "unfinished": 0,
+        "wins": 460
+      },
+      "commander": "Birgi, God of Storytelling",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.486,
+          0.574
+        ],
+        "losses": 230,
+        "mean_seconds": 0.12,
+        "mean_turns": 19.257,
+        "refused": 0,
+        "score": 0.531,
+        "unfinished": 0,
+        "wins": 260
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.366,
+          0.452
+        ],
+        "losses": 290,
+        "mean_seconds": 0.126,
+        "mean_turns": 20.078,
+        "refused": 0,
+        "score": 0.408,
+        "unfinished": 0,
+        "wins": 200
+      },
+      "starter": 42
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.524,
+          0.586
+        ],
+        "losses": 436,
+        "mean_seconds": 0.124,
+        "mean_turns": 17.098,
+        "refused": 0,
+        "score": 0.555,
+        "unfinished": 0,
+        "wins": 544
+      },
+      "commander": "Maja, Bretagard Protector",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.523,
+          0.611
+        ],
+        "losses": 212,
+        "mean_seconds": 0.122,
+        "mean_turns": 17.241,
+        "refused": 0,
+        "score": 0.567,
+        "unfinished": 0,
+        "wins": 278
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.499,
+          0.586
+        ],
+        "losses": 224,
+        "mean_seconds": 0.126,
+        "mean_turns": 16.955,
+        "refused": 0,
+        "score": 0.543,
+        "unfinished": 0,
+        "wins": 266
+      },
+      "starter": 43
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.388,
+          0.45
+        ],
+        "losses": 570,
+        "mean_seconds": 0.103,
+        "mean_turns": 17.124,
+        "refused": 0,
+        "score": 0.418,
+        "unfinished": 0,
+        "wins": 410
+      },
+      "commander": "Galazeth Prismari",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.45,
+          0.538
+        ],
+        "losses": 248,
+        "mean_seconds": 0.101,
+        "mean_turns": 16.904,
+        "refused": 0,
+        "score": 0.494,
+        "unfinished": 0,
+        "wins": 242
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.302,
+          0.386
+        ],
+        "losses": 322,
+        "mean_seconds": 0.105,
+        "mean_turns": 17.345,
+        "refused": 0,
+        "score": 0.343,
+        "unfinished": 0,
+        "wins": 168
+      },
+      "starter": 44
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.496,
+          0.559
+        ],
+        "losses": 463,
+        "mean_seconds": 0.173,
+        "mean_turns": 19.656,
+        "refused": 0,
+        "score": 0.528,
+        "unfinished": 0,
+        "wins": 517
+      },
+      "commander": "Grist, the Hunger Tide",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.537,
+          0.625
+        ],
+        "losses": 205,
+        "mean_seconds": 0.168,
+        "mean_turns": 19.563,
+        "refused": 0,
+        "score": 0.582,
+        "unfinished": 0,
+        "wins": 285
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.43,
+          0.518
+        ],
+        "losses": 258,
+        "mean_seconds": 0.179,
+        "mean_turns": 19.749,
+        "refused": 0,
+        "score": 0.473,
+        "unfinished": 0,
+        "wins": 232
+      },
+      "starter": 45
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.489,
+          0.552
+        ],
+        "losses": 470,
+        "mean_seconds": 0.141,
+        "mean_turns": 17.428,
+        "refused": 0,
+        "score": 0.52,
+        "unfinished": 0,
+        "wins": 510
+      },
+      "commander": "Sythis, Harvest's Hand",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.507,
+          0.594
+        ],
+        "losses": 220,
+        "mean_seconds": 0.14,
+        "mean_turns": 17.353,
+        "refused": 0,
+        "score": 0.551,
+        "unfinished": 0,
+        "wins": 270
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.446,
+          0.534
+        ],
+        "losses": 250,
+        "mean_seconds": 0.142,
+        "mean_turns": 17.502,
+        "refused": 0,
+        "score": 0.49,
+        "unfinished": 0,
+        "wins": 240
+      },
+      "starter": 46
+    },
+    {
+      "all": {
+        "draws": 1,
+        "interval": [
+          0.467,
+          0.53
+        ],
+        "losses": 491,
+        "mean_seconds": 0.254,
+        "mean_turns": 23.2,
+        "refused": 0,
+        "score": 0.498,
+        "unfinished": 0,
+        "wins": 488
+      },
+      "commander": "Saryth, the Viper's Fang",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.476,
+          0.564
+        ],
+        "losses": 235,
+        "mean_seconds": 0.25,
+        "mean_turns": 22.982,
+        "refused": 0,
+        "score": 0.52,
+        "unfinished": 0,
+        "wins": 255
+      },
+      "human_chair": {
+        "draws": 1,
+        "interval": [
+          0.433,
+          0.521
+        ],
+        "losses": 256,
+        "mean_seconds": 0.259,
+        "mean_turns": 23.418,
+        "refused": 0,
+        "score": 0.477,
+        "unfinished": 0,
+        "wins": 233
+      },
+      "starter": 47
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.564,
+          0.625
+        ],
+        "losses": 397,
+        "mean_seconds": 0.155,
+        "mean_turns": 18.287,
+        "refused": 0,
+        "score": 0.595,
+        "unfinished": 0,
+        "wins": 583
+      },
+      "commander": "Mahadi, Emporium Master",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.587,
+          0.672
+        ],
+        "losses": 181,
+        "mean_seconds": 0.153,
+        "mean_turns": 18.229,
+        "refused": 0,
+        "score": 0.631,
+        "unfinished": 0,
+        "wins": 309
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.515,
+          0.603
+        ],
+        "losses": 216,
+        "mean_seconds": 0.158,
+        "mean_turns": 18.345,
+        "refused": 0,
+        "score": 0.559,
+        "unfinished": 0,
+        "wins": 274
+      },
+      "starter": 48
+    },
+    {
+      "all": {
+        "draws": 4,
+        "interval": [
+          0.414,
+          0.476
+        ],
+        "losses": 542,
+        "mean_seconds": 0.123,
+        "mean_turns": 18.437,
+        "refused": 0,
+        "score": 0.445,
+        "unfinished": 0,
+        "wins": 434
+      },
+      "commander": "Ertai Resurrected",
+      "house_chair": {
+        "draws": 3,
+        "interval": [
+          0.467,
+          0.555
+        ],
+        "losses": 238,
+        "mean_seconds": 0.121,
+        "mean_turns": 18.218,
+        "refused": 0,
+        "score": 0.511,
+        "unfinished": 0,
+        "wins": 249
+      },
+      "human_chair": {
+        "draws": 1,
+        "interval": [
+          0.337,
+          0.422
+        ],
+        "losses": 304,
+        "mean_seconds": 0.126,
+        "mean_turns": 18.655,
+        "refused": 0,
+        "score": 0.379,
+        "unfinished": 0,
+        "wins": 185
+      },
+      "starter": 49
+    },
+    {
+      "all": {
+        "draws": 0,
+        "interval": [
+          0.391,
+          0.453
+        ],
+        "losses": 567,
+        "mean_seconds": 0.099,
+        "mean_turns": 16.674,
+        "refused": 0,
+        "score": 0.421,
+        "unfinished": 0,
+        "wins": 413
+      },
+      "commander": "Tura Kennerüd, Skyknight",
+      "house_chair": {
+        "draws": 0,
+        "interval": [
+          0.495,
+          0.582
+        ],
+        "losses": 226,
+        "mean_seconds": 0.102,
+        "mean_turns": 16.986,
+        "refused": 0,
+        "score": 0.539,
+        "unfinished": 0,
+        "wins": 264
+      },
+      "human_chair": {
+        "draws": 0,
+        "interval": [
+          0.265,
+          0.346
+        ],
+        "losses": 341,
+        "mean_seconds": 0.097,
+        "mean_turns": 16.363,
+        "refused": 0,
+        "score": 0.304,
+        "unfinished": 0,
+        "wins": 149
+      },
+      "starter": 50
+    }
+  ]
+}

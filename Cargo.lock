@@ -2105,6 +2105,7 @@ dependencies = [
 name = "baylee-engine-server"
 version = "0.2.1-beta.o1"
 dependencies = [
+ "anyhow",
  "baylee-agent",
  "baylee-ai",
  "baylee-build",
@@ -2123,6 +2124,7 @@ dependencies = [
  "baylee-view",
  "baylee-worker",
  "bytes",
+ "clap",
  "criterion",
  "flate2",
  "futures-util",
@@ -2492,7 +2494,27 @@ dependencies = [
  "baylee-tower",
  "serde",
  "serde_json",
+ "sha2 0.11.2",
  "thiserror 2.0.21",
+ "uuid",
+]
+
+[[package]]
+name = "baylee-tower-provision"
+version = "0.2.1-beta.o1"
+dependencies = [
+ "anyhow",
+ "baylee-cards-pool",
+ "baylee-tower",
+ "baylee-tower-content",
+ "baylee-tower-service",
+ "baylee-tower-store",
+ "central-api",
+ "serde",
+ "serde_json",
+ "tokio",
+ "uuid",
+ "zeroize",
 ]
 
 [[package]]

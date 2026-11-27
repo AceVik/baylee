@@ -41,7 +41,7 @@ mod state;
 pub use execution::verification::{Award, VerificationFailure, VerificationJob, VerificationLease};
 pub use execution::{Acknowledged, Claimed, ExpiredExecution, Lease, Recovery, StoredChunk};
 pub use operators::{Principal, Role};
-pub use outbox::{AwardDelivery, AwardLease};
+pub use outbox::{AwardDelivery, AwardLease, ListedReceipt};
 pub use publication::Publication;
 pub use reservation::{Entropy, Reserve};
 pub use runs::Start;
@@ -85,6 +85,9 @@ pub enum Error {
     /// Database/serialization fault; no credential or private payload included.
     #[error("Tower storage unavailable")]
     Unavailable,
+    /// The runtime connection holds an administrator's privileges.
+    #[error("Tower runtime role has administrative privileges")]
+    Privileged,
 }
 
 /// Owner response. Never contains shop randomness or private opponent packages.
