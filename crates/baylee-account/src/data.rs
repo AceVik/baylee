@@ -50,6 +50,21 @@ pub struct LegacyData {
 }
 
 impl AccountData {
+    /// The document of a session that restores none: an AI runner's, whose
+    /// account has no master key to open its document with (baylee-central
+    /// `docs/ai-players.md` §2). Nothing in it is ever written back.
+    #[must_use]
+    pub fn unrestored() -> Self {
+        Self {
+            version: 1,
+            gateways: Vec::new(),
+            preferences: serde_json::Value::Object(serde_json::Map::new()),
+            legacy: None,
+            chat: crate::chat::ChatArchive::default(),
+            deck_library: None,
+        }
+    }
+
     /// Parse and validate a restored document without substituting local defaults on failure.
     ///
     /// # Errors

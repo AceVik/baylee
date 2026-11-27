@@ -1,5 +1,5 @@
-use super::player::public_name;
 use super::*;
+use baylee_account::ranked::ai::{AiBadge, AiKind};
 use baylee_account::ranked::{Format, Outcome};
 
 #[test]
@@ -30,18 +30,12 @@ fn the_relay_socket_is_centrals_and_cleartext_only_on_loopback() {
 }
 
 #[test]
-fn a_public_handle_is_read_as_its_name() {
-    assert_eq!(public_name("HOUSE-Expert#1a2b"), "HOUSE-Expert");
-    assert_eq!(public_name("HOUSE-Expert"), "HOUSE-Expert");
-}
-
-#[test]
 fn a_receipt_says_who_won_from_the_seat() {
     let receipt = |outcome, seat| Receipt {
         outcome,
         seat,
         elo: 1500,
-        delta: 0,
+        delta: Some(0),
     };
     assert_eq!(receipt(Outcome::FirstWins, 0).won(), Some(true));
     assert_eq!(receipt(Outcome::FirstWins, 1).won(), Some(false));
@@ -50,7 +44,7 @@ fn a_receipt_says_who_won_from_the_seat() {
 }
 
 #[test]
-fn a_shelf_deck_freezes_to_the_rows_the_commitment_binds() {
+fn a_deck_freezes_to_the_rows_the_commitment_binds() {
     let cards = vec![
         "20 Forest # the plan".to_owned(),
         "40 Grizzly Bears".to_owned(),
@@ -67,65 +61,123 @@ fn a_shelf_deck_freezes_to_the_rows_the_commitment_binds() {
     assert_eq!(told, 60, "the mind is told the whole deck");
     assert!(
         Frozen::from_rows("Bears", "commander", Format::Standard, &cards, &[], &[]).is_err(),
-        "a deck of another format is not queued"
+        "a deck of another format is not offered"
     );
 }
 
+/// A scratch directory, removed when dropped.
+struct Scratch(std::path::PathBuf);
+
+impl Scratch {
+    fn new() -> Self {
+        let dir = std::env::temp_dir().join(format!("baylee-ranked-{}", uuid::Uuid::now_v7()));
+        std::fs::create_dir_all(&dir).unwrap();
+        Self(dir)
+    }
+}
+
+impl Drop for Scratch {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+/// A deck version as the deck builder writes it: the deck and its record.
+fn write_version(dir: &std::path::Path, number: u32, rows: &str) {
+    let at = crate::deckbuild::history::format_dir(dir, Format::Standard);
+    std::fs::create_dir_all(&at).unwrap();
+    let stem = format!("v{number:04}-20261127T0{number}0000Z");
+    std::fs::write(
+        at.join(format!("{stem}.txt")),
+        format!("# name: Bears {number}\n# format: standard\n{rows}"),
+    )
+    .unwrap();
+    std::fs::write(at.join(format!("{stem}.json")), "{}").unwrap();
+}
+
 #[test]
-fn the_house_pilots_at_a_fair_level_only() {
-    let pilot = Pilot::house("expert").unwrap();
-    assert_eq!(pilot.disclosure, crate::Disclosure::House);
-    assert_eq!((pilot.make)().disclosure(), crate::Disclosure::House);
+fn a_shelf_offers_the_newest_deck_that_freezes_and_keeps_what_it_offered() {
+    let scratch = Scratch::new();
+    write_version(&scratch.0, 1, "60 Forest\n");
+    let mut shelf = Shelf::directory(scratch.0.clone(), vec![Format::Standard]);
+    let mut said = Vec::new();
+    shelf.refresh(None, |line| said.push(line));
+    let first = shelf.offers();
+    assert_eq!(first.len(), 1, "{said:?}");
+    // A newer version that does not freeze is passed over, and told once.
+    write_version(&scratch.0, 2, "60 No Such Card Anywhere\n");
+    shelf.refresh(None, |line| said.push(line));
+    shelf.refresh(None, |line| said.push(line));
+    assert_eq!(shelf.offers(), first, "the version before it stands");
+    let passed = said.iter().filter(|l| l.contains("passing over")).count();
+    assert_eq!(passed, 1, "{said:?}");
+    // A newer one that freezes is offered, and the old deck stays on the
+    // shelf for a match made with it.
+    write_version(&scratch.0, 3, "20 Forest\n40 Grizzly Bears\n");
+    shelf.refresh(None, |line| said.push(line));
+    let third = shelf.offers();
+    assert_ne!(third, first);
+    assert!(shelf.by_digest(&first[0].deck).is_some());
+    assert!(shelf.by_digest(&third[0].deck).is_some());
+}
+
+#[test]
+fn the_house_pilots_at_a_fair_level_only_and_says_its_key() {
+    let pilot = HousePilot::new("expert").unwrap();
+    assert_eq!(pilot.kind(), AiKind::House);
+    assert_eq!(pilot.profile(), "house:expert");
     assert!(
-        Pilot::house("seer").is_err(),
+        HousePilot::new("seer").is_err(),
         "the level that peeks is refused"
     );
-    assert!(Pilot::house("no such level").is_err());
+    assert!(HousePilot::new("no such level").is_err());
 }
 
 #[test]
-fn an_ai_account_is_labelled_by_centrals_prefix_or_its_minds() {
-    use crate::Disclosure;
-    assert!(labelled("KI-Haus-Expert", Disclosure::House));
-    assert!(labelled("HOUSE-Expert", Disclosure::House));
-    assert!(
-        !labelled("LLM-Haiku", Disclosure::House),
-        "another mind's label"
-    );
-    assert!(!labelled("KI-", Disclosure::House), "a prefix with no name");
-    assert!(!labelled("Alice", Disclosure::House));
+fn a_pilot_plays_only_the_account_centrals_settings_name() {
+    let settings = |kind, profile: &str| ai::Settings {
+        badge: AiBadge {
+            kind,
+            label: "Haus-KI · Expert".into(),
+        },
+        profile: profile.into(),
+        enabled: true,
+        max_games: 1,
+    };
+    let pilot = HousePilot::new("expert").unwrap();
+    assert!(fits(&pilot, &settings(AiKind::House, "house:expert")).is_ok());
+    assert!(fits(&pilot, &settings(AiKind::House, "house:hard")).is_err());
+    assert!(fits(&pilot, &settings(AiKind::Model, "house:expert")).is_err());
 }
 
 #[test]
-fn a_password_comes_from_the_store_entry_for_centrals_host_or_from_a_file() {
+fn the_runner_token_comes_from_a_file_or_the_store_and_is_never_quoted() {
     use baylee_client_core::llmseat::keys::{KeyEntry, KeyStore as _, MemoryKeys};
+    let token = baylee_account::Token::generate().unwrap();
+    let text = baylee_account::sdk::ai_runner::token_text(&token);
     let central = "http://127.0.0.1:28794";
     let endpoint = baylee_account::Endpoint::development(central).unwrap();
     let keys = Arc::new(MemoryKeys::default());
-    let kept = KeyEntry::new("KI_HAUS_EXPERT", central).unwrap();
-    keys.set(&kept, "TEST-synthetic-password-0123").unwrap();
-    let stored = Credentials::from_store(
-        endpoint.clone(),
-        "ki_haus".into(),
-        "KI_HAUS_EXPERT".into(),
-        keys.clone(),
-    );
-    assert_eq!(&*stored.password().unwrap(), "TEST-synthetic-password-0123");
-    let missing = Credentials::from_store(endpoint.clone(), "ki_haus".into(), "OTHER".into(), keys);
-    let why = missing.password().unwrap_err().to_string();
+    keys.set(&KeyEntry::new("KI_RUNNER", central).unwrap(), &text)
+        .unwrap();
+    let stored = RunnerToken::from_store(&endpoint, "KI_RUNNER".into(), keys.clone());
+    assert_eq!(stored.read().unwrap().digest(), token.digest());
+    let missing = RunnerToken::from_store(&endpoint, "OTHER".into(), keys);
+    let why = missing.read().unwrap_err().to_string();
     assert!(why.contains("--key-env OTHER"), "{why}");
-    assert!(!why.contains("TEST-synthetic"), "{why}");
 
-    let dir = std::env::temp_dir().join(format!("baylee-ranked-{}", uuid::Uuid::now_v7()));
-    std::fs::create_dir_all(&dir).unwrap();
-    let file = dir.join("password");
-    std::fs::write(&file, "TEST-from-a-file\n").unwrap();
-    let from_file = Credentials::from_file(endpoint.clone(), "ki_haus".into(), file.clone());
-    assert_eq!(&*from_file.password().unwrap(), "TEST-from-a-file");
+    let scratch = Scratch::new();
+    let file = scratch.0.join("runner-token");
+    std::fs::write(&file, format!("{}\n", *text)).unwrap();
+    let from_file = RunnerToken::from_file(file.clone());
+    assert_eq!(from_file.read().unwrap().digest(), token.digest());
+    // A password, or a gateway's token, is no runner token, and the error
+    // does not repeat what the file holds.
+    std::fs::write(&file, "TEST-synthetic-password-0123\n").unwrap();
+    let why = from_file.read().unwrap_err().to_string();
+    assert!(why.contains("holds no runner token"), "{why}");
+    assert!(!why.contains("TEST-synthetic"), "{why}");
     std::fs::write(&file, "\n").unwrap();
-    assert!(
-        from_file.password().is_err(),
-        "an empty file is no password"
-    );
-    std::fs::remove_dir_all(&dir).unwrap();
+    assert!(from_file.read().is_err(), "an empty file is no token");
+    assert_eq!(format!("{from_file:?}"), "RunnerToken(…)");
 }

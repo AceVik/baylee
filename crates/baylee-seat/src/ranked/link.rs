@@ -1,36 +1,45 @@
-//! A ranked seat's way to its table: through Baylee Central's relay, as the
-//! native client goes (`crates/baylee-client/src/lobby/ranked/native.rs`).
+//! An AI seat's way to its table: through Baylee Central's relay, as the
+//! native client goes (`crates/baylee-client/src/lobby/ranked/native.rs`),
+//! for a match Central made from the account's standing offer, which no
+//! queue entry holds: the match is named by its id, and Central's `Work`
+//! says what it is now ([`Account::play_ai_seat`]).
 //!
-//! Every dial asks Central's relay for a seat ([`Account::play_ranked`]): the
-//! relay takes the match-bound admission for the account
-//! (`POST /auth/ranked/login` at the host), hands the host the frozen deck
-//! the first time (`POST /ranked/{match}/play`, answered `202` until both
-//! seats registered, and asked again with the same admission until it
-//! seats) and the game's id every time after (`{"game": …}`, a resume), and
-//! trades the seat for a one-use socket ticket. The socket is Central's
-//! (`/v1/ranked/socket`), opened with that ticket as its first frame; the
-//! runner never dials the host itself. A socket that drops is replaced the
-//! same way, and the core asks the table for what it missed.
+//! Every dial asks Central's relay for a seat: the relay takes the
+//! match-bound admission for the account (`POST /auth/ranked/login` at the
+//! host), hands the host the frozen deck the first time (`POST
+//! /ranked/{match}/play`, answered `202` until both seats registered, and
+//! asked again with the same admission until it seats) and the game's id
+//! every time after (`{"game": …}`, a resume), and trades the seat for a
+//! one-use socket ticket. The socket is Central's (`/v1/ranked/socket`),
+//! opened with that ticket as its first frame; the runner never dials the
+//! host itself. A socket that drops is replaced the same way, and the core
+//! asks the table for what it missed.
+//!
+//! Before the first seat, Central asks every participant to approve the
+//! match's hosts and their terms: the link approves only hosts on the
+//! operator's list (`--accept-host`) and declines any other, which releases
+//! the match without a score.
 //!
 //! While the seat holds a game, the admission is renewed at the `renew_in`
-//! the host gave ([`Account::renew_ranked_replica`]), so a long game keeps
-//! its session at the host.
+//! the host gave ([`Account::renew_ai_seat`]), so a long game keeps its
+//! session at the host. The link holds the runner session it started on;
+//! when Central ended that one, it goes on with the account's newest.
 //!
 //! Only a single-host match is played (`Phase::Single`, every ranked game
-//! today): its frames are the ordinary seat frames and its answers go on the
-//! socket, and the native client reports no presence for it. A replicated
-//! match (two hosts, each frame a certified projection, each answer a
-//! journal entry at Central, presence every five seconds) is refused in one
-//! sentence: that is a second link, still to be built.
+//! today): its frames are the ordinary seat frames and its answers go on
+//! the socket. A replicated match (two hosts, each frame a certified
+//! projection, each answer a journal entry at Central, presence every five
+//! seconds) is refused in one sentence: that is a second link, still to be
+//! built.
 //!
-//! [`Account::play_ranked`]: baylee_account::Account::play_ranked
-//! [`Account::renew_ranked_replica`]: baylee_account::Account::renew_ranked_replica
+//! [`Account::play_ai_seat`]: baylee_account::Account::play_ai_seat
+//! [`Account::renew_ai_seat`]: baylee_account::Account::renew_ai_seat
 
-use super::{Aborting, Frozen, Player};
+use super::{Aborting, Frozen, Player, Session};
 use crate::link::{Reporter, Socket, Table};
 use anyhow::{anyhow, bail};
+use baylee_account::ranked::Assignment;
 use baylee_account::ranked::replica::{Fence, Phase, SeatRequest, SeatResponse};
-use baylee_account::ranked::{Assignment, Id, QueueState, Request, Response};
 use baylee_account::{Error, RankedHost, RankedPlay};
 use baylee_client_core::reconnect::Window;
 use futures_util::SinkExt as _;
@@ -71,10 +80,10 @@ impl Default for LinkOptions {
     }
 }
 
-/// One ranked seat's way to its table.
+/// One AI seat's way to its table.
 pub struct RankedLink {
     player: Player,
-    key: Id,
+    session: Session,
     assignment: Assignment,
     deck: Arc<Frozen>,
     options: LinkOptions,
@@ -103,20 +112,26 @@ enum Seat {
     Declined,
 }
 
+/// What the blocking call came back with.
+enum Asked {
+    Played(Option<Box<RankedPlay>>),
+    Gone,
+    Replicated,
+}
+
 impl RankedLink {
-    /// The link to `assignment`, the account's entry `key`, with `deck`
-    /// frozen for it.
+    /// The link to `assignment`, a match of `player`'s, with `deck` frozen
+    /// for it, on the account's newest session.
     #[must_use]
     pub fn new(
         player: Player,
-        key: Id,
         assignment: Assignment,
         deck: Arc<Frozen>,
         options: LinkOptions,
     ) -> Self {
         Self {
+            session: player.session(),
             player,
-            key,
             assignment,
             deck,
             options,
@@ -141,12 +156,23 @@ impl RankedLink {
         self.renewals.load(Ordering::Relaxed)
     }
 
+    /// Goes on with the account's newest session when Central ended the
+    /// one the link held (`Rejected`); the admission it took goes with it.
+    fn on_rejected(&mut self, error: Error) {
+        let newest = self.player.session();
+        if error == Error::Rejected && !newest.same(&self.session) {
+            tracing::info!("the match goes on with the account's newest runner session");
+            self.session = newest;
+            self.pending = None;
+        }
+    }
+
     async fn seat(&mut self) -> Result<Seat, Error> {
-        let (key, match_id) = (self.key, self.assignment.match_id);
+        let match_id = self.assignment.match_id;
         let deck = Arc::clone(&self.deck);
         let mut pending = self.pending.take();
         let (pending, asked) = self
-            .player
+            .session
             .call(move |account| {
                 let SeatResponse::Status { status } =
                     account.replica(SeatRequest::Status { match_id })?
@@ -159,7 +185,7 @@ impl RankedLink {
                     _ => return Ok((pending, Ok(Asked::Replicated))),
                 }
                 let played =
-                    account.play_ranked(key, Some((deck.digest, &deck.deck)), &mut pending);
+                    account.play_ai_seat(match_id, Some((deck.digest, &deck.deck)), &mut pending);
                 Ok((pending, played.map(|p| Asked::Played(p.map(Box::new)))))
             })
             .await?;
@@ -192,7 +218,7 @@ impl RankedLink {
         let match_id = self.assignment.match_id;
         let allowed = self.options.accept_hosts.clone();
         let accepted = self
-            .player
+            .session
             .call(move |account| {
                 let documents = account.ranked_host_documents(match_id)?;
                 if documents
@@ -224,16 +250,12 @@ impl RankedLink {
     async fn gone(&self) -> bool {
         let match_id = self.assignment.match_id;
         let state = self
-            .player
+            .session
             .call(move |account| {
-                let Response::Queue { state } = account.ranked(Request::Status)? else {
-                    return Err(Error::Rejected);
-                };
-                let QueueState::Assigned { assignment, .. } = &state else {
-                    return Ok(true);
-                };
-                if assignment.match_id != match_id {
-                    return Ok(true);
+                match account.ai_assignment(match_id) {
+                    Ok(_) => {}
+                    Err(Error::Conflict) => return Ok(true),
+                    Err(e) => return Err(e),
                 }
                 let SeatResponse::Status { status } =
                     account.replica(SeatRequest::Status { match_id })?
@@ -268,9 +290,10 @@ impl RankedLink {
         Ok(socket)
     }
 
-    /// Renews the admission at each `renew_in` until dropped.
+    /// Renews the admission at each `renew_in` until dropped, on the
+    /// session that took it.
     fn renew(&self, assignment: Assignment, fence: Fence, first: Instant) -> Aborting {
-        let (player, key, cap) = (self.player.clone(), self.key, self.options.renew_cap);
+        let (session, cap) = (self.session.clone(), self.options.renew_cap);
         let renewals = Arc::clone(&self.renewals);
         let capped = move |at: Instant| cap.map_or(at, |cap| at.min(Instant::now() + cap));
         Aborting(tokio::spawn(async move {
@@ -278,8 +301,8 @@ impl RankedLink {
             loop {
                 tokio::time::sleep_until(at).await;
                 let game = assignment.clone();
-                match player
-                    .call(move |account| account.renew_ranked_replica(key, &game, fence))
+                match session
+                    .call(move |account| account.renew_ai_seat(&game, fence))
                     .await
                 {
                     Ok(next) => {
@@ -295,13 +318,6 @@ impl RankedLink {
             }
         }))
     }
-}
-
-/// What the blocking call came back with.
-enum Asked {
-    Played(Option<Box<RankedPlay>>),
-    Gone,
-    Replicated,
 }
 
 impl Table for RankedLink {
@@ -330,7 +346,10 @@ impl Table for RankedLink {
                 Ok(Seat::Declined) => {
                     bail!("the match's host is not one the operator accepts (--accept-host)")
                 }
-                Err(e) => e.to_string(),
+                Err(e) => {
+                    self.on_rejected(e);
+                    e.to_string()
+                }
             };
             if since.elapsed() >= self.options.give_up {
                 bail!(

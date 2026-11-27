@@ -32,14 +32,13 @@
 //! may spend before it sits down, and settles when it is over.
 //!
 //! ```text
-//! baylee-seat ranked --username <AI account> --deck <its deck id>
-//!     (--password-file <path> | --password-key <name>)
-//!     [--central live|http://127.0.0.1:<port>] [--level expert]
-//!     [--accept-host <origin>]… [--games <n>]
+//! baylee-seat ranked --account <id | Name#tag> (--token-file <path> | --token-key <name>)
+//!     [--central live|http://127.0.0.1:<port>] [--state <dir>] [--decks <dir>]
+//!     [--level expert] [--accept-host <origin>]… [--games <n>]
 //! ```
 //!
-//! Plays Ranked as an AI account, its password read from a file only its
-//! service can read or from the credential store (`ranked_cli`,
+//! Plays Ranked as an AI account, its AI runner token read from a file only
+//! its service can read or from the credential store (`ranked_cli`,
 //! `docs/llm-seat.md` §"The ranked runner").
 
 // Looks cards up, so this program holds the pool (`baylee-cards-pool`).
@@ -106,9 +105,9 @@ enum Command {
     /// one paid answer besides. Prints one JSON line (`docs/llm-seat.md`
     /// §"A hosted seat").
     Check(CheckArgs),
-    /// Play Ranked as an AI account: sign in to Baylee Central, queue with
-    /// one of the account's decks, and play each match with the house
-    /// (`docs/llm-seat.md` §"The ranked runner").
+    /// Play Ranked as an AI account: trade the AI runner token at Baylee
+    /// Central, offer the account's decks, and play each match Central
+    /// makes with them (`docs/llm-seat.md` §"The ranked runner").
     Ranked(Box<ranked_cli::RankedArgs>),
     /// An AI's own decks: the host's legality facts, a deck lent without a
     /// model, or built and improved by one, every version kept
@@ -944,9 +943,7 @@ async fn run() -> anyhow::Result<()> {
             say!("{line}");
             Ok(())
         }
-        Command::Ranked(ranked) => {
-            ranked_cli::run(&ranked, Arc::clone(&keys), stoppers.stopped()).await
-        }
+        Command::Ranked(ranked) => ranked_cli::run(&ranked, Arc::clone(&keys), &mut stoppers).await,
         Command::Join(join) => {
             let (mut let_go, orders, ticket) = if join.tethered {
                 let held = tether::hold(join.chair_ticket || join.host_chair);
