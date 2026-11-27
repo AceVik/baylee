@@ -1025,8 +1025,14 @@ minutes under load. It builds what `cargo build-client` selects for this machine
 target, instrumented and with the harness; plays the scenes of
 `crates/baylee-tools/src/pgo/train.rs` (lobby and settings, the deck builder on a list
 of 500 cards, 500 friends and 450 chat lines, whole games with spells, attacks,
-blocks and questions, a stack of 80, a replay, a full board); merges the counts; and
-builds what ships from them, without the harness. It prints where the binaries are.
+blocks and questions, a stack of 80, the chat's tabs, a replay, a full board); merges
+the counts; and builds what ships from them, without the harness. It prints where the
+binaries are. Offline the shipped client has no social session, so the friends and
+chat lines stand in the harness's own (`docs/client.md` §"Large data for a scene").
+Run it on a quiet Mac: a fresh build's first window compiles its shaders, and on
+27.11.2026, with other agents' test clients and builds holding the load near 60,
+that held the first frames past the harness's ten seconds and a scene stopped
+before it began; the next start, with the shaders cached, played.
 `cargo tools pgo client ship <profile>` is that last step alone: it builds in
 `target/pgo-client/profiled`, emptied first, and stands the three binaries and their
 symbols in `target/<triple>/dist`, where `cargo tools package client` reads them.
@@ -1053,10 +1059,12 @@ A release with a profile, from the top:
 The repository variable `BAYLEE_CLIENT_PROFILE` set to `off` makes a tag skip
 steps 1 and 3: every row, the profiled ones too, runs `cargo build-client` in
 `dist`, and the run says so in a warning. Unset is the rule above. It was set for
-`0.2.0-beta.o1` (27.11.2026), when the training stopped at its first scene: the
-header has three tabs since the client's polish and the lobby scene still pressed
-a fourth, and an offline client has no social session for the friends and chat
-lines the long lists and the whole game seed. Unset it once the scenes play.
+`0.2.0-beta.o1` and `0.2.2-beta.o1` (27.11.2026), when the training stopped at its
+first scene: the header has three tabs since the client's polish and the lobby
+scene still pressed a fourth, and an offline client has no social session for the
+friends and chat lines the long lists and the whole game seed. The scenes play
+again since the same day's fix (every scene on the M1 Max); unset it for the next
+release with a profile.
 
 A dry run (`promote-ci`) still promotes the CI run and builds no profile, and CI
 itself never builds one. To profile another row: `profiled: true` on it in

@@ -12,7 +12,7 @@
 //! scene ends by the client closing itself, which is what writes its counts.
 
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     fs,
     path::Path,
     thread::sleep,
@@ -586,7 +586,18 @@ fn whole_game(client: &Client, _root: &Path) -> Result<()> {
         read_the_chat(client)
     })?;
     println!("  ended on {}", last_state(client));
-    client.click(press("End(Replay)"))?;
+    // The end screen shows the whole log (the log's own panel is not opened
+    // during the game: open, it held the game still). Its replay button is
+    // listed twice at one place, so it is pressed where it stands.
+    let (x, y) = client
+        .screen()?
+        .controls()
+        .iter()
+        .find(|control| control.press == "End(Replay)")
+        .map(|control| control.rect.centre())
+        .context("the end screen offers no replay")?;
+    client.click(at(x, y))?;
+    client.wait_until("the replay", |s| s.control("End(Replay)").is_none())?;
     for _ in 0..8 {
         linger(3.0);
         stir(client)?;
@@ -594,8 +605,8 @@ fn whole_game(client: &Client, _root: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Opens the chat over the table, reads the lobby's long tab and the log, and
-/// shuts it.
+/// Opens the chat over the table, reads every tab it draws, the lobby's long
+/// one first, and shuts it.
 fn read_the_chat(client: &Client) -> Result<()> {
     client.click(press("ToggleChat"))?;
     linger(1.0);
@@ -603,8 +614,20 @@ fn read_the_chat(client: &Client) -> Result<()> {
         client.click(press("GotIt"))?;
         linger(0.5);
     }
-    let window = client.screen()?.window();
-    for tab in ["Tab(Global)", "Tab(Log)", "Tab(All)"] {
+    let screen = client.screen()?;
+    let window = screen.window();
+    let drawn: BTreeSet<String> = screen
+        .controls()
+        .iter()
+        .map(|control| control.press.clone())
+        .filter(|press| press.starts_with("Tab("))
+        .collect();
+    if !drawn.contains("Tab(Global)") {
+        bail!("the chat draws no lobby tab: {drawn:?}");
+    }
+    let mut tabs: Vec<String> = drawn.into_iter().collect();
+    tabs.sort_by_key(|tab| tab != "Tab(Global)");
+    for tab in tabs {
         client.click(press(tab))?;
         linger(0.8);
         for _ in 0..25 {
