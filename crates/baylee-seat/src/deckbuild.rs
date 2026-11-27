@@ -16,10 +16,12 @@
 //!   deck, through the bridge's minds (an API, an agent CLI, a profile's
 //!   fallbacks), told the check's faults until a deck passes;
 //! - [`lend`]: a deck without a model, for the pilots that cannot build;
+//! - [`exclude`]: cards a pilot's decks may not hold, from a file;
 //! - [`file`], [`history`]: the deck file and the chronicle of versions.
 
 pub mod brief;
 pub mod check;
+pub mod exclude;
 pub mod facts;
 pub mod file;
 pub mod history;

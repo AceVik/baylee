@@ -818,3 +818,49 @@ fn a_deck_is_summed_up_in_one_line() {
         "UG · 52 lands · 4 creatures · curve 0:0 1:4 2:4 3:0 4:0 5:0 6:0 7+:0"
     );
 }
+
+/// A card the pilot's exclusion list names is never lent, is out of the
+/// pool the model sees, and refuses a deck that holds it, by name.
+#[test]
+fn an_excluded_card_is_never_lent_and_refused_when_proposed() {
+    let facts = all_legal();
+    let checker = Checker::new(&facts);
+    let pool = Pool::of(&checker, Format::Standard, NOW);
+    let first = lend::lend(&checker, &pool, Format::Standard, 5, NOW).unwrap();
+    let excluded: std::collections::BTreeSet<CardIndex> = first
+        .frozen
+        .loaded
+        .main
+        .iter()
+        .map(|c| c.index)
+        .filter(|c| !baylee_cards::formats::is_basic_land(*c))
+        .collect();
+    assert!(!excluded.is_empty());
+    let checker = Checker::new(&facts).excluding(&excluded);
+    let pool = Pool::of(&checker, Format::Standard, NOW);
+    assert!(excluded.iter().all(|c| !pool.holds(*c)), "out of the pool");
+    let again = lend::lend(&checker, &pool, Format::Standard, 5, NOW).unwrap();
+    assert!(
+        again
+            .frozen
+            .loaded
+            .main
+            .iter()
+            .all(|c| !excluded.contains(&c.index)),
+        "never lent"
+    );
+    let verdict = checker.check(Format::Standard, &first.rows, NOW);
+    assert!(!verdict.passed());
+    assert!(
+        verdict
+            .complaints
+            .iter()
+            .any(|c| c.contains("is excluded for this deck's pilot by its exclusion list")),
+        "{:?}",
+        verdict.complaints
+    );
+    assert!(
+        host_admits(Format::Standard, &first.rows, &facts),
+        "the host would seat it: the limit is the pilot's"
+    );
+}

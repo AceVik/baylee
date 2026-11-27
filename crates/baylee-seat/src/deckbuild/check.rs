@@ -77,6 +77,8 @@ impl Verdict {
 pub struct Checker<'a> {
     facts: &'a Facts,
     table: PoolFacts,
+    /// Cards this pilot's decks may not hold ([`super::exclude`]).
+    excluded: BTreeSet<CardIndex>,
 }
 
 /// The catalog's key a ranked format is checked under
@@ -118,7 +120,17 @@ impl<'a> Checker<'a> {
         Self {
             table: facts.table(),
             facts,
+            excluded: BTreeSet::new(),
         }
+    }
+
+    /// The same check, refusing besides every card of `excluded`: a
+    /// pilot's own limit ([`super::exclude`]), not the host's, so a deck
+    /// that holds one is refused here though a host would seat it.
+    #[must_use]
+    pub fn excluding(mut self, excluded: &BTreeSet<CardIndex>) -> Self {
+        self.excluded.clone_from(excluded);
+        self
     }
 
     /// The facts it checks against.
@@ -137,7 +149,7 @@ impl<'a> Checker<'a> {
 
     /// Whether a deck of `format` may hold `card` at `now`, as far as the
     /// card alone decides: rules-complete, played in the format by the
-    /// catalog, not blocked. Cryptic Spires is left out: it needs two
+    /// catalog, not blocked, not excluded for the pilot. Cryptic Spires is left out: it needs two
     /// circled colours chosen, which the decks made here do not choose.
     #[must_use]
     pub fn playable(&self, format: Format, card: CardIndex, now: &str) -> bool {
@@ -145,6 +157,7 @@ impl<'a> Checker<'a> {
             && complete(card)
             && self.verdict(format, card).is_some_and(Legality::playable)
             && self.facts.blocked_at(card.get(), now).is_none()
+            && !self.excluded.contains(&card)
     }
 
     /// `rows` held to what a ranked host of `format` checks at `now` (RFC
@@ -193,6 +206,12 @@ impl<'a> Checker<'a> {
                     name_of(card.index),
                     self.facts.gateway,
                     block.reason
+                ));
+            }
+            if self.excluded.contains(&card.index) {
+                complaints.push(format!(
+                    "«{}» is excluded for this deck's pilot by its exclusion list",
+                    name_of(card.index)
                 ));
             }
             if !complete(card.index) {

@@ -1557,10 +1557,10 @@ deck of each format there (`deckbuild::history::newest`).
 ```text
 baylee-seat deck facts   --gateway https://<host> [--out <dir>/facts.json]
 baylee-seat deck check   --format <f> --facts <file> <deck file>
-baylee-seat deck lend    --format <f> --dir <dir> [--seed 1] [--facts <file>]
+baylee-seat deck lend    --format <f> --dir <dir> [--seed 1] [--facts <file>] [--exclude <file>]
 baylee-seat deck build   --format <f> --dir <dir> (--profile <p> | --mind <m>)
     [--config <file>] [--ledger <file>] [--effort <e>] [--fallback-profile <p>]…
-    [--no-fallback] [--rounds 40] [--reply-secs 300] [--facts <file>]
+    [--no-fallback] [--rounds 40] [--reply-secs 300] [--facts <file>] [--exclude <file>]
 baylee-seat deck improve (the options of build) [--most 6] [--recent 20] [--games <file>]…
 ```
 
@@ -1617,6 +1617,15 @@ baylee-seat deck improve (the options of build) [--most 6] [--recent 20] [--game
   this check cannot see is a block or a catalog change after the facts were
   read. The host checks again at seating, so read the facts again before
   relying on an old deck.
+- **An exclusion file** (`--exclude`, `deckbuild::exclude`) names cards a
+  pilot's decks never hold, whatever the format allows: one exact name a
+  line, as the registry spells it; `#` starts a comment. A name that is no
+  card of this build refuses the file, naming its line. The trained net plays
+  an export made on an older card catalog and reads some cards only by
+  summary, and its agent hands that list over. Excluded cards are out of the
+  pool, never lent, and a proposal holding one is refused by name. The
+  version's record keeps the file's SHA-256 and how many cards it named
+  (`excluded`).
 - **The pool** (`deckbuild::pool`) is the cards a deck of the format may
   hold: rules-complete here, playable in the format by the table, not
   blocked. Cryptic Spires is left out, because it needs two circled colours
