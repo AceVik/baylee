@@ -101,7 +101,16 @@ fn respond(mut stream: TcpStream) -> std::io::Result<()> {
         } else {
             31..=limit
         };
-        let entries: Vec<_> = range.map(|n| standing(query, n)).collect();
+        // Whom the board lists (protocol 3): an absent `players` is everyone.
+        let players = query["players"].as_str().unwrap_or("everyone");
+        let entries: Vec<_> = range
+            .map(|n| standing(query, n))
+            .filter(|row| match players {
+                "ai" => row.get("ai").is_some(),
+                "people" => row.get("ai").is_none(),
+                _ => true,
+            })
+            .collect();
         let next = (first && limit > 30).then(|| {
             let last = entries.last().expect("first page has 30 entries");
             json!({"elo":last["standing"]["elo"],"account":last["account"],"deck":last["standing"]["deck"]})
@@ -180,12 +189,23 @@ fn standing(query: &Value, n: u8) -> Value {
     } else {
         ["Laurel", "Reed", "Iris", "Birch", "Rowan"]
     };
-    let name = format!("{}-{n:02}", names[usize::from(n) % names.len()]);
+    // Two rows in seven are AI players, named with Central's reserved
+    // prefix and labelled by their badge.
+    let ai = match n % 7 {
+        4 => Some(json!({"kind":"house","label":"Haus-KI · Expert"})),
+        6 => Some(json!({"kind":"model","label":"Claude Haiku · Hoch"})),
+        _ => None,
+    };
+    let name = if ai.is_some() {
+        format!("KI-Spieler-{n:02}")
+    } else {
+        format!("{}-{n:02}", names[usize::from(n) % names.len()])
+    };
     let place = (query["league"] == "champion").then_some(n + offset);
     let mut account = [n; 16];
     account[0] = offset;
     account[1] = u8::from(placed);
-    json!({
+    let mut row = json!({
         "account":account,"name":name,"tag":u32::from(n),
         "standing":{
             "format":query["format"],"track":query["track"],"deck":deck,
@@ -193,7 +213,11 @@ fn standing(query: &Value, n: u8) -> Value {
             "placement_games":if placed{10}else{7},"career":career,
             "rank":{"league":query["league"],"division":query["division"],"champion_place":place}
         }
-    })
+    });
+    if let Some(ai) = ai {
+        row["ai"] = ai;
+    }
+    row
 }
 
 fn presented(screen: &Screen, text: &str) -> bool {
@@ -240,6 +264,67 @@ fn capture(client: &mut Client, name: &str) -> Result<()> {
         std::fs::remove_file(path)?;
     }
     anyhow::bail!("no rendered pixels in four captures of {name}")
+}
+
+/// Whom the ladder lists: the AI players alone, with their badges, and back;
+/// the ladder's head (`ladder`, its Refresh) stays where it was.
+fn ai_players_on_the_ladder(client: &mut Client, ladder: Rect) -> Result<()> {
+    client.click(press("Ranked(Players(Ai))"))?;
+    let ai = client.wait_until("only AI players on the ladder", |s| {
+        s.shows("Haus-KI · Expert") && !s.shows("Mistral-01")
+    })?;
+    anyhow::ensure!(
+        ai.locate(&press("Ranked(Refresh)"))? == ladder,
+        "the ladder's head moved with its filter"
+    );
+    capture(client, "ranked-board-ai")?;
+    client.click(press("Ranked(Players(Everyone))"))?;
+    client.wait_until("everyone again", |s| s.shows("Mistral-01"))?;
+    Ok(())
+}
+
+/// The first search asks whom it accepts, with nothing picked, and
+/// searches only once a choice is confirmed; the fill-in countdown comes
+/// into its own room, and one click to people only takes it away, with
+/// Leave standing still throughout.
+fn first_search_asks_counts_down_and_goes_to_people(
+    client: &mut Client,
+    ladder: Rect,
+) -> Result<()> {
+    client.click(press("Ranked(Join)"))?;
+    client.wait_until("the sheet asking whom the search accepts", |s| {
+        s.shows("Wer darf gegen dich spielen?")
+            && s.shows("Der Anbieter eines Sprachmodells erhält die Züge dieser Partie.")
+    })?;
+    capture(client, "ranked-opponents-sheet")?;
+    client.click(press("Ranked(PickOpponents(Local))"))?;
+    client.click(press("Shared(ConfirmDestructive)"))?;
+    let waiting = client.wait_until("the waiting queue beside the ladder", |s| {
+        s.shows("Gegner für Highlander wird gesucht") && s.shows("Mistral-01")
+    })?;
+    anyhow::ensure!(
+        waiting.locate(&press("Ranked(Refresh)"))? == ladder,
+        "the ladder moved while the desk searched"
+    );
+    let leave = waiting.locate(&press("Ranked(Cancel)"))?;
+    capture(client, "ranked-page-waiting")?;
+    let counting = client.wait_until("the fill-in countdown", |s| {
+        s.shows("KI-Gegner in") && s.shows("Lokale KIs")
+    })?;
+    anyhow::ensure!(
+        counting.locate(&press("Ranked(Cancel)"))? == leave,
+        "Leave moved when the countdown came"
+    );
+    capture(client, "ranked-page-countdown")?;
+    client.click(press("Ranked(Opponents(People))"))?;
+    let people = client.wait_until("a search for people only", |s| {
+        !s.shows("KI-Gegner in") && s.shows("Du wartest auf einen Menschen")
+    })?;
+    anyhow::ensure!(
+        people.locate(&press("Ranked(Cancel)"))? == leave,
+        "Leave moved when the countdown went"
+    );
+    Ok(())
 }
 
 fn narrow_queue_remains_playable(client: &mut Client) -> Result<()> {
@@ -387,15 +472,8 @@ fn ranked_page_searches_and_cancels_beside_the_public_ladder() {
             s.shows("Sternenmeer")
         })?;
         capture(client, "ranked-page")?;
-        client.click(press("Ranked(Join)"))?;
-        let waiting = client.wait_until("the waiting queue beside the ladder", |s| {
-            s.shows("Gegner für Highlander wird gesucht") && s.shows("Mistral-01")
-        })?;
-        anyhow::ensure!(
-            waiting.locate(&press("Ranked(Refresh)"))? == ladder,
-            "the ladder moved while the desk searched"
-        );
-        capture(client, "ranked-page-waiting")?;
+        ai_players_on_the_ladder(client, ladder)?;
+        first_search_asks_counts_down_and_goes_to_people(client, ladder)?;
         client.click(press("Ranked(Cancel)"))?;
         client.wait_until("back in the same format after cancelling", |s| {
             s.shows("Sternenmeer") && s.control("Ranked(Join)").is_some()
@@ -407,6 +485,9 @@ fn ranked_page_searches_and_cancels_beside_the_public_ladder() {
         client.click(press("Ranked(Join)"))?;
         client.wait_until("player division promotion", |s| {
             presented(s, "Commander · Spieler · Gold I")
+        })?;
+        client.wait_until("the result names its AI opponent with its badge", |s| {
+            s.shows("Gegen") && s.shows("Haus-KI · Expert")
         })?;
         capture(client, "ranked-division-fixture")?;
         client.wait_until("deck league promotion", |s| {

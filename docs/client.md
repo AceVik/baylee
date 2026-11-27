@@ -7499,6 +7499,23 @@ telling the table something untrue. The revision is now compared and assigned
 added to it a compile error instead of a gate that quietly stops watching one
 of seven things.
 
+**A ranked AI player is a fourth answer, and it is not the house's chair**
+(`docs/proposals/ai-players.md`, 27.11.2026). It plays from a remote seat like
+any person, so the host's roster says `is_ai: false` and the role stays
+`Present`; only Central says that the seat is an AI and what kind. Its badge
+travels beside the handles in `participant_names::Roster` (seeded from the
+assignment's `opponent_ai` the moment the table opens, then confirmed by
+Central's list of participants, which is never believed for the reader's own
+seat) and is read through `Duel::ai_badge`, never written into the roster the
+game reads. Wherever text names the seat (the log, the prompts, the result's
+verdict) the display roster calls it by the badge's label, "Haus-KI ·
+Expert", never by its bare account name. The plate and the players' strip draw the kind's mark in the mark
+slot where a house chair wears the robot (`aibadge::glyph`: the robot for a
+house level, a speech bubble for a language model, linked circles for Baylee
+AI, a chip for a kind this build does not know), and their hint adds the
+badge read out ("KI-Spieler: Haus-KI · Expert (Haus-KI)"). A badge arriving
+changes `roster_revision`, which the bar's revision carries.
+
 #### The rim says it where the bar cannot
 
 `Density::Mark` is 151 projected pixels of shelf and has no name cell in it, so

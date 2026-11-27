@@ -2,6 +2,7 @@
 use super::{Format, Lang, LobbyState, Phrase, Track, api, format_name, league_name, rank_name};
 use crate::lobby::advent::RefreshInventory;
 use api::QueueState;
+use baylee_client_core::aiplayers::{Counted, Verdict};
 use bevy::prelude::*;
 
 /// Authoritative receipts are polled repeatedly. Only a game entered by this
@@ -39,6 +40,63 @@ pub(super) fn promotion(
         if let Some(promotion) = notice(before, after, track, *format, state.lobby.lang()) {
             events.write(promotion);
         }
+    }
+}
+
+/// How a settled game went from this player's seat.
+fn verdict(outcome: api::Outcome, seat: u8) -> Verdict {
+    match (outcome, seat) {
+        (api::Outcome::FirstWins, 0) | (api::Outcome::SecondWins, 1) => Verdict::Won,
+        (api::Outcome::Draw, _) => Verdict::Drawn,
+        _ => Verdict::Lost,
+    }
+}
+
+/// A game this client entered against an AI player counts, once, into the
+/// signed-in account's record on this device ("Against AIs" on the own
+/// profile), and a first win against that AI is marked on the result card.
+pub(super) fn against_ai(
+    mut state: ResMut<LobbyState>,
+    mut settings: Option<ResMut<crate::settings::ClientSettings>>,
+    mut seen: Local<Option<api::Id>>,
+) {
+    let QueueState::Finished {
+        match_id,
+        outcome,
+        seat,
+        opponent_ai: Some(badge),
+        ..
+    } = &state.ranked_net.queue
+    else {
+        return;
+    };
+    if state.ranked_net.played != Some(*match_id) || *seen == Some(*match_id) {
+        return;
+    }
+    let (game, verdict, badge) = (*match_id, verdict(*outcome, *seat), badge.clone());
+    *seen = Some(game);
+    let Some(account) = state
+        .central_handle()
+        .and_then(|handle| handle.public_id)
+        .map(|id| uuid::Uuid::from_bytes(id).to_string())
+    else {
+        return;
+    };
+    let Some(settings) = settings.as_mut() else {
+        return;
+    };
+    let counted = settings
+        .ranked_against_ai
+        .of_mut(&account)
+        .count(game, &badge, verdict);
+    if counted == Counted::Again {
+        return;
+    }
+    settings.save();
+    if counted == Counted::FirstWin {
+        let ui = &mut state.bypass_change_detection().ranked;
+        ui.first_win = Some(game);
+        ui.revision = ui.revision.wrapping_add(1);
     }
 }
 
@@ -161,6 +219,98 @@ mod tests {
                 .drain()
                 .count(),
             0
+        );
+    }
+}
+
+#[cfg(test)]
+mod against_ai_tests {
+    use super::*;
+    use crate::lobby::central;
+    use baylee_client_core::aiplayers::{AiBadge, AiKind, Tally};
+
+    fn finished(match_id: api::Id, outcome: api::Outcome) -> QueueState {
+        let rank = api::Rank {
+            league: api::League::Gold,
+            division: Some(2),
+            champion_place: None,
+        };
+        QueueState::Finished {
+            key: [2; 16],
+            match_id,
+            format: api::Format::Standard,
+            outcome,
+            seat: 0,
+            elo: 1810,
+            delta: 12,
+            before: rank,
+            after: rank,
+            deck: api::DeckResult {
+                before: rank,
+                after: rank,
+                elo: 1800,
+                delta: 10,
+                placement_games: 10,
+            },
+            opponent_ai: Some(AiBadge {
+                kind: AiKind::House,
+                label: "Haus-KI · Expert".into(),
+            }),
+        }
+    }
+
+    /// A game this client entered against an AI counts once into the
+    /// account's record here, and its first win is marked for the card; a
+    /// game it did not enter counts nothing.
+    #[test]
+    fn a_game_against_an_ai_counts_once_and_marks_its_first_win() {
+        let account = uuid::Uuid::now_v7();
+        let mut state = LobbyState::new();
+        central::enable(&mut state);
+        let (mut handle, _jobs) = central::Handle::queued_for_test();
+        handle.public_id = Some(*account.as_bytes());
+        state.central.as_mut().unwrap().handle = Some(handle);
+        let game = *uuid::Uuid::now_v7().as_bytes();
+        state.ranked_net.queue = finished(game, api::Outcome::FirstWins);
+        let mut app = App::new();
+        app.insert_resource(state)
+            .insert_resource(crate::settings::ClientSettings::default())
+            .add_systems(Update, against_ai);
+        app.update();
+        let key = account.to_string();
+        let counted = |app: &App| {
+            app.world()
+                .resource::<crate::settings::ClientSettings>()
+                .ranked_against_ai
+                .of(&key)
+                .map(baylee_client_core::aiplayers::Record::by_kind)
+        };
+        assert_eq!(
+            counted(&app),
+            None,
+            "a game not entered here counts nothing"
+        );
+        app.world_mut()
+            .resource_mut::<LobbyState>()
+            .ranked_net
+            .played = Some(game);
+        app.update();
+        app.update();
+        assert_eq!(
+            counted(&app),
+            Some(vec![(
+                AiKind::House,
+                Tally {
+                    wins: 1,
+                    losses: 0,
+                    draws: 0
+                }
+            )]),
+            "counted once however often the receipt is read"
+        );
+        assert_eq!(
+            app.world().resource::<LobbyState>().ranked.first_win,
+            Some(game)
         );
     }
 }

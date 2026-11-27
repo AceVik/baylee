@@ -33,6 +33,7 @@ fn plates_over(view: &PlayerView) -> App {
             None,
             seat,
             SeatRole::Present,
+            None,
             &PhaseOrders::default(),
             &fonts,
         );
@@ -743,6 +744,7 @@ fn the_plate_holds_its_widest_lines() {
         None,
         &view.seats[1],
         SeatRole::House,
+        None,
         &PhaseOrders::default(),
         &fonts,
     );

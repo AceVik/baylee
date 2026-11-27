@@ -27,6 +27,8 @@ pub(crate) const USAGE: &str = "\
 usage: baylee-gateway                       serve; every setting is an environment variable
        baylee-gateway records export --out <dir>
                                             export the anonymised game records
+       baylee-gateway pool-facts --out <file>
+                                            write the legality facts an AI runner reads
        baylee-gateway help | --help | -h    this text
 
 It listens on 127.0.0.1:28766, this machine only, unless told otherwise:
@@ -46,6 +48,8 @@ pub(crate) enum Command<'a> {
     Invite,
     /// `records …`, with the arguments after the word.
     Records(&'a [String]),
+    /// `pool-facts …`, with the arguments after the word.
+    PoolFacts(&'a [String]),
 }
 
 /// Reads a command line, without the program's name.
@@ -64,6 +68,7 @@ pub(crate) fn command(args: &[String]) -> Result<Command<'_>, String> {
         "help" | "--help" | "-h" => Ok(Command::Help),
         "invite" => Ok(Command::Invite),
         "records" => Ok(Command::Records(rest)),
+        "pool-facts" => Ok(Command::PoolFacts(rest)),
         other => {
             let name = other.split_once('=').map_or(other, |(name, _)| name);
             Err(format!(
@@ -154,6 +159,8 @@ mod tests {
     fn subcommands_keep_their_own_arguments() {
         let records = line(&["records", "export", "--out", "/tmp/r"]);
         assert_eq!(command(&records), Ok(Command::Records(&records[1..])));
+        let facts = line(&["pool-facts", "--out", "/tmp/facts.json"]);
+        assert_eq!(command(&facts), Ok(Command::PoolFacts(&facts[1..])));
         assert_eq!(command(&line(&["invite", "list"])), Ok(Command::Invite));
     }
 

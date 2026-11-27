@@ -1,9 +1,14 @@
 //! Resolve private opponent names only on the participant's Central worker.
 //! A detached worker can finish into its own mailbox but never a new match.
+//!
+//! An AI opponent wears its badge from the table's first frame: the
+//! assignment already said it, so the reader seeds it at once
+//! ([`seeded`]), and Central's list of participants confirms it.
 use super::{LobbyState, native::RankedSocket};
 use crate::{
     Duel, DuelPhase, InstalledHost,
     lobby::{central::Handle, ranked_profile::valid_handle},
+    participant_names::{Badges, Roster},
 };
 use baylee_account::{
     Error,
@@ -23,8 +28,29 @@ type Seats = [Option<String>; 2];
 #[derive(Default)]
 pub(super) struct Reader {
     context: Option<(Handle, Id, Id)>,
-    pending: Option<Receiver<Result<Seats, Error>>>,
+    pending: Option<Receiver<Result<(Seats, Badges), Error>>>,
     next: Option<Instant>,
+}
+
+/// The badges a socket's assignment named before Central's list answers:
+/// the opponent's, at the seat that is not this player's.
+fn seeded(socket: &RankedSocket) -> Badges {
+    let mut ai: Badges = [None, None];
+    if let Some(badge) = &socket.opponent_ai
+        && socket.seat < 2
+    {
+        ai[usize::from(1 - socket.seat)] = Some(badge.clone());
+    }
+    ai
+}
+
+/// What Central's list says, with nothing on this player's own seat: a
+/// person reading their own table is never drawn as an AI.
+fn own_seat_cleared(mut ai: Badges, seat: u8) -> Badges {
+    if let Some(own) = ai.get_mut(usize::from(seat)) {
+        *own = None;
+    }
+    ai
 }
 
 impl Reader {
@@ -59,13 +85,14 @@ impl Reader {
             let result = account
                 .replica(SeatRequest::Participants { match_id: id })
                 .and_then(|answer| match answer {
-                    // TODO(ai-players client): the AI badges, in seat order.
                     SeatResponse::Participants {
-                        match_id, seats, ..
+                        match_id,
+                        seats,
+                        ai,
                     } if match_id == id
                         && seats.iter().flatten().all(|name| valid_handle(name)) =>
                     {
-                        Ok(seats)
+                        Ok((seats, ai))
                     }
                     _ => Err(Error::Rejected),
                 });
@@ -123,8 +150,14 @@ pub(super) fn poll(
         }
         return;
     };
+    let game = uuid::Uuid::from_bytes(socket.game_id).to_string();
     if reader.bind(&owner, socket) {
-        duel.participant_labels(None);
+        let ai = seeded(socket);
+        duel.participant_labels(ai.iter().any(Option::is_some).then(|| Roster {
+            game: game.clone(),
+            handles: [None, None],
+            ai,
+        }));
     }
     if let Some(pending) = &reader.pending {
         let result = match pending.try_recv() {
@@ -134,9 +167,14 @@ pub(super) fn poll(
         };
         reader.pending = None;
         match result {
-            Ok(seats) if seats.iter().any(Option::is_some) => {
-                let game = uuid::Uuid::from_bytes(socket.game_id).to_string();
-                duel.participant_labels(Some((game, seats)));
+            Ok((seats, ai))
+                if seats.iter().any(Option::is_some) || ai.iter().any(Option::is_some) =>
+            {
+                duel.participant_labels(Some(Roster {
+                    game,
+                    handles: seats,
+                    ai: own_seat_cleared(ai, socket.seat),
+                }));
             }
             Err(Error::Busy | Error::Unavailable) => {
                 reader.next = Some(Instant::now() + Duration::from_secs(10));
@@ -152,29 +190,59 @@ pub(super) fn poll(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use baylee_account::ranked::ai::{AiBadge, AiKind};
 
-    #[test]
-    fn a_late_private_name_reply_cannot_cross_account_or_ranked_game() {
-        let (first, _jobs_a) = Handle::queued_for_test();
-        let (second, _jobs_b) = Handle::queued_for_test();
-        let mut socket = RankedSocket {
+    fn socket(seat: u8, opponent_ai: Option<AiBadge>) -> RankedSocket {
+        RankedSocket {
             generation: 1,
             look: None,
             match_id: *uuid::Uuid::now_v7().as_bytes(),
             game_id: *uuid::Uuid::now_v7().as_bytes(),
             protected: true,
-        };
+            seat,
+            opponent_ai,
+        }
+    }
+
+    #[test]
+    fn a_late_private_name_reply_cannot_cross_account_or_ranked_game() {
+        let (first, _jobs_a) = Handle::queued_for_test();
+        let (second, _jobs_b) = Handle::queued_for_test();
+        let mut socket = socket(0, None);
         let mut reader = Reader::default();
         assert!(reader.bind(&first, &socket));
         let (send, recv) = mpsc::sync_channel(1);
         reader.pending = Some(recv);
         assert!(!reader.bind(&first, &socket));
         assert!(reader.bind(&second, &socket));
-        assert!(send.send(Ok([None, None])).is_err());
+        assert!(send.send(Ok(([None, None], [None, None]))).is_err());
         let (send, recv) = mpsc::sync_channel(1);
         reader.pending = Some(recv);
         socket.match_id = *uuid::Uuid::now_v7().as_bytes();
         assert!(reader.bind(&second, &socket));
-        assert!(send.send(Ok([None, None])).is_err());
+        assert!(send.send(Ok(([None, None], [None, None]))).is_err());
+    }
+
+    #[test]
+    fn the_assignment_seeds_the_opponents_badge_and_never_the_readers_own() {
+        let house = AiBadge {
+            kind: AiKind::House,
+            label: "Haus-KI · Expert".into(),
+        };
+        assert_eq!(
+            seeded(&socket(0, Some(house.clone()))),
+            [None, Some(house.clone())]
+        );
+        assert_eq!(
+            seeded(&socket(1, Some(house.clone()))),
+            [Some(house.clone()), None]
+        );
+        assert_eq!(seeded(&socket(0, None)), [None, None]);
+        assert_eq!(seeded(&socket(7, Some(house.clone()))), [None, None]);
+        // A list that named this player an AI is not believed for them.
+        assert_eq!(
+            own_seat_cleared([Some(house.clone()), Some(house.clone())], 0),
+            [None, Some(house)]
+        );
     }
 }

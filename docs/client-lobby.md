@@ -28,8 +28,66 @@ or is seated). Standard, Highlander and Commander each
 have separate player and deck standings. The league menu offers the
 divisions that exist in that league. The season button also lists past seasons.
 The list keeps its scroll position during a refresh and starts at the top
-after a filter or page change. Each row opens its player's public profile.
+after a league, division, season or page change. Whom it lists is a segmented
+control of its own row under the track, Everyone, People or AIs (Central's
+`players`, protocol 3): switching it keeps the rows on screen until the
+group's own arrive (`native::board_keeping`, no skeleton between two full
+lists) and leaves the scroll where it was, and an empty AI group says so in
+its own words. Each row opens its player's public profile.
 An unnamed account stays anonymous in the profile.
+
+### AI players
+
+AI players (`docs/proposals/ai-players.md`) are always labelled. One badge
+component (`aibadge`) names them wherever an AI appears: the kind's mark
+from the shipped icon face (the robot for a house level, a speech bubble for a
+language model, linked circles for Baylee AI, a chip for a kind this build does
+not know) and the label Central relays, cleaned of hidden characters and
+capped at 40 characters (`client_core::aiplayers::label`), in a pill of the
+kind's ink, read aloud as "AI player: label (kind)" with a hint that says it
+plays from its own view and, for a language model, that its provider receives
+the moves. A ladder row draws the pill where the name stands and the kind's
+mark in a disc where the portrait stands; a match found says "Opponent" with
+the badge (the assignment's `opponent_ai`), the result card "Against" with it
+(`Finished.opponent_ai`), and an AI's profile opens with its badge and the line
+that it plays from its own view. At the table the plate and the players' strip
+draw the mark where a house chair wears the robot (`docs/client.md`
+§"Who is answering for a chair").
+
+A person's own profile carries "Against AIs": the record against AI players
+by kind (each with its mark), then the AIs beaten, newest first, as gold
+chips ("Conqueror of"), and the line that this device counted them. Central
+sends no such history, only each settled game's `opponent_ai`, so the client
+counts the games it entered and saw settle (`receipt::against_ai`, once per
+game however often its receipt is read; `client_core::aiplayers::Records`,
+kept per Central account in `ranked_against_ai`). The game that was the first
+win against an AI says so on its result card, under "Against".
+
+Whom a search accepts is the person's own choice, never preselected:
+People only, Local AIs (the house levels and Baylee AI, whose play stays on
+the operator's servers) or All AIs (also language models, whose provider
+receives the game's moves; the choice says so in one plain line). An
+account's first search opens a sheet with the three choices and what each
+means, none picked; Search stays grey until one is, and only Search keeps it
+and searches (`ranked::choice`). The choice is kept per Central account in the
+device's settings (`ranked_opponents`) and sent in the replica `Join` as
+`ai`; without one the join says people only. After that the desk shows it as
+a segmented control under the search, with its meaning in a line that keeps
+two lines' room. Changing it while a search waits moves the search: Central
+keeps a ticket's choice for its key, so the worker cancels it and joins again
+with the same deck under a new key (`native::switch`), while the desk keeps
+showing the search and its clock from the original start.
+
+While a search waits and accepts an AI, Central names the earliest second an AI
+may be seated (`ai_fill_in_at`). The search card reserves the countdown's room
+from its first second; for the last fifteen seconds before that time a calm
+"AI opponent in 0:12" fades in there, with tabular figures, the kind the search
+accepts and a one-click People only, and fades out before it would say zero,
+when the search simply goes on until Central seats someone. A person found
+first simply goes. The countdown counts on Central's clock, learnt from the
+`queued_at` of the join that minted the ticket, and the worker polls on the
+second near the time, since fill-in happens inside the account's own status
+poll. Leave stays in its place, greyed while its answer comes.
 
 Opening the optional deck-Elo preview sends Central the selected deck and
 sideboard's hashed card identities with copy counts. The returned projection
@@ -55,7 +113,9 @@ Long games renew their own admission while the original seat remains open.
 On macOS the passive window tests selected by `cargo dev e2e ranked_`
 exercise the public board against loopback data and drive the queue on the
 Ranked page, opened from the native lobby's tile. The latter uses a synthetic account and queue replies
-through an explicit development fixture. The gateway integration test covers
+through an explicit development fixture, which also answers the AI players'
+pieces: AI rows and the ladder's filter, the first search's sheet, the
+countdown and People only, and a result against the house. The gateway integration test covers
 the separate network path through Central and the assigned game host.
 
 ## The Advent calendar

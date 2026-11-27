@@ -41,6 +41,7 @@ fn profile() -> Profile {
         season: season(),
         formats: vec![],
         awards: vec![],
+        ai: None,
     }
 }
 
@@ -232,4 +233,24 @@ fn opening_loading_receiving_and_closing_preserve_the_same_sheet_and_scroll_posi
     world.resource_mut::<Page>().handle = None;
     app.update();
     assert!(app.world().get_entity(root).is_err());
+}
+
+#[test]
+fn an_ai_players_profile_keeps_its_badge() {
+    let badge = baylee_account::ranked::ai::AiBadge {
+        kind: baylee_account::ranked::ai::AiKind::Model,
+        label: "Claude Haiku · Hoch".into(),
+    };
+    let public = Response::Profile {
+        season: season(),
+        account: [1; 16],
+        name: Some("KI-Haiku-Hoch".into()),
+        tag: Some(0x2),
+        formats: vec![],
+        awards: vec![],
+        ai: Some(badge.clone()),
+    };
+    let read = Profile::accept("KI-Haiku-Hoch#0002", public).expect("the handle matches");
+    assert_eq!(read.ai, Some(badge));
+    assert_eq!(profile().ai, None, "a person's profile wears none");
 }

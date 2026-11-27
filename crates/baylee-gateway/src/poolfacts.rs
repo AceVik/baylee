@@ -85,6 +85,11 @@ impl PoolFactsCache {
 }
 
 impl Held {
+    /// The whole answer, as `GET /pool/facts` sends it.
+    pub(crate) fn body(&self) -> &[u8] {
+        &self.body
+    }
+
     fn of(stamp: i64, records: &PoolRecords) -> anyhow::Result<Self> {
         let mut body = assemble(records);
         if !body.cards.is_empty() {

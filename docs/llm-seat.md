@@ -1667,6 +1667,11 @@ baylee-seat deck improve (the options of build) [--most 6] [--recent 20] [--game
   do for anybody. The file holds the gateway's origin, when it was read, the
   table and the blocked cards. An empty table (a gateway without a catalog)
   is refused, since no deck could pass against it.
+  A host that lets no guest in writes the same file on itself:
+  `baylee-gateway pool-facts --out <file>` reads its own database
+  (`DATABASE_URL`, as it stands) with the route's own code, names itself by
+  `BAYLEE_PUBLIC_URL`, opens no port and writes the file atomically, mode
+  0644; its operator copies it to the runner.
 - **The check** (`deckbuild::check::Checker`) is the host's own code, in the
   order `crates/baylee-gateway/src/ranked/deck.rs` runs it:
   1. every row names a card this build plays;

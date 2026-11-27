@@ -9,9 +9,12 @@ use crate::shellkit::{
     tokens,
 };
 use baylee_account::ranked::{self as api, Cursor, Format, League, Track};
+use baylee_client_core::aiplayers::Opponents;
 use bevy::prelude::*;
 
+mod aidesk;
 mod board;
+mod choice;
 mod draw;
 mod inline;
 pub(crate) mod native;
@@ -51,9 +54,11 @@ pub(crate) const ORDER: TabOrder = TabOrder {
         "deck",
         "deck-choice",
         "preview",
+        "opponents",
         "queue",
         "format",
         "track",
+        "players",
         "league",
         "league-choice",
         "division",
@@ -102,6 +107,13 @@ pub(crate) enum Action {
     Page(bool),
     Seasons,
     Season(Option<api::Id>),
+    /// The desk's choice of whom a search accepts; while a search waits it
+    /// moves the search (`native::switch`).
+    Opponents(Opponents),
+    /// An option picked on the first search's sheet, not yet confirmed.
+    PickOpponents(Opponents),
+    /// Whom the ladder lists.
+    Players(api::ai::BoardPlayers),
 }
 
 pub(crate) struct Ui {
@@ -123,6 +135,17 @@ pub(crate) struct Ui {
     pages: Vec<(Cursor, usize)>,
     previous: Hub,
     revision: u64,
+    /// Whom the signed-in account lets fill its searches, as it chose on
+    /// this device; `None` until it chooses. A mirror of the settings
+    /// (`ClientSettings::ranked_opponents`), read for [`Self::opponents_of`].
+    opponents: Option<Opponents>,
+    /// The account `opponents` belongs to, by its public id.
+    opponents_of: Option<String>,
+    /// Whom the ladder lists: everyone, people or AI players.
+    players: api::ai::BoardPlayers,
+    /// The settled game that was this account's first win against its AI
+    /// opponent, as this device counted it (`receipt::against_ai`).
+    first_win: Option<api::Id>,
 }
 
 impl Default for Ui {
@@ -144,6 +167,10 @@ impl Default for Ui {
             previous: Hub::Play,
             deck_page: 0,
             revision: 0,
+            opponents: None,
+            opponents_of: None,
+            players: api::ai::BoardPlayers::Everyone,
+            first_win: None,
         }
     }
 }
@@ -164,8 +191,7 @@ impl Ui {
             league: self.league,
             division: self.division,
             after: self.pages.last().map(|(cursor, _)| *cursor),
-            // TODO(ai-players client): the ladder filter (everyone, people, AIs).
-            players: api::ai::BoardPlayers::Everyone,
+            players: self.players,
         }
     }
     fn reset_pages(&mut self) {
@@ -227,9 +253,11 @@ pub(super) fn install(app: &mut App) {
     app.add_systems(
         Update,
         (
+            receipt::against_ai,
             draw::patch,
             inline::patch,
             queue::animate,
+            aidesk::animate,
             receipt::promotion,
         )
             .chain()
@@ -266,6 +294,7 @@ fn open(cx: Cx<'_, '_, '_, '_, '_>) {
     cx.state.front_menu = false;
     cx.state.lobby.park_caret();
     cx.state.ranked.reset_pages();
+    choice::recall(cx.state, cx.settings.as_deref());
     refresh(cx.state);
     // The page's desk reads the account's decks and its queue entry as it
     // opens, as the Play tile's desk did when it unfolded.
@@ -336,6 +365,15 @@ pub(super) fn press(action: Action, cx: Cx<'_, '_, '_, '_, '_>) {
             ui.selected_season = id;
             reset_pages = true;
         }
+        Action::Players(players) if ui.players != players => {
+            ui.players = players;
+            // A new group starts at its first page, but the rows stand where
+            // they are until the group's own arrive, and so does the list's
+            // scroll: no skeleton flashes between two full lists.
+            ui.reset_pages();
+            let request = ui.board_request();
+            native::board_keeping(state, request);
+        }
         Action::Page(forward) => {
             if state.ranked_net.board_busy
                 || !ui.turn_page(state.ranked_net.board.as_ref(), forward)
@@ -359,6 +397,26 @@ pub(super) fn press(action: Action, cx: Cx<'_, '_, '_, '_, '_>) {
 
 pub(in crate::lobby) use inline::TileCaption;
 
+/// Whether the question that stands is whom a first search accepts.
+pub(in crate::lobby) fn asking_opponents(state: &LobbyState) -> bool {
+    matches!(
+        state.confirmation,
+        Some(super::confirm::Destructive::RankedOpponents(_))
+    )
+}
+
+/// The first search's sheet said Search: keeps the picked choice and
+/// searches with it. With nothing picked the sheet stays, and Search is grey.
+pub(in crate::lobby) fn confirm_opponents(
+    state: &mut LobbyState,
+    settings: &mut Option<ResMut<crate::settings::ClientSettings>>,
+) {
+    if let Some(super::confirm::Destructive::RankedOpponents(Some(picked))) = state.confirmation {
+        state.confirmation = None;
+        choice::confirm(state, settings, picked);
+    }
+}
+
 fn join(state: &mut LobbyState) {
     if !state.has_central_account() || state.lobby.awaiting().is_some() || state.ranked_net.busy {
         return;
@@ -366,7 +424,9 @@ fn join(state: &mut LobbyState) {
     let format = queue::effective_format(state);
     if let Some((id, _)) = queue::selected(state) {
         native::clear_preview(state);
-        native::join(state, format, &id.to_string());
+        // Only a choice the person made lets an AI in; none is people only.
+        let ai = choice::current(state).map_or(api::ai::AiOpponents::None, Opponents::wire);
+        native::join(state, format, &id.to_string(), ai);
     }
 }
 

@@ -21,6 +21,8 @@ pub(super) struct Body;
 pub(super) struct Paint {
     shell: Option<(String, Lang, ShellMetrics)>,
     version: Option<(u64, bool, Collection)>,
+    /// The owner's record against AIs it was drawn with.
+    against: Option<baylee_client_core::aiplayers::Record>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -70,7 +72,11 @@ pub(super) fn draw(
     let entry = book.known.get(handle);
     let version = entry.map_or(0, |e| e.version);
     let private = own.then_some(&book.private);
+    let against = own
+        .then(|| own_record(&state, settings.as_deref()))
+        .flatten();
     if same
+        && last.against.as_ref() == against
         && last.version.as_ref().is_some_and(|(v, o, awards)| {
             *v == version && *o == own && private.is_none_or(|p| p == awards)
         })
@@ -111,6 +117,10 @@ pub(super) fn draw(
     if let Some(awards) = private {
         own_trophies(&mut commands, content, kit, awards);
     }
+    if let Some(record) = against {
+        against_ai(&mut commands, content, kit, record);
+    }
+    last.against = against.cloned();
     last.version = Some((version, own, private.cloned().unwrap_or_default()));
 }
 
@@ -174,6 +184,201 @@ fn sheet_body(commands: &mut Commands, kit: Kit, handle: &str) -> Entity {
 
 #[cfg(test)]
 mod pointer_tests;
+
+/// The signed-in owner's record against AIs on this device, if it has one.
+fn own_record<'a>(
+    state: &super::LobbyState,
+    settings: Option<&'a crate::settings::ClientSettings>,
+) -> Option<&'a baylee_client_core::aiplayers::Record> {
+    let account = state.central_handle()?.public_id?;
+    settings?
+        .ranked_against_ai
+        .of(&uuid::Uuid::from_bytes(account).to_string())
+        .filter(|record| !record.is_empty())
+}
+
+/// "Against AIs" on the owner's own profile (`docs/proposals/ai-players.md`
+/// §"For people"): the record by kind, each with its mark, then the AIs
+/// beaten, newest first, each a gold chip, and the line that this device
+/// counted them.
+fn against_ai(
+    commands: &mut Commands,
+    root: Entity,
+    kit: Kit,
+    record: &baylee_client_core::aiplayers::Record,
+) {
+    use baylee_client_core::aiplayers;
+    let lang = kit.lang();
+    let panel = section(commands, root, kit, Phrase::ProfileAgainstAi.text(lang));
+    for (kind, tally) in record.by_kind() {
+        let row = commands
+            .spawn((
+                Node {
+                    width: percent(100),
+                    align_items: AlignItems::Center,
+                    column_gap: kit.m.px(8.0),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        let mark = commands
+            .spawn((
+                Text::new(crate::aibadge::glyph(kind).to_string()),
+                crate::hud::icon_tf(kit.fonts, kit.m.small),
+                TextColor(crate::aibadge::ink(kind)),
+                Node {
+                    width: kit.m.px(18.0),
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(row).add_child(mark);
+        let name = baylee_client_core::i18n::sentence_case(aiplayers::kind_name(kind).text(lang))
+            .into_owned();
+        label(commands, row, kit, &name, tokens::INK);
+        let grow = commands
+            .spawn((
+                Node {
+                    flex_grow: 1.0,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(row).add_child(grow);
+        let figures = Phrase::RankedRecord.fill(
+            lang,
+            &[
+                &tally.wins.to_string(),
+                &tally.losses.to_string(),
+                &tally.draws.to_string(),
+            ],
+        );
+        label(commands, row, kit, &figures, tokens::ACCENT);
+        commands.entity(panel).add_child(row);
+    }
+    let beaten: Vec<&str> = record.beaten().collect();
+    if !beaten.is_empty() {
+        label(
+            commands,
+            panel,
+            kit,
+            Phrase::ProfileConqueror.text(lang),
+            tokens::MUTED,
+        );
+        let chips = commands
+            .spawn((
+                Node {
+                    width: percent(100),
+                    flex_wrap: FlexWrap::Wrap,
+                    column_gap: kit.m.px(6.0),
+                    row_gap: kit.m.px(6.0),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        for name in beaten {
+            let chip = conquered(commands, kit, name);
+            commands.entity(chips).add_child(chip);
+        }
+        commands.entity(panel).add_child(chips);
+    }
+    label(
+        commands,
+        panel,
+        kit,
+        Phrase::ProfileAgainstAiNote.text(lang),
+        tokens::MUTED,
+    );
+}
+
+/// One AI this player has beaten: a gold chip with the cup and its label.
+fn conquered(commands: &mut Commands, kit: Kit, name: &str) -> Entity {
+    let chip = commands
+        .spawn((
+            Node {
+                padding: UiRect::axes(kit.m.px(8.0), kit.m.px(2.0)),
+                column_gap: kit.m.px(5.0),
+                align_items: AlignItems::Center,
+                border: UiRect::all(px(1.0)),
+                border_radius: BorderRadius::all(px(tokens::RADIUS_PILL)),
+                ..default()
+            },
+            BorderColor::all(tokens::GOLD.with_alpha(0.55)),
+            BackgroundColor(tokens::GOLD.with_alpha(0.10)),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let cup = commands
+        .spawn((
+            Text::new(crate::hud::glyph::TROPHY.to_string()),
+            crate::hud::icon_tf(kit.fonts, kit.m.small * 0.85),
+            TextColor(tokens::GOLD),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(chip).add_child(cup);
+    label(commands, chip, kit, name, tokens::INK);
+    chip
+}
+
+/// An AI player's profile says so first: its badge (the kind's mark and
+/// its label, with the hint that says what it is) and the line that it
+/// plays from its own view, in the body's head where the record follows.
+fn ai_player(
+    commands: &mut Commands,
+    root: Entity,
+    kit: Kit,
+    badge: &baylee_account::ranked::ai::AiBadge,
+) {
+    let lang = kit.lang();
+    let panel = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                align_items: AlignItems::Center,
+                column_gap: kit.m.px(12.0),
+                padding: UiRect::all(kit.m.px(12.0)),
+                border: UiRect::all(px(1.0)),
+                border_radius: BorderRadius::all(kit.m.px(9.0)),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            BackgroundColor(tokens::CONTROL),
+            BorderColor::all(crate::aibadge::ink(badge.kind).with_alpha(0.45)),
+        ))
+        .id();
+    commands.entity(root).add_child(panel);
+    let disc = crate::aibadge::disc(commands, kit, badge, kit.m.scaled(44.0));
+    let words = commands
+        .spawn((
+            Node {
+                flex_grow: 1.0,
+                flex_basis: px(0.0),
+                min_width: px(0.0),
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::FlexStart,
+                row_gap: kit.m.px(4.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let pill = crate::aibadge::pill(commands, kit, badge, kit.m.text, true);
+    commands.entity(words).add_child(pill);
+    label(
+        commands,
+        words,
+        kit,
+        Phrase::ProfileAiIntro.text(lang),
+        tokens::MUTED,
+    );
+    commands.entity(panel).add_children(&[disc, words]);
+}
 
 fn section(commands: &mut Commands, root: Entity, kit: Kit, title: &str) -> Entity {
     let panel = commands
@@ -260,6 +465,9 @@ fn icon(commands: &mut Commands, root: Entity, kit: Kit, visual: impl Bundle, si
 
 fn competitive(commands: &mut Commands, root: Entity, kit: Kit, p: &Profile) {
     let lang = kit.lang();
+    if let Some(badge) = &p.ai {
+        ai_player(commands, root, kit, badge);
+    }
     let overview = section(commands, root, kit, &p.season.name);
     for format in Format::ALL {
         let player = p

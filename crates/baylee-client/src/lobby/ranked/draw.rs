@@ -30,7 +30,7 @@ pub(super) struct Painted {
     key: Option<(Entity, u64, u64)>,
     scroll: Option<Viewport>,
     format: Option<Format>,
-    filters: Option<(Track, League, Option<u8>, bool)>,
+    filters: Option<(Track, League, Option<u8>, bool, api::ai::BoardPlayers)>,
     rows: Option<(Vec<api::Row>, usize, Option<Phrase>)>,
     seasons: Option<(Vec<api::Season>, bool, bool)>,
     pager: Option<Pager>,
@@ -442,15 +442,25 @@ fn paint_controls(commands: &mut Commands, slots: &Page, kit: Kit, ui: &Ui, pain
             );
         }
     }
-    let filter = (ui.track, ui.league, ui.division, ui.show_leagues);
-    if painted.filters.is_none_or(|(track, league, division, _)| {
-        (track, league, division) != (ui.track, ui.league, ui.division)
-    }) && let Some(mark) = crate::rank_art::RankArt::badge(
-        league_name(ui.league, Lang::En),
+    let filter = (
+        ui.track,
+        ui.league,
         ui.division,
-        ui.track == Track::Deck,
-        None,
-    ) {
+        ui.show_leagues,
+        ui.players,
+    );
+    if painted
+        .filters
+        .is_none_or(|(track, league, division, _, _)| {
+            (track, league, division) != (ui.track, ui.league, ui.division)
+        })
+        && let Some(mark) = crate::rank_art::RankArt::badge(
+            league_name(ui.league, Lang::En),
+            ui.division,
+            ui.track == Track::Deck,
+            None,
+        )
+    {
         commands.entity(slots.board.mark).insert(mark);
     }
     if painted.filters != Some(filter) {
@@ -483,6 +493,8 @@ fn paint_board(
     } else if entries.is_empty() {
         Some(if net.board_busy {
             Phrase::ChallengeLoading
+        } else if ui.players == api::ai::BoardPlayers::Ai {
+            Phrase::RankedBoardEmptyAi
         } else {
             Phrase::RankedBoardEmpty
         })
@@ -611,12 +623,16 @@ fn paint_notice(commands: &mut Commands, list: Entity, kit: Kit, notice: Option<
             let rows = crate::shellkit::states::skeleton(commands, kit, 6);
             commands.entity(list).add_child(rows);
         }
-        Some(Phrase::RankedBoardEmpty) => {
+        Some(empty @ (Phrase::RankedBoardEmpty | Phrase::RankedBoardEmptyAi)) => {
             let empty = crate::shellkit::states::empty(
                 commands,
                 kit,
-                glyph::TROPHY,
-                Phrase::RankedBoardEmpty.text(lang),
+                if empty == Phrase::RankedBoardEmptyAi {
+                    glyph::HOUSE
+                } else {
+                    glyph::TROPHY
+                },
+                empty.text(lang),
                 None,
             );
             commands.entity(empty).entry::<Node>().and_modify(|mut n| {

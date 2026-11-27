@@ -1,9 +1,10 @@
 //! Display and filter one public Central ladder.
 use super::draw::{btn, column, label};
 use super::{
-    Action, Kit, LEAGUES, Lang, League, ORDER, Phrase, Press, Track, Ui, Weight, api, divisions,
-    league_name, numeral, orders, parts, tokens,
+    Action, Kit, LEAGUES, Lang, League, ORDER, Phrase, Press, Track, Ui, Weight, api, controls,
+    divisions, league_name, numeral, orders, parts, tokens,
 };
+use baylee_client_core::aiplayers;
 use bevy::prelude::*;
 
 pub(super) fn filters(commands: &mut Commands, p: Entity, kit: Kit, ui: &Ui) {
@@ -38,6 +39,7 @@ pub(super) fn filters(commands: &mut Commands, p: Entity, kit: Kit, ui: &Ui) {
     );
     orders::stop(commands, picker, &ORDER, "league");
     commands.entity(row).add_child(picker);
+    players(commands, p, kit, ui);
     if ui.show_leagues {
         let options = parts::row(commands, kit, true);
         commands.entity(p).add_child(options);
@@ -78,6 +80,36 @@ pub(super) fn filters(commands: &mut Commands, p: Entity, kit: Kit, ui: &Ui) {
             );
         }
     }
+}
+
+/// Whom the ladder lists, in a row of its own under the track: everyone,
+/// people only or AI players only (`aiplayers::BOARD_PLAYERS`), sent as the
+/// board's `players`. Its own row, so a choice moves nothing beside it.
+fn players(commands: &mut Commands, p: Entity, kit: Kit, ui: &Ui) {
+    let lang = kit.lang();
+    let items: Vec<&str> = aiplayers::BOARD_PLAYERS
+        .iter()
+        .map(|players| aiplayers::board_players_name(*players).text(lang))
+        .collect();
+    let control = controls::segmented_compact(
+        commands,
+        kit,
+        &items,
+        aiplayers::board_players_index(ui.players),
+        |i| {
+            (
+                Press::Ranked(Action::Players(aiplayers::BOARD_PLAYERS[i])),
+                crate::shellkit::focus::Stop::item(
+                    ORDER.name,
+                    "players",
+                    u8::try_from(i).unwrap_or(u8::MAX),
+                ),
+            )
+        },
+    );
+    let row = parts::row(commands, kit, true);
+    commands.entity(row).add_child(control);
+    commands.entity(p).add_child(row);
 }
 
 pub(super) fn board_row(
@@ -177,11 +209,22 @@ fn identity(commands: &mut Commands, band: Entity, kit: Kit, row: &api::Row, i: 
         .as_deref()
         .or(row.name.as_deref())
         .unwrap_or_else(|| Phrase::RankedUnnamed.text(lang));
-    label(commands, who, kit, name, kit.m.text, tokens::INK);
+    // An AI player is never named without its badge: its label and kind's
+    // mark stand where a person's name does, and its mark where their
+    // portrait does. The row is the control, so the pill takes no pointer.
+    if let Some(badge) = &row.ai {
+        let pill = crate::aibadge::pill(commands, kit, badge, kit.m.text * 0.92, false);
+        commands.entity(who).add_child(pill);
+    } else {
+        label(commands, who, kit, name, kit.m.text, tokens::INK);
+    }
     let profile = if let Some(h) = handle {
         if standing.track == Track::Player {
-            let portrait =
-                crate::shellkit::avatar::disc(commands, kit.fonts, &h, kit.m.scale * 32.0);
+            let portrait = if let Some(badge) = &row.ai {
+                crate::aibadge::disc(commands, kit, badge, kit.m.scale * 32.0)
+            } else {
+                crate::shellkit::avatar::disc(commands, kit.fonts, &h, kit.m.scale * 32.0)
+            };
             commands
                 .entity(portrait)
                 .insert(crate::lobby::ranked_profile::BoardPortrait);
