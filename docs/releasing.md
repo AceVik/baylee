@@ -420,6 +420,12 @@ adds rustup and the pinned actions runner, and `cargo run -p baylee-runner --
 install`, which copies the native binary to `~/baylee-ci` and loads the
 LaunchAgent `org.baylee.macos-runner` (log:
 `~/Library/Logs/baylee-macos-runner.log`).
+A `brew upgrade` installs Softnet anew **without** its SUID bit (0.25.0 on
+2.11.2026): every VM then stops at once, the runner's log says `the guest
+agent never answered` round after round, and the VM's own log
+(`~/Library/Logs/baylee-vm-<name>.log`) says root privileges are required.
+Set the bit again on the new binary (`$(brew --prefix softnet)/bin/softnet`)
+before the next run that needs the Mac.
 The installer stages the executable beside its destination and replaces it
 atomically, including when invoked through the already installed binary. It
 creates the log directory and XML-escapes home paths in the LaunchAgent plist.
@@ -1048,7 +1054,9 @@ A release with a profile, from the top:
    published list.
 2. Tag that commit. `release.yml` still requires the green CI run, but a tag no
    longer promotes it: no CI run has the profile, so `source-run` stays empty and
-   **every row builds fresh** in the release, about as long as a CI package run.
+   **every row builds fresh** in `dist`: Linux and Windows in 33–78 minutes,
+   GitHub's macOS image in four to five hours a row (0.2.2-beta.o1), which is
+   why a release row has 360 minutes.
    The checks a row runs on its packages run there as on a CI run.
 3. The job `client-profile` fetches the profile, the one job with write access and
    no dependency's build script in it, and passes it on as an artifact. No profile

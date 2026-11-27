@@ -51,8 +51,10 @@ jobs:
     # so 15 is its bound, not a build's. Those bounds are `package-check`'s: a
     # release builds `dist` cold (no release writes a cache), which took the
     # Windows arm row past its 60 minutes (0.2.0-beta.o1, 27.11.2026: 48 of
-    # them building), so a release has 300.
-    timeout-minutes: ${{ inputs.source-run != '' && 15 || inputs.release && 300 || matrix.timeout }}
+    # them building). A release has 360, GitHub's most for its own runners:
+    # 300 stopped the aarch64 macOS row of 0.2.2-beta.o1 while packing, after
+    # 292 minutes of `dist` build on GitHub's image (x86_64: 230 and 242).
+    timeout-minutes: ${{ inputs.source-run != '' && 15 || inputs.release && 360 || matrix.timeout }}
     strategy:
       fail-fast: false
       matrix:
