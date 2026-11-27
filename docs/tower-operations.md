@@ -83,7 +83,7 @@ the listing. Publication and withdrawal use a monotonic compare-and-set revision
 an old publish retry cannot undo a later withdrawal. Deleting the Tower player
 cascades its bests. A Central account deletion does not delete the Tower player:
 its data stays, pseudonymised, until the season ends, and its listing is
-withdrawn by the next day (§"Deleted accounts"); `erase_account` deletes it on an
+withdrawn by the next day (§"Deleted accounts"); `erase_accounts` deletes it on an
 individual request. Private bests
 survive raw-run retention until player/cohort removal; the new projection starts
 with verified completions after migration, without inventing scores for old runs.
@@ -124,6 +124,13 @@ existing IDs, immutable publication compatibility, card coverage or game balance
 Both modes reject extra arguments. Success exits zero; refusal exits nonzero with
 a fixed diagnostic containing no input. A failed preflight never changes state.
 
+`--modes` reads no input, connects to nothing and prints one JSON line with the
+arguments and the `--admin` actions this build knows (`{"modes":[…],
+"admin":[…]}`); an older build fails it, so a tool asks before it relies on an
+action. `--admin` exits 0 when all it was asked is done, 75 when an action left
+part of it for a later run of the same input (§"Closed operations",
+`erase_accounts`), and 1 on a refusal or failure.
+
 ## Closed operations
 
 | `action` | Additional fields | Result and semantics |
@@ -136,7 +143,7 @@ a fixed diagnostic containing no input. A failed preflight never changes state.
 | `pause_enrollment` | `cohort` | `done`. Closes new enrollment, preserving existing runs, receipts and immutable content. Exact repeats succeed. Republishing the same content cannot reopen it. |
 | `supervise` | `supervisor`, `run`, `revision`, `recovery` | `{"result":"supervised","revision":<u64>}`. Additionally requires a live dedicated Supervisor credential and the run's current saved revision. `recovery` is `{"kind":"quarantine"}` (stop a reserved, playing or verifying duel and revoke its generations), `{"kind":"resume","host":<UUIDv7 or null>}` (a quarantined run returns to its exact retained package/prefix; an unsealed duel names an enabled compatible Host, a sealed record names none and returns to verification) or `{"kind":"interrupt"}` (retire a quarantined run without a rules result or compensation). A stale revision or wrong phase refuses without change; the reply's revision is the one to name next. |
 | `grant_runtime` | `role` | `done`. Renews the runtime role's reviewed grants (§"Runtime grants") after taking every earlier one back. Refuses a role that is or inherits the schema owner, and any caller that is not the owner. |
-| `erase_account` | `account` | `{"result":"erased","erasure":<"removed", "absent" or "busy">}`. Erases one account's Tower data on an individual request (§"Deleted accounts"): its echoes leave the pool, then its player row and everything that cascades from it (enrollment, runs, receipts, reservations, records, settlements, echo snapshots, personal bests, undelivered awards). `absent`: nothing is held, never or no longer; check the identity before answering a request with it. `busy`: a duel of the account is reserved, playing, being verified or quarantined, and nothing changed; end it first (`supervise` quarantine, then interrupt). Other players' duels against its echoes keep their committed packages, which name the account as the opponent they met, and settle as before. A later signed-in request may enroll the account anew. |
+| `erase_accounts` | `accounts` | `{"result":"erased","removed":<n>,"absent":<n>,"busy":<n>}`, counts only, no account named. Erases each of 1–1024 accounts' Tower data in its own transaction, on individual requests and again after a restore (§"Deleted accounts"): its echoes leave the pool, then its player row and everything that cascades from it (enrollment, runs, receipts, reservations, records, settlements, echo snapshots, personal bests, undelivered awards). The authoritative trace is `tower.players.account`: an erased account has no row there, and every other row of the account hangs on it. `absent`: nothing is held, never or no longer, so a repeat succeeds. `busy`: a duel of the account is reserved, playing, being verified or quarantined, and that account is left unchanged; the exit status is then 75, and the same list runs again later (or after `supervise` quarantine and interrupt). A failure stops the list with status 1; what was erased stays erased, and the same list runs again. Other players' duels against its echoes keep their committed packages, which name the account as the opponent they met, and settle as before. A later signed-in request may enroll the account anew. |
 
 All IDs must be UUIDv7. There is no arbitrary SQL, script, state patch, currency
 grant, award injection, unrevocation, content rewrite or reopening operation.
@@ -328,7 +335,7 @@ changes nothing). Either way the listing is withdrawn as if the owner had
 removed their public identity (`Store::ranking_identity`). The first daily
 check runs ten minutes after the service starts.
 
-On an individual request, `--admin erase_account` (§"Closed operations") removes
+On an individual request, `--admin erase_accounts` (§"Closed operations") removes
 one account's Tower data at once. The account's random identifier then
 remains only inside other players' committed duel packages, as the opponent
 they met; those are integrity-bound to their verified results and go with the
