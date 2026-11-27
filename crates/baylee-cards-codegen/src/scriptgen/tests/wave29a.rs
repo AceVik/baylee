@@ -521,15 +521,21 @@ fn honest_refusals_preserved_for_sideboard_wish_opponent_emblem_and_dynamic_up_t
          Oracle:[+2]: Each opponent gets an emblem with \"At the beginning of your upkeep, this emblem deals 1 damage to you.\"",
     ));
 
-    // Dynamic `TargetMin$ 0 | TargetMax$ X` where X is not whole-pool must NOT emit `count_is_x`.
-    assert!(refused_w29a(
-        "Name:Dynamic Up To Refusal\n\
+    // Dynamic `TargetMin$ 0 | TargetMax$ X` (`Count$xPaid`) emits `TargetReq::up_to_x(...)`.
+    let dynamic_up_to = read_w29a(
+        "Name:Dynamic Up To\n\
          ManaCost:X U\n\
          Types:Sorcery\n\
          A:SP$ ChangeZone | Origin$ Battlefield | Destination$ Hand | ValidTgts$ Creature | TargetMin$ 0 | TargetMax$ X\n\
          SVar:X:Count$xPaid\n\
          Oracle:Return up to X target creatures to their owners' hands.",
-    ));
+    );
+    assert!(
+        dynamic_up_to.abilities[0]
+            .contains("TargetReq::up_to_x(TargetSpec::Object(&Filter::CREATURE))"),
+        "{}",
+        dynamic_up_to.abilities[0]
+    );
 
     // `MayPlayLimit$ 1` turn-long exile cast permission must NOT emit unlimited `GrantLinkedExilePermission`.
     assert!(refused_w29a(
@@ -620,5 +626,45 @@ fn pass3_lazav_endless_horizons_jacob_frye_and_multi_exile_condition() {
         dracosaur_like.abilities[0].contains("ZoneSel::ExileAll"),
         "{}",
         dracosaur_like.abilities[0]
+    );
+}
+
+#[test]
+fn etb_counter_delayed_static_stack_exile_and_paired_secondary_evasion() {
+    let mut cats = cats_w29a();
+    cats.creature.push("Bird".into());
+    cats.normalize();
+
+    // Kumano Faces Kakkazan / Chocobo Camp shape: SpellCast delayed trigger -> Effect(ETB PutCounter) | Execute$ ExileSelf.
+    let kumano = parse(
+        "Name:Chocobo Camp\nManaCost:R\nTypes:Instant\n\
+A:SP$ Effect | Triggers$ NextCreat\n\
+SVar:NextCreat:Mode$ SpellCast | ValidCard$ Creature | ValidActivatingPlayer$ You | OneOff$ True | Static$ True | Execute$ ReplEffAddCounter\n\
+SVar:ReplEffAddCounter:DB$ Effect | ReplacementEffects$ ETBAddCounter | RememberObjects$ TriggeredCard | Execute$ TrigRemoveSelf\n\
+SVar:ETBAddCounter:Event$ Moved | Origin$ Stack | Destination$ Battlefield | ValidCard$ Card.IsRemembered | ReplaceWith$ ETBAddExtraCounter | ReplacementResult$ Updated\n\
+SVar:ETBAddExtraCounter:DB$ PutCounter | ETB$ True | Defined$ ReplacedCard | CounterType$ P1P1 | CounterNum$ 1 | SubAbility$ TrigRemoveSelf\n\
+SVar:TrigRemoveSelf:DB$ ChangeZone | Defined$ Self | Origin$ Command | Destination$ Exile",
+    );
+    let k_body = transcode(&kumano, &cats, None)
+        .unwrap_or_else(|| panic!("refused: {:?}", refusal_reason(&kumano, &cats, None)));
+    assert!(
+        k_body.abilities[0].contains("Effect::WhenNextSpellCastThisTurn")
+            && k_body.abilities[0].contains("Effect::EventSpellEntersWithP1P1 { n: 1 }"),
+        "{}",
+        k_body.abilities[0]
+    );
+
+    let tatsunari = parse(
+        "Name:Tatsunari, Toad Rider\nManaCost:2 B\nTypes:Legendary Creature Human Ninja\nPT:3/3\n\
+A:AB$ Effect | Cost$ 1 GU | ValidTgts$ Frog.YouCtrl | RememberObjects$ Targeted | StaticAbilities$ STCantBlockBy,STCantBlockByFrog\n\
+SVar:STCantBlockBy:Mode$ CantBlockBy | ValidAttacker$ Creature.EffectSource | ValidBlocker$ Creature.withoutFlying+withoutReach\n\
+SVar:STCantBlockByFrog:Mode$ CantBlockBy | ValidAttacker$ Creature.IsRemembered | ValidBlocker$ Creature.withoutFlying+withoutReach | Secondary$ True",
+    );
+    let t_body = transcode(&tatsunari, &cats, None)
+        .unwrap_or_else(|| panic!("refused: {:?}", refusal_reason(&tatsunari, &cats, None)));
+    assert!(
+        t_body.abilities[0].contains("Modifier::CantBeBlockedBy(&"),
+        "{}",
+        t_body.abilities[0]
     );
 }

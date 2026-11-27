@@ -206,6 +206,9 @@ pub fn effect_benefit(effect: &Effect, x: u32) -> Option<i32> {
             ..
         }
         | Effect::AttachChosen { .. }
+        | Effect::AttachChosenThen { .. }
+        | Effect::AttachObject { .. }
+        | Effect::AttachLtbAttachments { .. }
         | Effect::PutOntoBattlefieldAttached { .. }
         | Effect::PutOntoBattlefieldAttacking { .. }
         | Effect::CreateTokenAttached { .. }

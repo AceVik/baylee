@@ -6,10 +6,10 @@ pub use players::{
     first_target_players, target_player_options, target_player_options_from, targeted_players,
 };
 
-use super::protection::{protected_from_object, untargetable_by_source_object};
+use super::protection::{protected_from_object, untargetable_by_source_with};
 use super::{
     defending_player_of, live_context, matches_for_x, matches_with_context, players,
-    protected_from, target_domain, target_pair, untargetable_by, untargetable_by_source,
+    protected_from, target_domain, target_pair, untargetable_by,
 };
 use crate::object::GameObject;
 use crate::state::GameState;
@@ -234,10 +234,21 @@ pub(crate) fn target_options_with_x(
     context: RuleContext,
     x: Option<u32>,
 ) -> Vec<ObjectId> {
+    target_options_with_x_kind(spec, state, you, context, x, None)
+}
+
+fn target_options_with_x_kind(
+    spec: &TargetSpec,
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+    x: Option<u32>,
+    is_spell: Option<bool>,
+) -> Vec<ObjectId> {
     let Some((widened, filter)) = crate::casting::x_bounded(*spec) else {
-        return target_options_with_context(spec, state, you, context);
+        return target_options_with_kind(spec, state, you, context, is_spell);
     };
-    let mut options = target_options_with_context(&widened, state, you, context);
+    let mut options = target_options_with_kind(&widened, state, you, context, is_spell);
     options.retain(|id| {
         state
             .object(*id)
@@ -280,15 +291,32 @@ pub fn target_options_with_context(
     you: PlayerId,
     context: RuleContext,
 ) -> Vec<ObjectId> {
+    target_options_with_kind(spec, state, you, context, None)
+}
+
+fn target_options_with_kind(
+    spec: &TargetSpec,
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+    is_spell: Option<bool>,
+) -> Vec<ObjectId> {
     let this = context.source;
     // Protection (CR 702.16b) keeps out matching sources, and so does a
     // printed "can't be the target of" sentence; hexproof and shroud
     // (CR 702.11b/702.18b) keep out whole classes of chooser.
+    let src_obj = state.object(this);
     let mut options = choice_options_with_context(spec, state, you, context)
         .into_iter()
         .filter(|id| {
             !protected_from(state, *id, this)
-                && !untargetable_by_source(state, *id, this)
+                && !src_obj.is_some_and(|src| {
+                    let spell = is_spell.unwrap_or(
+                        src.zone == crate::zone::Zone::Stack
+                            && src.kind != crate::object::ObjectKind::AbilityOnStack,
+                    );
+                    untargetable_by_source_with(state, *id, you, src, spell)
+                })
                 && !untargetable_by(state, *id, you)
         })
         .collect();
@@ -359,7 +387,7 @@ pub fn spell_target_options_relative(
             // zone), and a spell on the stack is never a legal target for itself.
             *id != source
                 && !protected_from_object(state, *id, &spell)
-                && !untargetable_by_source_object(state, *id, &spell)
+                && !untargetable_by_source_with(state, *id, you, &spell, true)
                 && aura_target_permitted(state, &spell, *id)
                 && !untargetable_by(state, *id, you)
         })
@@ -610,8 +638,11 @@ fn stack_target_options_impl(
             .map(|reference| reference.object)
             .or(obj.event_object),
     };
+    let is_spell = obj.kind != crate::object::ObjectKind::AbilityOnStack;
     let mut objects = target_pair::stack_options(state, obj, spec, context, reference, retargeting)
-        .unwrap_or_else(|| target_options_with_x(spec, state, you, context, Some(obj.x_value)));
+        .unwrap_or_else(|| {
+            target_options_with_x_kind(spec, state, you, context, Some(obj.x_value), Some(is_spell))
+        });
     target_domain::retain(state, &mut objects, target_domain::stack_walls(obj));
     objects.retain(|id| *id != obj.id && aura_target_permitted(state, obj, *id));
     (
@@ -682,10 +713,26 @@ enum FilterPlayerScope {
 }
 
 fn filter_player_scope(filter: &Filter) -> FilterPlayerScope {
+    use baylee_cards_dsl::PlayerRel;
     match filter {
-        Filter::ControlledByOpponent => FilterPlayerScope::OpponentsOnly,
-        Filter::ControlledByYou | Filter::OwnedByYou => FilterPlayerScope::YouOnly,
-        Filter::Not(inner) if matches!(**inner, Filter::ControlledByYou | Filter::OwnedByYou) => {
+        Filter::ControlledByOpponent
+        | Filter::OwnedBy(PlayerRel::Opponent | PlayerRel::EachOpponent)
+        | Filter::ControlledBy(PlayerRel::Opponent | PlayerRel::EachOpponent) => {
+            FilterPlayerScope::OpponentsOnly
+        }
+        Filter::ControlledByYou
+        | Filter::OwnedByYou
+        | Filter::OwnedBy(PlayerRel::You)
+        | Filter::ControlledBy(PlayerRel::You) => FilterPlayerScope::YouOnly,
+        Filter::Not(inner)
+            if matches!(
+                **inner,
+                Filter::ControlledByYou
+                    | Filter::OwnedByYou
+                    | Filter::OwnedBy(PlayerRel::You)
+                    | Filter::ControlledBy(PlayerRel::You)
+            ) =>
+        {
             FilterPlayerScope::NotYou
         }
         Filter::And(parts) => {

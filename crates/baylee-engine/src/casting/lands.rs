@@ -341,8 +341,9 @@ pub(crate) fn graveyard_face_open(
                         .contains(baylee_cards_dsl::KeywordSet::RETRACE)
                     || face.flashback.is_some()
                     || face.escape.is_some()
-                    || face.beam_me_up.is_some()
-                    || (face.mayhem.is_some() && mayhem_discarded_this_turn(state, player, object))
+                    || super::effective_beam_me_up_cost(state, card, face).is_some()
+                    || (super::effective_mayhem_cost(state, card, face).is_some()
+                        && mayhem_discarded_this_turn(state, player, object))
             })
 }
 
@@ -355,7 +356,37 @@ pub(crate) fn beam_return_options(
     player: PlayerId,
     card: ObjectId,
 ) -> Vec<ObjectId> {
-    crate::engine::cost_wizard::options(state, player, card, &BEAM_RETURN)
+    use crate::state::CardLookup;
+    let mut opts = crate::engine::cost_wizard::options(state, player, card, &BEAM_RETURN);
+    let Some(obj) = state.object(card) else {
+        return opts;
+    };
+    let printed = obj
+        .card
+        .and_then(|c| state.bases.card(c.index))
+        .and_then(|def| def.faces.first())
+        .is_some_and(|face| face.beam_me_up.is_some());
+    if printed {
+        return opts;
+    }
+    let matching: smallvec::SmallVec<[(bool, Option<ObjectId>); 2]> = state
+        .effects
+        .iter()
+        .filter_map(|fx| match fx.modifier {
+            baylee_cards_dsl::Modifier::GrantsBeamMeUpManaCost { cant_return_source }
+                if crate::effects::source_is_present(state, fx)
+                    && crate::effects::matches_filter(state, fx, obj) =>
+            {
+                Some((cant_return_source, fx.source))
+            }
+            _ => None,
+        })
+        .collect();
+    if matching.is_empty() || matching.iter().any(|&(excl, _)| !excl) {
+        return opts;
+    }
+    opts.retain(|cand| matching.iter().any(|&(_, src)| src != Some(*cand)));
+    opts
 }
 
 /// Which permission lets `player` play a land from their own graveyard:
@@ -630,7 +661,7 @@ pub(crate) fn mayhem_spell_permission(state: &GameState, player: PlayerId, card:
                 .card
                 .and_then(|c| state.bases.card(c.index))
                 .and_then(|def| def.faces.first())
-                .is_some_and(|face| face.mayhem.is_some())
+                .is_some_and(|face| super::effective_mayhem_cost(state, card, face).is_some())
     })
 }
 
@@ -696,6 +727,7 @@ pub(super) fn play_land_with_timing(
     }
     // A land from the graveyard under Muldrotha's allowance uses its land
     // for the turn; one a permission for this very card opened does not.
+    let mut land_rider = baylee_cards_dsl::ZonePlayCastRider::None;
     if obj.zone == Zone::Graveyard
         && play_permission(state, player, card).is_none()
         && !mayhem_land_permission(state, player, card)
@@ -703,7 +735,7 @@ pub(super) fn play_land_with_timing(
         if let Some(permission) = graveyard_land_permission_for(state, player, obj) {
             note_graveyard_play(state, player, Some(permission), TypeSet::LAND);
         } else {
-            super::consume_alt_cast_land_allowance(state, player, card);
+            land_rider = super::consume_alt_cast_land_allowance(state, player, card);
         }
     } else if obj.zone != Zone::Hand
         && play_permission(state, player, card).is_none()
@@ -723,7 +755,7 @@ pub(super) fn play_land_with_timing(
                     && crate::effects::source_is_present(state, fx)
             }))
     {
-        super::consume_alt_cast_land_allowance(state, player, card);
+        land_rider = super::consume_alt_cast_land_allowance(state, player, card);
     }
     state.players[player.get() as usize].lands_played_this_turn += 1;
     {
@@ -739,6 +771,7 @@ pub(super) fn play_land_with_timing(
             Cause::Effect,
         )
         .map_err(CastFailure::State)?;
+    crate::entry::set_entry_zone_play_rider(state, card, land_rider);
     state.journal.record(GameEvent::LandPlayed {
         object: card,
         player,

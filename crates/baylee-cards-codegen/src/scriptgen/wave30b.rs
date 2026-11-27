@@ -214,7 +214,7 @@ impl Tx<'_> {
             })
     }
 
-    fn wave30b_consume_cleanup(
+    pub(super) fn wave30b_consume_cleanup(
         &self,
         next: Option<String>,
         expected_flags: &[&str],

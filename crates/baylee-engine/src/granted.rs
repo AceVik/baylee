@@ -5,8 +5,9 @@ use crate::prevention::{Shield, ShieldKind, ShieldOrigin, Shielded};
 use crate::state::GameState;
 use crate::zone::Zone;
 use baylee_cards_dsl::{SpecialActionCost, SpecialActionTiming};
-use baylee_core::ids::{GrantedActionId, PlayerId, TargetRef};
+use baylee_core::ids::{DamageSourceRef, EffectId, GrantedActionId, PlayerId, TargetRef};
 use baylee_core::mana::ManaColor;
+use smallvec::SmallVec;
 
 /// One player's independent permission; its effect determines whether it is reusable.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -15,6 +16,18 @@ pub struct GrantedAction {
     pub player: PlayerId,
     /// Immutable action description, retained even after source or recipient moves.
     pub offer: GrantedActionOffer,
+}
+
+/// One continuous-effect group that can be ended by taking its linked special
+/// action (e.g. a Licid's "pay {cost} to end this effect", CR 116.2a).
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct EndableEffectGroup {
+    /// Special action whose payment removes [`Self::effects`].
+    pub action: GrantedActionId,
+    /// Battlefield incarnation whose transformation this group tracks.
+    pub target: DamageSourceRef,
+    /// Continuous effects removed when the action is taken.
+    pub effects: SmallVec<[EffectId; 4]>,
 }
 
 impl GameState {
@@ -34,9 +47,30 @@ impl GameState {
         id
     }
 
+    /// Whether the permission itself is currently live and legal to invoke
+    /// (independent of whether its cost is already in the mana pool).
+    pub(crate) fn granted_action_active(&self, action: &GrantedAction) -> bool {
+        if self.has_left(action.player) {
+            return false;
+        }
+        if let GrantedActionKind::EndContinuousEffects { target } = action.offer.effect {
+            let live_group = self
+                .endable_effect_groups
+                .iter()
+                .any(|group| group.action == action.offer.id && group.target == target);
+            let live_target = self.object(target.object).is_some_and(|o| {
+                o.version == target.version
+                    && o.zone == Zone::Battlefield
+                    && !o.status.contains(crate::object::Status::PHASED_OUT)
+            });
+            return live_group && live_target;
+        }
+        true
+    }
+
     /// Whether the payment and result fit the represented state, atomically.
     pub(crate) fn granted_action_payable(&self, action: &GrantedAction) -> bool {
-        if self.has_left(action.player) {
+        if !self.granted_action_active(action) {
             return false;
         }
         if let GrantedActionKind::AddMana { color, amount } = action.offer.effect
@@ -158,8 +192,26 @@ impl GameState {
                     );
                 }
             }
+            GrantedActionKind::EndContinuousEffects { target } => {
+                self.end_continuous_effect_group(id, target);
+            }
         }
         true
+    }
+
+    fn end_continuous_effect_group(&mut self, id: GrantedActionId, target: DamageSourceRef) {
+        if let Some(pos) = self
+            .endable_effect_groups
+            .iter()
+            .position(|group| group.action == id && group.target == target)
+        {
+            let group = self.endable_effect_groups.remove(pos);
+            self.effects
+                .remove_where(|fx| group.effects.contains(&fx.id));
+        }
+        self.granted_actions.retain(|grant| grant.offer.id != id);
+        self.invalidate_projections();
+        self.refresh_characteristics();
     }
 
     /// A conservative shared-resource bound for life-to-colorless permissions.

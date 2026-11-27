@@ -22,6 +22,16 @@ impl Tx<'_> {
             || trigger.starts_with("Trigger::DealsCombatDamageToPlayerOrPlaneswalker(")
     }
 
+    /// Whether `trigger` is a `DamageDone` player-target trigger binding `event_player`
+    /// to the damaged player (`PlayerRel::DamagedPlayer`).
+    pub(super) fn wave28b_trigger_binds_damage_player(trigger: &str) -> bool {
+        trigger.starts_with("Trigger::DealsDamageToPlayer {")
+            || trigger.starts_with("Trigger::DealsCombatDamageToPlayer(")
+            || trigger.starts_with("Trigger::DealsCombatDamageToOpponent(")
+            || trigger.starts_with("Trigger::DealsDamageToOpponent(")
+            || trigger.starts_with("Trigger::DealsCombatDamageToYou(")
+    }
+
     /// Whether a `DamageDone`/`DamageDealtOnce` `ValidSource$` names the
     /// attached permanent (`EnchantedBy`/`EquippedBy`/`AttachedBy`).
     pub(super) fn wave28b_is_attached_damage_source(source: &str) -> bool {
@@ -1062,19 +1072,8 @@ impl Tx<'_> {
                 .collect()
         };
         match def {
-            "TriggeredSourceLKICopy" | "TriggeredSource"
-                if matches!(
-                    self.trigger_mode.as_deref(),
-                    Some("DamageDone" | "DamageDoneOnce" | "DamageDealtOnce")
-                ) && target.is_none() =>
-            {
-                if self.trigger_is_self {
-                    Some(emit_filter("&Filter::This"))
-                } else if self.damage_trigger_binds_source {
-                    Some(emit_filter("&Filter::Reference"))
-                } else {
-                    None
-                }
+            "TriggeredSourceLKICopy" | "TriggeredSource" => {
+                self.triggered_event_filter(def, target).map(emit_filter)
             }
             "TriggeredCardLKICopy" | "TriggeredCard"
                 if self.trigger_mode.as_deref() == Some("Mutates")
@@ -1186,8 +1185,29 @@ impl Tx<'_> {
             self.body.statics.truncate(saved_statics);
             return None;
         };
+        if decider == "True"
+            && !targets_a_player
+            && !p.has("RememberDrawn")
+            && let Some(domain) = match defined.as_deref() {
+                Some("Player") => Some("RepeatDomain::EachPlayer"),
+                Some("Opponent" | "Player.Opponent") => Some("RepeatDomain::EachOpponent"),
+                _ => None,
+            }
+        {
+            if let Some(n) = self.amount_or_count_ext(p.take("NumCards").as_deref().unwrap_or("1"))
+            {
+                return Some(vec![format!(
+                    "Effect::RepeatEach {{ domain: {domain}, effects: &[Effect::MayDoFor {{ \
+                     player: PlayerRel::EventPlayer, effects: &[Effect::DrawCardsFor {{ \
+                     amount: {n}, who: PlayerRel::EventPlayer }}] }}] }}"
+                )]);
+            }
+            *p = saved;
+            self.body.statics.truncate(saved_statics);
+            return None;
+        }
         let decider_rel = if decider == "True" {
-            (who == "PlayerRel::You").then_some("PlayerRel::You")
+            (Self::wave28b_is_single_player_rel(who) && !p.has("RememberDrawn")).then_some(who)
         } else if targets_a_player
             && defined.is_none()
             && who == "PlayerRel::Chosen"
@@ -1375,7 +1395,7 @@ impl Tx<'_> {
             );
         }
         if api == "PutCounter"
-            && p.peek("RememberCards") == Some("True")
+            && matches!(p.peek("RememberCards"), None | Some("True"))
             && single_target
             && !targets_a_player
             && target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
@@ -2346,6 +2366,27 @@ impl Tx<'_> {
         if matches!(cost, "Discard<0/Hand>" | "Discard<1/Hand>") {
             return Some((rest_without_cost(), OptionalTriggerPrice::DiscardHand));
         }
+        let is_immediate = body.trim_start().starts_with("AB$ ImmediateTrigger");
+        if self.is_dies_self_trigger
+            && cost == "ExileAnyGrave<1/Card.TriggeredNewCard>"
+            && !rest_without_cost().contains("Triggered")
+        {
+            return Some((
+                rest_without_cost(),
+                OptionalTriggerPrice::ExileSelfFromGraveyard {
+                    reflexive: is_immediate,
+                },
+            ));
+        }
+        if self.in_granted_trigger
+            && is_immediate
+            && (cost == "Sac<1/OriginalHost>"
+                || (cost.starts_with("Sac<1/OriginalHost/")
+                    && cost.find('>') == Some(cost.len() - 1)))
+            && !rest_without_cost().contains("OriginalHost")
+        {
+            return Some((rest_without_cost(), OptionalTriggerPrice::SacrificeGrantor));
+        }
         if cost == "ExileFromGrave<1/CARDNAME>"
             || (cost.starts_with("ExileFromGrave<1/CARDNAME/")
                 && cost.find('>') == Some(cost.len() - 1))
@@ -2549,6 +2590,33 @@ impl Tx<'_> {
         None
     }
 
+    /// Wraps `Effect::MayDo { effects: &[cost_effect] }` ahead of an
+    /// unconditional `ReflexiveWhen::Always` trigger retargeted onto `event`.
+    fn wrap_reflexive_optional_trigger(
+        effects: &str,
+        cost_effect: &str,
+        event: &str,
+        has_targets: bool,
+    ) -> Option<String> {
+        let prefix =
+            "Effect::ReflexiveTrigger { when: ReflexiveWhen::Always, once: true, condition: None, ";
+        if has_targets
+            || !effects.starts_with(prefix)
+            || !effects.ends_with('}')
+            || !effects[prefix.len()..].contains("effects: &[")
+        {
+            return None;
+        }
+        let rewritten = effects.replacen(
+            "when: ReflexiveWhen::Always,",
+            &format!("when: ReflexiveWhen::Event({event}),"),
+            1,
+        );
+        Some(format!(
+            "Effect::MayDo {{ effects: &[{cost_effect}] }}, {rewritten}"
+        ))
+    }
+
     fn wave28b_choose_number_pay_price(
         &mut self,
         parts: &[&str],
@@ -2590,6 +2658,59 @@ impl Tx<'_> {
         ))
     }
 
+    fn wrap_choose_number_pay_price(
+        pay_kind: &str,
+        prompt: &str,
+        max: &str,
+        effects: &str,
+        has_targets: bool,
+    ) -> Option<String> {
+        if pay_kind == "VariablePayKind::Energy"
+            && !effects.contains("Amount::ResolutionChosenNumber")
+            && let Some(n) = max
+                .strip_prefix("Amount::Fixed(")
+                .and_then(|s| s.strip_suffix(')'))
+                .and_then(|s| s.parse::<u32>().ok())
+            && n >= 1
+        {
+            return Some(if n == 1 {
+                format!(
+                    "Effect::IfCondition {{ condition: Condition::AmountAtLeast(\
+                     Amount::CountersOnYou(CounterKind::Energy), 1), \
+                     then: &[Effect::ChooseNumberEx {{ chooser: PlayerRel::You, \
+                     min: Amount::Fixed(0), max: Amount::Fixed(1), \
+                     prompt: NumberChoiceKind::EnergyPayment, \
+                     pay_cost: Some(VariablePayKind::Energy), \
+                     then: &[Effect::IfCondition {{ condition: Condition::AmountCompare {{ \
+                     left: &Amount::ResolutionChosenNumber, op: AmountCmp::Equal, \
+                     right: &Amount::Fixed(1) }}, then: &[{effects}], otherwise: &[] }}] }}], \
+                     otherwise: &[] }}"
+                )
+            } else {
+                format!(
+                    "Effect::IfCondition {{ condition: Condition::AmountAtLeast(\
+                     Amount::CountersOnYou(CounterKind::Energy), {n}), \
+                     then: &[Effect::MayDo {{ effects: &[Effect::ChooseNumberEx {{ \
+                     chooser: PlayerRel::You, min: Amount::Fixed({n}), \
+                     max: Amount::Fixed({n}), prompt: NumberChoiceKind::EnergyPayment, \
+                     pay_cost: Some(VariablePayKind::Energy), \
+                     then: &[{effects}] }}] }}], otherwise: &[] }}"
+                )
+            });
+        }
+        if has_targets
+            || effects.contains("Effect::ReflexiveTrigger")
+            || !effects.contains("Amount::ResolutionChosenNumber")
+        {
+            return None;
+        }
+        Some(format!(
+            "Effect::ChooseNumberEx {{ chooser: PlayerRel::You, min: Amount::Fixed(0), \
+             max: {max}, prompt: {prompt}, pay_cost: Some({pay_kind}), \
+             then: &[{effects}] }}"
+        ))
+    }
+
     /// Formats any [`OptionalTriggerPrice`] wrapper around the compiled effects
     /// of a trigger or Saga chapter. Returns `None` if a `ChooseNumberPay`
     /// ability declared targets or never read `Amount::ResolutionChosenNumber`.
@@ -2628,6 +2749,23 @@ impl Tx<'_> {
                 "Effect::MayDo {{ effects: &[Effect::RemoveCounterSelf {{ kind: {kind}, n: {n} }}, \
                  {effects}] }}"
             ),
+            OptionalTriggerPrice::ExileSelfFromGraveyard { reflexive: false } => {
+                format!("Effect::MayDo {{ effects: &[Effect::ExileSource, {effects}] }}")
+            }
+            OptionalTriggerPrice::ExileSelfFromGraveyard { reflexive: true } => {
+                Self::wrap_reflexive_optional_trigger(
+                    effects,
+                    "Effect::ExileSource",
+                    "ReflexiveEvent::ExiledThis",
+                    has_targets,
+                )?
+            }
+            OptionalTriggerPrice::SacrificeGrantor => Self::wrap_reflexive_optional_trigger(
+                effects,
+                "Effect::SacrificeGrantor",
+                "ReflexiveEvent::SacrificedGrantor",
+                has_targets,
+            )?,
             OptionalTriggerPrice::ExileFromGraveyardN { count, filter } => format!(
                 "Effect::MayExileFromYourGraveyardThen {{ count: {count}, \
                  filter: {filter}, then: &[{effects}] }}"
@@ -2641,53 +2779,7 @@ impl Tx<'_> {
                 pay_kind,
                 prompt,
                 max,
-            } => {
-                if pay_kind == "VariablePayKind::Energy"
-                    && !effects.contains("Amount::ResolutionChosenNumber")
-                    && let Some(n) = max
-                        .strip_prefix("Amount::Fixed(")
-                        .and_then(|s| s.strip_suffix(')'))
-                        .and_then(|s| s.parse::<u32>().ok())
-                    && n >= 1
-                {
-                    if n == 1 {
-                        format!(
-                            "Effect::IfCondition {{ condition: Condition::AmountAtLeast(\
-                             Amount::CountersOnYou(CounterKind::Energy), 1), \
-                             then: &[Effect::ChooseNumberEx {{ chooser: PlayerRel::You, \
-                             min: Amount::Fixed(0), max: Amount::Fixed(1), \
-                             prompt: NumberChoiceKind::EnergyPayment, \
-                             pay_cost: Some(VariablePayKind::Energy), \
-                             then: &[Effect::IfCondition {{ condition: Condition::AmountCompare {{ \
-                             left: &Amount::ResolutionChosenNumber, op: AmountCmp::Equal, \
-                             right: &Amount::Fixed(1) }}, then: &[{effects}], otherwise: &[] }}] }}], \
-                             otherwise: &[] }}"
-                        )
-                    } else {
-                        format!(
-                            "Effect::IfCondition {{ condition: Condition::AmountAtLeast(\
-                             Amount::CountersOnYou(CounterKind::Energy), {n}), \
-                             then: &[Effect::MayDo {{ effects: &[Effect::ChooseNumberEx {{ \
-                             chooser: PlayerRel::You, min: Amount::Fixed({n}), \
-                             max: Amount::Fixed({n}), prompt: NumberChoiceKind::EnergyPayment, \
-                             pay_cost: Some(VariablePayKind::Energy), \
-                             then: &[{effects}] }}] }}], otherwise: &[] }}"
-                        )
-                    }
-                } else {
-                    if has_targets
-                        || effects.contains("Effect::ReflexiveTrigger")
-                        || !effects.contains("Amount::ResolutionChosenNumber")
-                    {
-                        return None;
-                    }
-                    format!(
-                        "Effect::ChooseNumberEx {{ chooser: PlayerRel::You, min: Amount::Fixed(0), \
-                         max: {max}, prompt: {prompt}, pay_cost: Some({pay_kind}), \
-                         then: &[{effects}] }}"
-                    )
-                }
-            }
+            } => Self::wrap_choose_number_pay_price(pay_kind, prompt, &max, effects, has_targets)?,
         })
     }
 
@@ -3395,7 +3487,8 @@ impl Tx<'_> {
         let saved_statics = self.body.statics.len();
         let saved_unclaimed = self.unclaimed.borrow().clone();
         let res = (|| {
-            if p.take("RememberCards").as_deref() != Some("True") {
+            let rem_cards = p.take("RememberCards");
+            if !matches!(rem_cards.as_deref(), None | Some("True")) {
                 return None;
             }
             if !matches!(
@@ -3415,8 +3508,13 @@ impl Tx<'_> {
             let (eff_api, mut ep) = Params::parse(&sub_body)?;
             ep.drop_prose();
             let eff_sub = ep.take("SubAbility");
+            let rem_ok = match (rem_cards.as_deref(), ep.take("RememberObjects").as_deref()) {
+                (Some("True"), Some("Remembered")) => true,
+                (None, Some("Targeted" | "ParentTarget")) if !self.in_delayed => true,
+                _ => false,
+            };
             if eff_api != "Effect"
-                || ep.take("RememberObjects").as_deref() != Some("Remembered")
+                || !rem_ok
                 || ep.take("Duration").as_deref() != Some("Permanent")
                 || !matches!(
                     ep.take("ForgetOnMoved")

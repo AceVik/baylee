@@ -80,6 +80,9 @@ fn refusal_reason_face(
     if tx.block_halves_paired().is_none() {
         return tx.unclaimed.into_inner();
     }
+    if tx.commander_tax_pair_complete().is_none() {
+        return tx.unclaimed.into_inner();
+    }
     // [`transcode`]'s last refusal, mirrored. A script that is read in full
     // and yields nothing is a card whose rules text this transcoder has no
     // rule for at all — usually a vanilla body, and never a defect — but it
@@ -117,15 +120,41 @@ pub fn refusal_reason(
     let Some(mode) = script.alternate_mode.as_deref() else {
         return Some("ALTERNATE face without AlternateMode".to_string());
     };
+    if mode == "Meld" {
+        if script
+            .meld_pair
+            .as_deref()
+            .is_none_or(|s| s.trim().is_empty())
+        {
+            return Some("`AlternateMode:Meld` without `MeldPair:`".to_string());
+        }
+        let Some(back) = script.alternate.as_deref() else {
+            return refusal_reason_face(script, cats, tokens, false, None);
+        };
+        if back.alternate_mode.is_some() || back.alternate.is_some() {
+            return Some("more than two faces".to_string());
+        }
+        if let Some(line) = back.unknown_lines.first() {
+            let head = line.split(':').next().unwrap_or(line);
+            return Some(format!("unmodelled line kind `{head}:`"));
+        }
+        if let Some(why) = refusal_reason_face(back, cats, tokens, true, None) {
+            return Some(why);
+        }
+        return refusal_reason_face(script, cats, tokens, false, None);
+    }
     if !matches!(
         mode,
-        "Split" | "Adventure" | "Modal" | "DoubleFaced" | "Prepare"
+        "Split" | "Adventure" | "Omen" | "Flip" | "Modal" | "DoubleFaced" | "Prepare"
     ) {
         return Some(format!("unsupported alternate mode `{mode}`"));
     }
     let Some(back) = script.alternate.as_deref() else {
         return Some("alternate mode without an ALTERNATE face".to_string());
     };
+    if mode == "Omen" && !back.type_line.split_whitespace().any(|w| w == "Omen") {
+        return Some("Omen alternate face without Omen subtype".to_string());
+    }
     let is_room = script.is_room || back.is_room;
     if is_room && (mode != "Split" || !script.is_room || !back.is_room) {
         return Some("Room card without two Room split halves".to_string());
@@ -231,6 +260,7 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "RemoveCounterAll",
     "Proliferate",
     "SetState",
+    "Meld",
     "Cleanup",
     "Sacrifice",
     "Pump",
@@ -248,6 +278,7 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "Fight",
     "Poison",
     "Attach",
+    "Unattach",
     "MustBlock",
     "RevealHand",
     "CopySpellAbility",
@@ -277,6 +308,8 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "Radiation",
     "ExchangeControl",
     "MoveCounter",
+    "EachDamage",
+    "SwitchBlock",
     "LosesGame",
     "SkipPhase",
     "TwoPiles",

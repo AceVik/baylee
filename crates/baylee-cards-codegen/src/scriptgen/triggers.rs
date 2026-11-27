@@ -45,19 +45,36 @@ impl Tx<'_> {
         // cast this spell", which fires on the stack via
         // `cast_this_spell_triggers` for `Trigger::SpellCast(&Filter::This)`
         // (CR 113.6k). Any other zoneless `SpellCast` stays refused.
-        if !zoned {
-            if p.peek("ValidCard") == Some("Card.Self")
+        let granted_zoned = !zoned
+            && self.in_granted_trigger
+            && !p
+                .peek("ValidCard")
+                .is_some_and(|v| v.split(['.', '+', ',']).any(|a| a.trim() == "Self"));
+        if !zoned && !granted_zoned {
+            if !self.in_granted_trigger
                 && matches!(p.peek("ValidActivatingPlayer"), None | Some("You"))
                 && !p.has("ActivatorThisTurnCast")
                 && !p.has("TargetsValid")
                 && !p.has("ValidSA")
                 && !p.has("Static")
+                && let Some(valid) = p.peek("ValidCard")
+                && self.match_self_spell_cast(valid).is_some()
             {
                 p.take("ValidCard");
                 p.take("ValidActivatingPlayer");
                 return Some("Trigger::SpellCast(&Filter::This)".to_string());
             }
             return self.deny("a `SpellCast` trigger with no `TriggerZones$`".to_string());
+        }
+        if let Some(sa_raw) = p.peek("ValidSA").map(str::to_string)
+            && sa_raw != "Spell.Warp"
+            && matches!(p.peek("ValidCard"), None | Some("Card"))
+            && !p.has("TargetsValid")
+            && !p.has("ActivatorThisTurnCast")
+            && !p.has("Static")
+            && let Some(trigger) = self.spell_cast_valid_sa_trigger(p, &sa_raw)
+        {
+            return Some(trigger);
         }
         let valid = match p.take("ValidCard") {
             Some(valid) => valid,
@@ -197,7 +214,12 @@ impl Tx<'_> {
     /// `T:Mode$ SpellCastOrCopy` — magecraft ("whenever a player casts or
     /// copies a matching spell", CR 707.10).
     fn spell_cast_or_copy_trigger(&mut self, p: &mut Params, zoned: bool) -> Option<String> {
-        if !zoned {
+        let granted_zoned = !zoned
+            && self.in_granted_trigger
+            && !p
+                .peek("ValidCard")
+                .is_some_and(|v| v.split(['.', '+', ',']).any(|a| a.trim() == "Self"));
+        if !zoned && !granted_zoned {
             return self.deny("a `SpellCastOrCopy` trigger with no `TriggerZones$`".to_string());
         }
         let valid = match p.take("ValidCard") {
@@ -234,6 +256,122 @@ impl Tx<'_> {
         let expr = self.filter_expr_in_zone(&valid, true)?;
         let filter = self.body.filter_static("TRIGGER", &expr);
         Some(format!("Trigger::SpellCastOrCopied(&{filter})"))
+    }
+
+    fn match_self_spell_cast(&mut self, valid: &str) -> Option<()> {
+        match valid.trim() {
+            "Card.Self" => Some(()),
+            "Card.Self+kicked" => {
+                if self.has_x_kicker {
+                    self.trigger_self_etb_kicked_with = Some(0);
+                    Some(())
+                } else if self.has_single_kicker {
+                    self.trigger_self_spell_cond =
+                        Some("Condition::SourceMatches(&Filter::Kicked)".to_string());
+                    Some(())
+                } else {
+                    None
+                }
+            }
+            "Card.Self+wasCastFromYourHandByYou" | "Card.wasCastFromYourHandByYou+Self" => {
+                self.trigger_self_spell_cond = Some(
+                    "Condition::All(&[Condition::SourceWasCastByYou, Condition::SourceCastFromZone(ZoneRef::Hand)])"
+                        .to_string(),
+                );
+                Some(())
+            }
+            "Card.Self+!wasCastFromExile" | "Card.!wasCastFromExile+Self" => {
+                self.trigger_self_spell_cond = Some(
+                    "Condition::Not(&Condition::SourceCastFromZone(ZoneRef::Exile))".to_string(),
+                );
+                Some(())
+            }
+            other => {
+                let slot = other.strip_prefix("Card.Self+kicked ")?;
+                let idx = self.dual_kicker_index(slot)?;
+                self.trigger_self_etb_kicked_with = Some(idx);
+                Some(())
+            }
+        }
+    }
+
+    fn spell_cast_valid_sa_trigger(&mut self, p: &mut Params, sa_raw: &str) -> Option<String> {
+        let player_filter = match p.peek("ValidActivatingPlayer") {
+            None | Some("Player") => None,
+            Some("You") => Some("Filter::ControlledByYou"),
+            Some("Opponent" | "Player.Opponent") => Some("Filter::ControlledByOpponent"),
+            Some("Player.Other") => Some("Filter::Not(&Filter::ControlledByYou)"),
+            Some("Player.Chosen" | "ChosenPlayer") if self.has_chosen_source_player() => {
+                Some("Filter::ControlledByChooser")
+            }
+            Some(_) => return None,
+        };
+        let saved_statics_len = self.body.statics.len();
+        let saved_unclaimed = self.unclaimed.borrow().clone();
+        let mut alts = Vec::new();
+        for alt in sa_raw.split(',').map(str::trim) {
+            if alt.is_empty() {
+                self.body.statics.truncate(saved_statics_len);
+                *self.unclaimed.borrow_mut() = saved_unclaimed;
+                return None;
+            }
+            let parsed = if let Some(target_tv) = alt.strip_prefix("Spell.IsTargeting Valid ") {
+                self.targets_you_control_filter(target_tv)
+            } else if let Some(base_raw) = alt.strip_suffix(".singleTarget") {
+                if base_raw == "Spell" || base_raw == "Card" {
+                    Some("Filter::WithSingleTarget".to_string())
+                } else if !base_raw.contains(['.', '+', ' ', '$'])
+                    && !base_raw.contains("Ctrl")
+                    && !base_raw.contains("Own")
+                {
+                    self.filter_expr_in_zone(base_raw, true)
+                        .map(|base| format!("Filter::And(&[{base}, Filter::WithSingleTarget])"))
+                } else {
+                    None
+                }
+            } else if let Some(rest) = alt.strip_prefix("Spell.") {
+                if rest.is_empty()
+                    || rest.contains("ManaSpent")
+                    || rest.contains("ManaFrom")
+                    || rest.contains("MayPlay")
+                    || rest.contains("IsTargeting")
+                    || rest.contains("Ctrl")
+                    || rest.contains("Own")
+                    || rest.contains([' ', '$'])
+                {
+                    None
+                } else if rest == "Card" {
+                    Some("Filter::Any".to_string())
+                } else {
+                    self.filter_expr_in_zone(rest, true)
+                }
+            } else {
+                None
+            };
+            let Some(expr) = parsed else {
+                self.body.statics.truncate(saved_statics_len);
+                *self.unclaimed.borrow_mut() = saved_unclaimed;
+                return None;
+            };
+            alts.push(expr);
+        }
+        if alts.is_empty() {
+            return None;
+        }
+        let base_expr = match alts.as_slice() {
+            [only] => only.clone(),
+            many => format!("Filter::Or(&[{}])", many.join(", ")),
+        };
+        let full_expr = match player_filter {
+            None => base_expr,
+            Some(who) if base_expr == "Filter::Any" => who.to_string(),
+            Some(who) => format!("Filter::And(&[{base_expr}, {who}])"),
+        };
+        p.take("ValidCard");
+        p.take("ValidSA");
+        p.take("ValidActivatingPlayer");
+        let filter = self.body.filter_static("TRIGGER", &full_expr);
+        Some(format!("Trigger::SpellCast(&{filter})"))
     }
 
     #[allow(clippy::too_many_lines)]
@@ -929,7 +1067,7 @@ impl Tx<'_> {
             "Clashed" => self.clashed_trigger(p),
             "Firebend" | "Firebends" => self.firebends_trigger(p),
             "UnlockDoor" => self.unlock_door_trigger(p, zone_taken),
-            "DayTimeChanges" if !zone_taken => Some("Trigger::DayNightChanges".to_string()),
+            "DayTimeChanges" => Some("Trigger::DayNightChanges".to_string()),
             other => self.deny(format!("trigger mode `{other}`")),
         }
     }
@@ -2328,6 +2466,9 @@ impl Tx<'_> {
         if api == "ChooseType" {
             return self.choose_type_on_enter(p);
         }
+        if api == "SetState" {
+            return self.set_state_turn_face_down_on_enter(p);
+        }
         if api != "ChooseColor" {
             return self.deny(format!("as-enters effect `{api}`"));
         }
@@ -2578,9 +2719,16 @@ impl Tx<'_> {
         // optional too, so it is not read there; `validate` holds such a card
         // to its printed may.
         let prose_effect = p.peek("TriggerDescription").and_then(|d| {
-            d.to_ascii_lowercase()
-                .split_once(", ")
-                .map(|(_, effect)| effect.to_string())
+            let lower = d.to_ascii_lowercase();
+            let (_, mut effect) = lower.split_once(", ")?;
+            if effect.starts_with("if ")
+                && let Some((cond_part, rest)) = effect.split_once(", ")
+                && !cond_part.contains('.')
+                && rest.starts_with("you may ")
+            {
+                effect = rest;
+            }
+            Some(effect.to_string())
         });
         let oracle_has_you_may =
             self.oracle.is_empty() || self.oracle.to_ascii_lowercase().contains("you may");
@@ -2632,7 +2780,9 @@ impl Tx<'_> {
         };
         p.drop_prose();
         self.trigger_mode = Some(mode.clone());
-        if self.is_link_cleanup_trigger(&mode, &p) {
+        if self.is_link_cleanup_trigger(&mode, &p)
+            || self.is_hellkite_combat_memory_trigger(&mode, &p)
+        {
             return Some(());
         }
         if self.is_imprison_clause(&mode, &p) {
@@ -2659,6 +2809,7 @@ impl Tx<'_> {
         let zone = Self::take_trigger_zone(&mode, &mut p);
         self.trigger_self_etb_kicked = false;
         self.trigger_self_etb_kicked_with = None;
+        self.trigger_self_spell_cond = None;
         let self_etb_extra_cond = if mode == "ChangesZone"
             && p.peek("Origin") == Some("Any")
             && p.peek("Destination") == Some("Battlefield")
@@ -2728,6 +2879,9 @@ impl Tx<'_> {
             }
             trigger
         };
+        if let Some(clause) = self.trigger_self_spell_cond.take() {
+            tagged_clauses.push((false, clause));
+        }
         if let Some(clause) = self_etb_extra_cond {
             tagged_clauses.push((false, clause.to_string()));
         }
@@ -2880,7 +3034,16 @@ impl Tx<'_> {
         let mut may = match (decider.as_deref(), optional_flag) {
             (None, Some(false)) => false,
             (None, None) => prose_may,
-            (None, Some(true)) | (Some("You"), None | Some(true)) => true,
+            (None, Some(true)) => true,
+            (Some("You"), None | Some(true)) => {
+                if !self.oracle.is_empty() && !self.oracle.to_ascii_lowercase().contains("may") {
+                    return self.deny(
+                        "`OptionalDecider$ You` on a trigger whose `Oracle:` has no `may`"
+                            .to_string(),
+                    );
+                }
+                true
+            }
             (Some("You"), Some(false)) => {
                 return self
                     .deny("conflicting `OptionalDecider$ You` and `Optional$ No`".to_string());
@@ -2939,7 +3102,13 @@ impl Tx<'_> {
         let (body, price) = if self.wave29c_is_sac_dependent_ab_dig_until(&body) {
             (body, None)
         } else {
-            match self.optional_trigger_price(&body) {
+            let prev_dies_self = std::mem::replace(
+                &mut self.is_dies_self_trigger,
+                trigger == "Trigger::Dies(&Filter::This)",
+            );
+            let parsed = self.optional_trigger_price(&body);
+            self.is_dies_self_trigger = prev_dies_self;
+            match parsed {
                 Some((stripped, price)) => (stripped, Some(price)),
                 None => (body, None),
             }
@@ -2980,9 +3149,14 @@ impl Tx<'_> {
             }
             self.trigger_is_self = trigger_is_self;
             self.is_etb_self_trigger = trigger == "Trigger::ETB";
+            self.trigger_self_etb_kicked = trigger_self_etb_kicked;
+            self.trigger_changes_zone_to_graveyard =
+                trigger.starts_with("Trigger::Dies(") || trigger == "Trigger::DiesThis";
             let parsed = self.read_charm_modes(&choices);
             self.trigger_is_self = false;
             self.is_etb_self_trigger = false;
+            self.trigger_self_etb_kicked = false;
+            self.trigger_changes_zone_to_graveyard = false;
             self.damage_trigger_source_is_attached = false;
             let parsed = parsed?;
             if parsed.len() < 2 || (!restriction.is_empty() && parsed.len() > 64) {
@@ -2998,9 +3172,14 @@ impl Tx<'_> {
         }
         let mut chain = Chain::default();
         self.trigger_is_self = trigger_is_self;
+        self.in_graveyard_trigger = zone == ", zone = TriggerZone::Graveyard";
         self.is_etb_self_trigger = trigger == "Trigger::ETB";
+        self.trigger_self_etb_kicked = trigger_self_etb_kicked;
+        self.trigger_changes_zone_to_graveyard =
+            trigger.starts_with("Trigger::Dies(") || trigger == "Trigger::DiesThis";
         self.trigger_blocks_creature = trigger.starts_with("Trigger::BlocksCreature(");
         self.damage_trigger_binds_source = Self::wave28b_trigger_binds_damage_source(&trigger);
+        self.damage_trigger_binds_player = Self::wave28b_trigger_binds_damage_player(&trigger);
         self.damage_trigger_is_combat = trigger.contains("CombatDamage");
         self.cost_sacrifices_self = matches!(
             &price,
@@ -3144,9 +3323,13 @@ impl Tx<'_> {
                 .is_some()
             {
                 self.trigger_is_self = false;
+                self.in_graveyard_trigger = false;
                 self.is_etb_self_trigger = false;
+                self.trigger_self_etb_kicked = false;
+                self.trigger_changes_zone_to_graveyard = false;
                 self.trigger_blocks_creature = false;
                 self.damage_trigger_binds_source = false;
+                self.damage_trigger_binds_player = false;
                 self.damage_trigger_source_is_attached = false;
                 self.damage_trigger_is_combat = false;
                 self.cost_sacrifices_self = false;
@@ -3163,9 +3346,13 @@ impl Tx<'_> {
             self.trigger_mode = saved_trigger_mode;
         }
         self.trigger_is_self = false;
+        self.in_graveyard_trigger = false;
         self.is_etb_self_trigger = false;
+        self.trigger_self_etb_kicked = false;
+        self.trigger_changes_zone_to_graveyard = false;
         self.trigger_blocks_creature = false;
         self.damage_trigger_binds_source = false;
+        self.damage_trigger_binds_player = false;
         self.damage_trigger_source_is_attached = false;
         self.damage_trigger_is_combat = false;
         self.cost_sacrifices_self = false;
@@ -3178,8 +3365,10 @@ impl Tx<'_> {
             return self.deny("a trigger that reads as no effect at all".to_string());
         }
         let chain_asks = chain.target_up_to.is_some()
+            || chain.target_up_to_x
             || chain.effects.iter().any(|e| {
                 (e.contains("ChooseCard {") && e.contains("min: 0,"))
+                    || (e.contains("ChooseCardEx {") && e.contains("min: 0,"))
                     || (e.contains("PeekAndReveal {") && e.contains("min_pick: 0,"))
             })
             || chain.effects.iter().any(|e| {
@@ -3299,12 +3488,24 @@ impl Tx<'_> {
         let effects = chain.effects.join(", ");
         let has_targets = chain.target.is_some() || chain.second_target.is_some();
         let effects = match price {
-            Some(price) => Self::wave28b_wrap_optional_trigger_price(
-                price,
-                &effects,
-                &one_effect,
-                has_targets,
-            )?,
+            Some(price) => {
+                if matches!(
+                    price,
+                    OptionalTriggerPrice::ExileSelfFromGraveyard { reflexive: true }
+                ) && (effects.contains("Amount::SourcePower")
+                    || effects.contains("Amount::SourceToughness")
+                    || self.body.statics[saved_statics..].contains("Amount::SourcePower")
+                    || self.body.statics[saved_statics..].contains("Amount::SourceToughness"))
+                {
+                    return None;
+                }
+                Self::wave28b_wrap_optional_trigger_price(
+                    price,
+                    &effects,
+                    &one_effect,
+                    has_targets,
+                )?
+            }
             None if mandatory_sac_self => {
                 format!("Effect::SacrificeSelfThen {{ then: &[{effects}] }}")
             }
@@ -3929,7 +4130,10 @@ impl Tx<'_> {
                 return self.deny(format!("an `ImmediateTrigger` `OptionalDecider$ {other}`"));
             }
         };
-        let (when, once, extra_cond) = if p.peek("ConditionDefined") == Some("Remembered") {
+        let (when, once, extra_cond) = if matches!(
+            p.peek("ConditionDefined"),
+            Some("Remembered" | "RememberedLKI")
+        ) {
             let when = self.immediate_remembered_when(p, chain)?;
             (when, !starts_whenever, None)
         } else if p.has("ConditionDefined") {
@@ -4084,7 +4288,8 @@ impl Tx<'_> {
         let multi_target = chain.target_exact.is_some_and(|n| n > 1)
             || chain.target_up_to.is_some_and(|n| n > 1)
             || chain.target_range.is_some()
-            || chain.target_is_x;
+            || chain.target_is_x
+            || chain.target_up_to_x;
         let obj_target = target.is_some_and(|t| t.starts_with("TargetSpec::Object("));
         match raw {
             None => Some("TriggerRemember::None"),
@@ -4106,6 +4311,12 @@ impl Tx<'_> {
                     .any(|e| e.contains("Effect::CreateToken"))
                 {
                     Some("TriggerRemember::EachCreatedToken")
+                } else if chain
+                    .effects
+                    .iter()
+                    .any(|e| e == "Effect::AttachChosenThen")
+                {
+                    Some("TriggerRemember::EventObject")
                 } else if chain.effects.iter().any(|e| {
                     e.contains("Effect::exile(")
                         || e.contains("Effect::ExileAll")
@@ -4284,11 +4495,21 @@ impl Tx<'_> {
         let saved_delayed = std::mem::replace(&mut self.in_delayed, true);
         let saved_mode = std::mem::replace(&mut self.trigger_mode, inner_trigger_mode);
         let saved_self = std::mem::replace(&mut self.trigger_is_self, false);
+        let saved_dies = std::mem::replace(&mut self.trigger_changes_zone_to_graveyard, false);
+
+        let saved_gy_trigger = std::mem::replace(&mut self.in_graveyard_trigger, false);
+        let saved_dmg_src = std::mem::replace(&mut self.damage_trigger_binds_source, false);
+        let saved_dmg_player = std::mem::replace(&mut self.damage_trigger_binds_player, false);
         let saved_block = self.block_line.take();
         let read = self.chain(body, &mut inner);
         self.in_delayed = saved_delayed;
         self.trigger_mode = saved_mode;
         self.trigger_is_self = saved_self;
+        self.trigger_changes_zone_to_graveyard = saved_dies;
+
+        self.in_graveyard_trigger = saved_gy_trigger;
+        self.damage_trigger_binds_source = saved_dmg_src;
+        self.damage_trigger_binds_player = saved_dmg_player;
         self.block_line = saved_block;
         read?;
         if inner.second_target.is_some() {
@@ -4800,6 +5021,7 @@ impl Tx<'_> {
                 .peek("ValidSource")
                 .is_some_and(|v| !v.split([',', '.', '+']).any(|a| a.trim() == "Self")),
             "ChangesZoneAll" => non_self_cards,
+            "DayTimeChanges" => p.peek("TriggerZones") == Some("Graveyard"),
             _ => false,
         };
         if allowed {
@@ -5352,6 +5574,21 @@ impl Tx<'_> {
         if raw == "PlayerCountPropertyYou$DamageThisTurn" {
             return Self::wave15_amount_cmp("Amount::DamageDealtToYouThisTurn", cmp);
         }
+        if let Some(valid) = raw
+            .strip_prefix("Count$Valid ")
+            .and_then(|s| s.strip_suffix("$DifferentCardNames"))
+            && valid
+                .split(',')
+                .all(|alt| alt.split(['.', '+']).any(|a| a.trim() == "YouCtrl"))
+            && let Some(max) = Self::wave19c_at_most_u32(cmp)
+            && let Some(min) = max.checked_add(1).and_then(|n| u8::try_from(n).ok())
+        {
+            let expr = self.filter_expr(valid)?;
+            let name = self.body.filter_static("CHECK", &expr);
+            return Some(format!(
+                "Condition::Not(&Condition::ControlDistinctNames(&{name}, {min}))"
+            ));
+        }
         if let Some(cond) = self.wave22c_svar_condition(raw, cmp) {
             return Some(cond);
         }
@@ -5400,21 +5637,6 @@ impl Tx<'_> {
         }
         if let Some(valid) = raw.strip_prefix("PlayerCountOpponents$HighestValid ") {
             return self.wave19c_opp_highest_valid(valid.trim(), cmp);
-        }
-        if let Some(valid) = raw
-            .strip_prefix("Count$Valid ")
-            .and_then(|s| s.strip_suffix("$DifferentCardNames"))
-            && valid
-                .split(',')
-                .all(|alt| alt.split(['.', '+']).any(|a| a.trim() == "YouCtrl"))
-            && let Some(max) = Self::wave19c_at_most_u32(cmp)
-            && let Some(min) = max.checked_add(1).and_then(|n| u8::try_from(n).ok())
-        {
-            let expr = self.filter_expr(valid)?;
-            let name = self.body.filter_static("CHECK", &expr);
-            return Some(format!(
-                "Condition::Not(&Condition::ControlDistinctNames(&{name}, {min}))"
-            ));
         }
         if matches!(
             raw,

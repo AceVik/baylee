@@ -36,11 +36,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             self.granted_definition(source, index)
                 .map(|grant| grant.definition)
         } else {
-            self.state
-                .object(source)?
-                .abilities(&self.lookup)
-                .get(index as usize)
-                .copied()
+            let obj = self.state.object(source)?;
+            if crate::layers::ability_is_lost(&self.state, obj, index) {
+                return None;
+            }
+            obj.abilities(&self.lookup).get(index as usize).copied()
         }
     }
 }

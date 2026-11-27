@@ -279,7 +279,9 @@ impl Tx<'_> {
             self.remembered_cmc = true;
         }
 
-        if let Some(def) = defined.as_deref() {
+        if let Some(def) = defined.as_deref().filter(|d| {
+            !(matches!(*d, "Targeted" | "ParentTarget") && !targets_here && target.is_some())
+        }) {
             if matches!(def, "TriggeredSpellAbility" | "TriggeredSourceSA") {
                 if target.is_some()
                     || targets_here
@@ -527,8 +529,10 @@ impl Tx<'_> {
                 "Effect::GainControlLtbAttached {{ filter: &{filter}, duration: {duration} }}"
             )]);
         }
-        if let Some(t) = target.filter(|t| t.starts_with("TargetSpec::Object("))
-            && let Some(kw_raw) = p.peek("AddKWs")
+        if let Some(t) = target.filter(|t| {
+            t.starts_with("TargetSpec::Object(")
+                || t.starts_with("TargetSpec::ObjectOfEachOpponent(")
+        }) && let Some(kw_raw) = p.peek("AddKWs")
             && kw_raw.contains("Annihilator:")
             && !p.has("AllValid")
             && matches!(p.peek("NewController"), None | Some("You"))

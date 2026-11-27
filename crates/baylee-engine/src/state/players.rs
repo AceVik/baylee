@@ -15,19 +15,18 @@ impl GameState {
             self.effects
                 .iter()
                 .filter_map(|fx| {
-                    let value = match fx.modifier {
-                        Modifier::NoMaxHandSize if fx.controller == player => None,
-                        Modifier::ChosenPlayerMaxHandSize(size)
-                            if fx
-                                .source
-                                .and_then(|id| self.object(id))
-                                .and_then(crate::object::GameObject::chosen_opponent)
-                                == Some(player) =>
-                        {
-                            Some(usize::from(size))
-                        }
-                        _ => return None,
-                    };
+                    let value =
+                        match fx.modifier {
+                            Modifier::NoMaxHandSize if fx.controller == player => None,
+                            Modifier::ChosenPlayerMaxHandSize(size)
+                                if fx.source.and_then(|id| self.object(id)).and_then(
+                                    crate::object::GameObject::chosen_opponent_for_rules,
+                                ) == Some(player) =>
+                            {
+                                Some(usize::from(size))
+                            }
+                            _ => return None,
+                        };
                     Some((fx.timestamp, fx.id, value))
                 })
                 .max_by_key(|(timestamp, id, _)| (*timestamp, *id))

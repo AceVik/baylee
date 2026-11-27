@@ -532,6 +532,8 @@ impl HeuristicAgent {
             | Filter::WasCast
             | Filter::WasCastByYou
             | Filter::CastFromZone(_)
+            | Filter::CastForFlashback
+            | Filter::CastForDash
             | Filter::HasManaAbility
             | Filter::HasNonManaActivatedAbility
             | Filter::AttachedToBySource
@@ -561,6 +563,11 @@ impl HeuristicAgent {
         | Filter::HasCounters(_)
         | Filter::NotTargetedByAnotherNamed(_)
         | Filter::HasAdventure
+        | Filter::HasOmen
+        | Filter::HasMorph
+        | Filter::DoubleFaced
+        | Filter::CanTransform
+        | Filter::Flipped
         | Filter::ActivatedAbilityFrom(_)
         | Filter::TargetsPermanentYouControl
         | Filter::TargetsYouControl(_)
@@ -615,7 +622,9 @@ impl HeuristicAgent {
         | Filter::SharesNameWithRemembered
         | Filter::SharesCardTypeWithReference
         | Filter::CastForBlitz
-        | Filter::FirstMatchingSpellThisTurn(_) => None,
+        | Filter::FirstMatchingSpellThisTurn(_)
+        | Filter::EnteredCurrentZoneThisTurn(_)
+        | Filter::ExiledByYou => None,
         }
     }
 
@@ -1511,6 +1520,8 @@ impl HeuristicAgent {
             | PlayerRel::EnchantedPlayer
             | PlayerRel::OtherOpponents
             | PlayerRel::ChosenBySource
+            | PlayerRel::SecondChosenBySource
+            | PlayerRel::YouAndTargetOpponent
             | PlayerRel::PlayerToYourRight => {
                 return None;
             }

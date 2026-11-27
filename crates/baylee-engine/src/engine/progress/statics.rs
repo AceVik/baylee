@@ -218,7 +218,8 @@ impl crate::state::GameState {
                                 .is_none_or(|(_, text)| *text == origin)
                     })
                     .map(|fx| fx.id);
-                let gone_with_the_ability = (lost && !outlives_its_ability(sa.layer))
+                let this_lost = lost || crate::layers::ability_is_lost(self, obj, index as u32);
+                let gone_with_the_ability = (this_lost && !outlives_its_ability(sa.layer))
                     || (text_lost && !outlives_its_rules_text(sa.layer));
                 if gone_with_the_ability
                     || sa.condition.is_some_and(|condition| {

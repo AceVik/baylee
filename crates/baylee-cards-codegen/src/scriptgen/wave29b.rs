@@ -104,11 +104,32 @@ impl Tx<'_> {
         p: &mut Params,
         second_target: Option<&str>,
     ) -> Option<Vec<String>> {
-        if p.peek("Defined").is_some() || p.peek("DamageSource") != Some("ParentTarget") {
+        self.wave29b_parent_damager_effect(p, second_target, "DamageSource", false)
+    }
+
+    /// Lower Slot-2 `EachDamage | DefinedDamagers$ ParentTarget` (*Allies at Last*,
+    /// *Band Together*, *Combo Attack*, *Common Goal*) to `Effect::ForEachTarget`
+    /// iterating every chosen Slot-1 damager onto Slot 2.
+    pub(super) fn wave29b_each_damage_effect(
+        &mut self,
+        p: &mut Params,
+        second_target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        self.wave29b_parent_damager_effect(p, second_target, "DefinedDamagers", true)
+    }
+
+    fn wave29b_parent_damager_effect(
+        &mut self,
+        p: &mut Params,
+        second_target: Option<&str>,
+        source_key: &str,
+        allow_card_power: bool,
+    ) -> Option<Vec<String>> {
+        if p.peek("Defined").is_some() || p.peek(source_key) != Some("ParentTarget") {
             return None;
         }
         let mut probe = p.clone();
-        probe.take("DamageSource");
+        probe.take(source_key);
         let num_dmg = probe.take("NumDmg")?;
         if probe.take("DamageMap").is_some_and(|v| v != "True") {
             return None;
@@ -126,7 +147,11 @@ impl Tx<'_> {
             return None;
         }
         let eff_tgt = Self::effect_target_of(second_target?);
-        let inner_dmg = self.wave29b_dealer_damage_op(&num_dmg, &eff_tgt)?;
+        let inner_dmg = if allow_card_power && num_dmg.trim() == "Count$CardPower" {
+            format!("Effect::EventObjectDealsDamageEqualToPower {{ target: {eff_tgt} }}")
+        } else {
+            self.wave29b_dealer_damage_op(&num_dmg, &eff_tgt)?
+        };
         let wrapped = format!(
             "Effect::ForEachTarget {{ effects: &[Effect::WithSecondTarget(&[{inner_dmg}])] }}"
         );
@@ -702,7 +727,7 @@ impl Tx<'_> {
         ))
     }
 
-    fn wave29b_left_zone_this_turn_amount(
+    pub(super) fn wave29b_left_zone_this_turn_amount(
         &mut self,
         valid_raw: &str,
         battlefield: bool,
@@ -1165,6 +1190,24 @@ impl Tx<'_> {
         {
             return true;
         }
+        if api == "EachDamage"
+            && chain.effects.is_empty()
+            && chain
+                .target
+                .as_deref()
+                .is_some_and(|t| t.starts_with("TargetSpec::Object("))
+            && p.peek("DefinedDamagers") == Some("ParentTarget")
+            && p.peek("Defined").is_none()
+            && p.peek("NumDmg").is_some()
+            && !p.has("DividedAsYouChoose")
+            && !p.has("ExcessSVar")
+            && ["UnlessCost", "ReplaceDyingDefined", "AtEOT"]
+                .iter()
+                .all(|k| p.peek(k).is_none())
+            && !self.later_line_targets(p.peek("SubAbility"))
+        {
+            return true;
+        }
         if api == "ChangeZone"
             && chain.effects.is_empty()
             && second_spec.starts_with("TargetSpec::Object(")
@@ -1486,6 +1529,33 @@ impl Tx<'_> {
             return Some(vec![format!(
                 "Effect::{ctor} {{ modifier: Modifier::ProtectionFrom(&Filter::ControlledByOpponent), duration: {duration} }}"
             )]);
+        }
+
+        // 2b. Protection from secretly/entry-chosen player (*Guardian Archon*):
+        if spec_head == "Player.PlayerUID_ChosenPlayerUID"
+            && defined_kw.as_deref() == Some("ChosenPlayer")
+            && self.has_chosen_source_player()
+        {
+            let chosen_ctrl = self
+                .body
+                .filter_static("PROT", "Filter::ControlledBy(PlayerRel::ChosenBySource)");
+            match defined.as_deref() {
+                None | Some("Targeted" | "ParentTarget")
+                    if aimed.starts_with("TargetSpec::Object(") =>
+                {
+                    *p = probe;
+                    return Some(vec![format!(
+                        "Effect::ModifyTargets {{ modifier: Modifier::ProtectionFrom(&{chosen_ctrl}), duration: {duration} }}"
+                    )]);
+                }
+                Some("You") => {
+                    *p = probe;
+                    return Some(vec![format!(
+                        "Effect::continuous(&Filter::Any, Modifier::PlayerProtectionFrom {{ who: PlayerRel::You, from: &{chosen_ctrl} }}, {duration})"
+                    )]);
+                }
+                _ => return None,
+            }
         }
 
         // 3. Protection from targeted player (*Eon Frolicker*):

@@ -25,6 +25,8 @@ pub enum Shielded {
     Object(ObjectId, u32),
     /// Anything damage can be dealt to (Fog).
     Everything,
+    /// A player and/or any permanent that player controls at damage time (*Harm's Way*).
+    PlayerOrControlledPermanents(PlayerId),
 }
 
 /// Destination fixed by a resolved redirection effect.
@@ -195,6 +197,20 @@ pub enum ShieldKind {
         source: ChosenSource,
         /// Additional source criterion for gaining the prevented amount as life.
         gain_life_sources: &'static Filter,
+    },
+    /// Redirect the next finite amount of damage (optionally from a chosen
+    /// source) to any damageable permanent or player (*Outrider en-Kor*,
+    /// *Carom*, *Ward of Piety*, *Razia*, *Harm's Way*; `CR 614.9`, `CR 615.7`).
+    /// Appended to preserve replay discriminants.
+    RedirectNextTo {
+        /// Remaining total damage redirected.
+        remaining: u32,
+        /// New recipient (permanent or player).
+        to: DamageTarget,
+        /// When `to` is an object, its required incarnation version (`CR 400.7`).
+        to_version: Option<u32>,
+        /// Optional exact chosen damage source (*Harm's Way*).
+        source: Option<ChosenSource>,
     },
 }
 
@@ -394,10 +410,15 @@ impl Shielded {
     pub(crate) fn covers(self, state: &GameState, recipient: DamageTarget) -> bool {
         match (self, recipient) {
             (Self::Everything, _) => true,
-            (Self::Player(p), DamageTarget::Player(q)) => p == q,
+            (Self::Player(p) | Self::PlayerOrControlledPermanents(p), DamageTarget::Player(q)) => {
+                p == q
+            }
             (Self::Object(id, version), DamageTarget::Object(target)) => {
                 id == target && state.object(target).is_some_and(|o| o.version == version)
             }
+            (Self::PlayerOrControlledPermanents(p), DamageTarget::Object(target)) => state
+                .object(target)
+                .is_some_and(|o| o.zone == Zone::Battlefield && o.controller == p),
             _ => false,
         }
     }

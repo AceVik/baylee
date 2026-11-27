@@ -2189,6 +2189,9 @@ SpellEndingRebound = Exile it, cast it free next upkeep (rebound)
 # Resolution choice: `SpellEndingAdventure`.
 SpellEndingAdventure = Exile it, on an adventure
 
+# Resolution choice: `SpellEndingOmen`.
+SpellEndingOmen = Shuffle it into its owner's library (omen)
+
 # Resolution choice: `SpellEndingExile`.
 SpellEndingExile = Exile it
 

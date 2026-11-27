@@ -29,23 +29,21 @@ card!(
     ),],
     abilities = &[triggered!(
         Trigger::Attacks(&Filter::This),
-        &[Effect::MayDo {
-            effects: &[Effect::ChooseCardEx {
-                chooser: PlayerRel::You,
-                zone: ChooseZone::Hand(PlayerRel::You),
-                filter: &ATTACK_ENTRY1,
-                min: 0,
-                max: Amount::Fixed(1),
-                reveal_chosen: false,
-                movement: ChooseMove::None,
-                not_chosen_movement: ChooseMove::None,
-                then: &[Effect::PutOntoBattlefieldAttacking {
-                    subject: DefinedObjects::Found,
-                    owner_control: false,
-                    tapped: true
-                }],
-                for_unchosen: &[]
-            }]
+        &[Effect::ChooseCardEx {
+            chooser: PlayerRel::You,
+            zone: ChooseZone::Hand(PlayerRel::You),
+            filter: &ATTACK_ENTRY1,
+            min: 0,
+            max: Amount::Fixed(1),
+            reveal_chosen: false,
+            movement: ChooseMove::None,
+            not_chosen_movement: ChooseMove::None,
+            then: &[Effect::PutOntoBattlefieldAttacking {
+                subject: DefinedObjects::Found,
+                owner_control: false,
+                tapped: true
+            }],
+            for_unchosen: &[]
         }]
     ),],
 );

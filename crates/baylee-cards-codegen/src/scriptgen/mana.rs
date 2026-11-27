@@ -21,12 +21,24 @@ impl ManaSpendRider {
 
 impl Tx<'_> {
     /// `Produced$ Combo W U | Amount$ 2` and friends.
-    pub(super) fn mana_effect(&mut self, p: &mut Params) -> Option<Vec<String>> {
+    pub(super) fn mana_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
         // "Its controller adds an additional {R}" (Gauntlet of Might): mana
         // in another player's pool.
         let defined = p.take("Defined");
         if let Some(who) = defined.as_deref().filter(|d| *d != "You") {
-            let who = self.player_rel(Some(who))?;
+            let who = if self.in_chosen_player
+                && (matches!(who, "ChosenPlayer" | "Player.Chosen")
+                    || (who == "Targeted"
+                        && target == Some("TargetSpec::Player(PlayerRel::Chosen)")))
+            {
+                "PlayerRel::Chosen"
+            } else {
+                self.player_rel(Some(who))?
+            };
             return self.mana_for(p, who);
         }
         let Some(produced) = p.take("Produced") else {
@@ -413,6 +425,18 @@ impl Tx<'_> {
             "C" => Some("ManaColor::Colorless"),
             _ => None,
         };
+        if produced.trim() == "Any" {
+            let amount = if let Some(n) =
+                plain_number(&raw, self.svars).and_then(|n| u32::try_from(n).ok())
+            {
+                format!("Amount::Fixed({n})")
+            } else {
+                self.counted_amount(&raw)?
+            };
+            return Some(vec![format!(
+                "Effect::AddManaChoiceFor {{ who: {who}, source: ManaSource::Choice(&[ManaColor::White, ManaColor::Blue, ManaColor::Black, ManaColor::Red, ManaColor::Green]), amount: {amount}, distribution: ManaDistribution::OneColor, restriction: None }}"
+            )]);
+        }
         if let Some(amount) = plain_number(&raw, self.svars).and_then(|n| u16::try_from(n).ok()) {
             let mut out = Vec::new();
             for symbol in produced.split_whitespace() {
@@ -775,6 +799,9 @@ impl Tx<'_> {
         static_only: bool,
     ) -> Option<String> {
         let def = def.trim();
+        if !self.on_a_spell && matches!(def, "Equipped$CardPower" | "Enchanted$CardPower") {
+            return Some("Amount::AttachedPower".to_string());
+        }
         if let Some(n_str) = def.strip_prefix("Number$")
             && let Ok(n) = n_str.trim().parse::<u32>()
         {
@@ -925,11 +952,13 @@ impl Tx<'_> {
                         return Some("Amount::EventPower".to_string());
                     }
                     "Spawner>Sacrificed$CardToughness"
+                    | "TriggerRemembered$CardToughness"
                     | "DelayTriggerRemembered$CardToughness"
                     | "DelayTriggerRememberedLKI$CardToughness" => {
                         return Some("Amount::EventLastToughness".to_string());
                     }
                     "Spawner>Sacrificed$CardManaCost"
+                    | "TriggerRemembered$CardManaCost"
                     | "DelayTriggerRemembered$CardManaCost"
                     | "DelayTriggerRememberedLKI$CardManaCost" => {
                         return Some("Amount::EventManaValue".to_string());
@@ -1105,6 +1134,12 @@ impl Tx<'_> {
             }
             if def == "Sacrificed$CardPower" && self.cost_sacrifices_self && !self.on_a_spell {
                 return Some("Amount::SourcePower".to_string());
+            }
+            if def == "Count$CardToughness" {
+                return Some("Amount::SourceToughness".to_string());
+            }
+            if def == "Discarded$CardManaCost" && self.cost_discards_single_for_cost {
+                return Some("Amount::DiscardedManaValue".to_string());
             }
             if def == "Sacrificed$CardPower" && self.cost_sacrifices_other {
                 return Some("Amount::SacrificedPower".to_string());
@@ -1359,6 +1394,50 @@ impl Tx<'_> {
                     .to_string(),
             );
         }
+        if let Some(valid) = def
+            .strip_prefix("Count$ValidGraveyard ")
+            .and_then(|rest| rest.strip_suffix("$DifferentCardNames"))
+            && !valid.contains(['$', '/'])
+        {
+            let valid_owned = normalize_graveyard_entered(valid);
+            let valid = valid_owned.as_str();
+            let (zone, expr) = if !valid.contains("Ctrl") && !valid.contains("Own") {
+                (
+                    "ZoneSel::GraveyardAll",
+                    self.filter_expr_in_zone(valid, true)?,
+                )
+            } else if let Some(stripped) = Self::strip_your_graveyard_owner(valid) {
+                (
+                    "ZoneSel::GraveyardOf(PlayerRel::You)",
+                    self.filter_expr_in_zone(&stripped, true)?,
+                )
+            } else if let Some(stripped) = Self::strip_opp_graveyard_owner(valid) {
+                let lower = self.oracle.to_ascii_lowercase();
+                if lower.contains("target opponent's graveyard")
+                    || lower.contains("target player's graveyard")
+                {
+                    return None;
+                }
+                (
+                    "ZoneSel::GraveyardOpponents",
+                    self.filter_expr_in_zone(&stripped, true)?,
+                )
+            } else if let Some((stripped, who)) =
+                self.strip_named_graveyard_owner(valid, static_only)
+            {
+                let expr = self.filter_expr_in_zone(&stripped, true)?;
+                let name = self.body.filter_static("COUNT", &expr);
+                return Some(format!(
+                    "Amount::DistinctNames {{ filter: &{name}, zone: ZoneSel::GraveyardOf({who}) }}"
+                ));
+            } else {
+                return None;
+            };
+            let name = self.body.filter_static("COUNT", &expr);
+            return Some(format!(
+                "Amount::DistinctNames {{ filter: &{name}, zone: {zone} }}"
+            ));
+        }
         if let Some(valid) = def.strip_prefix("Count$ValidGraveyard ") {
             let valid_owned = normalize_graveyard_entered(valid);
             let valid = valid_owned.as_str();
@@ -1398,12 +1477,47 @@ impl Tx<'_> {
             }
             return None;
         }
+        if let Some(valid) = def
+            .strip_prefix("Count$ValidHand ")
+            .and_then(|rest| rest.strip_suffix("$DifferentCardNames"))
+            && !valid.contains(['$', '/'])
+        {
+            let stripped = Self::strip_your_graveyard_owner(valid)?;
+            let expr = self.filter_expr_in_zone(&stripped, true)?;
+            let name = self.body.filter_static("COUNT", &expr);
+            return Some(format!(
+                "Amount::DistinctNames {{ filter: &{name}, zone: ZoneSel::HandYou }}"
+            ));
+        }
         if let Some(valid) = def.strip_prefix("Count$ValidHand ") {
             let stripped = Self::strip_your_graveyard_owner(valid)?;
             let expr = self.filter_expr_in_zone(&stripped, true)?;
             let name = self.body.filter_static("COUNT", &expr);
             return Some(format!(
                 "Amount::CountOf {{ filter: &{name}, zone: ZoneSel::HandYou }}"
+            ));
+        }
+        if let Some(valid) = def
+            .strip_prefix("Count$ValidExile ")
+            .and_then(|rest| rest.strip_suffix("$DifferentCardNames"))
+            && !valid.contains(['$', '/'])
+        {
+            let (zone, expr) = if valid == "Card.ExiledWithSource" {
+                ("ZoneSel::LinkedExile", "Filter::Any".to_string())
+            } else if let Some(stripped) = valid
+                .strip_suffix("+ExiledWithSource")
+                .or_else(|| valid.strip_suffix(".ExiledWithSource"))
+            {
+                (
+                    "ZoneSel::LinkedExile",
+                    self.filter_expr_in_zone(stripped, true)?,
+                )
+            } else {
+                ("ZoneSel::ExileAll", self.filter_expr_in_zone(valid, true)?)
+            };
+            let name = self.body.filter_static("COUNT", &expr);
+            return Some(format!(
+                "Amount::DistinctNames {{ filter: &{name}, zone: {zone} }}"
             ));
         }
         if let Some(valid) = def.strip_prefix("Count$ValidExile ") {
@@ -1434,6 +1548,16 @@ impl Tx<'_> {
             ));
         }
         let valid = def.strip_prefix("Count$Valid ")?;
+        if let Some(distinct_valid) = valid.strip_suffix("$DifferentCardNames")
+            && !distinct_valid.contains('/')
+            && !distinct_valid.contains('$')
+        {
+            let expr = self.filter_expr_in_zone(distinct_valid, false)?;
+            let name = self.body.filter_static("COUNT", &expr);
+            return Some(format!(
+                "Amount::DistinctNames {{ zone: ZoneSel::Battlefield, filter: &{name} }}"
+            ));
+        }
         if let Some(color_valid) = valid.strip_suffix("$Colors")
             && !color_valid.contains('/')
             && !color_valid.contains('$')
@@ -2087,9 +2211,17 @@ impl Tx<'_> {
         )) {
             return Some("Amount::EventPower".to_string());
         }
+        self.dynamic_filter_target_or_cost_atom(def)
+    }
+
+    fn dynamic_filter_target_or_cost_atom(&self, def: &str) -> Option<String> {
         match def {
             "Targeted$CardPower" | "ParentTargeted$CardPower" => {
                 Some("Amount::TargetPower".to_string())
+            }
+            "Count$CardToughness" => Some("Amount::SourceToughness".to_string()),
+            "Discarded$CardManaCost" if self.cost_discards_single_for_cost => {
+                Some("Amount::DiscardedManaValue".to_string())
             }
             "Targeted$CardToughness" | "ParentTargeted$CardToughness" => {
                 Some("Amount::TargetToughness".to_string())
@@ -2122,7 +2254,7 @@ impl Tx<'_> {
         }
     }
 
-    fn dynamic_filter_counted_atom(&self, def: &str) -> Option<String> {
+    pub(super) fn dynamic_filter_counted_atom(&self, def: &str) -> Option<String> {
         let has_dynamic_stat = |s: &str| {
             s.split([',', '.', '+']).any(|atom| {
                 atom.strip_prefix("cmc")
@@ -2301,6 +2433,14 @@ impl Tx<'_> {
         if def.trim() == "Count$RememberedNumber" && self.remembered_cmc {
             return Some("Amount::TargetCmc".to_string());
         }
+        if let Some(expr) = self.chain_remembered_amount_expr
+            && matches!(
+                def.trim(),
+                "Remembered$Amount" | "Count$RememberedSize" | "Count$RememberedNumber"
+            )
+        {
+            return Some(expr.to_string());
+        }
         if matches!(def.trim(), "Remembered$Amount" | "Count$RememberedSize") {
             if self.countered_this_way {
                 return Some("Amount::ThisWay(ThisWay::Countered)".to_string());
@@ -2390,6 +2530,10 @@ impl Tx<'_> {
         for alt in trimmed.split(',').map(str::trim) {
             if alt == "Spell" {
                 spell_any = true;
+            } else if alt == "Spell.Flashback" {
+                spell_parts.push("Card.wasCastForFlashback".to_string());
+            } else if alt == "Spell.Dash" {
+                spell_parts.push("Card.wasCastForDash".to_string());
             } else if let Some(rest) = alt.strip_prefix("Spell.") {
                 spell_parts.push(normalize_spend_valid(rest));
             } else if alt == "Activated" {
@@ -2493,6 +2637,8 @@ impl Tx<'_> {
                 && !self.in_alternative_cost
             {
                 parts.push("ExertSelf".to_string());
+            } else if self.is_reveal_chosen_player_cost(token) {
+                parts.push("RevealChosenPlayer".to_string());
             } else if token == "Discard<1/Hand>"
                 || token == "Discard<0/Hand>"
                 || token.starts_with("Discard<1/Hand/")

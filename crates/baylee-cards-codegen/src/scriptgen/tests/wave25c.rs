@@ -662,24 +662,14 @@ fn adjust_spell_cost_by_cast_covers_all_eight_metrics_reduce_and_raise() {
 #[test]
 fn adjust_spell_cost_by_cast_refuses_unsound_and_non_paper_shapes() {
     for bad in [
-        // Fireball: `/Minus.1` target tax ("each target beyond the first").
-        "Name:FireballTax\nTypes:Sorcery\n\
-         S:Mode$ RaiseCost | ValidCard$ Card.Self | Type$ Spell | Amount$ Inc | Relative$ True | EffectZone$ All\n\
-         SVar:Inc:TargetedObjects$Amount/Minus.1\n\
-         A:SP$ Draw | NumCards$ 1",
-        // The Balrog, Durin's Bane: `PlayerCount$SacrificedThisTurn` counts ALL players, not only the caster.
-        "Name:Balrog\nTypes:Creature Demon\nPT:7/5\n\
-         S:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ X | EffectZone$ All\n\
-         SVar:X:PlayerCount$SacrificedThisTurn Permanent",
-        // Thrasta: `Count$ThisTurnCast_Card` counts ALL players' spells, not `YouCtrl`.
+        // Board-scoped (non-self) extra-target tax (`TargetedObjects$Amount/Minus.1`).
+        "Name:BoardFireballTax\nTypes:Enchantment\n\
+         S:Mode$ RaiseCost | Activator$ You | Type$ Spell | Amount$ Inc | Relative$ True\n\
+         SVar:Inc:TargetedObjects$Amount/Minus.1",
+        // Thrasta: `Count$ThisTurnCast_Card/Times.3` counts ALL players' spells * 3.
         "Name:Thrasta\nTypes:Creature Dinosaur\nPT:7/7\n\
          S:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ X | EffectZone$ All\n\
          SVar:X:Count$ThisTurnCast_Card/Times.3",
-        // Delightful Discovery: `.OppCtrl` spells cast this turn.
-        "Name:OppCast\nTypes:Sorcery\n\
-         S:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ X | EffectZone$ All\n\
-         SVar:X:Count$ThisTurnCast_Card.OppCtrl\n\
-         A:SP$ Draw | NumCards$ 1",
         // March of Swirling Mist: `SVar$Exiled` (not `Count$xPaid`).
         "Name:MarchExile\nTypes:Instant\n\
          S:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ Z | Relative$ True | EffectZone$ All\n\
@@ -701,6 +691,79 @@ fn adjust_spell_cost_by_cast_refuses_unsound_and_non_paper_shapes() {
         "Name:AlchemySecondMain\nTypes:Enchantment\n\
          T:Mode$ Phase | Phase$ Main2 | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ M\n\
          SVar:M:DB$ MakeCard | Conjure$ True | Name$ Mox Ruby | Zone$ Hand",
+    ] {
+        assert!(refused_w25c(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn self_stack_dynamic_and_starting_player_cost_reductions() {
+    let dragon = read_w25c(
+        "Name:Cavern-Hoard Dragon\nManaCost:7 R R\nTypes:Creature Dragon\nPT:6/6\n\
+         S:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ X | EffectZone$ All\n\
+         SVar:X:PlayerCountOpponents$HighestValid Artifact.YouCtrl",
+    );
+    assert!(
+        dragon.abilities[0].contains("Modifier::AdjustSpellCostByAmount { who: PlayerRel::You, filter: &Filter::This, increase: false")
+            && dragon.abilities[0].contains("Amount::HighestControlledCount { among: PlayerRel::EachOpponent, filter: &Filter::ARTIFACT }")
+            && dragon.abilities[0].contains("zone = ZoneRef::Stack"),
+        "{:?}",
+        dragon.abilities
+    );
+
+    let balrog = read_w25c(
+        "Name:The Balrog, Durin's Bane\nManaCost:5 B R\nTypes:Creature Demon\nPT:7/5\n\
+         S:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ X | EffectZone$ All\n\
+         SVar:X:PlayerCount$SacrificedThisTurn Permanent",
+    );
+    assert!(
+        balrog.abilities[0].contains("Amount::PermanentsSacrificedThisTurn { who: PlayerRel::EachPlayer, filter: &Filter::Any }"),
+        "{:?}",
+        balrog.abilities
+    );
+
+    let discovery = read_w25c(
+        "Name:Delightful Discovery\nManaCost:4 U\nTypes:Sorcery\n\
+         S:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ X | EffectZone$ All\n\
+         SVar:X:Count$ThisTurnCast_Card.OppCtrl\n\
+         A:SP$ Draw | NumCards$ 2",
+    );
+    assert!(
+        discovery.abilities[0].contains("Amount::SpellsCastThisTurn(PlayerRel::EachOpponent)"),
+        "{:?}",
+        discovery.abilities
+    );
+
+    let captain = read_w25c(
+        "Name:Search Party Captain\nManaCost:3 W\nTypes:Creature Human Soldier\nPT:2/2\n\
+         S:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ X | EffectZone$ All\n\
+         SVar:X:Count$AttackersDeclared",
+    );
+    assert!(
+        captain.abilities[0].contains("Amount::CreaturesAttackedThisTurn { filter: &Filter::Any, controller: PlayerRel::EachPlayer }"),
+        "{:?}",
+        captain.abilities
+    );
+
+    let overtake = read_w25c(
+        "Name:Unforgiving Overtake\nManaCost:2 B\nTypes:Sorcery\n\
+         S:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ X | EffectZone$ All\n\
+         SVar:X:Count$StartingPlayer.0.1\n\
+         A:SP$ Draw | NumCards$ 1",
+    );
+    assert!(
+        overtake.abilities[0].contains("Modifier::SpellsCostLess(1), zone = ZoneRef::Stack, condition = Some(Condition::NotStartingPlayer)"),
+        "{:?}",
+        overtake.abilities
+    );
+
+    for bad in [
+        "Name:BoardOppCast\nTypes:Enchantment\n\
+         S:Mode$ ReduceCost | ValidCard$ Card | Activator$ Opponent | Type$ Spell | Amount$ X\n\
+         SVar:X:Count$ThisTurnCast_Card.OppCtrl",
+        "Name:BoardNotStarting\nTypes:Enchantment\n\
+         S:Mode$ ReduceCost | ValidCard$ Card | Activator$ You | Type$ Spell | Amount$ X\n\
+         SVar:X:Count$StartingPlayer.0.1",
     ] {
         assert!(refused_w25c(bad), "must refuse: {bad}");
     }

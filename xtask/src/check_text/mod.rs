@@ -412,6 +412,7 @@ const OFFERS_A_CHOICE: &[&str] = &[
     "ExileTopWithPermission",
     "ExileWithPermission",
     "GrantLinkedExilePermission",
+    "GrantRememberedExilePermission",
     "ManifestTop",
     "ManifestDread",
     "TurnFaceUp",
@@ -462,6 +463,7 @@ const OFFERS_A_CHOICE: &[&str] = &[
     "MayCastFromGraveyardTargeted",
     "MayActivateLoyaltyAsInstant",
     "TaintedPact",
+    "revert_cost: Some(",
 ];
 
 pub(crate) fn check_optional_clauses_are_offered(
@@ -973,7 +975,11 @@ pub(crate) fn check_scope_matches_the_text(
         || built.contains("SpellsCantBeCountered { who: You")
         || built.contains("SacrificeAnyNumber { who: You")
         // Devotion / Chroma counts mana symbols on permanents controlled by `who`.
-        || built.contains("Devotion { who: You");
+        || built.contains("Devotion { who: You")
+        // Combat tax modifiers always require tapping/returning permanents you control.
+        || built.contains("CantAttackUnlessYouTap")
+        || built.contains("CantBlockUnlessYouTap")
+        || built.contains("CantAttackUnlessYouReturn");
     let filters_theirs = compares_controllers
         || built.contains("ControlledByOpponent")
         || built.contains("ObjectOfEachOpponent(")

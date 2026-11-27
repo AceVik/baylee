@@ -108,6 +108,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             increase: true,
                             ..
                         }
+                        | baylee_cards_dsl::Modifier::FirstSpellEachTurnCostAdjustByAmount {
+                            increase: true,
+                            ..
+                        }
+                        | baylee_cards_dsl::Modifier::RaiseCostIfTargetsYouOrPermanent { .. }
+                        | baylee_cards_dsl::Modifier::AdjustSpellCostBeyondFirstTarget { .. }
                 )
             });
         let next = self
@@ -121,33 +127,40 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             || (effects
                 && self.state.effects.iter().any(|fx| {
                     matches!(
-                        fx.modifier,
-                        baylee_cards_dsl::Modifier::SpellsCostLess(_)
-                            | baylee_cards_dsl::Modifier::SpellsCostLessMana { .. }
-                            | baylee_cards_dsl::Modifier::SpellsCostLessManaByAmount { .. }
-                            | baylee_cards_dsl::Modifier::SpellsCostLessByAmount(_)
-                            | baylee_cards_dsl::Modifier::SpellsCostLessPerCounter(_)
-                            | baylee_cards_dsl::Modifier::AdjustSpellCostByCast {
-                                delta_per_unit: i8::MIN..=-1,
-                                ..
-                            }
-                            | baylee_cards_dsl::Modifier::ReduceCostIfTargets {
-                                abilities: false,
-                                ..
-                            }
-                            | baylee_cards_dsl::Modifier::AdjustSpellCostByAmount {
-                                increase: false,
-                                ..
-                            }
-                            | baylee_cards_dsl::Modifier::FirstSpellEachTurnCostAdjust {
-                                increase: false,
-                                ..
-                            }
-                    )
+                fx.modifier,
+                baylee_cards_dsl::Modifier::SpellsCostLess(_)
+                    | baylee_cards_dsl::Modifier::SpellsCostLessMana { .. }
+                    | baylee_cards_dsl::Modifier::SpellsCostLessManaByAmount { .. }
+                    | baylee_cards_dsl::Modifier::SpellsCostLessByAmount(_)
+                    | baylee_cards_dsl::Modifier::SpellsCostLessPerCounter(_)
+                    | baylee_cards_dsl::Modifier::AdjustSpellCostByCast {
+                        delta_per_unit: i8::MIN..=-1,
+                        ..
+                    }
+                    | baylee_cards_dsl::Modifier::ReduceCostIfTargets {
+                        abilities: false,
+                        ..
+                    }
+                    | baylee_cards_dsl::Modifier::AdjustSpellCostByAmount {
+                        increase: false,
+                        ..
+                    }
+                    | baylee_cards_dsl::Modifier::FirstSpellEachTurnCostAdjust {
+                        increase: false,
+                        ..
+                    }
+                    | baylee_cards_dsl::Modifier::FirstSpellEachTurnCostAdjustByAmount {
+                        increase: false,
+                        ..
+                    }
+                    | baylee_cards_dsl::Modifier::SpellsCostLessPerSharedCardTypeWithExiled { .. }
+                    | baylee_cards_dsl::Modifier::ReduceCostIfTargetsCheck { .. }
+            )
                 }));
         (increases, reductions, next)
     }
 
+    #[allow(clippy::too_many_lines)]
     pub(super) fn spell_adjustments(&self, player: PlayerId) -> SpellAdjustments {
         use crate::choice::CastModeKind;
         let (increases, reductions, next) = self.board_spell_cost_flags(player);
@@ -239,6 +252,18 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     adjust(0, Some(casting::SpellForm::OptionalCost(opt_cost.mana))),
                 );
             }
+            if let Some(fb) = def.faces[0].flashback {
+                publish(
+                    CastModeKind::Flashback,
+                    adjust(0, Some(casting::SpellForm::Flashback(fb))),
+                );
+            }
+            if let Some(dash) = def.faces[0].dash {
+                publish(
+                    CastModeKind::Dash,
+                    adjust(0, Some(casting::SpellForm::Dash(dash))),
+                );
+            }
         }
         out
     }
@@ -276,7 +301,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             casting::SpellForm::Prototype(p) => p.cost,
             casting::SpellForm::Disguise => const { baylee_core::mana::ManaCost::parse("{3}") },
             casting::SpellForm::Bestow(c) => c.mana,
-            casting::SpellForm::Foretell(c) | casting::SpellForm::Impending(c) => c,
+            casting::SpellForm::Foretell(c)
+            | casting::SpellForm::Impending(c)
+            | casting::SpellForm::Flashback(c)
+            | casting::SpellForm::Dash(c) => c,
             casting::SpellForm::OptionalCost(c) => def.faces[face].mana_cost.combine(&c),
             casting::SpellForm::Plot => baylee_core::mana::ManaCost::ZERO,
             casting::SpellForm::Blitz => {
@@ -317,7 +345,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .increase
                 .saturating_add(preview.min_increase)
                 .saturating_add(adjustment.mana_increase.cmc())
-                .saturating_sub(commander),
+                .saturating_sub(if adjustment.commander_tax_replaced {
+                    0
+                } else {
+                    commander
+                }),
             adjustment
                 .reduction
                 .saturating_add(preview.min_reduction)
@@ -555,6 +587,44 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 _ => {}
             }
         }
+        // Opponents' graveyards when a continuous play grant (e.g. `ZonePlayGrant`
+        // targeting `Filter::OwnedBy(PlayerRel::Opponent)`) can reach them.
+        if self.state.effects.may_grant_graveyard_or_top_play() {
+            for seat in 0..self.state.players.len() {
+                let opp = PlayerId::new(seat as u8);
+                if opp == player {
+                    continue;
+                }
+                for &card in self.state.zones.list(ZoneLocation::Graveyard(opp)) {
+                    let Some(obj) = self.state.object(card) else {
+                        continue;
+                    };
+                    let plays_as_land = obj.characteristics().types.contains(TypeSet::LAND)
+                        || obj
+                            .card
+                            .and_then(|c| self.lookup.card(c.index))
+                            .is_some_and(|def| def.land_faces_from_hand().next().is_some());
+                    if plays_as_land
+                        && sorcery_timing
+                        && casting::has_a_land_drop_left(&self.state, player)
+                        && casting::land_card_open(&self.state, player, card)
+                        && !legal.lands.contains(&card)
+                    {
+                        legal.lands.push(card);
+                    }
+                    if casting::alt_cast_zone_spell_open(&self.state, player, card)
+                        && !legal.castable.contains(&card)
+                        && !legal.payable.contains(&card)
+                    {
+                        match casting::can_cast(&self.state, &self.lookup, player, card) {
+                            Ok(()) => legal.castable.push(card),
+                            Err(casting::CastError::NotEnoughMana) => legal.payable.push(card),
+                            _ => {}
+                        }
+                    }
+                }
+            }
+        }
         // The grants are collected once rather than asked of the whole
         // effect table per permanent (`effects::grants`): an Ally board
         // carries thousands of "until end of turn" effects and grants
@@ -652,6 +722,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .map(|(index, definition)| (index as u32, *definition))
                 .chain(granted)
             {
+                if crate::choice::granted_slot(i).is_none()
+                    && crate::layers::ability_is_lost(&self.state, obj, i)
+                {
+                    continue;
+                }
                 let Some(ability) = self.activation_offer_definition(player, id, i, &ability)
                 else {
                     continue;
@@ -851,7 +926,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 }
                 // Command-zone emblems may carry their own abilities without
                 // a printed card. The activation path reads this same list.
-                let granted = if from == ActivationZone::Graveyard {
+                let granted = if matches!(from, ActivationZone::Hand | ActivationZone::Graveyard) {
                     Some(
                         crate::effects::granted_activated_among(
                             &self.state,
@@ -870,6 +945,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     .map(|(idx, def)| (idx as u32, *def))
                     .chain(granted.into_iter().flatten())
                 {
+                    if crate::choice::granted_slot(i).is_none()
+                        && crate::layers::ability_is_lost(&self.state, obj, i)
+                    {
+                        continue;
+                    }
                     let Some(ability) = self.activation_offer_definition(player, card, i, &ability)
                     else {
                         continue;
@@ -1151,6 +1231,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     && (def.is_some_and(|d| {
                         casting::effective_blitz_cost(&self.state, player, card, &d.faces[0], 0)
                             .is_some()
+                            || casting::effective_warp_cost(&self.state, object, &d.faces[0])
+                                .is_some()
                     }) || !casting::granted_stack_alternatives(&self.state, player, card, 0)
                         .is_empty()))
                 || casting::has_alt_cast_grant(&self.state, &self.lookup, player, card);

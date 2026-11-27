@@ -36,7 +36,7 @@ mod extensions;
 mod merged;
 mod moves;
 mod objects;
-mod per_turn;
+pub(crate) mod per_turn;
 mod player_counters;
 mod players;
 mod projection;
@@ -157,6 +157,9 @@ pub struct Player {
     pub combats_to_skip: u32,
     /// Exact attackers from this seat's most recently completed actual turn.
     pub last_turn_attackers: Vec<baylee_core::ids::DamageSourceRef>,
+    /// Exact `(attacker_ref, attacked_player)` pairs from this seat's most
+    /// recently completed combat phase (*Territorial Hellkite*).
+    pub last_combat_attacked: Vec<(baylee_core::ids::DamageSourceRef, PlayerId)>,
     /// Exact incarnations that blocked or became blocked since this player's latest upkeep.
     pub blocked_since_upkeep: Vec<baylee_core::ids::DamageSourceRef>,
     /// The completed interval retained during the player's current upkeep.
@@ -772,6 +775,9 @@ pub struct GameState {
     /// `Resolution::subject.remembered_objects` carries the persisted state.
     pub(crate) resolution_remembered:
         Option<(ObjectId, std::sync::Arc<[crate::resolve::RememberedObject]>)>,
+    /// Transient player currently exiling cards during a resolution, cost payment,
+    /// or special action (`Filter::ExiledByYou`); always `None` at rest.
+    pub(crate) active_exiler: Option<PlayerId>,
     /// Cards a resolving discover (CR 701.57a) exiled and stopped at:
     /// `(the discovering player, the card, its version in exile)`.
     ///
@@ -832,6 +838,10 @@ pub struct GameState {
     /// reset as the next turn begins, before its untap step. So the pair is
     /// snapshotted at that turn boundary instead of counted twice.
     pub previous_turn: Option<PreviousTurn>,
+    /// `(attacker_player, defender_player)` pairs from each player's most
+    /// recently completed turn (`Condition::PlayerAttackedYouLastTurn`), gated
+    /// by `PerTurnTracked`.
+    pub last_turn_attacked_players: per_turn::PerTurnTracked<per_turn::LastTurnAttackedRecord>,
     /// The player who took the first turn (Surgical Metamorph & co.).
     pub starting_player: PlayerId,
     /// How often an ability of an object has been used this turn, cleared as
@@ -885,6 +895,13 @@ pub struct GameState {
     pub copy_snapshots: Vec<(baylee_core::ids::EffectId, Arc<Characteristics>)>,
     /// Sparse original rules and casting decisions restored when temporary copies expire.
     pub(crate) temporary_copy_origins: Vec<(baylee_core::ids::DamageSourceRef, Box<GameObject>)>,
+    /// Copied base characteristics displaced while a permanent that was already
+    /// copying another object (so `original_base` holds its printed card) is
+    /// turned face down (`CR 708.2`, `CR 707.2`).
+    pub(crate) face_down_copied_bases: Vec<(
+        baylee_core::ids::DamageSourceRef,
+        Arc<crate::object::Characteristics>,
+    )>,
     /// Text provenance that differs from an effect's ordinary source.
     pub effect_text_overrides: Vec<(baylee_core::ids::EffectId, crate::text_changes::TextOrigin)>,
     /// Registered replacement rules (Doubling Season, Panharmonicon, …).
@@ -895,6 +912,8 @@ pub struct GameState {
     pub shields: crate::prevention::ShieldStore,
     /// Temporary special actions created by resolving effects.
     pub granted_actions: Vec<crate::granted::GrantedAction>,
+    /// Continuous-effect groups that can be ended by a linked special action (CR 116.2a).
+    pub endable_effect_groups: Vec<crate::granted::EndableEffectGroup>,
     pub(crate) next_granted_action: u64,
     /// Identity for the next simultaneous damage event.
     pub(crate) next_damage_batch: u64,
@@ -1024,6 +1043,7 @@ impl GameState {
             resolution_chosen_color: _,
             resolution_chosen_number: _,
             resolution_remembered: _,
+            active_exiler: _,
             discovered,
             divided,
             synthetic_copies,
@@ -1034,6 +1054,7 @@ impl GameState {
             game_end,
             day_night,
             previous_turn,
+            last_turn_attacked_players,
             starting_player,
             ability_fires,
             modal_modes_used,
@@ -1047,11 +1068,13 @@ impl GameState {
             effect_text_overrides,
             copy_snapshots,
             temporary_copy_origins,
+            face_down_copied_bases,
             numeric_failure,
             constrained_payments,
             replacement_rules,
             shields,
             granted_actions,
+            endable_effect_groups,
             next_granted_action,
             next_damage_batch,
             damage_sources,
@@ -1166,6 +1189,10 @@ impl GameState {
             ("state.game_end", format!("{game_end:?}")),
             ("state.day_night", format!("{day_night:?}")),
             ("state.previous_turn", format!("{previous_turn:?}")),
+            (
+                "state.last_turn_attacked_players",
+                format!("{last_turn_attacked_players:?}"),
+            ),
             ("state.starting_player", format!("{starting_player:?}")),
             ("state.ability_fires", format!("{fires:?}")),
             ("state.modal_modes_used", format!("{modal_modes_used:?}")),
@@ -1193,9 +1220,17 @@ impl GameState {
                 "state.temporary_copy_origins",
                 format!("{temporary_copy_origins:?}"),
             ),
+            (
+                "state.face_down_copied_bases",
+                format!("{face_down_copied_bases:?}"),
+            ),
             ("state.replacement_rules", format!("{replacement_rules:?}")),
             ("state.shields", format!("{shields:?}")),
             ("state.granted_actions", format!("{granted_actions:?}")),
+            (
+                "state.endable_effect_groups",
+                format!("{endable_effect_groups:?}"),
+            ),
             (
                 "state.next_granted_action",
                 format!("{next_granted_action:?}"),

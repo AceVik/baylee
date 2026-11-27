@@ -2379,20 +2379,53 @@ fn wave4_redirect_counters_flashback_tap_reduce_cost_and_computed_pt() {
         ["static_ability!(Filter::This, Modifier::CountersPreventDamage(CounterKind::P1P1))"]
     );
 
-    // 2. Combat-only redirect, multi-recipient redirect, and all-or-nothing counter shield stay refused.
-    for bad in [
-        "Name:Bad\nTypes:Creature\nPT:2/5\n\
+    // 2. Combat-only redirect, multi-recipient redirect, and single-counter prevention shields unlock.
+    let combat_redirect = read(
+        "Name:CombatRedirect\nTypes:Creature\nPT:2/5\n\
          R:Event$ DamageDone | ActiveZones$ Battlefield | ValidSource$ Creature.unblocked | \
          ValidTarget$ You | IsCombat$ True | ReplaceWith$ DmgSelf | DamageTarget$ Self\n\
          SVar:DmgSelf:DB$ ReplaceEffect | VarName$ Affected | VarValue$ Self | VarType$ Card",
-        "Name:Bad\nTypes:Creature\nPT:2/5\n\
+    );
+    assert!(
+        combat_redirect.abilities[0].contains("Modifier::RedirectDamageToAffected")
+            && combat_redirect.abilities[0].contains("combat: Some(true)"),
+        "{:?}",
+        combat_redirect.abilities
+    );
+    let multi_redirect = read(
+        "Name:MultiRedirect\nTypes:Creature\nPT:2/5\n\
          R:Event$ DamageDone | ActiveZones$ Battlefield | \
          ValidTarget$ You,Permanent.Other+YouCtrl | ReplaceWith$ DmgSelf | DamageTarget$ Self\n\
+         SVar:DmgSelf:DB$ ReplaceEffect | VarName$ Affected | VarValue$ Self | VarType$ Card",
+    );
+    assert!(
+        multi_redirect.abilities[0].contains("Modifier::RedirectDamageToAffected")
+            && multi_redirect.abilities[0]
+                .contains("recipients: DamageRecipients::PlayersOrTheirPermanents(PlayerRel::You)"),
+        "{:?}",
+        multi_redirect.abilities
+    );
+    let one_counter = read(
+        "Name:OneCounterShield\nTypes:Creature\nPT:0/0\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.Self | \
+         ReplaceWith$ Rem | PreventionEffect$ True | AlwaysReplace$ True\n\
+         SVar:Rem:DB$ RemoveCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1",
+    );
+    assert_eq!(
+        one_counter.abilities,
+        [
+            "static_ability!(Filter::This, Modifier::PreventDamageRemovingOneCounter { kind: CounterKind::P1P1, require_counter: false })"
+        ]
+    );
+    for bad in [
+        "Name:Bad\nTypes:Creature\nPT:2/5\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ You | \
+         IsCombat$ Invalid | ReplaceWith$ DmgSelf | DamageTarget$ Self\n\
          SVar:DmgSelf:DB$ ReplaceEffect | VarName$ Affected | VarValue$ Self | VarType$ Card",
         "Name:Bad\nTypes:Creature\nPT:0/0\n\
          R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.Self | \
          ReplaceWith$ Rem | PreventionEffect$ True | AlwaysReplace$ True\n\
-         SVar:Rem:DB$ RemoveCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1",
+         SVar:Rem:DB$ RemoveCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 2",
     ] {
         assert!(refused(bad), "must refuse: {bad}");
     }
@@ -4804,7 +4837,7 @@ fn wave17a_retrace_monstrosity_cost_plumbing_and_refusals() {
         "Name:TwoBlockBeast\nManaCost:3 G\nTypes:Creature Beast\nPT:4/4\nK:CARDNAME must be blocked by two or more creatures if able.",
         "Name:FlashExtra\nManaCost:1 U\nTypes:Creature Bird\nPT:2/2\nK:MayFlashSac:2",
         "Name:SelPartner\nManaCost:2 W\nTypes:Legendary Creature Human\nPT:2/2\nK:Partner:Character select",
-        "Name:HexBlack\nManaCost:1 U\nTypes:Creature Drake\nPT:2/2\nK:Hexproof:Black",
+        "Name:SoloHexActivated\nManaCost:1 U\nTypes:Creature Drake\nPT:2/2\nK:Hexproof:Activated:activated abilities",
         "Name:UncomparedCount\nManaCost:2 G\nTypes:Creature Beast\nPT:2/2\n\
          K:etbCounter:P1P1:1:CheckSVar$ L\nSVar:L:Count$Valid Creature.YouCtrl",
         "Name:UnknownCounterKind\nManaCost:2 U\nTypes:Artifact\nK:etbCounter:OMEN:1",
@@ -6179,4 +6212,140 @@ fn wave22a_explicit_refusal_reasons_no_silent_none() {
             "must record refusal reason (no silent None): {bad}"
         );
     }
+}
+
+#[test]
+fn activation_check_svar_unlocks() {
+    let mut c = cats();
+    c.artifact.push("Food".into());
+    let read_food = |src: &str| transcode(&parse(src), &c, None).expect("read");
+    let refused_food = |src: &str| transcode(&parse(src), &c, None).is_none();
+    let prowler = read(
+        "Name:Gilt-Blade Prowler\nManaCost:2 B\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Draw | Cost$ 1 T PayLife<1> | CheckSVar$ X\n\
+         SVar:X:PlayerCountPropertyYou$CardsDiscardedThisTurn",
+    );
+    assert!(
+        prowler.abilities[0].contains(
+            "Condition::AmountAtLeast(Amount::CardsDiscardedThisTurn(PlayerRel::You), 1)"
+        ),
+        "{:?}",
+        prowler.abilities
+    );
+
+    let idol = read(
+        "Name:Idol of Oblivion\nManaCost:2\nTypes:Artifact\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | CheckSVar$ X\n\
+         SVar:X:Count$ThisTurnEntered_Battlefield_Card.tokenCreated+YouOwn",
+    );
+    assert!(
+        idol.abilities[0].contains("Condition::AmountAtLeast(Amount::TokensCreatedThisTurn { filter: &Filter::Any, creator: PlayerRel::You }, 1)"),
+        "{:?}",
+        idol.abilities
+    );
+
+    let anchor = read(
+        "Name:Essence Anchor\nManaCost:2 U\nTypes:Artifact\n\
+         A:AB$ Draw | Cost$ T | PlayerTurn$ True | CheckSVar$ X\n\
+         SVar:X:Count$LeftGraveyardThisTurn Card.YouOwn",
+    );
+    assert!(
+        anchor.abilities[0].contains("Condition::AmountAtLeast(Amount::LeftZoneThisTurn { filter: &Filter::Any, from: ZoneRef::Graveyard, owner_or_ctrl: PlayerRel::You }, 1)"),
+        "{:?}",
+        anchor.abilities
+    );
+
+    let overseer = read_food(
+        "Name:Bonecache Overseer\nManaCost:B\nTypes:Creature\nPT:1/1\n\
+         A:AB$ Draw | Cost$ T PayLife<1> | CheckSVar$ X | SVarCompare$ GE3\n\
+         SVar:X:Count$LeftGraveyardThisTurn Card.YouOwn/Plus.Y\n\
+         SVar:Y:PlayerCountPropertyYou$SacrificedThisTurn Food/Times.3",
+    );
+    assert!(
+        overseer.abilities[0].contains("Condition::Any(&[Condition::AmountAtLeast(Amount::LeftZoneThisTurn { filter: &Filter::Any, from: ZoneRef::Graveyard, owner_or_ctrl: PlayerRel::You }, 3), Condition::AmountAtLeast(Amount::PermanentsSacrificedThisTurn { who: PlayerRel::You, filter: &COUNT1 }, 1)])"),
+        "{:?}",
+        overseer.abilities
+    );
+
+    let knight = read(
+        "Name:Xerex Strobe-Knight\nManaCost:2 U\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Draw | Cost$ T | CheckSVar$ X | SVarCompare$ GE2\n\
+         SVar:X:Count$ThisTurnCast_Card.YouCtrl",
+    );
+    assert!(
+        knight.abilities[0]
+            .contains("Condition::AmountAtLeast(Amount::SpellsCastThisTurn(PlayerRel::You), 2)"),
+        "{:?}",
+        knight.abilities
+    );
+
+    let biblioplex = read(
+        "Name:The Biblioplex\nTypes:Land\n\
+         A:AB$ PeekAndReveal | Cost$ 2 T | PeekAmount$ 1 | RevealValid$ Card.Instant,Card.Sorcery | RevealOptional$ True | RememberRevealed$ True | CheckSVar$ X | SubAbility$ DB1\n\
+         SVar:DB1:DB$ ChangeZone | Defined$ Remembered | Origin$ Library | Destination$ Hand | SubAbility$ DB2\n\
+         SVar:DB2:DB$ ChangeZone | ConditionDefined$ Remembered | ConditionPresent$ Card | ConditionCompare$ EQ0 | Defined$ TopOfLibrary | Origin$ Library | Destination$ Graveyard | Optional$ True | SubAbility$ DBC\n\
+         SVar:DBC:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Count$Compare Z EQ7.1.Y\n\
+         SVar:Y:Count$Compare Z EQ0.1.0\n\
+         SVar:Z:Count$CardsInYourHand",
+    );
+    assert!(
+        biblioplex.abilities[0].contains(
+            "Condition::Any(&[Condition::HandSizeExactly(7), Condition::HandSizeAtMost(0)])"
+        ),
+        "{:?}",
+        biblioplex.abilities
+    );
+
+    for bad in [
+        "Name:BadOverseer\nTypes:Creature\nPT:1/1\n\
+         A:AB$ Draw | Cost$ T | CheckSVar$ X | SVarCompare$ GE3\n\
+         SVar:X:Count$LeftGraveyardThisTurn Card.YouOwn/Plus.Y\n\
+         SVar:Y:PlayerCountPropertyYou$SacrificedThisTurn Food/Times.2",
+        "Name:BadHandDisjunction\nTypes:Artifact\n\
+         A:AB$ Draw | Cost$ T | CheckSVar$ X | SVarCompare$ EQ0\n\
+         SVar:X:Count$Compare Z EQ7.1.Y\n\
+         SVar:Y:Count$Compare Z EQ0.1.0\n\
+         SVar:Z:Count$CardsInYourHand",
+    ] {
+        assert!(refused_food(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn move_attachment_targeted_unlocks() {
+    let mut c = cats();
+    c.enchantment.push("Aura".into());
+    let read_aura = |src: &str| transcode(&parse(src), &c, None).expect("read");
+    let refused_aura = |src: &str| transcode(&parse(src), &c, None).is_none();
+    let crown = read_aura(
+        "Name:Crown of the Ages\nManaCost:2\nTypes:Artifact\n\
+         A:AB$ Attach | Cost$ 4 T | ValidTgts$ Aura.AttachedTo Creature | Object$ Targeted | Choices$ Creature | Move$ True",
+    );
+    assert!(
+        crown.abilities[0].contains("Effect::MoveAttachment { attachment: TargetSpec::Object(&")
+            && crown.abilities[0].contains(
+                "recipient_filter: &Filter::CREATURE, must_change_recipient: true, optional: false"
+            ),
+        "{:?}",
+        crown.abilities
+    );
+
+    let graft = read_aura(
+        "Name:Aura Graft\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ GainControl | ValidTgts$ Aura.AttachedTo Permanent | SubAbility$ ReEnchant\n\
+         SVar:ReEnchant:DB$ Attach | Object$ ParentTarget | Move$ True | Choices$ Permanent",
+    );
+    assert!(
+        graft.abilities[0].contains("Effect::MoveAttachment { attachment: TargetSpec::Object(&")
+            && graft.abilities[0].contains(
+                "recipient_filter: &Filter::Any, must_change_recipient: true, optional: false"
+            ),
+        "{:?}",
+        graft.abilities
+    );
+
+    let bad = "Name:BadAttachChooser\nTypes:Artifact\n\
+         A:AB$ Attach | Cost$ 4 T | ValidTgts$ Aura.AttachedTo Creature | Object$ Targeted | Choices$ Creature | Chooser$ Opponent | Move$ True";
+    assert!(refused_aura(bad), "must refuse: {bad}");
 }

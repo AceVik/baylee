@@ -516,25 +516,28 @@ fn wave28c_refusal_guards() {
          A:SP$ Draw"
     ));
 
-    // UntapOtherPlayer, Propaganda Target$ You stay refused.
-    assert!(refused_w28c(
-        "Name:Seedborn Muse\nManaCost:3 G G\nTypes:Creature Spirit\nPT:2/4\n\
-         S:Mode$ UntapOtherPlayer | ValidCard$ Permanent.YouCtrl"
-    ));
-    assert!(refused_w28c(
-        "Name:Propaganda\nManaCost:2 U\nTypes:Enchantment\n\
-         S:Mode$ CantAttackUnless | ValidCard$ Creature | Cost$ 2 | Target$ You"
-    ));
+    // Wave 19 unlocks Seedborn Muse (`UntapDuringUntapStep`) and Propaganda (`AttackTaxTarget::You`).
 
-    // Serra Paragon shared-limit mixed play, OppOwn exile stay refused.
+    // `Count$ValidExile Card.OppOwn` lowers via 2HG-exact `Filter::OwnedBy(PlayerRel::EachOpponent)`.
+    let umbris = read_w28c(
+        "Name:Opp Exile Approximator\nManaCost:3 U B\nTypes:Creature Nightmare\nPT:1/1\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddPower$ X | AddToughness$ X\n\
+         SVar:X:Count$ValidExile Card.OppOwn",
+    );
+    assert!(
+        umbris
+            .statics
+            .contains("Filter::OwnedBy(PlayerRel::EachOpponent)")
+            && umbris.abilities[0].contains("zone: ZoneSel::ExileAll"),
+        "{} / {:?}",
+        umbris.statics,
+        umbris.abilities
+    );
+
+    // Serra Paragon shared-limit mixed play stays refused.
     assert!(refused_w28c(
         "Name:Serra Paragon\nManaCost:2 W W\nTypes:Creature Angel\nPT:3/4\n\
          S:Mode$ Continuous | Affected$ Permanent.YouOwn+cmcLE3,Land.YouOwn | ValidAfterStack$ Spell.cmcLE3 | Condition$ PlayerTurn | MayPlay$ True | MayPlayLimit$ 1 | EffectZone$ Battlefield | AffectedZone$ Graveyard"
-    ));
-    assert!(refused_w28c(
-        "Name:Opp Exile Approximator\nManaCost:3 U B\nTypes:Creature Nightmare\nPT:1/1\n\
-         S:Mode$ Continuous | AffectedDefined$ Self | AddPower$ X | AddToughness$ X\n\
-         SVar:X:Count$ValidExile Card.OppOwn"
     ));
 
     // Unmodeled Mana.RestrictValid forms stay refused.
@@ -1142,15 +1145,56 @@ fn wave28c_p3_refusal_guards() {
          SVar:AntiMagic:Event$ Counter | ValidCard$ Card.IsRemembered | ValidSA$ Spell | Layer$ CantHappen"
     ));
 
-    // Phantom cycle (CR 615.12), Propaganda (Target$ You without Planeswalker), Mirror Strike stay refused.
-    assert!(refused_w28c(
-        "Name:Propaganda\nManaCost:2 U\nTypes:Enchantment\n\
-         S:Mode$ CantAttackUnless | ValidCard$ Creature | Target$ You | Cost$ 2"
-    ));
+    // Phantom cycle (CR 615.12) and Mirror Strike stay refused.
     assert!(refused_w28c(
         "Name:Mirror Strike\nManaCost:3 W\nTypes:Instant\n\
          A:SP$ Effect | ReplacementEffects$ DamageEvent | RememberObjects$ Targeted | ExileOnMoved$ Battlefield | ValidTgts$ Creature.attacking+unblocked\n\
          SVar:DamageEvent:Event$ DamageDone | ValidSource$ Creature.IsRemembered | ValidTarget$ You | ReplaceWith$ MirrorStrikeDmg | IsCombat$ True | DamageTarget$ ReplacedSourceController\n\
          SVar:MirrorStrikeDmg:DB$ ReplaceEffect | VarName$ Affected | VarValue$ ReplacedSourceController | VarType$ Player"
     ));
+}
+
+#[test]
+fn effect_delayed_damage_done_source_destroy_and_spell_cast_copy_choice_title() {
+    let mut cats = wave28c_cats();
+    cats.creature
+        .extend(["Klingon".into(), "Warrior".into(), "Moogle".into()]);
+    cats.enchantment.push("Saga".into());
+    cats.normalize();
+    let tokens = TokenLookup::held(&[(
+        "r_2_1_klingon_warrior_haste",
+        "Name:Klingon Warrior\nTypes:Creature Klingon Warrior\nColors:red\nPT:2/1\nK:Haste",
+    )]);
+
+    let rov = parse(
+        "Name:Right of Vengeance\nManaCost:3 W\nTypes:Instant\n\
+A:SP$ Effect | Triggers$ TrigDamaged\n\
+SVar:TrigDamaged:Mode$ DamageDone | ValidSource$ Creature | ValidTarget$ You | CombatDamage$ True | Execute$ TrigDestroy\n\
+SVar:TrigDestroy:DB$ Destroy | Defined$ TriggeredSourceLKICopy | SubAbility$ DBToken\n\
+SVar:DBToken:DB$ Token | TokenAmount$ 1 | TokenScript$ r_2_1_klingon_warrior_haste | TokenOwner$ You",
+    );
+    let rov_body = transcode(&rov, &cats, Some(&tokens))
+        .unwrap_or_else(|| panic!("refused: {:?}", refusal_reason(&rov, &cats, Some(&tokens))));
+    assert!(
+        rov_body.abilities[0].contains("Trigger::DealsCombatDamageToYou(&Filter::CREATURE)")
+            && rov_body.abilities[0].contains("Effect::destroy(TargetSpec::EventObject)")
+            && rov_body.abilities[0].contains("Effect::CreateToken"),
+        "{}",
+        rov_body.abilities[0]
+    );
+
+    let mog = parse(
+        "Name:Good King Mog Probe\nManaCost:4 W\nTypes:Instant\n\
+A:SP$ Effect | Triggers$ MogCopy\n\
+SVar:MogCopy:Mode$ SpellCast | ValidCard$ Card.nonCreature | ValidActivatingPlayer$ You | Execute$ TrigCopy | TriggerZones$ Command\n\
+SVar:TrigCopy:DB$ CopyPermanent | Choices$ Card.token+nonSaga+YouCtrl | ChoiceTitle$ Choose a non-Saga token you control",
+    );
+    let mog_body = transcode(&mog, &cats, None)
+        .unwrap_or_else(|| panic!("refused: {:?}", refusal_reason(&mog, &cats, None)));
+    assert!(
+        mog_body.abilities[0].contains("Effect::RegisterDelayedTrigger")
+            && mog_body.abilities[0].contains("Effect::ChooseAndCreateTokenCopy"),
+        "{}",
+        mog_body.abilities[0]
+    );
 }

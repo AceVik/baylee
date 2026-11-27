@@ -1446,6 +1446,34 @@ impl Tx<'_> {
         }
     }
 
+    /// Delayed end-step trigger for `AtEOT$` inside `Animate`/`Pump | Defined$ Remembered`.
+    pub(super) fn wave28a_at_eot_delayed_trigger(at_eot: &str) -> Option<String> {
+        let (whose, delayed) = match at_eot {
+            "Hand" => (
+                "None",
+                "Effect::ReturnToHand { target: TargetSpec::EventObject }",
+            ),
+            "Sacrifice" | "SacrificeCtrl" => ("None", "Effect::SacrificeEvent"),
+            "Exile" => ("None", "Effect::exile(TargetSpec::EventObject)"),
+            "YourHand" => (
+                "Some(PlayerRel::You)",
+                "Effect::ReturnToHand { target: TargetSpec::EventObject }",
+            ),
+            "YourSacrifice" => ("Some(PlayerRel::You)", "Effect::SacrificeEvent"),
+            "YourExile" => (
+                "Some(PlayerRel::You)",
+                "Effect::exile(TargetSpec::EventObject)",
+            ),
+            _ => return None,
+        };
+        Some(format!(
+            "Effect::RegisterDelayedTrigger {{ when: DelayedTriggerWhen::AtStep {{ \
+             step: DelayedStep::EndStep, whose: {whose}, this_turn_only: false, \
+             recurring: false }}, condition: None, targets: None, \
+             remember: TriggerRemember::EventObject, effects: &[{delayed}] }}"
+        ))
+    }
+
     /// Full `Animate | Defined$ Remembered` inside `CaptureAffected::then`.
     #[allow(clippy::too_many_lines)]
     fn wave28a_animate_remembered(&mut self, p: &mut Params) -> Option<Vec<String>> {
@@ -1606,30 +1634,7 @@ impl Tx<'_> {
 
         // Optional delayed end-step cleanup (`AtEOT$`).
         if let Some(at_eot) = probe.take("AtEOT") {
-            let (whose, delayed) = match at_eot.as_str() {
-                "Hand" => (
-                    "None",
-                    "Effect::ReturnToHand { target: TargetSpec::EventObject }",
-                ),
-                "Sacrifice" | "SacrificeCtrl" => ("None", "Effect::SacrificeEvent"),
-                "Exile" => ("None", "Effect::exile(TargetSpec::EventObject)"),
-                "YourHand" => (
-                    "Some(PlayerRel::You)",
-                    "Effect::ReturnToHand { target: TargetSpec::EventObject }",
-                ),
-                "YourSacrifice" => ("Some(PlayerRel::You)", "Effect::SacrificeEvent"),
-                "YourExile" => (
-                    "Some(PlayerRel::You)",
-                    "Effect::exile(TargetSpec::EventObject)",
-                ),
-                _ => return None,
-            };
-            effects.push(format!(
-                "Effect::RegisterDelayedTrigger {{ when: DelayedTriggerWhen::AtStep {{ \
-                 step: DelayedStep::EndStep, whose: {whose}, this_turn_only: false, \
-                 recurring: false }}, condition: None, targets: None, \
-                 remember: TriggerRemember::EventObject, effects: &[{delayed}] }}"
-            ));
+            effects.push(Self::wave28a_at_eot_delayed_trigger(&at_eot)?);
         }
 
         // Forge AI-only `sVars$` hint (e.g. *Whip of Erebos*'s `SVar:MustAttack:True`,

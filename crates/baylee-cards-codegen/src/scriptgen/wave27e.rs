@@ -376,7 +376,7 @@ impl Tx<'_> {
         Some(())
     }
 
-    fn resolve_svar_str<'a>(
+    pub(super) fn resolve_svar_str<'a>(
         svars: &'a std::collections::BTreeMap<String, String>,
         raw: &'a str,
     ) -> Option<&'a str> {

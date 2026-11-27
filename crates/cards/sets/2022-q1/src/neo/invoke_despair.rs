@@ -23,87 +23,63 @@ card!(
                     who: PlayerRel::Chosen,
                     filter: &Filter::CREATURE
                 }],
-                then: &[
-                    Effect::IfCondition {
-                        condition: Condition::AmountCompare {
-                            left: &Amount::RememberedCount,
-                            op: AmountCmp::Equal,
-                            right: &Amount::Fixed(0)
-                        },
-                        then: &[Effect::LoseLife {
+                then: &[Effect::IfCondition {
+                    condition: Condition::AmountCompare {
+                        left: &Amount::RememberedCount,
+                        op: AmountCmp::Equal,
+                        right: &Amount::Fixed(0)
+                    },
+                    then: &[
+                        Effect::LoseLife {
                             amount: Amount::Fixed(2),
                             target: PlayerRel::Chosen
-                        }],
-                        otherwise: &[]
-                    },
-                    Effect::IfCondition {
-                        condition: Condition::AmountCompare {
-                            left: &Amount::RememberedCount,
-                            op: AmountCmp::Equal,
-                            right: &Amount::Fixed(0)
                         },
-                        then: &[Effect::draw(1)],
-                        otherwise: &[]
-                    }
-                ]
+                        Effect::draw(1)
+                    ],
+                    otherwise: &[]
+                }]
             },
             Effect::CaptureAffected {
                 first: &[Effect::SacrificeFilter {
                     who: PlayerRel::Chosen,
                     filter: &Filter::ENCHANTMENT
                 }],
-                then: &[
-                    Effect::IfCondition {
-                        condition: Condition::AmountCompare {
-                            left: &Amount::RememberedCount,
-                            op: AmountCmp::Equal,
-                            right: &Amount::Fixed(0)
-                        },
-                        then: &[Effect::LoseLife {
+                then: &[Effect::IfCondition {
+                    condition: Condition::AmountCompare {
+                        left: &Amount::RememberedCount,
+                        op: AmountCmp::Equal,
+                        right: &Amount::Fixed(0)
+                    },
+                    then: &[
+                        Effect::LoseLife {
                             amount: Amount::Fixed(2),
                             target: PlayerRel::Chosen
-                        }],
-                        otherwise: &[]
-                    },
-                    Effect::IfCondition {
-                        condition: Condition::AmountCompare {
-                            left: &Amount::RememberedCount,
-                            op: AmountCmp::Equal,
-                            right: &Amount::Fixed(0)
                         },
-                        then: &[Effect::draw(1)],
-                        otherwise: &[]
-                    }
-                ]
+                        Effect::draw(1)
+                    ],
+                    otherwise: &[]
+                }]
             },
             Effect::CaptureAffected {
                 first: &[Effect::SacrificeFilter {
                     who: PlayerRel::Chosen,
                     filter: &Filter::PLANESWALKER
                 }],
-                then: &[
-                    Effect::IfCondition {
-                        condition: Condition::AmountCompare {
-                            left: &Amount::RememberedCount,
-                            op: AmountCmp::Equal,
-                            right: &Amount::Fixed(0)
-                        },
-                        then: &[Effect::LoseLife {
+                then: &[Effect::IfCondition {
+                    condition: Condition::AmountCompare {
+                        left: &Amount::RememberedCount,
+                        op: AmountCmp::Equal,
+                        right: &Amount::Fixed(0)
+                    },
+                    then: &[
+                        Effect::LoseLife {
                             amount: Amount::Fixed(2),
                             target: PlayerRel::Chosen
-                        }],
-                        otherwise: &[]
-                    },
-                    Effect::IfCondition {
-                        condition: Condition::AmountCompare {
-                            left: &Amount::RememberedCount,
-                            op: AmountCmp::Equal,
-                            right: &Amount::Fixed(0)
                         },
-                        then: &[Effect::draw(1)],
-                        otherwise: &[]
-                    }
-                ]
+                        Effect::draw(1)
+                    ],
+                    otherwise: &[]
+                }]
             }
         ],
         targets = Some(TargetReq::one(TargetSpec::AnyOpponent))

@@ -33,7 +33,14 @@ card!(
             color_indicator = ColorSet::from_slice(&[Color::Blue]),
             abilities = &[activated!(
                 cost!("{1}", TapSelf),
-                &[Effect::TapTarget, Effect::TransformSource],
+                &[
+                    Effect::TapTarget,
+                    Effect::SetState {
+                        subject: StateSubject::Source,
+                        transition: StateTransition::Transform,
+                        if_cant: &[]
+                    }
+                ],
                 target = Some(TargetSpec::Object(&Filter::NONLAND))
             ),],
             castable_from_hand = false,

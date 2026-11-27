@@ -13,7 +13,7 @@ pub(super) fn needs_choice(state: &GameState, id: ObjectId) -> bool {
 }
 
 pub(super) fn question(state: &GameState, entry: &mut Attempt) -> Option<(Question, Pending)> {
-    if entry.refusal.is_some() || !needs_choice(state, entry.object) {
+    if entry.is_cancelled() || !needs_choice(state, entry.object) {
         return None;
     }
     let options: Vec<_> = state

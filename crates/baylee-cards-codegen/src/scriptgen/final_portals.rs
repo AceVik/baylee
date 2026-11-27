@@ -82,7 +82,10 @@ impl Tx<'_> {
         if p.take("Type").as_deref() != Some("Ability")
             || p.take("ValidSpell").as_deref() != Some("Activated.ManaAbility")
             || p.take("ValidCard").as_deref() != Some("Card.Self")
-            || !matches!(p.take("EffectZone").as_deref(), None | Some("Battlefield"))
+            || !matches!(
+                p.take("EffectZone").as_deref(),
+                None | Some("Battlefield" | "All")
+            )
         {
             return None;
         }

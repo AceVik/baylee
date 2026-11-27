@@ -298,6 +298,8 @@ fn legal_targets_from(
                 | PlayerRel::DefendingPlayer
                 | PlayerRel::OtherOpponents
                 | PlayerRel::ChosenBySource
+                | PlayerRel::SecondChosenBySource
+                | PlayerRel::YouAndTargetOpponent
                 | PlayerRel::PlayerToYourRight => {
                     return None;
                 }
@@ -413,7 +415,39 @@ fn eval_amount_at(view: &PlayerView, amt: &baylee_cards_dsl::Amount, depth: u8) 
         A::Times { base, factor } => {
             eval_amount_at(view, base, depth + 1)?.checked_mul(i32::try_from(*factor).ok()?)
         }
+        A::GreatestPowerAmong(filter) => {
+            if filter_reaches_other_zones(filter) {
+                return None;
+            }
+            let mut greatest: Option<i32> = None;
+            for object in &view.battlefield {
+                if object
+                    .status
+                    .contains(baylee_view::ObjectStatus::PHASED_OUT)
+                {
+                    continue;
+                }
+                if matches_at(view, object, filter, depth + 1)? {
+                    let Some(power) = object.power else {
+                        continue;
+                    };
+                    let clamped = i32::from(power.max(0));
+                    greatest = Some(greatest.map_or(clamped, |cur| cur.max(clamped)));
+                }
+            }
+            Some(greatest.unwrap_or(0))
+        }
         _ => None,
+    }
+}
+
+fn filter_reaches_other_zones(filter: &Filter) -> bool {
+    match filter {
+        Filter::InZone(zone) => !matches!(zone, baylee_cards_dsl::ZoneRef::Battlefield),
+        Filter::ExiledByYou => true,
+        Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_reaches_other_zones),
+        Filter::Not(inner) | Filter::AttachedTo(inner) => filter_reaches_other_zones(inner),
+        _ => false,
     }
 }
 
@@ -694,6 +728,11 @@ fn matches_at(
         | Filter::ControlledByEnchantedPlayer
         | Filter::PairedWithSource
         | Filter::HasAdventure
+        | Filter::HasOmen
+        | Filter::HasMorph
+        | Filter::DoubleFaced
+        | Filter::CanTransform
+        | Filter::Flipped
         // StackItem has neither an exact source incarnation nor an
         // authoritative activated/triggered kind. Printed ability identity
         // cannot stand in for either (grants, copies and departed sources).
@@ -710,6 +749,8 @@ fn matches_at(
         | Filter::WasCast
         | Filter::WasCastByYou
         | Filter::CastFromZone(_)
+        | Filter::CastForFlashback
+        | Filter::CastForDash
         // Relative to a resolution's reference object, this turn's blocks
         // and damage, or a colour chosen or compared across
         // the board: nothing a target probe from the view can close.
@@ -763,6 +804,8 @@ fn matches_at(
         | Filter::SharesCardTypeWithReference
         | Filter::CastForBlitz
         | Filter::FirstMatchingSpellThisTurn(_)
+        | Filter::EnteredCurrentZoneThisTurn(_)
+        | Filter::ExiledByYou
         // Winnow asks this only while resolving, never while choosing a target.
         | Filter::SharesNameWithAnotherPermanent => return None,
         Filter::HasAnyCounter => object.counters.iter().any(|entry| entry.count > 0),

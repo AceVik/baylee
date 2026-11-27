@@ -446,8 +446,18 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
             baylee_cards_dsl::GiftKind::ExtraTurn => ch.extra_turn_or_win -= 1.0,
             _ => ch.tokens_create -= 0.5,
         },
-        Effect::AttachChosen { .. } => {
+        Effect::AttachChosen { .. }
+        | Effect::AttachChosenThen { .. }
+        | Effect::AttachObject { .. }
+        | Effect::AttachLtbAttachments { .. }
+        | Effect::BecomeAura { .. }
+        | Effect::SetDynamicPT { .. } => {
             ch.pump_pt += 1.0;
+        }
+        Effect::MoveAllAttachments { .. }
+        | Effect::RelocateAttachment { .. }
+        | Effect::Unattach { .. } => {
+            ch.blink_copy_control += 0.5;
         }
         Effect::ChooseCardEx {
             movement,

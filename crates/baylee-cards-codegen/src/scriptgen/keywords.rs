@@ -498,6 +498,30 @@ impl Tx<'_> {
             ));
             return Some(());
         }
+        if line.trim().starts_with("Hexproof:Activated") && self.has_hexproof_from_abilities_pair {
+            let rest = line.trim().strip_prefix("Hexproof:Activated")?;
+            if rest.is_empty() || rest.starts_with(':') && rest[1..].find(':').is_none() {
+                self.body.abilities.push(Self::static_expr(
+                    "Filter::This",
+                    "Modifier::HexproofFromAbilities",
+                ));
+                return Some(());
+            }
+        }
+        if line.trim().starts_with("Hexproof:Triggered") && self.has_hexproof_from_abilities_pair {
+            let rest = line.trim().strip_prefix("Hexproof:Triggered")?;
+            if rest.is_empty() || rest.starts_with(':') && rest[1..].find(':').is_none() {
+                return Some(());
+            }
+        }
+        if let Some(expr) = self.hexproof_filter(line) {
+            let from = self.body.filter_static("HEXPROOF", &expr);
+            self.body.abilities.push(Self::static_expr(
+                "Filter::This",
+                &format!("Modifier::HexproofFrom(&{from})"),
+            ));
+            return Some(());
+        }
         if let Some(land) = self.landwalk_filter(line) {
             let name = self.body.filter_static("LANDWALK", &land);
             self.body.abilities.push(Self::static_expr(
@@ -509,6 +533,30 @@ impl Tx<'_> {
         let head = line.split(':').next().unwrap_or(line);
         let head = head.split(' ').next().unwrap_or(head);
         self.deny(format!("keyword `{head}`"))
+    }
+
+    /// What a conditional hexproof keyword protects from (`CR 702.11d`), as the
+    /// `Filter` matched against the targeting spell or ability's source.
+    pub(super) fn hexproof_filter(&self, word: &str) -> Option<String> {
+        let rest = word.trim().strip_prefix("Hexproof:")?;
+        let mut fields = rest.split(':');
+        let spec = fields.next()?.trim();
+        let _prose = fields.next();
+        if fields.next().is_some()
+            || spec.is_empty()
+            || spec.contains('&')
+            || spec.contains("Player")
+            || spec.contains("Chosen")
+            || spec.contains("Remembered")
+            || spec.contains("EffectSource")
+            || spec.contains("Triggered")
+            || spec.contains("Activated")
+            || spec.contains("Spell")
+            || spec.contains("Card.Self")
+        {
+            return None;
+        }
+        self.filter_expr(spec)
     }
 
     /// What a protection keyword protects from, as the `Filter` asked of a
@@ -1164,6 +1212,9 @@ impl Tx<'_> {
     }
 
     fn equip_cost_reduction(&mut self, raw: &str) -> Option<String> {
+        if self.try_equip_target_metric(raw).is_some() {
+            return Some(String::new());
+        }
         let def = if raw.starts_with("Count$") || raw.starts_with("PlayerCount") {
             raw.to_string()
         } else if let Some(resolved) = self.svars.get(raw).cloned() {
@@ -3565,27 +3616,31 @@ impl Tx<'_> {
     ///
     /// A third field is the printed wording — "creature you control" — and
     /// this side takes the printed wording from Scryfall, so it is prose.
-    pub(super) fn enchant(&mut self, rest: &str) -> Option<()> {
+    pub(super) fn enchant_target_spec(&mut self, rest: &str) -> Option<String> {
         let valid = rest.split(':').next().unwrap_or(rest).trim();
-        let target_spec = match valid {
-            "Player" => "TargetSpec::AnyPlayer".to_string(),
+        match valid {
+            "Player" => Some("TargetSpec::AnyPlayer".to_string()),
             "Opponent" | "Player.Opponent" | "Player.OppCtrl" => {
-                "TargetSpec::AnyOpponent".to_string()
+                Some("TargetSpec::AnyOpponent".to_string())
             }
-            "Player.You" | "You" => "TargetSpec::Player(PlayerRel::You)".to_string(),
+            "Player.You" | "You" => Some("TargetSpec::Player(PlayerRel::You)".to_string()),
             _ if valid.split(',').any(|alt| {
                 let head = alt.split(['.', '+']).next().unwrap_or(alt).trim();
                 matches!(head, "Player" | "Opponent" | "You")
             }) =>
             {
-                return self.deny(format!("an `Enchant {valid}` player qualifier"));
+                self.deny(format!("an `Enchant {valid}` player qualifier"))
             }
             _ => {
                 let expr = self.filter_expr(valid)?;
                 let name = self.body.filter_static("ENCHANT", &expr);
-                format!("TargetSpec::Object(&{name})")
+                Some(format!("TargetSpec::Object(&{name})"))
             }
-        };
+        }
+    }
+
+    pub(super) fn enchant(&mut self, rest: &str) -> Option<()> {
+        let target_spec = self.enchant_target_spec(rest)?;
         self.body.abilities.push(format!(
             "spell!(&[Effect::AttachSelf {{ target: {target_spec} }}], \
              targets = Some(TargetReq::one({target_spec})))"
@@ -3626,12 +3681,9 @@ impl Tx<'_> {
                     && (p.has("AddAbility") || p.has("AddTrigger") || p.has("Goad")))
                     || (cmd_zone
                         && !p.has("AffectedZone")
-                        && !matches!(
-                            p.peek("Affected"),
-                            Some(
-                                "You" | "Player" | "Opponent" | "Player.Opponent" | "Player.Chosen"
-                            )
-                        ))
+                        && !p
+                            .peek("Affected")
+                            .is_some_and(super::saga_ward_convoke::is_player_continuous_affected))
             }
             "CantAttack"
             | "CantAttack,CantBlock"
@@ -3646,6 +3698,21 @@ impl Tx<'_> {
             }
             _ => false,
         }
+    }
+
+    pub(super) fn rule_with_index(
+        &mut self,
+        rule_idx: usize,
+        kind: char,
+        spec: &str,
+    ) -> Option<()> {
+        if self.is_consumed_may_play_companion(rule_idx) {
+            return Some(());
+        }
+        let prev_idx = self.current_rule_idx.replace(rule_idx);
+        let res = self.rule(kind, spec);
+        self.current_rule_idx = prev_idx;
+        res
     }
 
     pub(super) fn rule(&mut self, kind: char, spec: &str) -> Option<()> {
@@ -3777,10 +3844,26 @@ impl Tx<'_> {
         if event == "DamageDone" && p.peek("ValidSource") == Some("Creature.blockedBySource") {
             return self.wall_blocked_damage_prevention(p);
         }
-        if event == "DamageDone" && p.peek("ValidSource") == Some("Creature.EnchantedBy") {
+        if event == "DamageDone"
+            && p.peek("ValidSource") == Some("Creature.EnchantedBy")
+            && !p.has("IsCombat")
+            && !p.has("Secondary")
+            && !p.has("ActiveZones")
+            && !p.has("ValidTarget")
+            && !p.has("ReplaceWith")
+            && !p.has("PreventionEffect")
+        {
             return self.enchanted_source_damage_prevention(p);
         }
-        if event == "DamageDone" && p.peek("ValidTarget") == Some("Creature.EnchantedBy") {
+        if event == "DamageDone"
+            && p.peek("ValidTarget") == Some("Creature.EnchantedBy")
+            && !p.has("IsCombat")
+            && !p.has("Secondary")
+            && !p.has("ActiveZones")
+            && !p.has("ValidSource")
+            && !p.has("ReplaceWith")
+            && !p.has("PreventionEffect")
+        {
             return self.enchanted_target_damage_prevention(p);
         }
         if event == "DamageDone"
@@ -3857,6 +3940,7 @@ impl Tx<'_> {
                 .wave24e_self_etb_moved_replacement(spec)
                 .or_else(|| self.wave26f_moved_replacement(spec))
                 .or_else(|| self.wave16c_replacement(spec))
+                .or_else(|| self.enters_under_chosen_opponent_control(spec))
                 .is_some()
             {
                 return Some(());
@@ -3980,6 +4064,84 @@ impl Tx<'_> {
     ///   (*Frankenstein's Monster*)
     /// - `Sacrifice` (optional any number) -> `PutCounter` (`P1P1`) (*Shimatsu*, *Devouring Hellion*)
     /// - `Card.Self+escaped` -> `PutCounter` -> `ImmediateTrigger` (*Pharika's Spawn*)
+    /// - `R: Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | Layer$ Control`
+    ///   chaining `ChoosePlayer(Opponent) -> ChangeZone(ReplacedCard -> Battlefield,
+    ///   GainControl$ ChosenPlayer) [-> Cleanup(ClearChosenPlayer$ True)]`
+    ///   (*Xantcha, Sleeper Agent*, *Captive Audience*, *Pendant of Prosperity*) emits
+    ///   `EnterModifier::EntersUnderChosenOpponentControl`.
+    fn enters_under_chosen_opponent_control(&mut self, spec: &str) -> Option<()> {
+        let (event, mut p) = Params::parse(spec)?;
+        if event != "Moved" {
+            return None;
+        }
+        p.drop_prose();
+        if p.take("ValidCard").as_deref() != Some("Card.Self")
+            || p.take("Destination").as_deref() != Some("Battlefield")
+            || p.take("Layer").as_deref() != Some("Control")
+            || !matches!(
+                p.take("ActiveZones").as_deref(),
+                None | Some("Battlefield" | "All")
+            )
+        {
+            return None;
+        }
+        let with = p.take("ReplaceWith")?;
+        if !p.exhausted() {
+            return None;
+        }
+        let (choose_api, mut cp) = self.svars.get(with.trim()).and_then(|s| Params::parse(s))?;
+        cp.drop_prose();
+        cp.take("ChoiceTitle");
+        cp.take("AILogic");
+        if choose_api != "ChoosePlayer"
+            || !matches!(cp.take("Defined").as_deref(), None | Some("You"))
+            || !matches!(
+                cp.take("Choices").as_deref(),
+                Some("Player.Opponent" | "Opponent")
+            )
+        {
+            return None;
+        }
+        let move_name = cp.take("SubAbility")?;
+        if !cp.exhausted() {
+            return None;
+        }
+        let (move_api, mut mp) = self
+            .svars
+            .get(move_name.trim())
+            .and_then(|s| Params::parse(s))?;
+        mp.drop_prose();
+        if move_api != "ChangeZone"
+            || !matches!(mp.take("Hidden").as_deref(), None | Some("True"))
+            || !matches!(mp.take("Origin").as_deref(), None | Some("All"))
+            || mp.take("Destination").as_deref() != Some("Battlefield")
+            || mp.take("Defined").as_deref() != Some("ReplacedCard")
+            || mp.take("GainControl").as_deref() != Some("ChosenPlayer")
+        {
+            return None;
+        }
+        if let Some(cleanup_name) = mp.take("SubAbility") {
+            let (clean_api, mut clp) = self
+                .svars
+                .get(cleanup_name.trim())
+                .and_then(|s| Params::parse(s))?;
+            clp.drop_prose();
+            if clean_api != "Cleanup"
+                || clp.take("ClearChosenPlayer").as_deref() != Some("True")
+                || !clp.exhausted()
+            {
+                return None;
+            }
+        }
+        if !mp.exhausted() {
+            return None;
+        }
+        self.body
+            .enter_modifiers
+            .push("EnterModifier::EntersUnderChosenOpponentControl".to_string());
+        Some(())
+    }
+
     #[allow(clippy::too_many_lines)]
     fn wave24e_self_etb_moved_replacement(&mut self, spec: &str) -> Option<()> {
         let (event, mut p) = Params::parse(spec)?;
@@ -5110,7 +5272,10 @@ impl Tx<'_> {
         let before_kw = self.body.keywords.len();
         let prev_x = std::mem::replace(&mut self.has_x, false);
         let prev_spell = std::mem::replace(&mut self.on_a_spell, false);
-        let ok = self.static_ability(&svar);
+        let ok = match self.try_extra_static(&svar) {
+            super::saga_ward_convoke::ExtraOutcome::Handled(res) => res,
+            super::saga_ward_convoke::ExtraOutcome::Pass => self.static_ability(&svar),
+        };
         self.has_x = prev_x;
         self.on_a_spell = prev_spell;
         ok?;

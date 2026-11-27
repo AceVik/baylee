@@ -16,6 +16,7 @@ pub(super) fn bound(state: &GameState) -> Option<u32> {
         || !state.reflexive.is_empty()
         || !state.replacement_rules.is_empty()
         || !state.granted_actions.is_empty()
+        || !state.endable_effect_groups.is_empty()
     {
         return None;
     }

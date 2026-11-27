@@ -701,6 +701,7 @@ const PRINTED_KEYWORDS: &[&str] = &[
     "Unleash",
     "Umbra Armor",
     "Assist",
+    "Decayed",
 ];
 
 /// `withFlying` / `hasKeywordFlying` as `Filter::HasKeyword(KeywordSet::FLYING)`,
@@ -925,12 +926,16 @@ fn collect_token_stems(script: &CardScript, out: &mut Vec<String>) {
     for body in bodies {
         for at in body.match_indices("TokenScript$").map(|(i, _)| i) {
             let rest = body[at + "TokenScript$".len()..].trim_start();
-            let stem: String = rest
-                .chars()
-                .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
-                .collect();
-            if !stem.is_empty() && !out.contains(&stem) {
-                out.push(stem);
+            let field = rest.split(['|', '\n', '\r']).next().unwrap_or("");
+            for part in field.split(',') {
+                let stem: String = part
+                    .trim()
+                    .chars()
+                    .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
+                    .collect();
+                if !stem.is_empty() && !out.contains(&stem) {
+                    out.push(stem);
+                }
             }
         }
         // The token a line names by not naming it. `Investigate` writes no

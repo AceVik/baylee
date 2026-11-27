@@ -130,7 +130,8 @@ fn cost_moves_library(part: &CostPart) -> bool {
         | CostPart::RevealSelfFromHand
         | CostPart::BeholdAndExile(_)
         | CostPart::Waterbend(_)
-        | CostPart::WaterbendX => false,
+        | CostPart::WaterbendX
+        | CostPart::RevealChosenPlayer => false,
         CostPart::Either(a, b) => {
             a.parts.iter().any(cost_moves_library) || b.parts.iter().any(cost_moves_library)
         }
@@ -209,6 +210,7 @@ const fn always_moves_library(effect: &Effect) -> bool {
             | Effect::ManifestTop { .. }
             | Effect::ManifestDread
             | Effect::TurnFaceUp { .. }
+            | Effect::SetState { .. }
             | Effect::Plot { .. }
             | Effect::PlotTop { .. }
             | Effect::Backup { .. }

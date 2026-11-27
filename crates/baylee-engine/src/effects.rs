@@ -162,8 +162,16 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::LoseAllBandsWithOther
         | Modifier::CantHaveKeywords(_)
         | Modifier::LoseAllAbilities
+        | Modifier::GrantEnchant(_)
+        | Modifier::LoseAbility(_)
+        | Modifier::GrantBloodthirst(_)
+        | Modifier::GrantSunburst
+        | Modifier::SetName(_)
         | Modifier::ProtectionFrom(_)
         | Modifier::ProtectionFromExiledWithSourceTypes
+        | Modifier::HexproofFrom(_)
+        | Modifier::HexproofFromOwnColors
+        | Modifier::HexproofFromAbilities
         | Modifier::BecomeCopyOf(_)
         | Modifier::GrantsFlashback
         | Modifier::GrantsFlashbackCost(_)
@@ -183,6 +191,13 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::GrantBlitzCardManaCost
         | Modifier::GrantProwl(_)
         | Modifier::GrantFreerunning(_)
+        | Modifier::GrantMiracle(_)
+        | Modifier::GrantForetell { .. }
+        | Modifier::GrantWarp(_)
+        | Modifier::GrantEvoke(_)
+        | Modifier::GrantMadnessManaCost
+        | Modifier::GrantsMayhemManaCost
+        | Modifier::GrantsBeamMeUpManaCost { .. }
         | Modifier::Sneak(_)
         | Modifier::GainControl
         | Modifier::AddTypeIfCountersAtLeast { .. }
@@ -272,6 +287,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::RevealAllLibraryTops
         | Modifier::RevealAllHands
         | Modifier::RevealYourHand
+        | Modifier::RevealOpponentsHands
         | Modifier::RevealLibraryTop
         | Modifier::ExtraLandDrops(_)
         | Modifier::CantActivateArtifacts
@@ -402,6 +418,13 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CantBlockUnlessPayManaPerCounter(_)
         | Modifier::CantBlockMatchingUnlessPayMana { .. }
         | Modifier::CantAttackUnlessYouSacrifice { .. }
+        | Modifier::UntapDuringUntapStep { .. }
+        | Modifier::AttackManaTax { .. }
+        | Modifier::AttackPhyrexianTax { .. }
+        | Modifier::CantAttackUnlessYouReturn { .. }
+        | Modifier::CantAttackUnlessYouTap { .. }
+        | Modifier::BlockManaTax { .. }
+        | Modifier::CantBlockUnlessYouTap { .. }
         | Modifier::DamageToItCantBePreventedOrRedirected
         | Modifier::CantEnterBattlefield(_)
         | Modifier::SpellsCostMoreMana(_)
@@ -410,6 +433,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CantBlockUnlessYouControlMoreCreaturesThanAttacker
         | Modifier::CreatureAbilityManaAnyColor
         | Modifier::MayCastWithAltCost { .. }
+        | Modifier::ZonePlayGrant(_)
         | Modifier::AdjustSpellCostByCast { .. }
         | Modifier::MayLookAtTopOfLibrary { .. }
         | Modifier::GrantFlash { .. }
@@ -432,7 +456,36 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CantBeAttackedBy(_)
         | Modifier::MayActivateLoyaltyAsInstant { .. }
         | Modifier::MayCastFromGraveyardTargeted { .. }
-        | Modifier::CastCostIncreaseUnlessTargets { .. } => false,
+        | Modifier::CastCostIncreaseUnlessTargets { .. }
+        | Modifier::NextDrawReplace(_)
+        | Modifier::ReplaceNextGameLoss { .. }
+        | Modifier::EnterUnderYourControl(_)
+        | Modifier::ReplaceBattlefieldEntry { .. }
+        | Modifier::ExileMatchingInsteadOfGraveyard { .. }
+        | Modifier::PermanentsEnterTapped(_)
+        | Modifier::MultiplyTokensCreated { .. }
+        | Modifier::StealOpponentTokens
+        | Modifier::AddDamageDynamic { .. }
+        | Modifier::PreventDamageRemovingOneCounter { .. }
+        | Modifier::RedirectDamageToAffected { .. }
+        | Modifier::RedirectDamageToAffectedController
+        | Modifier::PreventAllButOneDamage { .. }
+        | Modifier::ReplaceOrPreventDamageScopedWithThen { .. }
+        | Modifier::HealOtherDamageWhenDealtDamage
+        | Modifier::PlayerHexproofFrom { .. }
+        | Modifier::IgnoreOpponentsHexproofMatching { .. }
+        | Modifier::PlotActionCostsLess { .. }
+        | Modifier::MorphTurnFaceUpCostsMore { .. }
+        | Modifier::ActivatedAbilitiesCostAdditional { .. }
+        | Modifier::SpellsCostLessPerSharedCardTypeWithExiled { .. }
+        | Modifier::FirstSpellEachTurnCostAdjustByAmount { .. }
+        | Modifier::FirstActivatedAbilityEachTurnCostLess { .. }
+        | Modifier::ActivatedAbilitiesWithKeywordCostLess { .. }
+        | Modifier::EquipCostsLessByTargetAmount { .. }
+        | Modifier::CommanderTaxReplacedWithLife { .. }
+        | Modifier::RaiseCostIfTargetsYouOrPermanent { .. }
+        | Modifier::AdjustSpellCostBeyondFirstTarget { .. }
+        | Modifier::ReduceCostIfTargetsCheck { .. } => false,
     }
 }
 
@@ -549,6 +602,9 @@ impl RuleHints {
     const REGENERATION_PROHIBITION: u32 = 1 << 21;
     const DAMAGE_SOURCE_COLOR: u32 = 1 << 22;
     const UNCOUNTERABLE_SPELLS: u32 = 1 << 23;
+    const LOSE_ABILITY: u32 = 1 << 24;
+    const GRANT_ENCHANT: u32 = 1 << 25;
+    const SET_NAME: u32 = 1 << 26;
 
     const fn contains(&self, bit: u32) -> bool {
         self.0 & bit != 0
@@ -667,6 +723,18 @@ impl EffectTable {
         self.hints.contains(RuleHints::DAMAGE_SOURCE_COLOR)
     }
 
+    pub(crate) const fn may_lose_specific_ability(&self) -> bool {
+        self.hints.contains(RuleHints::LOSE_ABILITY)
+    }
+
+    pub(crate) const fn may_grant_enchant(&self) -> bool {
+        self.hints.contains(RuleHints::GRANT_ENCHANT)
+    }
+
+    pub(crate) const fn may_set_name(&self) -> bool {
+        self.hints.contains(RuleHints::SET_NAME)
+    }
+
     pub(crate) fn has_parked(&self) -> bool {
         !self.parked.is_empty()
     }
@@ -739,6 +807,18 @@ impl EffectTable {
             matches!(fx.modifier, Modifier::GrantStatic { .. }),
         );
         self.hints.insert_if(
+            RuleHints::LOSE_ABILITY,
+            matches!(fx.modifier, Modifier::LoseAbility(_)),
+        );
+        self.hints.insert_if(
+            RuleHints::GRANT_ENCHANT,
+            matches!(fx.modifier, Modifier::GrantEnchant(_)),
+        );
+        self.hints.insert_if(
+            RuleHints::SET_NAME,
+            matches!(fx.modifier, Modifier::SetName(_)),
+        );
+        self.hints.insert_if(
             RuleHints::GRANT_LINKED_EXILE,
             matches!(
                 fx.modifier,
@@ -786,6 +866,12 @@ impl EffectTable {
                     | Modifier::SpendManaAs { .. }
                     | Modifier::CreatureAbilityManaAnyColor
                     | Modifier::OneSpellManaAnyType
+                    | Modifier::ZonePlayGrant(baylee_cards_dsl::ZonePlayGrant {
+                        mana_spending: baylee_cards_dsl::ZonePlayManaSpending::AnyColor
+                            | baylee_cards_dsl::ZonePlayManaSpending::AnyType
+                            | baylee_cards_dsl::ZonePlayManaSpending::SnowAsAnyColor,
+                        ..
+                    })
             ),
         );
         self.hints.insert_if(
@@ -817,7 +903,18 @@ impl EffectTable {
                     | Modifier::GrantBlitzCardManaCost
                     | Modifier::GrantProwl(_)
                     | Modifier::GrantFreerunning(_)
+                    | Modifier::GrantMiracle(_)
+                    | Modifier::GrantForetell { .. }
+                    | Modifier::GrantWarp(_)
+                    | Modifier::GrantEvoke(_)
+                    | Modifier::GrantMadnessManaCost
                     | Modifier::CastCostIncreaseUnlessTargets { .. }
+                    | Modifier::SpellsCostLessPerSharedCardTypeWithExiled { .. }
+                    | Modifier::FirstSpellEachTurnCostAdjustByAmount { .. }
+                    | Modifier::CommanderTaxReplacedWithLife { .. }
+                    | Modifier::RaiseCostIfTargetsYouOrPermanent { .. }
+                    | Modifier::AdjustSpellCostBeyondFirstTarget { .. }
+                    | Modifier::ReduceCostIfTargetsCheck { .. }
             ),
         );
         self.hints.insert_if(
@@ -848,6 +945,11 @@ impl EffectTable {
                     | Modifier::PlayerCantActivateNonMana { .. }
                     | Modifier::CantActivateArtifacts
                     | Modifier::ChosenNameCantActivate
+                    | Modifier::MorphTurnFaceUpCostsMore { .. }
+                    | Modifier::ActivatedAbilitiesCostAdditional { .. }
+                    | Modifier::FirstActivatedAbilityEachTurnCostLess { .. }
+                    | Modifier::ActivatedAbilitiesWithKeywordCostLess { .. }
+                    | Modifier::EquipCostsLessByTargetAmount { .. }
             ),
         );
         self.hints.insert_if(
@@ -864,10 +966,15 @@ impl EffectTable {
                     | Modifier::PlayerCantCast { .. }
                     | Modifier::PlayersCantPlay(_)
                     | Modifier::CantEnterBattlefield(_)
+                    | Modifier::ReplaceBattlefieldEntry { .. }
                     | Modifier::MayCastWithAltCost {
                         with_flash: true,
                         ..
                     }
+                    | Modifier::ZonePlayGrant(baylee_cards_dsl::ZonePlayGrant {
+                        with_flash: true,
+                        ..
+                    })
                     | Modifier::GrantFlash { .. }
             ),
         );
@@ -885,6 +992,7 @@ impl EffectTable {
                     | Modifier::MayLookAtTopOfLibrary { .. }
                     | Modifier::RevealAllHands
                     | Modifier::RevealYourHand
+                    | Modifier::RevealOpponentsHands
                     | Modifier::NoMaxHandSize
                     | Modifier::ChosenPlayerMaxHandSize(_)
             ),
@@ -910,6 +1018,10 @@ impl EffectTable {
                     | Modifier::MayCastFromGraveyardUsingAlt(_)
                     | Modifier::GrantsHarmonizeManaCost
                     | Modifier::MayCastFromGraveyardTargeted { .. }
+                    | Modifier::GrantEvoke(_)
+                    | Modifier::GrantsMayhemManaCost
+                    | Modifier::GrantsBeamMeUpManaCost { .. }
+                    | Modifier::ZonePlayGrant(_)
             ),
         );
         self.hints.insert_if(
@@ -937,6 +1049,7 @@ impl EffectTable {
                     | Modifier::CantBeSacrificed { .. }
                     | Modifier::PlayersCantLose
                     | Modifier::NamedPlayersCantLose(_)
+                    | Modifier::ReplaceNextGameLoss { .. }
                     | Modifier::PlayersCantWin(_)
                     | Modifier::DrawLimitPerTurn { .. }
                     | Modifier::SkipUntapStep { .. }
@@ -1412,6 +1525,22 @@ pub(crate) fn applies_to_snapshot(
             crate::zone::Zone::Battlefield | crate::zone::Zone::Stack
         )
         && !crate::state::filter_reaches_other_zones(filter)
+        && !matches!(
+            (&fx.modifier, obj.zone),
+            (
+                Modifier::GrantActivatedDefinition(baylee_cards_dsl::AbilityDef::Activated {
+                    zone: baylee_cards_dsl::ActivationZone::Hand,
+                    ..
+                }),
+                crate::zone::Zone::Hand
+            ) | (
+                Modifier::GrantActivatedDefinition(baylee_cards_dsl::AbilityDef::Activated {
+                    zone: baylee_cards_dsl::ActivationZone::Graveyard,
+                    ..
+                }),
+                crate::zone::Zone::Graveyard
+            )
+        )
     {
         return false;
     }
@@ -2180,6 +2309,32 @@ mod tests {
                 count: 2,
                 filter: &Filter::LAND,
             },
+            Modifier::UntapDuringUntapStep {
+                who: PlayerRel::EachOtherPlayer,
+            },
+            Modifier::AttackManaTax {
+                target: baylee_cards_dsl::AttackTaxTarget::You,
+                amount: baylee_cards_dsl::Amount::Fixed(2),
+            },
+            Modifier::AttackPhyrexianTax {
+                target: baylee_cards_dsl::AttackTaxTarget::YouOrYourPlaneswalkers,
+                color: baylee_core::mana::ManaColor::White,
+            },
+            Modifier::CantAttackUnlessYouReturn {
+                count: 1,
+                filter: &Filter::ENCHANTMENT,
+            },
+            Modifier::CantAttackUnlessYouTap {
+                count: 1,
+                filter: &Filter::CREATURE,
+            },
+            Modifier::BlockManaTax {
+                amount: baylee_cards_dsl::Amount::Fixed(1),
+            },
+            Modifier::CantBlockUnlessYouTap {
+                count: 1,
+                filter: &Filter::CREATURE,
+            },
             Modifier::DamageToItCantBePreventedOrRedirected,
             Modifier::CantEnterBattlefield(&Filter::LAND),
             Modifier::SpellsCostMoreMana(baylee_core::mana::ManaCost::ZERO),
@@ -2414,6 +2569,172 @@ mod tests {
                 filter: &baylee_cards_dsl::Filter::YOUR_CREATURE,
                 generic: 8,
             },
+            Modifier::NextDrawReplace(baylee_cards_dsl::NextDrawReplacement::GainLife(5)),
+            Modifier::ReplaceNextGameLoss {
+                draw: 7,
+                set_life: 1,
+            },
+            Modifier::EnterUnderYourControl(&baylee_cards_dsl::Filter::CREATURE),
+            Modifier::ReplaceBattlefieldEntry {
+                filter: &baylee_cards_dsl::Filter::CREATURE,
+                predicate: baylee_cards_dsl::EntryPredicate::NotCast,
+                destination: baylee_cards_dsl::EntryInsteadZone::Exile,
+            },
+            Modifier::ExileMatchingInsteadOfGraveyard {
+                filter: &baylee_cards_dsl::Filter::CREATURE,
+                origin: Some(baylee_cards_dsl::ZoneRef::Battlefield),
+                controller_lki: None,
+                rider: None,
+            },
+            Modifier::PermanentsEnterTapped(&baylee_cards_dsl::Filter::Any),
+            Modifier::MultiplyTokensCreated {
+                who: baylee_cards_dsl::PlayerRel::You,
+                factor: 2,
+            },
+            Modifier::StealOpponentTokens,
+            Modifier::AddDamageDynamic {
+                sources: &baylee_cards_dsl::Filter::ControlledByYou,
+                extra: baylee_cards_dsl::Amount::Fixed(1),
+                combat_only: false,
+                noncombat_only: true,
+                recipients: baylee_cards_dsl::DamageRecipients::Any,
+            },
+            Modifier::PreventDamageRemovingOneCounter {
+                kind: baylee_cards_dsl::CounterKind::P1P1,
+                require_counter: true,
+            },
+            Modifier::RedirectDamageToAffected {
+                sources: &baylee_cards_dsl::Filter::Any,
+                recipients: baylee_cards_dsl::DamageRecipients::PlayersOrTheirPermanents(
+                    baylee_cards_dsl::PlayerRel::You,
+                ),
+                combat: None,
+            },
+            Modifier::RedirectDamageToAffectedController,
+            Modifier::PreventAllButOneDamage {
+                sources: &baylee_cards_dsl::Filter::Any,
+                recipients: baylee_cards_dsl::DamageRecipients::Players(
+                    baylee_cards_dsl::PlayerRel::You,
+                ),
+                combat: None,
+            },
+            Modifier::ReplaceOrPreventDamageScopedWithThen {
+                sources: &baylee_cards_dsl::Filter::Any,
+                recipients: baylee_cards_dsl::DamageRecipients::Permanents(
+                    &baylee_cards_dsl::Filter::YOUR_CREATURE,
+                ),
+                combat: None,
+                is_replacement: false,
+                only_if_prevented: true,
+                scope: baylee_cards_dsl::DamageRiderScope::PerTarget,
+                then: RIDER,
+            },
+            Modifier::HealOtherDamageWhenDealtDamage,
+            Modifier::GrantMiracle(baylee_cards_dsl::MiracleGrant::ManaCostLessGeneric(4)),
+            Modifier::GrantForetell { reduce_generic: 2 },
+            Modifier::GrantWarp(baylee_cards_dsl::Cost {
+                mana: baylee_core::mana::ManaCost::ZERO,
+                parts: &[],
+            }),
+            Modifier::GrantEvoke(baylee_cards_dsl::Cost {
+                mana: baylee_core::mana::ManaCost::ZERO,
+                parts: &[],
+            }),
+            Modifier::GrantMadnessManaCost,
+            Modifier::GrantsMayhemManaCost,
+            Modifier::GrantsBeamMeUpManaCost {
+                cant_return_source: true,
+            },
+            Modifier::RevealOpponentsHands,
+            Modifier::ZonePlayGrant(baylee_cards_dsl::ZonePlayGrant {
+                who: baylee_cards_dsl::PlayerRel::You,
+                zones: baylee_cards_dsl::AltCastZones::Zones(&[
+                    baylee_cards_dsl::ZoneRef::Graveyard,
+                ]),
+                grant_zone_permission: true,
+                allow_lands: true,
+                with_flash: false,
+                once_per_turn: true,
+                max_mana_value: None,
+                price: baylee_cards_dsl::AltCastPrice::Normal,
+                mana_spending: baylee_cards_dsl::ZonePlayManaSpending::Exact,
+                rider: baylee_cards_dsl::ZonePlayCastRider::None,
+                your_turn_only: false,
+                as_sorcery_only: false,
+                mana_cost_must_contain: None,
+            }),
+            Modifier::GrantEnchant(baylee_cards_dsl::TargetSpec::Object(
+                &baylee_cards_dsl::Filter::CREATURE,
+            )),
+            Modifier::LoseAbility(0),
+            Modifier::GrantBloodthirst(3),
+            Modifier::GrantSunburst,
+            Modifier::SetName("Moon"),
+            Modifier::HexproofFrom(&baylee_cards_dsl::Filter::CREATURE),
+            Modifier::HexproofFromOwnColors,
+            Modifier::HexproofFromAbilities,
+            Modifier::PlayerHexproofFrom {
+                who: baylee_cards_dsl::PlayerRel::You,
+                from: &baylee_cards_dsl::Filter::CREATURE,
+            },
+            Modifier::IgnoreOpponentsHexproofMatching {
+                permanent_filter: &baylee_cards_dsl::Filter::OPPONENT_CREATURE,
+                players: false,
+            },
+            Modifier::PlotActionCostsLess {
+                who: baylee_cards_dsl::PlayerRel::You,
+                amount: 1,
+            },
+            Modifier::MorphTurnFaceUpCostsMore { amount: 2 },
+            Modifier::ActivatedAbilitiesCostAdditional {
+                who: baylee_cards_dsl::PlayerRel::EachPlayer,
+                filter: &baylee_cards_dsl::Filter::CREATURE,
+                cost: baylee_cards_dsl::CostPart::PayLife(2),
+            },
+            Modifier::SpellsCostLessPerSharedCardTypeWithExiled {
+                who: baylee_cards_dsl::PlayerRel::You,
+            },
+            Modifier::FirstSpellEachTurnCostAdjustByAmount {
+                who: baylee_cards_dsl::PlayerRel::You,
+                filter: &baylee_cards_dsl::Filter::Any,
+                amount: baylee_cards_dsl::Amount::Fixed(1),
+                increase: false,
+            },
+            Modifier::FirstActivatedAbilityEachTurnCostLess {
+                who: baylee_cards_dsl::PlayerRel::You,
+                source_filter: &baylee_cards_dsl::Filter::Any,
+                target_filter: &baylee_cards_dsl::Filter::Any,
+                amount: 1,
+                your_turn_only: false,
+            },
+            Modifier::ActivatedAbilitiesWithKeywordCostLess {
+                who: baylee_cards_dsl::PlayerRel::You,
+                keyword: baylee_cards_dsl::ActivatedAbilityKind::Boast,
+                amount: baylee_cards_dsl::Amount::Fixed(1),
+            },
+            Modifier::EquipCostsLessByTargetAmount {
+                who: baylee_cards_dsl::PlayerRel::You,
+                metric: baylee_cards_dsl::EquipTargetMetric::Power,
+            },
+            Modifier::CommanderTaxReplacedWithLife { life_per_tax: 3 },
+            Modifier::RaiseCostIfTargetsYouOrPermanent {
+                who: baylee_cards_dsl::PlayerRel::Opponent,
+                spell_filter: &baylee_cards_dsl::Filter::Any,
+                permanent_filter: &baylee_cards_dsl::Filter::Any,
+                extra_mana: baylee_core::mana::ManaCost::parse("{2}"),
+                extra_life: 0,
+            },
+            Modifier::AdjustSpellCostBeyondFirstTarget {
+                who: baylee_cards_dsl::PlayerRel::EachPlayer,
+                spell_filter: &baylee_cards_dsl::Filter::Any,
+                mana_per_extra_target: baylee_core::mana::ManaCost::parse("{1}"),
+            },
+            Modifier::ReduceCostIfTargetsCheck {
+                who: baylee_cards_dsl::PlayerRel::You,
+                spell_filter: &baylee_cards_dsl::Filter::Any,
+                reduction: baylee_core::mana::ManaCost::parse("{1}"),
+                check: baylee_cards_dsl::TargetCostCheck::TargetControllerGraveyardAtLeast(8),
+            },
         ]
     }
 
@@ -2452,7 +2773,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            278,
+            331,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -2487,7 +2808,10 @@ mod tests {
         let mut disagree = Vec::new();
         for modifier in every_modifier() {
             let locks = locks_its_set(&modifier);
-            let characteristic = modifier.layer() != Layer::Text;
+            // `SetName` is a genuine CR 613.1c Layer 3 text-changing effect; all other
+            // modifiers on `Layer::Text` park there as rules-only modifiers.
+            let characteristic =
+                modifier.layer() != Layer::Text || matches!(modifier, Modifier::SetName(_));
             if locks != characteristic {
                 disagree.push(format!(
                     "{modifier:?} locks={locks} layer={:?}",
@@ -2589,7 +2913,7 @@ mod tests {
         // Wave 17c adds GrantsUnearth, GrantsScavengeManaCost, and GrantsDredge on
         // Layer::Ability (+3 locking -> 70) and ten cost/permission modifiers on
         // Layer::Text (+10 rules-only -> 194).
-        assert_eq!((locking, all.len() - locking), (79, 199));
+        assert_eq!((locking, all.len() - locking), (94, 237));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

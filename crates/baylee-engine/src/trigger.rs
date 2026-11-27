@@ -1231,6 +1231,7 @@ fn collect_for_objects(
         }
         if !phased_out_only && batch_has_zone_changes {
             return_keywords::collect_modular(state, obj, events, triggers);
+            return_keywords::collect_granted_death(state, obj, events, triggers);
         }
         if !all_kinds && !phased_out_only {
             return_keywords::collect(state, obj, events, triggers);
@@ -1621,7 +1622,11 @@ fn collect_for_objects(
             phased_out_only,
             triggers,
         );
-        for ability in &list.abilities {
+        for (ability_idx, ability) in list.abilities.iter().enumerate() {
+            let ability_owner = departed_obj.unwrap_or(obj);
+            if crate::layers::ability_is_lost(state, ability_owner, ability_idx as u32) {
+                continue;
+            }
             if phased_out_only {
                 break;
             }

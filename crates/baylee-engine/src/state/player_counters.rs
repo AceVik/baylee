@@ -39,11 +39,21 @@ impl GameState {
             return;
         };
         *count = next;
+        let new_val = *count;
+        if kind == CounterKind::Energy && new_val < old && self.per_turn.energy_removed.tracked {
+            self.per_turn
+                .energy_removed
+                .items
+                .push(super::per_turn::EnergyRemovedRecord {
+                    player,
+                    amount: u32::from(old - new_val),
+                });
+        }
         self.journal.record(GameEvent::PlayerCountersChanged {
             player,
             kind,
             old,
-            new: *count,
+            new: new_val,
         });
     }
 

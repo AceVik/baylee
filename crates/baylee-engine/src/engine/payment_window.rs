@@ -260,10 +260,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             PaymentContinuation::BlockTax {
                 defending,
                 blockers,
+                tapped,
                 opened,
                 ..
             } => {
-                let paid = self.settle_block_tax(defending, &blockers, &opened);
+                let paid = self.settle_block_tax(defending, &blockers, &tapped, &opened);
                 return Ok(WindowClose::settled(paid));
             }
             // The cast pays out of the pool as any cast does; one it cannot

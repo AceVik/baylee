@@ -86,6 +86,8 @@ fn reads_amount(value: Amount) -> bool {
         | Amount::HighestLifeLostThisTurn(who)
         | Amount::CardsDiscardedThisTurn(who)
         | Amount::DistinctCardTypesCastThisTurn(who)
+        | Amount::DistinctSacrificedCardTypesThisTurn(who)
+        | Amount::EnergyRemovedThisTurn(who)
         | Amount::CountOf {
             zone:
                 baylee_cards_dsl::ZoneSel::GraveyardOf(who)
@@ -123,8 +125,10 @@ fn reads_amount(value: Amount) -> bool {
         }
         Amount::DistinctPowersAmong(filter) => reads_filter(filter),
         Amount::DistinctManaValuesInZone { zone, filter }
+        | Amount::DistinctNames { zone, filter }
         | Amount::TotalManaValueInZone { zone, filter }
-        | Amount::DistinctExactManaCostsInZone { zone, filter } => {
+        | Amount::DistinctExactManaCostsInZone { zone, filter }
+        | Amount::DistinctCardTypesInZone { zone, filter } => {
             reads_filter(filter)
                 || matches!(
                     zone,
@@ -194,9 +198,57 @@ fn reads_event(effect: &Effect) -> bool {
         }
         Effect::PayManaToPreventDamage { player, amount, .. }
         | Effect::ScryFor { player, amount, .. }
-        | Effect::CreateTokensFor { player, amount, .. } => {
-            reads_player(*player) || reads_amount(*amount)
+        | Effect::CreateTokensFor { player, amount, .. }
+        | Effect::AddManaChoiceFor {
+            who: player,
+            amount,
+            ..
+        } => reads_player(*player) || reads_amount(*amount),
+        Effect::ChoosePlayerEx {
+            chooser,
+            filter,
+            if_none,
+            then,
+            ..
+        } => {
+            reads_player(*chooser)
+                || match filter {
+                    baylee_cards_dsl::PlayerFilter::Among(rel)
+                    | baylee_cards_dsl::PlayerFilter::NotYetRemembered(rel) => reads_player(*rel),
+                    baylee_cards_dsl::PlayerFilter::OpponentControlsMoreThanYou(_)
+                    | baylee_cards_dsl::PlayerFilter::OpponentWithGreatestLife
+                    | baylee_cards_dsl::PlayerFilter::OpponentNotAttackedBySourceLastCombat => {
+                        false
+                    }
+                }
+                || refers_to_event(if_none)
+                || refers_to_event(then)
         }
+        Effect::ChooseNumberAtRandom { min, max, then } => {
+            reads_amount(*min) || reads_amount(*max) || refers_to_event(then)
+        }
+        Effect::SecretChooseNumbers(spec) => {
+            reads_player(spec.players)
+                || reads_amount(spec.min)
+                || reads_amount(spec.max)
+                || refers_to_event(spec.on_each)
+                || refers_to_event(spec.on_highest)
+                || refers_to_event(spec.on_lowest)
+                || refers_to_event(spec.on_not_lowest)
+                || refers_to_event(spec.on_matched)
+                || refers_to_event(spec.on_unmatched)
+        }
+        Effect::SecretNumberGuess {
+            guesser,
+            on_correct,
+            on_wrong,
+            ..
+        } => reads_player(*guesser) || refers_to_event(on_correct) || refers_to_event(on_wrong),
+        Effect::RepeatEachPlayerPayUntilNone {
+            max_per_player,
+            then_per_player,
+            ..
+        } => reads_amount(*max_per_player) || refers_to_event(then_per_player),
         Effect::LoseLifeAtNextDrawUnlessPaidBefore { player, .. }
         | Effect::LoseHalfLife { player }
         | Effect::SacrificeChosenByOpponent { player, .. }
@@ -288,7 +340,26 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::BecomeChosenBasicLandType { target, .. }
         | Effect::PutEachCounterKindFromSource { target }
         | Effect::BecomesBlocked(target)
-        | Effect::SacrificeObject { target, .. } => reads_target(*target),
+        | Effect::SacrificeObject { target, .. }
+        | Effect::Unattach { target } => reads_target(*target),
+        Effect::SetState {
+            subject,
+            transition,
+            if_cant,
+        } => {
+            let subj_reads = match subject {
+                baylee_cards_dsl::StateSubject::EventObject => true,
+                baylee_cards_dsl::StateSubject::BattlefieldFilter(filter) => reads_filter(filter),
+                _ => false,
+            };
+            let trans_reads = match transition {
+                baylee_cards_dsl::StateTransition::RevealAndTurnFaceUpIf { filter, .. } => {
+                    reads_filter(filter)
+                }
+                _ => false,
+            };
+            subj_reads || trans_reads || if_cant.iter().any(reads_event)
+        }
         Effect::PutAllCountersFrom { donor, target } => {
             matches!(donor, baylee_cards_dsl::CounterDonor::Event) || reads_target(*target)
         }
@@ -366,7 +437,43 @@ fn reads_event(effect: &Effect) -> bool {
         }
         Effect::AttachChosen {
             filter, to, max, ..
+        }
+        | Effect::AttachChosenThen {
+            filter, to, max, ..
         } => reads_filter(filter) || reads_target(*to) || reads_amount(*max),
+        Effect::BecomeAura {
+            target, enchant, ..
+        } => reads_target(*target) || reads_target(*enchant),
+        Effect::SetDynamicPT {
+            subject,
+            power,
+            toughness,
+            ..
+        } => {
+            reads_target(*subject)
+                || power.is_some_and(reads_amount)
+                || toughness.is_some_and(reads_amount)
+        }
+        Effect::AttachObject { object, to, .. } => reads_target(*object) || reads_target(*to),
+        Effect::MoveAllAttachments {
+            attachments,
+            from,
+            recipient_filter,
+            ..
+        } => reads_filter(attachments) || reads_target(*from) || reads_filter(recipient_filter),
+        Effect::AttachLtbAttachments { of, filter, to, .. } => {
+            reads_target(*of) || reads_filter(filter) || reads_target(*to)
+        }
+        Effect::RelocateAttachment {
+            attachment,
+            chooser,
+            recipient_filter,
+            ..
+        } => {
+            matches!(attachment, baylee_cards_dsl::AttachmentSource::Spec(t) if reads_target(*t))
+                || reads_player(*chooser)
+                || reads_filter(recipient_filter)
+        }
         Effect::SeparateIntoTwoPiles {
             separator,
             pile_chooser,
@@ -532,6 +639,30 @@ fn reads_event(effect: &Effect) -> bool {
         Effect::SoulbondPair { with_event_object } => *with_event_object,
         Effect::ReduceNextSpellCost { who, generic, .. } => {
             reads_player(*who) || reads_amount(*generic)
+        }
+        Effect::MultiplyCounters { subject, .. } => match subject {
+            baylee_cards_dsl::CounterSubject::EventObject => true,
+            baylee_cards_dsl::CounterSubject::Player(who) => reads_player(*who),
+            _ => false,
+        },
+        Effect::MoveCounters { from, to, .. } => {
+            matches!(from, baylee_cards_dsl::MoveCounterSource::Filter(f) if reads_filter(f))
+                || matches!(to, baylee_cards_dsl::MoveCounterDest::EventObject)
+                || matches!(to, baylee_cards_dsl::MoveCounterDest::DistributeAmong(f) if reads_filter(f))
+        }
+        Effect::RemoveCounters { subject, count, .. } => {
+            let s_reads = match subject {
+                baylee_cards_dsl::RemoveCounterSubject::Player(who) => reads_player(*who),
+                baylee_cards_dsl::RemoveCounterSubject::Choice(f)
+                | baylee_cards_dsl::RemoveCounterSubject::Filter(f) => reads_filter(f),
+                _ => false,
+            };
+            let c_reads = match count {
+                baylee_cards_dsl::RemoveCounterCount::Exact(a)
+                | baylee_cards_dsl::RemoveCounterCount::UpTo(a) => reads_amount(*a),
+                _ => false,
+            };
+            s_reads || c_reads
         }
         Effect::Play {
             source, controller, ..

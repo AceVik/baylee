@@ -20,6 +20,7 @@ fn effect_players(
 /// All player-targeting protection, collected in one pass over the effects.
 struct PlayerProtection<'a> {
     specific: Vec<&'a crate::effects::ContinuousEffect>,
+    hexproof_from: Vec<&'a crate::effects::ContinuousEffect>,
     hexproof: baylee_core::ids::SeatSet,
     everything: baylee_core::ids::SeatSet,
     ignores_hexproof: bool,
@@ -29,6 +30,7 @@ impl<'a> PlayerProtection<'a> {
     fn collect(state: &'a GameState, you: PlayerId) -> Self {
         let mut protection = Self {
             specific: Vec::new(),
+            hexproof_from: Vec::new(),
             hexproof: baylee_core::ids::SeatSet::new(),
             everything: baylee_core::ids::SeatSet::new(),
             ignores_hexproof: false,
@@ -40,6 +42,9 @@ impl<'a> PlayerProtection<'a> {
             match effect.modifier {
                 baylee_cards_dsl::Modifier::PlayerProtectionFrom { .. } => {
                     protection.specific.push(effect);
+                }
+                baylee_cards_dsl::Modifier::PlayerHexproofFrom { .. } => {
+                    protection.hexproof_from.push(effect);
                 }
                 baylee_cards_dsl::Modifier::PlayerProtectionFromEverything { who } => {
                     for player in effect_players(effect, who, state) {
@@ -58,7 +63,11 @@ impl<'a> PlayerProtection<'a> {
                         protection.hexproof.insert(player);
                     }
                 }
-                baylee_cards_dsl::Modifier::IgnoreOpponentsHexproof if effect.controller == you => {
+                baylee_cards_dsl::Modifier::IgnoreOpponentsHexproof
+                | baylee_cards_dsl::Modifier::IgnoreOpponentsHexproofMatching {
+                    players: true,
+                    ..
+                } if effect.controller == you => {
                     protection.ignores_hexproof = true;
                 }
                 _ => {}
@@ -88,6 +97,7 @@ pub fn target_player_options(state: &GameState, spec: &TargetSpec, you: PlayerId
 /// Source-aware player targets. Protection from a quality is asked of the
 /// actual spell or ability source, with the granting permanent as `this`.
 #[must_use]
+#[allow(clippy::too_many_lines)]
 pub fn target_player_options_from(
     state: &GameState,
     spec: &TargetSpec,
@@ -185,9 +195,31 @@ pub fn target_player_options_from(
                 return false;
             }
             // Player hexproof also stops only opponents (CR 702.11c).
+            let cond_hexproof = protection.hexproof_from.iter().any(|effect| {
+                let baylee_cards_dsl::Modifier::PlayerHexproofFrom { who, from } = effect.modifier
+                else {
+                    unreachable!("collected by modifier above");
+                };
+                effect_players(effect, who, state).contains(&p.id)
+                    && state.object(context.source).is_some_and(|source| {
+                        crate::eval::matches_with_context(
+                            from,
+                            state,
+                            source,
+                            effect.controller,
+                            crate::text_changes::RuleContext {
+                                source: effect.source.unwrap_or(context.source),
+                                text: state.effect_text(effect),
+                                resolved_name: context.resolved_name,
+                                resolved_subtype: context.resolved_subtype,
+                                reference: context.reference,
+                            },
+                        )
+                    })
+            });
             !state.is_opponent(p.id, you)
                 || protection.ignores_hexproof
-                || !protection.hexproof.contains(p.id)
+                || (!protection.hexproof.contains(p.id) && !cond_hexproof)
         })
         .map(|p| p.id)
         .collect()

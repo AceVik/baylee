@@ -443,6 +443,26 @@ pub(crate) fn amount_with_version(
             u32::try_from(state.combat.blocker_count(this).saturating_sub(1)).unwrap_or(u32::MAX)
         }
         Amount::SourcePower => super::source_power(state, this).map_or(0, |p| p.max(0) as u32),
+        Amount::SourceToughness => {
+            super::source_toughness(state, this).map_or(0, |t| t.max(0) as u32)
+        }
+        Amount::DiscardedManaValue => state
+            .zones
+            .list(crate::zone::ZoneLocation::Stack)
+            .last()
+            .and_then(|&top| state.object(top))
+            .filter(|stack_obj| {
+                stack_obj.id == this || stack_obj.ability.is_some_and(|loc| loc.source == this)
+            })
+            .and_then(|stack_obj| stack_obj.paid.as_ref())
+            .map_or(0, |paid| {
+                paid.discarded
+                    .iter()
+                    .filter_map(|&card| state.source_object(card))
+                    .fold(0u32, |acc, obj| {
+                        acc.saturating_add(obj.characteristics().mana_value())
+                    })
+            }),
         Amount::CountersOnYou(kind) => state.players[usize::from(you.get())]
             .counters()
             .into_iter()
@@ -495,6 +515,9 @@ pub(crate) fn amount_with_version(
         Amount::DistinctManaValuesInZone { zone, filter } => {
             distinct_mana_values_in_zone(filter, *zone, state, you, context)
         }
+        Amount::DistinctNames { zone, filter } => {
+            distinct_names_in_zone(filter, *zone, state, you, context)
+        }
         // Resolved in resolve.rs, which has the stack object these read.
         Amount::DevotionToManaColor
         | Amount::TargetPower
@@ -517,7 +540,8 @@ pub(crate) fn amount_with_version(
         | Amount::SacrificedTotalPower
         | Amount::SacrificedTotalToughness
         | Amount::SacrificedTotalManaValue
-        | Amount::SacrificedDistinctColors => 0,
+        | Amount::SacrificedDistinctColors
+        | Amount::ResolutionAccumulatedNumber => 0,
         Amount::ResolutionChosenNumber => state
             .resolution_chosen_number
             .filter(|(src, _)| *src == this)
@@ -649,6 +673,44 @@ pub(crate) fn amount_with_version(
                     .max()
                     .unwrap_or(0)
             }),
+        Amount::Domain(who) => super::players_for_source(*who, state, you, Some(context.source))
+            .map_or(0, |seats| {
+                seats
+                    .into_iter()
+                    .map(|seat| domain_for_player(state, seat))
+                    .max()
+                    .unwrap_or(0)
+            }),
+        Amount::TotalCountersOnSubject => state
+            .damage_source(context.source, None)
+            .or_else(|| state.object_or_departed(context.source))
+            .map_or(0, |obj| {
+                obj.counters
+                    .iter()
+                    .map(|(_, n)| u32::from(n))
+                    .fold(0_u32, u32::saturating_add)
+            }),
+        Amount::PlayerCounters { player, kind } => {
+            super::players_for_source(*player, state, you, Some(context.source)).map_or(0, |seats| {
+                seats.into_iter().fold(0_u32, |acc, seat| {
+                    acc.saturating_add(player_counter_count(state, seat, *kind))
+                })
+            })
+        }
+        Amount::RingTemptedCount(who) => {
+            super::players_for_source(*who, state, you, Some(context.source)).map_or(0, |seats| {
+                seats
+                    .into_iter()
+                    .map(|seat| {
+                        state
+                            .players
+                            .get(usize::from(seat.get()))
+                            .map_or(0, |p| u32::from(p.ring_temptations))
+                    })
+                    .max()
+                    .unwrap_or(0)
+            })
+        }
         Amount::SpellsCastThisTurn(who) => {
             super::players_for_source(*who, state, you, Some(context.source)).map_or(0, |seats| {
                 seats
@@ -721,6 +783,47 @@ pub(crate) fn amount_with_version(
         Amount::DistinctExactManaCostsInZone { zone, filter } => {
             distinct_exact_mana_costs_in_zone(filter, *zone, state, you, context)
         }
+        Amount::DistinctCardTypesInZone { zone, filter } => {
+            distinct_card_types_in_zone(filter, *zone, state, you, context)
+        }
+        Amount::DistinctSacrificedCardTypesThisTurn(who) => {
+            super::players_for_source(*who, state, you, Some(context.source))
+                .map_or(0, |seats| distinct_sacrificed_card_types_for_seats(state, &seats))
+        }
+        Amount::OpponentsAttackedThisTurn => opponents_attacked_this_turn(state, you),
+        Amount::OpponentsDealtDamageThisTurn => u32::try_from(
+            state
+                .players
+                .iter()
+                .filter(|p| {
+                    !state.has_left(p.id)
+                        && state.is_opponent(p.id, you)
+                        && state
+                            .per_turn
+                            .damage_dealt_to
+                            .get(usize::from(p.id.get()))
+                            .copied()
+                            .unwrap_or(0)
+                            > 0
+                })
+                .count(),
+        )
+        .unwrap_or(u32::MAX),
+        Amount::NonCombatDamageDealtToOpponentsThisTurn => {
+            noncombat_damage_dealt_to_opponents_this_turn(state, you)
+        }
+        Amount::EnergyRemovedThisTurn(who) => {
+            super::players_for_source(*who, state, you, Some(context.source))
+                .map_or(0, |seats| energy_removed_for_seats(state, &seats))
+        }
+        Amount::AttachedPower => state
+            .object(this)
+            .filter(|o| o.zone == crate::zone::Zone::Battlefield)
+            .and_then(|o| o.attached_to)
+            .and_then(|host| state.object(host))
+            .filter(|host| host.zone == crate::zone::Zone::Battlefield)
+            .and_then(|host| host.characteristics().power)
+            .map_or(0, |p| u32::try_from(p.max(0)).unwrap_or(0)),
     }
 }
 
@@ -826,6 +929,78 @@ fn greatest_commander_mana_value(state: &GameState, you: PlayerId) -> u32 {
         .map(|object| object.characteristics().mana_value())
         .max()
         .unwrap_or(0)
+}
+
+pub(crate) fn distinct_card_types_in_zone(
+    filter: &Filter,
+    zone: ZoneSel,
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+) -> u32 {
+    let require_card = !matches!(zone, ZoneSel::Battlefield);
+    let mut seen = baylee_core::types::TypeSet::EMPTY;
+    visit_zone(zone, state, you, context, |id| {
+        if let Some(obj) = state.object(id)
+            && (!require_card || obj.is_card())
+            && matches_with_context(filter, state, obj, you, context)
+        {
+            seen = seen.union(obj.characteristics().types);
+        }
+    });
+    seen.intersection(crate::resolve::remembered::PAPER_CARD_TYPES)
+        .bits()
+        .count_ones()
+}
+
+pub(crate) fn distinct_sacrificed_card_types_for_seats(
+    state: &GameState,
+    seats: &[PlayerId],
+) -> u32 {
+    let mut seen = baylee_core::types::TypeSet::EMPTY;
+    for rec in &state.per_turn.sacrificed_permanents.items {
+        if seats.contains(&rec.controller) {
+            seen = seen.union(rec.snapshot.characteristics().types);
+        }
+    }
+    seen.intersection(crate::resolve::remembered::PAPER_CARD_TYPES)
+        .bits()
+        .count_ones()
+}
+
+pub(crate) fn energy_removed_for_seats(state: &GameState, seats: &[PlayerId]) -> u32 {
+    state
+        .per_turn
+        .energy_removed
+        .items
+        .iter()
+        .filter(|rec| seats.contains(&rec.player))
+        .fold(0_u32, |acc, rec| acc.saturating_add(rec.amount))
+}
+
+fn opponents_attacked_this_turn(state: &GameState, you: PlayerId) -> u32 {
+    let mut defenders = baylee_core::ids::SeatSet::new();
+    for rec in &state.per_turn.opponents_attacked.items {
+        if rec.attacker == you && state.is_opponent(rec.defender, you) {
+            defenders.insert(rec.defender);
+        }
+    }
+    u32::try_from(defenders.len()).unwrap_or(u32::MAX)
+}
+
+fn noncombat_damage_dealt_to_opponents_this_turn(state: &GameState, you: PlayerId) -> u32 {
+    state
+        .per_turn
+        .damage_log
+        .iter()
+        .filter(|entry| {
+            !entry.combat
+                && matches!(
+                    entry.to,
+                    crate::event::DamageTarget::Player(p) if state.is_opponent(p, you)
+                )
+        })
+        .fold(0_u32, |acc, entry| acc.saturating_add(entry.amount))
 }
 
 fn opponents_life_lost(state: &GameState, you: PlayerId) -> u32 {
@@ -1184,6 +1359,57 @@ fn source_object_for_version(
     }
 }
 
+/// Number of distinct basic land types among lands `seat` controls (CR 305.6).
+#[must_use]
+pub(crate) fn domain_for_player(state: &GameState, seat: PlayerId) -> u32 {
+    use baylee_core::generated::subtypes::land;
+    use baylee_core::types::TypeSet;
+    const BASICS: [baylee_core::ids::SubtypeId; 5] = [
+        land::PLAINS,
+        land::ISLAND,
+        land::SWAMP,
+        land::MOUNTAIN,
+        land::FOREST,
+    ];
+    let mut seen = [false; 5];
+    for id in state.battlefield_seen() {
+        let Some(obj) = state.object(id) else {
+            continue;
+        };
+        if obj.controller != seat {
+            continue;
+        }
+        let c = obj.characteristics();
+        if !c.types.contains(TypeSet::LAND) {
+            continue;
+        }
+        for (slot, basic) in seen.iter_mut().zip(BASICS) {
+            if c.subtypes.contains(basic) {
+                *slot = true;
+            }
+        }
+    }
+    seen.into_iter().filter(|&b| b).count() as u32
+}
+
+/// Number of `kind` counters currently on `seat`.
+#[must_use]
+pub(crate) fn player_counter_count(
+    state: &GameState,
+    seat: PlayerId,
+    kind: baylee_cards_dsl::CounterKind,
+) -> u32 {
+    let Some(p) = state.players.get(usize::from(seat.get())) else {
+        return 0;
+    };
+    match kind {
+        baylee_cards_dsl::CounterKind::Poison => u32::from(p.poison),
+        baylee_cards_dsl::CounterKind::Energy => u32::from(p.energy),
+        baylee_cards_dsl::CounterKind::Rad => u32::from(p.rad),
+        _ => 0,
+    }
+}
+
 /// Greatest number of cards in hand among active opponents of `you` (`0` if none).
 pub(crate) fn highest_opponent_hand_size(state: &GameState, you: PlayerId) -> u32 {
     state
@@ -1347,6 +1573,30 @@ fn distinct_mana_values_in_zone(
         }
     });
     u32::try_from(values.len()).unwrap_or(u32::MAX)
+}
+
+/// Number of distinct nonempty names (`CR 201.2a`) among matching objects in `zone`.
+fn distinct_names_in_zone(
+    filter: &Filter,
+    zone: ZoneSel,
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+) -> u32 {
+    let require_card = !matches!(zone, ZoneSel::Battlefield);
+    let mut names = std::collections::BTreeSet::<baylee_core::ids::NameRef>::new();
+    visit_zone(zone, state, you, context, |id| {
+        if let Some(object) = state.object(id)
+            && (!require_card || object.is_card())
+            && matches_with_context(filter, state, object, you, context)
+        {
+            let name = object.characteristics().name;
+            if name != crate::state::NAMELESS {
+                names.insert(name);
+            }
+        }
+    });
+    u32::try_from(names.len()).unwrap_or(u32::MAX)
 }
 
 /// Number of distinct projected powers (`CR 208.3`) among matching battlefield permanents.

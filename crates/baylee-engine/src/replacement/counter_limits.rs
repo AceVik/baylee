@@ -3,7 +3,7 @@ use crate::{effects::EffectFilter, state::GameState};
 use baylee_cards_dsl::{CounterKind, Filter, Modifier};
 use baylee_core::ids::ObjectId;
 
-pub(super) fn room(state: &GameState, id: ObjectId, kind: CounterKind) -> Option<u16> {
+pub(crate) fn room(state: &GameState, id: ObjectId, kind: CounterKind) -> Option<u16> {
     if !state.effects.may_limit_counters(kind) {
         return None;
     }

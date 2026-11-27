@@ -14,10 +14,16 @@ pub(crate) fn destination(state: &GameState, id: ObjectId, to: ZoneLocation) -> 
     else {
         return to;
     };
-    if state.effects.iter().any(|effect| {
-        effect.modifier == baylee_cards_dsl::Modifier::ExileInsteadOfLeavingBattlefield
-            && crate::effects::applies_to(state, effect, object)
-    }) {
+    if (object
+        .riders
+        .contains(&crate::object::Rider::GrantLeaveExileReplacement)
+        && object.characteristics().abilities_lost.is_none()
+        && !object.characteristics().rules_text_lost)
+        || state.effects.iter().any(|effect| {
+            effect.modifier == baylee_cards_dsl::Modifier::ExileInsteadOfLeavingBattlefield
+                && crate::effects::applies_to(state, effect, object)
+        })
+    {
         ZoneLocation::Exile(object.owner)
     } else {
         to

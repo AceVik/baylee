@@ -311,7 +311,9 @@ fn push_donor_own_abilities(
     });
     let list = donor.ability_list(lookup);
     for (index, &definition) in list.abilities.iter().enumerate() {
-        if definition.is_intrinsic_mana_ability() {
+        if definition.is_intrinsic_mana_ability()
+            || crate::layers::ability_is_lost(state, donor, index as u32)
+        {
             continue;
         }
         let Some(mut ability) = GrantedAbility::new(&definition, effect.source) else {

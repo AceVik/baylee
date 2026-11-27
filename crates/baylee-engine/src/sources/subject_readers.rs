@@ -67,6 +67,19 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
                 attachment: target, ..
             }
             | Effect::AttachChosen { to: target, .. }
+            | Effect::AttachChosenThen { to: target, .. }
+            | Effect::BecomeAura { target, .. }
+            | Effect::SetDynamicPT {
+                subject: target, ..
+            }
+            | Effect::Unattach { target }
+            | Effect::AttachObject { object: target, .. }
+            | Effect::MoveAllAttachments { from: target, .. }
+            | Effect::AttachLtbAttachments { of: target, .. }
+            | Effect::RelocateAttachment {
+                attachment: baylee_cards_dsl::AttachmentSource::Spec(target),
+                ..
+            }
             | Effect::PutOntoBattlefieldAttacking {
                 subject: baylee_cards_dsl::DefinedObjects::Spec(target),
                 ..
@@ -238,6 +251,12 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             | Effect::ExileSourceThenCastTransformed { .. }
             | Effect::TakklemaggotDeath
             | Effect::MeldWithNamed { .. }
+            | Effect::MeldPair { .. }
+            | Effect::SetState {
+                subject:
+                    baylee_cards_dsl::StateSubject::Source | baylee_cards_dsl::StateSubject::LinkedExile,
+                ..
+            }
             | Effect::MoveSourceToOwnerGraveyard
             | Effect::PutSourceFromHandOntoBattlefield
             | Effect::PutNinjutsuOntoBattlefield
@@ -329,6 +348,7 @@ pub(super) fn moves_subject(effects: &'static [Effect]) -> bool {
                 | Effect::ExileSource
                 | Effect::ExileSourceWithCounters { .. }
                 | Effect::MeldWithNamed { .. }
+                | Effect::MeldPair { .. }
                 | Effect::ReturnSourceFromGraveyard { .. }
                 | Effect::ReturnToHand {
                     target: TargetSpec::ThisObject

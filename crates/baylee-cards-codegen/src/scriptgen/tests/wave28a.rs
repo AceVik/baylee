@@ -136,9 +136,6 @@ fn nonzero_target_ranges_and_multi_graveyard_top() {
          A:SP$ LoseLife | ValidTgts$ Player | TargetMin$ 1 | TargetMax$ 2 | LifeAmount$ 2",
         "Name:MultiPlayerExact\nManaCost:2 B\nTypes:Sorcery\n\
          A:SP$ DealDamage | ValidTgts$ Opponent | TargetMin$ 1 | TargetMax$ 2 | NumDmg$ 2",
-        "Name:ZeroToX\nManaCost:X G\nTypes:Sorcery\n\
-         A:SP$ Destroy | ValidTgts$ Artifact | TargetMin$ 0 | TargetMax$ X\n\
-         SVar:X:Count$xPaid",
         "Name:InvertedRange\nManaCost:2 U\nTypes:Instant\n\
          A:SP$ Tap | ValidTgts$ Creature | TargetMin$ 3 | TargetMax$ 2",
         "Name:Literal255\nManaCost:2 U\nTypes:Instant\n\
@@ -158,6 +155,18 @@ fn up_to_one_suspect_clone_and_activated_x_targets() {
          T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigSuspect\n\
          SVar:TrigSuspect:DB$ AlterAttribute | ValidTgts$ Creature | Defined$ Targeted | TargetMin$ 0 | TargetMax$ 1 | Attributes$ Suspected | Activate$ True",
     );
+    let zero_to_x = read_w28a(
+        "Name:ZeroToX\nManaCost:X G\nTypes:Sorcery\n\
+         A:SP$ Destroy | ValidTgts$ Artifact | TargetMin$ 0 | TargetMax$ X\n\
+         SVar:X:Count$xPaid",
+    );
+    assert!(
+        zero_to_x.abilities[0]
+            .contains("TargetReq::up_to_x(TargetSpec::Object(&Filter::ARTIFACT))"),
+        "{}",
+        zero_to_x.abilities[0]
+    );
+
     assert!(
         suspect.abilities[0].contains("Effect::Suspect")
             && suspect.abilities[0].contains("TargetReq::up_to_one("),

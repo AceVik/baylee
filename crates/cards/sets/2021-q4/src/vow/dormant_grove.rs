@@ -38,7 +38,11 @@ card!(
                             what: &TargetSpec::Object(&Filter::Any),
                             filter: &COND1
                         },
-                        then: &[Effect::TransformSource],
+                        then: &[Effect::SetState {
+                            subject: StateSubject::Source,
+                            transition: StateTransition::Transform,
+                            if_cant: &[]
+                        }],
                         otherwise: &[]
                     }
                 ],

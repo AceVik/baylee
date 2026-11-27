@@ -86,7 +86,7 @@ pub fn advance(state: &mut GameState) -> Option<Pending> {
                 },
             ));
         }
-        if entry.refusal.is_none() {
+        if !entry.is_cancelled() {
             while let Some(&modifier) = entry.modifiers.get(entry.next) {
                 entry.next += 1;
                 let player = entry.controller;
@@ -435,6 +435,146 @@ pub fn advance(state: &mut GameState) -> Option<Pending> {
                             Pending::ChoosePlayer { player, options },
                         ));
                     }
+                    EnterModifier::EntersUnderChosenOpponentControl => {
+                        if entry.applied_own_control {
+                            continue;
+                        }
+                        if let Some((question, pending)) =
+                            equilibrium::apply_own_control(state, &mut entry)
+                        {
+                            return Some(ask(state, entry, question, pending));
+                        }
+                    }
+                    EnterModifier::ChooseNumberAtRandom { min, max } => {
+                        if min <= max {
+                            let span = u64::from(max - min) + 1;
+                            let picked = min + u8::try_from(state.rng.below(span)).unwrap_or(0);
+                            entry.chosen_number = Some(picked);
+                        }
+                        continue;
+                    }
+                    EnterModifier::SecretlyChooseNumber { min, max } => {
+                        if min > max {
+                            continue;
+                        }
+                        return Some(ask(
+                            state,
+                            entry,
+                            Question::SecretNumber,
+                            Pending::ChooseNumber {
+                                player,
+                                min: u32::from(min),
+                                max: u32::from(max),
+                                reason: crate::choice::NumberPrompt::Choice,
+                            },
+                        ));
+                    }
+                    EnterModifier::SecretlyChooseOpponent => {
+                        let options = crate::eval::players(
+                            baylee_cards_dsl::PlayerRel::Opponent,
+                            state,
+                            player,
+                        )
+                        .unwrap_or_default();
+                        if options.is_empty() {
+                            continue;
+                        }
+                        return Some(ask(
+                            state,
+                            entry,
+                            Question::SecretOpponent,
+                            Pending::ChoosePlayer { player, options },
+                        ));
+                    }
+                    EnterModifier::ChooseTwoPlayers => {
+                        let options = crate::eval::players(
+                            baylee_cards_dsl::PlayerRel::EachPlayer,
+                            state,
+                            player,
+                        )
+                        .unwrap_or_default();
+                        match options.as_slice() {
+                            [] => continue,
+                            [only] => {
+                                entry.chosen_player = Some(*only);
+                                continue;
+                            }
+                            _ => {
+                                return Some(ask(
+                                    state,
+                                    entry,
+                                    Question::EntryFirstOfTwoPlayers,
+                                    Pending::ChoosePlayer { player, options },
+                                ));
+                            }
+                        }
+                    }
+                    EnterModifier::OpponentChoosesCreatureType => {
+                        let opponents = crate::eval::players(
+                            baylee_cards_dsl::PlayerRel::Opponent,
+                            state,
+                            player,
+                        )
+                        .unwrap_or_default();
+                        match opponents.as_slice() {
+                            [] => continue,
+                            [opp] => {
+                                let options: Vec<_> = baylee_core::types::SubtypeSet::ALL_CREATURE
+                                    .iter()
+                                    .collect();
+                                return Some(ask(
+                                    state,
+                                    entry,
+                                    Question::EntrySubtypeBy(*opp),
+                                    Pending::ChooseSubtype {
+                                        player: *opp,
+                                        options,
+                                    },
+                                ));
+                            }
+                            _ => {
+                                return Some(ask(
+                                    state,
+                                    entry,
+                                    Question::EntryOpponentForSubtype,
+                                    Pending::ChoosePlayer {
+                                        player,
+                                        options: opponents,
+                                    },
+                                ));
+                            }
+                        }
+                    }
+                    EnterModifier::NoteMostPrevalentCreatureTypeInOpponentLibrary => {
+                        let opponents = crate::eval::players(
+                            baylee_cards_dsl::PlayerRel::Opponent,
+                            state,
+                            player,
+                        )
+                        .unwrap_or_default();
+                        match opponents.as_slice() {
+                            [] => continue,
+                            [opp] => {
+                                if let Some((q, p)) =
+                                    note_most_prevalent_creature_type(state, &mut entry, *opp)
+                                {
+                                    return Some(ask(state, entry, q, p));
+                                }
+                                continue;
+                            }
+                            _ => {
+                                return Some(ask(
+                                    state,
+                                    entry,
+                                    Question::EntryOpponentLibraryType,
+                                    Pending::ChoosePlayer {
+                                        player,
+                                        options: opponents,
+                                    },
+                                ));
+                            }
+                        }
+                    }
                     _ => {}
                 }
                 state.entries.pending.push_front(entry);
@@ -705,7 +845,10 @@ pub fn answer(state: &mut GameState, action: &PlayerAction) {
                 }
             }
         }
-        (Question::EntrySubtype, PlayerAction::ChooseSubtype(sub)) => {
+        (
+            Question::EntrySubtype | Question::EntrySubtypeBy(_) | Question::EntrySubtypeTie { .. },
+            PlayerAction::ChooseSubtype(sub),
+        ) => {
             entry.chosen_subtype = Some(*sub);
             if let Some(obj) = state.object_mut(entry.object) {
                 obj.chosen_subtype = Some(*sub);
@@ -715,6 +858,50 @@ pub fn answer(state: &mut GameState, action: &PlayerAction) {
             entry.chosen_player = Some(*chosen);
             if let Some(obj) = state.object_mut(entry.object) {
                 obj.set_chosen_opponent(Some(*chosen));
+            }
+        }
+        (Question::EntryControllerOpponent, PlayerAction::ChoosePlayer(opp)) => {
+            entry.controller_override = Some(*opp);
+            entry.controller = *opp;
+        }
+        (Question::SecretNumber, PlayerAction::ChooseNumber(n)) => {
+            entry.secret_chosen_number = Some(u8::try_from(*n).unwrap_or(u8::MAX));
+        }
+        (Question::SecretOpponent, PlayerAction::ChoosePlayer(chosen)) => {
+            entry.secret_chosen_player = Some(*chosen);
+        }
+        (Question::EntryFirstOfTwoPlayers, PlayerAction::ChoosePlayer(first)) => {
+            entry.chosen_player = Some(*first);
+            let remaining: Vec<PlayerId> = crate::eval::players(
+                baylee_cards_dsl::PlayerRel::EachPlayer,
+                state,
+                entry.controller,
+            )
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|&p| p != *first)
+            .collect();
+            match remaining.as_slice() {
+                [] => {}
+                [only] => {
+                    entry.second_chosen_player = Some(*only);
+                }
+                _ => {
+                    state.entries.question =
+                        Some(Question::EntrySecondOfTwoPlayers { first: *first });
+                }
+            }
+        }
+        (Question::EntrySecondOfTwoPlayers { .. }, PlayerAction::ChoosePlayer(second)) => {
+            entry.second_chosen_player = Some(*second);
+        }
+        (Question::EntryOpponentForSubtype, PlayerAction::ChoosePlayer(opp)) => {
+            state.entries.question = Some(Question::EntrySubtypeBy(*opp));
+        }
+        (Question::EntryOpponentLibraryType, PlayerAction::ChoosePlayer(opp)) => {
+            if let Some((q, _pending)) = note_most_prevalent_creature_type(state, &mut entry, *opp)
+            {
+                state.entries.question = Some(q);
             }
         }
         _ => unreachable!("entry answer shape was validated"),
@@ -731,9 +918,7 @@ fn amplify_options(state: &GameState, entry: &Attempt) -> Vec<ObjectId> {
         return Vec::new();
     };
     let excluded = unavailable(state);
-    let mut prospective = object.clone();
-    prospective.zone = Zone::Battlefield;
-    prospective.version = prospective.version.wrapping_add(1);
+    let prospective = super::prospective_battlefield(object);
     let plan = crate::layers::LayerPlan::before_entries(&state.effects, excluded);
     let projection = crate::layers::recompute_with(state, &prospective, &plan);
     let entering_types = projection
@@ -846,6 +1031,25 @@ pub fn next_question(state: &GameState) -> Option<Pending> {
                 })
                 .collect(),
         }),
+        Question::EntrySecondOfTwoPlayers { first } => {
+            let options: Vec<PlayerId> =
+                crate::eval::players(baylee_cards_dsl::PlayerRel::EachPlayer, state, player)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .filter(|&p| p != *first)
+                    .collect();
+            (!options.is_empty()).then_some(Pending::ChoosePlayer { player, options })
+        }
+        Question::EntrySubtypeBy(opp) => Some(Pending::ChooseSubtype {
+            player: *opp,
+            options: baylee_core::types::SubtypeSet::ALL_CREATURE
+                .iter()
+                .collect(),
+        }),
+        Question::EntrySubtypeTie { options } => Some(Pending::ChooseSubtype {
+            player,
+            options: options.clone(),
+        }),
         _ => None,
     }
 }
@@ -890,10 +1094,10 @@ fn completed(state: &mut GameState) -> bool {
 
 fn initial_question(state: &mut GameState, entry: &mut Attempt) -> Option<(Question, Pending)> {
     copy_question(state, entry).or_else(|| {
-        if entry.refusal.is_some() {
+        if entry.is_cancelled() {
             return None;
         }
-        equilibrium::replacement_order(state, entry).map(|pending| (Question::Replacement, pending))
+        equilibrium::replacement_order(state, entry)
     })
 }
 
@@ -901,7 +1105,7 @@ fn keyword_entry_question(
     state: &mut GameState,
     entry: &mut Attempt,
 ) -> Option<(Question, Pending)> {
-    if entry.refusal.is_some() {
+    if entry.is_cancelled() {
         return None;
     }
     if !entry.kw_choices.initialized {
@@ -909,9 +1113,7 @@ fn keyword_entry_question(
         if super::may_have_keyword_entry(state, entry.object)
             && let Some(object) = state.object(entry.object)
         {
-            let mut prospective = object.clone();
-            prospective.zone = Zone::Battlefield;
-            prospective.version = prospective.version.wrapping_add(1);
+            let prospective = super::prospective_battlefield(object);
             let plan = crate::layers::LayerPlan::before_entries(&state.effects, unavailable(state));
             let riot = crate::layers::keyword_instances_with_plan(
                 state,
@@ -958,4 +1160,55 @@ fn keyword_entry_question(
         ));
     }
     None
+}
+
+/// Inspects `opponent`'s library for the creature type(s) appearing on the most
+/// creature cards (*Favored Enemy*). Notes the unique winner immediately, or
+/// returns a tie-breaker question for the permanent's controller.
+fn note_most_prevalent_creature_type(
+    state: &GameState,
+    entry: &mut Attempt,
+    opponent: PlayerId,
+) -> Option<(Question, Pending)> {
+    let mut counts = std::collections::BTreeMap::<baylee_core::ids::SubtypeId, u32>::new();
+    for &card_id in state.zones.list(ZoneLocation::Library(opponent)) {
+        let Some(obj) = state.object(card_id) else {
+            continue;
+        };
+        let chars = obj.characteristics();
+        if !chars.types.contains(baylee_core::types::TypeSet::CREATURE) {
+            continue;
+        }
+        for sub in chars
+            .subtypes
+            .intersection(baylee_core::types::SubtypeSet::ALL_CREATURE)
+            .iter()
+        {
+            *counts.entry(sub).or_default() += 1;
+        }
+    }
+    let max_count = counts.values().copied().max().unwrap_or(0);
+    if max_count == 0 {
+        return None;
+    }
+    let winners: Vec<baylee_core::ids::SubtypeId> = counts
+        .into_iter()
+        .filter_map(|(sub, n)| (n == max_count).then_some(sub))
+        .collect();
+    match winners.as_slice() {
+        [] => None,
+        [only] => {
+            entry.chosen_subtype = Some(*only);
+            None
+        }
+        _ => Some((
+            Question::EntrySubtypeTie {
+                options: winners.clone(),
+            },
+            Pending::ChooseSubtype {
+                player: entry.controller,
+                options: winners,
+            },
+        )),
+    }
 }

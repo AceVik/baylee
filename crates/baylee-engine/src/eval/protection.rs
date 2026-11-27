@@ -106,31 +106,78 @@ pub(super) fn untargetable_by_source_object(
     object: ObjectId,
     src: &crate::object::GameObject,
 ) -> bool {
+    let is_spell = src.zone == crate::zone::Zone::Stack
+        && src.kind != crate::object::ObjectKind::AbilityOnStack;
+    untargetable_by_source_with(state, object, src.controller, src, is_spell)
+}
+
+/// Targeting prohibitions and conditional hexproof (CR 702.11d) checked against
+/// both the chooser (`you`) and the spell or ability source (`src`, `is_spell`).
+pub(super) fn untargetable_by_source_with(
+    state: &GameState,
+    object: ObjectId,
+    you: PlayerId,
+    src: &crate::object::GameObject,
+    is_spell: bool,
+) -> bool {
+    use baylee_cards_dsl::Modifier;
     let Some(obj) = state.object(object) else {
         return false;
     };
     let source = src.id;
-    let spell = src.zone == crate::zone::Zone::Stack;
+    let on_battlefield = obj.zone == crate::zone::Zone::Battlefield;
+    let cond_hexproof_active = on_battlefield
+        && state.is_opponent(obj.controller, you)
+        && !cant_have_hexproof(state, obj)
+        && !ignores_hexproof(state, obj, you);
     state.effects.iter().any(|fx| {
-        let f = match fx.modifier {
-            baylee_cards_dsl::Modifier::CantBeTargetedBy(f) => f,
-            baylee_cards_dsl::Modifier::CantBeTargetedByAbilitiesFrom(f) if !spell => f,
-            _ => return false,
+        let ctx = || RuleContext {
+            source: fx.source.unwrap_or(source),
+            text: state.effect_text(fx),
+            resolved_name: None,
+            resolved_subtype: None,
+            reference: None,
         };
-        crate::effects::applies_to(state, fx, obj)
-            && matches_with_context(
-                f,
-                state,
-                src,
-                fx.controller,
-                RuleContext {
-                    source: fx.source.unwrap_or(source),
-                    text: state.effect_text(fx),
-                    resolved_name: None,
-                    resolved_subtype: None,
-                    reference: None,
-                },
-            )
+        match fx.modifier {
+            Modifier::CantBeTargetedBy(f) => {
+                crate::effects::applies_to(state, fx, obj)
+                    && matches_with_context(f, state, src, fx.controller, ctx())
+            }
+            Modifier::CantBeTargetedByAbilitiesFrom(f) => {
+                !is_spell
+                    && crate::effects::applies_to(state, fx, obj)
+                    && matches_with_context(f, state, src, fx.controller, ctx())
+            }
+            Modifier::HexproofFrom(f) => {
+                cond_hexproof_active
+                    && crate::effects::applies_to(state, fx, obj)
+                    && matches_with_context(f, state, src, fx.controller, ctx())
+            }
+            Modifier::HexproofFromOwnColors => {
+                cond_hexproof_active
+                    && crate::effects::applies_to(state, fx, obj)
+                    && src
+                        .characteristics()
+                        .colors
+                        .intersects(obj.characteristics().colors)
+            }
+            Modifier::HexproofFromAbilities => {
+                cond_hexproof_active && !is_spell && crate::effects::applies_to(state, fx, obj)
+            }
+            _ => false,
+        }
+    })
+}
+
+/// Whether a continuous effect removes hexproof from `obj` (`CR 702.11f`), which
+/// suppresses both printed hexproof and conditional "hexproof from [quality]".
+fn cant_have_hexproof(state: &GameState, obj: &crate::object::GameObject) -> bool {
+    state.effects.iter().any(|fx| {
+        matches!(
+            fx.modifier,
+            baylee_cards_dsl::Modifier::CantHaveKeywords(bits)
+                if bits.contains(baylee_cards_dsl::KeywordSet::HEXPROOF)
+        ) && crate::effects::applies_to(state, fx, obj)
     })
 }
 
@@ -146,6 +193,26 @@ fn ignores_hexproof(state: &GameState, object: &crate::object::GameObject, you: 
                     .types
                     .contains(baylee_core::types::TypeSet::CREATURE)
                 && crate::effects::source_is_present(state, effect)
+        }
+        Modifier::IgnoreOpponentsHexproofMatching {
+            permanent_filter: filter,
+            ..
+        } => {
+            effect.controller == you
+                && crate::effects::source_is_present(state, effect)
+                && matches_with_context(
+                    filter,
+                    state,
+                    object,
+                    effect.controller,
+                    RuleContext {
+                        source: effect.source.unwrap_or(object.id),
+                        text: state.effect_text(effect),
+                        resolved_name: None,
+                        resolved_subtype: None,
+                        reference: None,
+                    },
+                )
         }
         Modifier::CanBeTargetedAsThoughNoHexproof => {
             crate::effects::applies_to(state, effect, object)

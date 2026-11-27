@@ -1472,7 +1472,13 @@ fn self_mana_life_tax_refuses_general_abilities_and_unproven_all_zone_semantics(
     let script = "Name:X\nTypes:Land\nS:Mode$ RaiseCost | Type$ Ability | ValidSpell$ Activated.ManaAbility | ValidCard$ Card.Self | Cost$ PayLife<1>";
     assert!(portals_body(script).unwrap().abilities[0].contains("ManaAbilitiesCostLife(1)"));
     assert!(portals_body(&script.replace("Activated.ManaAbility", "Activated")).is_none());
-    assert!(portals_body(&format!("{script} | EffectZone$ All")).is_none());
+    assert!(
+        portals_body(&format!("{script} | EffectZone$ All"))
+            .unwrap()
+            .abilities[0]
+            .contains("ManaAbilitiesCostLife(1)")
+    );
+    assert!(portals_body(&script.replace("Card.Self", "Land.YouCtrl")).is_none());
 }
 
 #[test]
@@ -1484,7 +1490,11 @@ fn thran_additive_chosen_type_requires_its_own_basic_land_choice() {
         body.abilities,
         ["static_ability!(Filter::This, Modifier::AddChosenBasicLandType)"]
     );
-    assert!(portals_body(&script.replace("Card.Self", "Land.YouCtrl")).is_none());
+    let realmwright = portals_body(&script.replace("Card.Self", "Land.YouCtrl")).unwrap();
+    assert_eq!(
+        realmwright.abilities,
+        ["static_ability!(Filter::YOUR_LAND, Modifier::AddChosenBasicLandType)"]
+    );
     assert!(portals_body(&script.replace("K:ETBReplacement:Other:Pick\n", "")).is_none());
     assert!(
         portals_body(&script.replace("AddType$ ChosenType", "AddType$ ChosenType | Unknown$ True"))
@@ -3469,7 +3479,7 @@ fn bargain_and_your_turn_conditions() {
         "Name:BadDupBargain\nManaCost:1 U\nTypes:Creature\nPT:2/1\nK:Bargain\nK:Bargain",
         "Name:BadExtraBargain\nManaCost:1 U\nTypes:Creature\nPT:2/1\nK:Bargain:Extra",
     ] {
-        assert!(refused(bad), "must refuse: {bad}");
+        assert!(refused_with_extra_subtypes(bad), "must refuse: {bad}");
     }
 }
 
@@ -5850,7 +5860,7 @@ fn wave23b_targets_with_same_controller() {
     );
 
     // Charm mode with TargetsWithSameController$ True.
-    let charm = read(
+    let charm = read_with_extra_subtypes(
         "Name:DarkCharm\nManaCost:B\nTypes:Instant\n\
          A:SP$ Charm | Choices$ MDrain,MExile\n\
          SVar:MDrain:DB$ LoseLife | ValidTgts$ Opponent | LifeAmount$ 1\n\
@@ -6054,4 +6064,1461 @@ fn destroy_with_a_name_twin_condition_is_checked_only_on_resolution() {
         "Count$Valid Permanent.sharesNameWith Targeted",
         "Count$Valid Creature.sharesNameWith Targeted"
     )));
+}
+
+#[test]
+fn debuff_supports_durations_event_objects_attached_remembered_and_bands_with_other() {
+    let shelkin = read(
+        "Name:Shelkin Brownie\nManaCost:1 G\nTypes:Creature Ouphe\nPT:1/1\n\
+         A:AB$ Debuff | Cost$ T | ValidTgts$ Creature | Keywords$ Bands with other",
+    );
+    assert!(
+        shelkin.abilities[0].contains(
+            "Effect::ModifyTargets { modifier: Modifier::LoseAllBandsWithOther, duration: Duration::UntilEndOfTurn }"
+        ),
+        "{:?}",
+        shelkin.abilities
+    );
+
+    let elder_land_wurm = read(
+        "Name:Elder Land Wurm\nManaCost:4 W W W\nTypes:Creature Dragon Wurm\nPT:5/5\n\
+         K:Defender\n\
+         T:Mode$ Blocks | ValidCard$ Card.Self | Execute$ TrigDebuff\n\
+         SVar:TrigDebuff:DB$ Debuff | Keywords$ Defender | Defined$ TriggeredBlockerLKICopy | Duration$ Permanent",
+    );
+    assert!(
+        elder_land_wurm.abilities[0].contains(
+            "Effect::ModifyEvent { modifier: Modifier::RemoveKeyword(KeywordSet::DEFENDER), duration: Duration::Indefinitely }"
+        ),
+        "{:?}",
+        elder_land_wurm.abilities
+    );
+
+    let torpid_moloch = read(
+        "Name:Torpid Moloch\nManaCost:R\nTypes:Creature Lizard\nPT:3/2\n\
+         K:Defender\n\
+         A:AB$ Debuff | Cost$ Sac<3/Land> | Keywords$ Defender",
+    );
+    assert!(
+        torpid_moloch.abilities[0].contains(
+            "Effect::continuous(&Filter::This, Modifier::RemoveKeyword(KeywordSet::DEFENDER), Duration::UntilEndOfTurn)"
+        ),
+        "{:?}",
+        torpid_moloch.abilities
+    );
+
+    let fear_of_falling = read(
+        "Name:Fear of Falling\nManaCost:3 U U\nTypes:Enchantment Creature Nightmare\nPT:4/4\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ TrigPump\n\
+         SVar:TrigPump:DB$ Pump | ValidTgts$ Creature.OppCtrl | NumAtt$ -2 | Duration$ UntilYourNextTurn | IsCurse$ True | SubAbility$ DBDebuff\n\
+         SVar:DBDebuff:DB$ Debuff | Defined$ Targeted | Keywords$ Flying | Duration$ UntilYourNextTurn",
+    );
+    assert!(
+        fear_of_falling.abilities[0].contains(
+            "Effect::ModifyTargets { modifier: Modifier::RemoveKeyword(KeywordSet::FLYING), duration: Duration::UntilYourNextTurn }"
+        ),
+        "{:?}",
+        fear_of_falling.abilities
+    );
+
+    let enchanted_debuff = read(
+        "Name:EnchDebuff\nManaCost:1 U\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+         A:AB$ Debuff | Cost$ U | Defined$ Enchanted | Keywords$ Flying",
+    );
+    assert!(
+        enchanted_debuff.abilities[1].contains(
+            "Effect::ModifyAttached { modifier: Modifier::RemoveKeyword(KeywordSet::FLYING), duration: Duration::UntilEndOfTurn }"
+        ),
+        "{:?}",
+        enchanted_debuff.abilities
+    );
+
+    let rem_script = parse("Name:RemTest\nTypes:Instant");
+    let rem_cats = cats();
+    let mut rem_tx = Tx::new(&rem_script, &rem_cats, None);
+    let (_, mut rem_p) =
+        Params::parse("DB$ Debuff | Defined$ Remembered.Creature | Keywords$ Indestructible")
+            .unwrap();
+    let rem_effs = rem_tx.debuff_effect(&mut rem_p, None).unwrap();
+    assert_eq!(
+        rem_effs,
+        vec![
+            "Effect::ForEachRemembered { filter: &Filter::CREATURE, effects: &[Effect::ModifyEvent { modifier: Modifier::RemoveKeyword(KeywordSet::INDESTRUCTIBLE), duration: Duration::UntilEndOfTurn }] }"
+        ]
+    );
+    let (_, mut rem_any_p) =
+        Params::parse("DB$ Debuff | Defined$ Remembered | Keywords$ Flying").unwrap();
+    assert_eq!(
+        rem_tx.debuff_effect(&mut rem_any_p, None).unwrap(),
+        vec![
+            "Effect::ForEachRemembered { filter: &Filter::Any, effects: &[Effect::ModifyEvent { modifier: Modifier::RemoveKeyword(KeywordSet::FLYING), duration: Duration::UntilEndOfTurn }] }"
+        ]
+    );
+
+    for bad in [
+        "Name:BadSpellSelfDebuff\nManaCost:R\nTypes:Instant\nA:SP$ Debuff | Keywords$ Flying",
+        "Name:BadDebuffDuration\nManaCost:R\nTypes:Instant\nA:SP$ Debuff | ValidTgts$ Creature | Keywords$ Flying | Duration$ UntilYourNextUpkeep",
+        "Name:BadDebuffLandwalk\nManaCost:R\nTypes:Instant\nA:SP$ Debuff | ValidTgts$ Creature | Keywords$ Landwalk:Snow",
+        "Name:BadDebuffProt\nManaCost:U\nTypes:Instant\nA:SP$ Debuff | ValidTgts$ Creature | Keywords$ Protection from black",
+        "Name:BadDebuffRemLand\nManaCost:1 R\nTypes:Instant\nA:SP$ Debuff | Defined$ Remembered.Land | Keywords$ Flying",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn untap_and_remove_from_combat_support_upto_event_objects_and_targets() {
+    let amulet = read(
+        "Name:Amulet of Vigor\nManaCost:1\nTypes:Artifact\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Permanent.tapped+YouCtrl | Execute$ TrigUntap\n\
+         SVar:TrigUntap:DB$ Untap | Defined$ TriggeredCardLKICopy",
+    );
+    assert!(
+        amulet.abilities[0].contains("Effect::UntapAll { filter: &Filter::Reference }"),
+        "{:?}",
+        amulet.abilities
+    );
+
+    let snap = read(
+        "Name:Snap\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ ChangeZone | ValidTgts$ Creature | Origin$ Battlefield | Destination$ Hand | SubAbility$ DBUntap\n\
+         SVar:DBUntap:DB$ Untap | UntapUpTo$ True | UntapType$ Land | Amount$ 2",
+    );
+    assert!(
+        snap.abilities[0].contains("Effect::UntapChosen { filter: &"),
+        "{:?}",
+        snap.abilities
+    );
+    assert!(
+        snap.abilities[0].contains("count: 2"),
+        "{:?}",
+        snap.abilities
+    );
+
+    let gustcloak = read(
+        "Name:Gustcloak Savior\nManaCost:4 W\nTypes:Creature Bird Soldier\nPT:3/4\n\
+         T:Mode$ AttackerBlocked | ValidCard$ Creature.YouCtrl | Execute$ TrigRemove | OptionalDecider$ You\n\
+         SVar:TrigRemove:DB$ RemoveFromCombat | Defined$ TriggeredAttackerLKICopy | SubAbility$ DBUntap\n\
+         SVar:DBUntap:DB$ Untap | Defined$ TriggeredAttackerLKICopy",
+    );
+    assert!(
+        gustcloak.abilities[0].contains("Effect::RemoveEventObjectFromCombat { unblock: false }"),
+        "{:?}",
+        gustcloak.abilities
+    );
+    assert!(
+        gustcloak.abilities[0].contains("Effect::UntapAll { filter: &Filter::Reference }"),
+        "{:?}",
+        gustcloak.abilities
+    );
+
+    let provoke = read(
+        "Name:Provoke\nManaCost:1 G\nTypes:Instant\n\
+         A:SP$ Untap | ValidTgts$ Creature.YouDontCtrl | IsCurse$ True | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw | SpellDescription$ Draw a card.",
+    );
+    assert!(
+        provoke.abilities[0].contains("Effect::UntapTarget"),
+        "{:?}",
+        provoke.abilities
+    );
+
+    for bad in [
+        "Name:BadUntapExactly\nManaCost:2 U\nTypes:Sorcery\nA:SP$ Untap | UntapExactly$ True | UntapType$ Land | Amount$ 2",
+        "Name:BadUntapTriggeredPlayer\nManaCost:2 U\nTypes:Enchantment\nT:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ Player | Execute$ TrigUntap\nSVar:TrigUntap:DB$ Untap | UntapUpTo$ True | UntapType$ Land | Amount$ 1 | Defined$ TriggeredPlayer",
+        "Name:BadUntapAmountX\nManaCost:2 U\nTypes:Sorcery\nA:SP$ Untap | UntapUpTo$ True | UntapType$ Land | Amount$ X\nSVar:X:Count$Valid Creature.YouCtrl",
+        "Name:BadEventUntapWithTarget\nManaCost:1 W\nTypes:Creature\nPT:2/2\nT:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ Trig\nSVar:Trig:DB$ Destroy | ValidTgts$ Creature | SubAbility$ DBUntap\nSVar:DBUntap:DB$ Untap | Defined$ TriggeredCardLKICopy",
+        "Name:BadRemoveSelfWithPlayerTarget\nManaCost:R\nTypes:Creature\nPT:2/1\nT:Mode$ Blocks | ValidCard$ Card.Self | Execute$ Trig\nSVar:Trig:DB$ GainControl | Defined$ Self | ValidTgts$ Opponent | SubAbility$ Rem\nSVar:Rem:DB$ RemoveFromCombat | Defined$ Self",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn fight_supports_kicked_self_etb_and_spell_granted_fight() {
+    let allosaurus = read(
+        "Name:Territorial Allosaurus\nManaCost:2 G G\nTypes:Creature Dinosaur\nPT:5/5\n\
+         K:Kicker:2 G\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self+kicked | Execute$ TrigFight\n\
+         SVar:TrigFight:DB$ Fight | Defined$ TriggeredCardLKICopy | ValidTgts$ Creature.Other | TargetMin$ 0 | TargetMax$ 1",
+    );
+    assert!(
+        allosaurus.abilities[0]
+            .contains("Effect::Fight { fighter: TargetSlot::This, foe: TargetSlot::First }"),
+        "{:?}",
+        allosaurus.abilities
+    );
+
+    let setessan_tactics = read(
+        "Name:Setessan Tactics\nManaCost:1 G\nTypes:Instant\n\
+         K:Strive:G\n\
+         A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +1 | NumDef$ +1 | TargetMin$ 0 | TargetMax$ MaxTargets | SubAbility$ DBAnimate\n\
+         SVar:DBAnimate:DB$ Animate | Defined$ Targeted | Abilities$ SetessanFight\n\
+         SVar:SetessanFight:AB$ Fight | Cost$ T | Defined$ Self | ValidTgts$ Creature.Other\n\
+         SVar:MaxTargets:Count$Valid Creature",
+    );
+    assert!(
+        setessan_tactics.abilities[1]
+            .contains("Effect::ModifyTargets { modifier: Modifier::GrantActivatedDefinition"),
+        "{:?}",
+        setessan_tactics.abilities
+    );
+
+    for bad in [
+        "Name:BadNonSelfEtbFight\nManaCost:4 G\nTypes:Creature\nPT:4/4\nT:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Creature.YouCtrl | Execute$ TrigFight\nSVar:TrigFight:DB$ Fight | Defined$ TriggeredCardLKICopy | ValidTgts$ Creature.OppCtrl",
+        "Name:BadEnchantedFight\nManaCost:1 G\nTypes:Enchantment Aura\nK:Enchant:Creature\nT:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigFight\nSVar:TrigFight:DB$ Fight | Defined$ Enchanted | ValidTgts$ Creature.OppCtrl",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn pump_supports_blocking_grants_upkeep_duration_stack_keywords_and_triggered_kws() {
+    let anurid = read(
+        "Name:Anurid Swarmsnapper\nManaCost:2 G\nTypes:Creature Frog Beast\nPT:1/4\n\
+         A:AB$ Pump | Cost$ 1 G | Defined$ Self | CanBlockAmount$ 1",
+    );
+    assert!(
+        anurid.abilities[0].contains("Modifier::CanBlockAdditional(1)"),
+        "{:?}",
+        anurid.abilities
+    );
+
+    let give_no_ground = read(
+        "Name:Give No Ground\nManaCost:3 W\nTypes:Instant\n\
+         A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +2 | NumDef$ +6 | CanBlockAny$ True",
+    );
+    assert!(
+        give_no_ground.abilities[0].contains("Modifier::CanBlockAnyNumber"),
+        "{:?}",
+        give_no_ground.abilities
+    );
+
+    let erhnam = read(
+        "Name:Erhnam Djinn\nManaCost:3 G\nTypes:Creature Djinn\nPT:4/5\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | Execute$ TrigPump\n\
+         SVar:TrigPump:DB$ Pump | ValidTgts$ Creature.OppCtrl | KW$ Landwalk:Forest | Duration$ UntilYourNextUpkeep",
+    );
+    assert!(
+        erhnam.abilities[0].contains("Duration::UntilYourNextUpkeep"),
+        "{:?}",
+        erhnam.abilities
+    );
+
+    let taigam = read(
+        "Name:Taigam, Ojutai Master\nManaCost:2 W U\nTypes:Legendary Creature Human Monk\nPT:3/4\n\
+         T:Mode$ SpellCast | ValidCard$ Instant.wasCastFromYourHand,Sorcery.wasCastFromYourHand | ValidActivatingPlayer$ You | TriggerZones$ Battlefield | IsPresent$ Card.Self+attackedThisTurn | Execute$ TrigRebound\n\
+         SVar:TrigRebound:DB$ Pump | Defined$ TriggeredCard | KW$ Rebound | PumpZone$ Stack",
+    );
+    assert!(
+        taigam.abilities[0].contains(
+            "Effect::ModifyEvent { modifier: Modifier::AddKeyword(KeywordSet::REBOUND), duration: Duration::UntilEndOfTurn }"
+        ),
+        "{:?}",
+        taigam.abilities
+    );
+
+    let afterlife_ins = read(
+        "Name:Afterlife Insurance\nManaCost:1 WB\nTypes:Instant\n\
+         A:SP$ PumpAll | ValidCards$ Creature.YouCtrl | KW$ Afterlife:1 | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw",
+    );
+    assert!(
+        afterlife_ins.abilities[0].contains("Modifier::AddKeyword(KeywordSet::AFTERLIFE)")
+            && afterlife_ins.abilities[0].contains("Modifier::GrantTriggered"),
+        "{:?}",
+        afterlife_ins.abilities
+    );
+
+    let rammas = read(
+        "Name:Rammas\nManaCost:3 W\nTypes:Artifact\n\
+         T:Mode$ Phase | Phase$ BeginCombat | ValidPlayer$ You | Execute$ TrigPump\n\
+         SVar:TrigPump:DB$ PumpAll | ValidCards$ Creature.withDefender+YouCtrl | KW$ Exalted",
+    );
+    assert!(
+        rammas.abilities[0].contains("Trigger::AttacksAlone(&Filter::YOUR_CREATURE)"),
+        "{:?}",
+        rammas.abilities
+    );
+
+    let triggered_kws = read(
+        "Name:AllTrigKws\nManaCost:2 W\nTypes:Sorcery\n\
+         A:SP$ PumpAll | ValidCards$ Creature.YouCtrl | KW$ Ward:2 & Annihilator:1 & Afflict:2 & Poisonous:1 & Renown:1",
+    );
+    assert!(
+        triggered_kws.abilities[0].contains("Trigger::Ward")
+            && triggered_kws.abilities[0].contains("Modifier::GrantTriggeredDefinition(")
+            && triggered_kws.abilities[0].contains("Effect::Poison"),
+        "{:?}",
+        triggered_kws.abilities
+    );
+
+    for bad in [
+        "Name:BadStackPT\nManaCost:2 R\nTypes:Creature\nPT:2/2\nT:Mode$ SpellCast | ValidCard$ Instant | ValidActivatingPlayer$ You | Execute$ Trig\nSVar:Trig:DB$ Pump | Defined$ TriggeredCard | NumAtt$ +1 | KW$ Lifelink | PumpZone$ Stack",
+        "Name:BadExilePumpZone\nManaCost:1 B\nTypes:Creature\nPT:2/2\nT:Mode$ SpellCast | ValidCard$ Instant | ValidActivatingPlayer$ You | Execute$ Trig\nSVar:Trig:DB$ Pump | Defined$ TriggeredCard | PumpZone$ Exile | KW$ Flying",
+        "Name:BadNonCombatTrigger\nManaCost:2 R\nTypes:Creature\nPT:2/2\nT:Mode$ DamageDone | ValidSource$ Card.Self | CombatDamage$ False | Execute$ Trig\nSVar:Trig:DB$ Draw",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn protection_everything_each_color_and_chosen_land_type() {
+    let hexdrinker = read(
+        "Name:Hexdrinker\nManaCost:G\nTypes:Creature Wizard\nPT:2/1\n\
+K:Level up:1\n\
+S:Mode$ Continuous | AffectedDefined$ Self | SetPower$ 4 | SetToughness$ 4 | AddKeyword$ Protection:Instant:instants | IsPresent$ Card.Self+counters_GE3_LEVEL+counters_LT8_LEVEL\n\
+S:Mode$ Continuous | AffectedDefined$ Self | SetPower$ 6 | SetToughness$ 6 | AddKeyword$ Protection from everything | IsPresent$ Card.Self+counters_GE8_LEVEL",
+    );
+    let hex_joined = hexdrinker.abilities.join("\n");
+    assert!(
+        hex_joined.contains("Modifier::ProtectionFrom(&Filter::Any)"),
+        "{hex_joined}"
+    );
+    let each_color = read(
+        "Name:PrismaticWard\nManaCost:2 W\nTypes:Creature Wizard\nPT:2/2\n\
+K:Level up:1\n\
+S:Mode$ Continuous | AffectedDefined$ Self | SetPower$ 4 | SetToughness$ 4 | AddKeyword$ Protection from each color | IsPresent$ Card.Self+counters_GE3_LEVEL",
+    );
+    assert!(
+        each_color
+            .abilities
+            .iter()
+            .any(|a| a.contains("Modifier::ProtectionFrom(") && a.contains("Filter::HasColor(")),
+        "{:?}",
+        each_color.abilities
+    );
+
+    let realmwright = read(
+        "Name:Realmwright\nManaCost:U\nTypes:Creature Wizard\nPT:1/1\n\
+K:ETBReplacement:Other:ChooseType\n\
+SVar:ChooseType:DB$ ChooseType | Defined$ You | Type$ Basic Land\n\
+S:Mode$ Continuous | Affected$ Land.YouCtrl | AddType$ ChosenType",
+    );
+    assert!(
+        realmwright
+            .abilities
+            .iter()
+            .any(|a| a.contains("Filter::YOUR_LAND")
+                && a.contains("Modifier::AddChosenBasicLandType")),
+        "{:?}",
+        realmwright.abilities
+    );
+}
+
+#[test]
+fn ignore_legend_hexproof_effect_duration_stack_cascade_and_repeat_flip() {
+    let hall = read(
+        "Name:Hall of Echoes\nManaCost:no cost\nTypes:Land\n\
+A:AB$ Effect | Cost$ 1 T | StaticAbilities$ LegendPermission | SpellDescription$ Permanents you control aren't legendary this turn.\n\
+SVar:LegendPermission:Mode$ IgnoreLegendRule | ValidCard$ Permanent.YouCtrl",
+    );
+    assert!(
+        hall.abilities[0].contains("Modifier::LegendRuleOff"),
+        "{}",
+        hall.abilities[0]
+    );
+    assert!(refused(
+        "Name:BadLegend\nManaCost:1 U\nTypes:Instant\n\
+A:SP$ Effect | StaticAbilities$ NoLegend\n\
+SVar:NoLegend:Mode$ IgnoreLegendRule | ValidCard$ Permanent.OppCtrl"
+    ));
+
+    let tower = read(
+        "Name:Detection Tower\nManaCost:no cost\nTypes:Land\n\
+A:AB$ Effect | Cost$ 1 T | StaticAbilities$ IgnoreHex | SpellDescription$ Hexproof off.\n\
+SVar:IgnoreHex:Mode$ IgnoreHexproof | Activator$ You | ValidEntity$ Opponent,Creature.OppCtrl",
+    );
+    assert!(
+        tower.abilities[0].contains("Modifier::IgnoreOpponentsHexproof"),
+        "{}",
+        tower.abilities[0]
+    );
+    assert!(refused(
+        "Name:BadHex\nManaCost:1 U\nTypes:Instant\n\
+A:SP$ Effect | StaticAbilities$ IgnoreHex\n\
+SVar:IgnoreHex:Mode$ IgnoreHexproof | ValidEntity$ Opponent,Creature.OppCtrl"
+    ));
+
+    let single_combat = read(
+        "Name:Single Combat\nManaCost:3 W W\nTypes:Sorcery\n\
+A:SP$ Effect | Duration$ UntilTheEndOfYourNextTurn | StaticAbilities$ NoCreatures\n\
+SVar:NoCreatures:Mode$ CantBeCast | ValidCard$ Creature",
+    );
+    assert!(
+        single_combat.abilities[0].contains("Duration::UntilEndOfYourNextTurn"),
+        "{}",
+        single_combat.abilities[0]
+    );
+    assert!(refused(
+        "Name:Peace Talks\nManaCost:1 W\nTypes:Sorcery\n\
+A:SP$ Effect | Duration$ ThisTurnAndNextTurn | StaticAbilities$ NoAttack\n\
+SVar:NoAttack:Mode$ CantAttack | ValidCard$ Creature"
+    ));
+
+    let yidris = read(
+        "Name:Yidris, Maelstrom Wielder\nManaCost:U B R G\nTypes:Creature Wizard\nPT:5/4\n\
+T:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Player | CombatDamage$ True | Execute$ TrigEff | TriggerZones$ Battlefield\n\
+SVar:TrigEff:DB$ Effect | StaticAbilities$ Casc\n\
+SVar:Casc:Mode$ Continuous | AffectedZone$ Stack | Affected$ Card.YouCtrl+YouOwn+wasCastFromHand | AddKeyword$ Cascade",
+    );
+    assert!(
+        yidris.abilities[0].contains("Modifier::GrantCascade(1)"),
+        "{}",
+        yidris.abilities[0]
+    );
+    assert!(refused(
+        "Name:BadCasc\nManaCost:G\nTypes:Instant\n\
+A:SP$ Effect | RememberObjects$ Targeted | ValidTgts$ Card | StaticAbilities$ Casc\n\
+SVar:Casc:Mode$ Continuous | AffectedZone$ Stack | Affected$ Card.IsRemembered | AddKeyword$ Cascade"
+    ));
+
+    let reflexes = read(
+        "Name:Legolas's Quick Reflexes\nManaCost:G\nTypes:Instant\n\
+K:Split second\n\
+A:SP$ Untap | ValidTgts$ Creature | SubAbility$ DBEffect\n\
+SVar:DBEffect:DB$ Effect | RememberObjects$ Targeted | StaticAbilities$ PumpStatic\n\
+SVar:PumpStatic:Mode$ Continuous | AddKeyword$ Hexproof & Reach | AddTrigger$ BecomesTapped | Affected$ Card.IsRemembered\n\
+SVar:BecomesTapped:Mode$ Taps | ValidCard$ Card.Self | Execute$ TrigFight\n\
+SVar:TrigFight:DB$ DealDamage | ValidTgts$ Creature | TargetMin$ 0 | TargetMax$ 1 | NumDmg$ X | DamageSource$ Self\n\
+SVar:X:Count$CardPower",
+    );
+    assert!(
+        reflexes.abilities[0].contains("Effect::ModifyTargets")
+            && reflexes
+                .statics
+                .contains("Trigger::BecomesTapped(&Filter::This)"),
+        "{}",
+        reflexes.statics
+    );
+
+    let chance = read(
+        "Name:Fighting Chance\nManaCost:R\nTypes:Instant\n\
+A:SP$ RepeatEach | RepeatCards$ Creature.blocking | Zone$ Battlefield | RepeatSubAbility$ DBFlip\n\
+SVar:DBFlip:DB$ FlipCoin | WinSubAbility$ DBPreventDmg\n\
+SVar:DBPreventDmg:DB$ Effect | ReplacementEffects$ RPrevent | RememberObjects$ Remembered | ExileOnMoved$ Battlefield\n\
+SVar:RPrevent:Event$ DamageDone | Prevent$ True | IsCombat$ True | ValidSource$ Card.IsRemembered",
+    );
+    assert!(
+        chance.abilities[0].contains("Effect::RepeatEachObject")
+            && chance.abilities[0].contains("Modifier::PreventDamageFromIt"),
+        "{}",
+        chance.abilities[0]
+    );
+}
+
+#[test]
+fn clone_choices_exile_link_and_top_of_library_clone_and_copy_self_after_target() {
+    let cytoshape = read(
+        "Name:Cytoshape\nManaCost:1 G U\nTypes:Instant\n\
+         A:SP$ Clone | Choices$ Creature.nonLegendary | ChoiceTitle$ Choose a nonlegendary creature to copy | ValidTgts$ Creature | TgtPrompt$ Choose target creature to become a copy | Duration$ UntilEndOfTurn",
+    );
+    assert!(
+        cytoshape.abilities[0].contains("Effect::ChooseCardEx")
+            && cytoshape.abilities[0].contains("ChooseZone::Battlefield")
+            && cytoshape.abilities[0].contains("Effect::BecomeCopy")
+            && cytoshape.abilities[0].contains("subject: TargetSlot::First")
+            && cytoshape.abilities[0].contains("original: TargetSpec::EventObject")
+            && cytoshape.abilities[0].contains("until_eot: true"),
+        "{:?}",
+        cytoshape.abilities
+    );
+
+    let deepfathom = read(
+        "Name:Deepfathom Echo\nManaCost:2 G U\nTypes:Creature Merfolk Spirit\nPT:4/4\n\
+         T:Mode$ Phase | Phase$ BeginCombat | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigExplore\n\
+         SVar:TrigExplore:DB$ Explore | SubAbility$ DBClone\n\
+         SVar:DBClone:DB$ Clone | Choices$ Creature.Other+YouCtrl | ChoiceTitle$ Select another target creature you control | Optional$ True | Duration$ UntilEndOfTurn",
+    );
+    assert!(
+        deepfathom.abilities[0].contains("Effect::Explore")
+            && deepfathom.abilities[0].contains("min: 0")
+            && deepfathom.abilities[0].contains("subject: TargetSlot::This")
+            && deepfathom.abilities[0].contains("original: TargetSpec::EventObject"),
+        "{:?}",
+        deepfathom.abilities
+    );
+
+    let reflection = read(
+        "Name:Reflection Net\nManaCost:1 W U\nTypes:Artifact\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigExile\n\
+         SVar:TrigExile:DB$ ChangeZone | Origin$ Battlefield | Destination$ Exile | ValidTgts$ Creature | Duration$ UntilHostLeavesPlay\n\
+         A:AB$ Clone | Cost$ 2 | CloneTarget$ Targeted | ChoiceZone$ Exile | Choices$ Card.Creature+ExiledWithSource | ValidTgts$ Creature.YouCtrl | GameActivationLimit$ 1",
+    );
+    assert!(
+        reflection.abilities[1].contains("ChooseZone::LinkedExile")
+            && reflection.abilities[1].contains("Effect::BecomeCopy")
+            && reflection.abilities[1].contains("subject: TargetSlot::First")
+            && reflection.abilities[1].contains("original: TargetSpec::EventObject"),
+        "{:?}",
+        reflection.abilities
+    );
+
+    let lazav_parsed = parse(
+        "Name:Lazav, Wearer of Faces\nManaCost:U B\nTypes:Legendary Creature Wizard\nPT:2/3\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ TrigExile\n\
+         SVar:TrigExile:DB$ ChangeZone | Origin$ Graveyard | Destination$ Exile | ValidTgts$ Card | SubAbility$ DBInvestigate\n\
+         SVar:DBInvestigate:DB$ Investigate\n\
+         T:Mode$ Sacrificed | ValidPlayer$ You | ValidCard$ Clue.YouCtrl | Execute$ TrigClone | TriggerZones$ Battlefield\n\
+         SVar:TrigClone:DB$ Clone | Choices$ Creature.ExiledWithSource | ChoiceZone$ Exile | Optional$ True | Duration$ UntilEndOfTurn",
+    );
+    let lazav = transcode(&lazav_parsed, &cats(), Some(&tokens())).unwrap_or_else(|| {
+        panic!(
+            "Lazav should transcode: {:?}",
+            refusal_reason(&lazav_parsed, &cats(), Some(&tokens()))
+        )
+    });
+    assert!(
+        lazav.abilities[1].contains("ChooseZone::LinkedExile")
+            && lazav.abilities[1].contains("min: 0")
+            && lazav.abilities[1].contains("Effect::BecomeCopy")
+            && lazav.abilities[1].contains("subject: TargetSlot::This"),
+        "{:?}",
+        lazav.abilities
+    );
+
+    let vesuvan = read(
+        "Name:Vesuvan Drifter\nManaCost:2 U\nTypes:Creature Shapeshifter\nPT:2/4\nK:Flying\n\
+         S:Mode$ Continuous | Affected$ Card.TopLibrary+YouCtrl | AffectedZone$ Library | MayLookAt$ You\n\
+         T:Mode$ Phase | Phase$ BeginCombat | TriggerZones$ Battlefield | Execute$ TrigReveal | OptionalDecider$ You\n\
+         SVar:TrigReveal:DB$ PeekAndReveal | NoPeek$ True | SubAbility$ DBClone\n\
+         SVar:DBClone:DB$ Clone | ConditionDefined$ TopOfLibrary | ConditionPresent$ Creature | Defined$ TopOfLibrary | CloneTarget$ Self | Duration$ UntilEndOfTurn | AddKeywords$ Flying",
+    );
+    assert!(
+        vesuvan.abilities[1].contains("Effect::RevealTop")
+            && vesuvan.abilities[1].contains("Effect::BecomeCopy")
+            && vesuvan.abilities[1].contains("subject: TargetSlot::This")
+            && vesuvan.abilities[1].contains("original: TargetSpec::EventObject")
+            && vesuvan.abilities[1].contains("KeywordSet::FLYING"),
+        "{:?}",
+        vesuvan.abilities
+    );
+
+    let amoeba = read(
+        "Name:Giant Space Amoeba\nManaCost:4 U\nTypes:Creature Germ\nPT:3/3\nK:Flying\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ TrigPump\n\
+         SVar:TrigPump:DB$ Pump | ValidTgts$ Creature.ControlledBy TriggeredDefendingPlayer | NumAtt$ -3 | IsCurse$ True | SubAbility$ DBCopy\n\
+         SVar:DBCopy:DB$ CopyPermanent | Defined$ Self",
+    );
+    assert!(
+        amoeba.abilities[0].contains("Effect::CreateTokenCopy")
+            && amoeba.abilities[0].contains("target: TargetSpec::ThisObject"),
+        "{:?}",
+        amoeba.abilities
+    );
+}
+
+#[test]
+fn clone_choices_and_copy_self_refuse_unsupported_variants() {
+    assert!(refused(
+        "Name:BadExclude\nManaCost:1 G U\nTypes:Instant\n\
+         A:SP$ Clone | Choices$ Creature | ValidTgts$ Creature | ExcludeChosen$ True | Duration$ UntilEndOfTurn"
+    ));
+    assert!(refused(
+        "Name:BadZone\nManaCost:1 U B\nTypes:Instant\n\
+         A:SP$ Clone | ChoiceZone$ Graveyard | Choices$ Creature | ValidTgts$ Creature | Duration$ UntilEndOfTurn"
+    ));
+    assert!(refused(
+        "Name:BadUnlinkedExile\nManaCost:1 U B\nTypes:Artifact\nK:Delve\n\
+         A:AB$ Clone | Cost$ 2 | CloneTarget$ Targeted | ChoiceZone$ Exile | Choices$ Card.Creature+ExiledWithSource | ValidTgts$ Creature.YouCtrl"
+    ));
+    assert!(refused(
+        "Name:BadDuration\nManaCost:1 G U\nTypes:Instant\n\
+         A:SP$ Clone | Choices$ Creature | ValidTgts$ Creature | Duration$ UntilYourNextTurn"
+    ));
+    assert!(refused(
+        "Name:BadCopyDefined\nManaCost:2 U\nTypes:Instant\n\
+         A:SP$ CopyPermanent | Defined$ Sacrificed"
+    ));
+    assert!(refused(
+        "Name:BadPeekClone\nManaCost:2 U\nTypes:Creature Shapeshifter\nPT:2/4\n\
+         T:Mode$ Phase | Phase$ BeginCombat | TriggerZones$ Battlefield | Execute$ TrigReveal\n\
+         SVar:TrigReveal:DB$ PeekAndReveal | NoPeek$ True | SubAbility$ DBClone\n\
+         SVar:DBClone:DB$ Clone | ConditionDefined$ Remembered | ConditionPresent$ Creature | Defined$ TopOfLibrary | CloneTarget$ Self | Duration$ UntilEndOfTurn"
+    ));
+    assert!(refused(
+        "Name:BadSecondTargetCloneChoices\nManaCost:2 U G\nTypes:Sorcery\n\
+         A:SP$ Pump | ValidTgts$ Creature | NumAtt$ 1 | SubAbility$ DBClone\n\
+         SVar:DBClone:DB$ Clone | ValidTgts$ Creature | CloneTarget$ ParentTarget | Choices$ Creature | Duration$ UntilEndOfTurn"
+    ));
+}
+
+#[test]
+fn play_graveyard_self_trigger_opponent_exile_chandra_ablaze_and_counter_exile_play() {
+    let syrix = read(
+        "Name:Syrix, Carrier of the Flame\nManaCost:2 B R\nTypes:Legendary Creature Wizard\nPT:3/3\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Wizard.Other+YouCtrl | TriggerZones$ Graveyard | Execute$ TrigPlay | OptionalDecider$ You\n\
+         SVar:TrigPlay:DB$ Play | Optional$ True",
+    );
+    assert!(
+        syrix.abilities[0].contains("TriggerZone::Graveyard")
+            && syrix.abilities[0].contains("Effect::Play")
+            && syrix.abilities[0].contains("PlaySource::Subject(TargetSpec::ThisObject)"),
+        "{:?}",
+        syrix.abilities
+    );
+
+    let thunderblade = read(
+        "Name:Thunderblade Charge\nManaCost:1 R R\nTypes:Sorcery\n\
+         A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 3\n\
+         T:Mode$ DamageDoneOnce | CombatDamage$ True | ValidSource$ Creature.YouCtrl | ValidTarget$ Player | TriggerZones$ Graveyard | PresentZone$ Graveyard | IsPresent$ Card.StrictlySelf | Execute$ TrigPlay\n\
+         SVar:TrigPlay:AB$ Play | Cost$ 2 R R R | WithoutManaCost$ True | Optional$ True",
+    );
+    assert!(
+        thunderblade.abilities[1].contains("TriggerZone::Graveyard")
+            && thunderblade.abilities[1].contains("Effect::Play")
+            && thunderblade.abilities[1].contains("PlaySource::Subject(TargetSpec::ThisObject)")
+            && thunderblade.abilities[1].contains("PlayCostMode::WithoutPayingManaCost"),
+        "{:?}",
+        thunderblade.abilities
+    );
+
+    let ashiok = read(
+        "Name:Ashiok, Nightmare Muse\nManaCost:3 U B\nTypes:Legendary Planeswalker Ashiok\nLoyalty:5\n\
+         A:AB$ Play | Cost$ SubCounter<7/LOYALTY> | Planeswalker$ True | Ultimate$ True | Valid$ Card.faceUp+OwnedBy Player.Opponent | ValidSA$ Spell | ValidZone$ Exile | WithoutManaCost$ True | Amount$ 3 | Optional$ True",
+    );
+    assert!(
+        ashiok.abilities[0].contains("Effect::Play")
+            && ashiok.abilities[0].contains("PlayerRel::EachOpponent")
+            && ashiok.abilities[0].contains("PlayCount::UpTo(3)"),
+        "{:?}",
+        ashiok.abilities
+    );
+
+    let chandra_ablaze = read(
+        "Name:Chandra Ablaze\nManaCost:4 R R\nTypes:Legendary Planeswalker Chandra\nLoyalty:5\n\
+         A:AB$ Play | Cost$ SubCounter<7/LOYALTY> | Valid$ Instant.Red+YouCtrl,Sorcery.Red+YouCtrl | ValidZone$ Graveyard | WithoutManaCost$ True | Planeswalker$ True | Ultimate$ True | Amount$ ChandraX | Controller$ You | Optional$ True\n\
+         SVar:ChandraX:Count$ValidGraveyard Instant.Red+YouOwn,Sorcery.Red+YouOwn",
+    );
+    assert!(
+        chandra_ablaze.abilities[0].contains("Effect::Play")
+            && chandra_ablaze.abilities[0].contains("PlayCount::All")
+            && chandra_ablaze.abilities[0].contains("PlayCostMode::WithoutPayingManaCost"),
+        "{:?}",
+        chandra_ablaze.abilities
+    );
+
+    let transcendent = read(
+        "Name:Transcendent Dragon\nManaCost:4 U U\nTypes:Creature Dragon\nPT:4/3\nK:Flash\nK:Flying\n\
+         T:Mode$ ChangesZone | ValidCard$ Card.wasCastByYou+Self | Destination$ Battlefield | Execute$ TrigCounter\n\
+         SVar:TrigCounter:DB$ Counter | TargetType$ Spell | ValidTgts$ Card | RememberCountered$ True | Destination$ Exile | SubAbility$ DBPlay\n\
+         SVar:DBPlay:DB$ Play | Valid$ Card.nonLand+IsRemembered | ValidSA$ Spell | ValidZone$ Exile | WithoutManaCost$ True | Controller$ You | Optional$ True | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        transcendent.abilities[0].contains("Effect::CaptureAffected")
+            && transcendent.abilities[0].contains("Effect::CounterTargetSpellToExile")
+            && transcendent.abilities[0].contains("Effect::ForEachRemembered")
+            && transcendent.abilities[0].contains("Effect::Play")
+            && transcendent.abilities[0].contains("PlaySource::Subject(TargetSpec::EventObject)")
+            && transcendent.abilities[0].contains("PlayCostMode::WithoutPayingManaCost"),
+        "{:?}",
+        transcendent.abilities
+    );
+
+    assert!(refused(
+        "Name:BadHandOppCtrl\nManaCost:2 U\nTypes:Sorcery\n\
+         A:SP$ Play | Valid$ Card.ControlledBy Opponent | ValidZone$ Hand | WithoutManaCost$ True | Optional$ True"
+    ));
+    assert!(refused(
+        "Name:BadAmountMismatch\nManaCost:4 R R\nTypes:Sorcery\n\
+         A:SP$ Play | Valid$ Instant.Red+YouCtrl | ValidZone$ Graveyard | WithoutManaCost$ True | Amount$ ChandraX | Optional$ True\n\
+         SVar:ChandraX:Count$ValidGraveyard Sorcery.Red+YouOwn"
+    ));
+    assert!(refused(
+        "Name:BadCounterDest\nManaCost:4 U U\nTypes:Creature Dragon\nPT:4/3\n\
+         T:Mode$ ChangesZone | ValidCard$ Card.Self | Destination$ Battlefield | Execute$ TrigCounter\n\
+         SVar:TrigCounter:DB$ Counter | TargetType$ Spell | ValidTgts$ Card | RememberCountered$ True | Destination$ Graveyard | SubAbility$ DBPlay\n\
+         SVar:DBPlay:DB$ Play | Valid$ Card.nonLand+IsRemembered | ValidSA$ Spell | ValidZone$ Exile | WithoutManaCost$ True | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True"
+    ));
+    assert!(refused(
+        "Name:BadGraveyardTriggerFlagLeak\nManaCost:2 B R\nTypes:Creature Wizard\nPT:3/3\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Wizard.Other+YouCtrl | TriggerZones$ Graveyard | Execute$ TrigPlayGy | OptionalDecider$ You\n\
+         SVar:TrigPlayGy:DB$ Play | Optional$ True\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigPlayBf\n\
+         SVar:TrigPlayBf:DB$ Play | Optional$ True"
+    ));
+    assert!(refused(
+        "Name:BadDelayedGraveyardPlay\nManaCost:2 B R\nTypes:Creature Wizard\nPT:3/3\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self | TriggerZones$ Graveyard | Execute$ TrigDelay\n\
+         SVar:TrigDelay:DB$ DelayedTrigger | Mode$ Phase | Phase$ End of Turn | Execute$ DBPlay\n\
+         SVar:DBPlay:DB$ Play | Optional$ True"
+    ));
+}
+
+#[test]
+fn wave20_reanimate_cumulative_upkeep_and_vanishing_pump() {
+    // Dreams of the Dead: `ChangeZone` (Graveyard -> Battlefield) chained to
+    // `DB$ Pump | Defined$ Targeted | Duration$ Permanent | KW$ Cumulative upkeep:2 | LeaveBattlefield$ Exile`.
+    let dreams = read(
+        "Name:DreamsOfTheDeadLike\nManaCost:3 U\nTypes:Enchantment\n\
+         A:AB$ ChangeZone | Cost$ 1 U | Origin$ Graveyard | Destination$ Battlefield | ValidTgts$ Creature.White+YouCtrl,Creature.Black+YouCtrl | SubAbility$ DBPump\n\
+         SVar:DBPump:DB$ Pump | KW$ Cumulative upkeep:2 | LeaveBattlefield$ Exile | Defined$ Targeted | Duration$ Permanent",
+    );
+    let ability = &dreams.abilities[0];
+    assert!(
+        ability.contains("Effect::GraveyardToBattlefieldModified {")
+            && ability.contains("Modifier::ExileInsteadOfLeavingBattlefield")
+            && ability.contains("Modifier::GrantTriggered {")
+            && ability.contains(
+                "Amount::Times { base: &Amount::CountersOnSource(counters::AGE), factor: 2 }"
+            ),
+        "{ability}"
+    );
+
+    // Maelstrom Djinn: `DB$ Pump | Defined$ Self | KW$ Vanishing | Duration$ Permanent`.
+    let djinn = read(
+        "Name:MaelstromDjinnLike\nManaCost:7 U\nTypes:Creature Djinn\nPT:5/6\n\
+         T:Mode$ TurnFaceUp | ValidCard$ Card.Self | Execute$ TrigVanishing | TriggerZones$ Battlefield\n\
+         SVar:TrigVanishing:DB$ PutCounter | CounterType$ TIME | CounterNum$ 2 | SubAbility$ DBPump\n\
+         SVar:DBPump:DB$ Pump | Defined$ Self | KW$ Vanishing | Duration$ Permanent",
+    );
+    assert!(
+        djinn
+            .statics
+            .contains("Trigger::StepBegin { step: StepKind::Upkeep, whose: PlayerRel::You }")
+            && djinn
+                .statics
+                .contains("Condition::CountersOnSelf(CounterKind::Time, 1)")
+            && djinn.abilities[0]
+                .contains("Modifier::GrantTriggeredDefinition(&GRANTED_TRIGGER_1)")
+            && djinn.abilities[0]
+                .contains("Trigger::LastCounterRemoved { kind: CounterKind::Time, by: None }"),
+        "{} / {:?}",
+        djinn.statics,
+        djinn.abilities
+    );
+
+    // Honest refusals: temporary Vanishing, targeted Vanishing, non-Exile LeaveBattlefield, and invalid cumulative cost.
+    for bad in [
+        "Name:BadTempVanishing\nManaCost:2 U\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Pump | Cost$ U | Defined$ Self | KW$ Vanishing",
+        "Name:BadTargetedVanishing\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ Pump | ValidTgts$ Creature | KW$ Vanishing | Duration$ Permanent",
+        "Name:BadLeaveHand\nManaCost:3 U\nTypes:Enchantment\n\
+         A:AB$ ChangeZone | Cost$ 1 U | Origin$ Graveyard | Destination$ Battlefield | ValidTgts$ Creature.YouOwn | SubAbility$ DBPump\n\
+         SVar:DBPump:DB$ Pump | LeaveBattlefield$ Hand | Defined$ Targeted | Duration$ Permanent",
+        "Name:BadCumulativeCost\nManaCost:3 U\nTypes:Enchantment\n\
+         A:AB$ ChangeZone | Cost$ 1 U | Origin$ Graveyard | Destination$ Battlefield | ValidTgts$ Creature.YouOwn | SubAbility$ DBPump\n\
+         SVar:DBPump:DB$ Pump | KW$ Cumulative upkeep:BadCost | Defined$ Targeted | Duration$ Permanent",
+    ] {
+        assert!(
+            refused(bad),
+            "must refuse:
+{bad}"
+        );
+    }
+}
+
+#[test]
+fn retarget_and_damage_target_reader_fixes() {
+    let mut rich_cats = cats();
+    rich_cats.spell.push("Arcane".into());
+    rich_cats.normalize();
+    let read_rich = |text: &str| {
+        let parsed = parse(text);
+        transcode(&parsed, &rich_cats, None).unwrap_or_else(|| {
+            panic!(
+                "should be read in full, refused: {:?}",
+                refusal_reason(&parsed, &rich_cats, None)
+            )
+        })
+    };
+    // 1. Reroute: Activated.singleTarget lowers to AbilityOnStack + ActivatedAbilityFrom & WithSingleTarget.
+    let reroute = read(
+        "Name:Reroute\nManaCost:1 R\nTypes:Instant\n\
+         A:SP$ ChangeTargets | TargetType$ Activated.singleTarget | ValidTgts$ Card | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw | Defined$ You | NumCards$ 1\n\
+         Oracle:Change the target of target activated ability with a single target.\\nDraw a card.",
+    );
+    assert!(
+        reroute.abilities[0].contains("TargetSpec::AbilityOnStack(&TARGET1)")
+            && reroute
+                .statics
+                .contains("Filter::ActivatedAbilityFrom(&Filter::Any)")
+            && reroute.statics.contains("Filter::WithSingleTarget")
+            && !reroute.abilities[0].contains("ActivatedAbility(")
+            && reroute.abilities[0].contains("Effect::ChangeTarget { to: &Filter::Any }")
+            && reroute.abilities[0].contains("Effect::draw(1)"),
+        "{}\n{}",
+        reroute.abilities[0],
+        reroute.statics
+    );
+
+    // 2. Redirect & Sideswipe: Optional$ True ChangeTargets wraps ChooseNewTargets in MayDo.
+    let redirect = read(
+        "Name:Redirect\nManaCost:U U\nTypes:Instant\n\
+         A:SP$ ChangeTargets | TargetType$ Spell | Optional$ True | ValidTgts$ Card\n\
+         Oracle:You may choose new targets for target spell.",
+    );
+    assert!(
+        redirect.abilities[0].contains("Effect::MayDo { effects: &[Effect::ChooseNewTargets] }")
+            && redirect.abilities[0].contains("TargetSpec::Spell(&Filter::Any)"),
+        "{}",
+        redirect.abilities[0]
+    );
+    let sideswipe = read_rich(
+        "Name:Sideswipe\nManaCost:1 R\nTypes:Instant\n\
+         A:SP$ ChangeTargets | TargetType$ Spell | Optional$ True | ValidTgts$ Card.Arcane\n\
+         Oracle:You may change any targets of target Arcane spell.",
+    );
+    assert!(
+        sideswipe.abilities[0].contains("Effect::MayDo { effects: &[Effect::ChooseNewTargets] }"),
+        "{}",
+        sideswipe.abilities[0]
+    );
+
+    // 3. Sword of War and Peace & Furnace Scamp: DealsCombatDamageToPlayer binds DamagedPlayer.
+    let sword = read(
+        "Name:Sword of War and Peace\nManaCost:3\nTypes:Artifact Equipment\nK:Equip:2\n\
+         T:Mode$ DamageDone | ValidSource$ Creature.EquippedBy | ValidTarget$ Player | CombatDamage$ True | Execute$ TrigDamage | TriggerZones$ Battlefield\n\
+         SVar:TrigDamage:DB$ DealDamage | Defined$ TriggeredTarget | NumDmg$ X | SubAbility$ DBGain\n\
+         SVar:X:TriggeredTarget$CardsInHand\n\
+         SVar:DBGain:DB$ GainLife | Defined$ You | LifeAmount$ Y\n\
+         SVar:Y:Count$CardsInYourHand",
+    );
+    assert!(
+        sword.abilities[1].contains(
+            "Effect::DealDamage { amount: Amount::HandSize(PlayerRel::DamagedPlayer), target: TargetSpec::Player(PlayerRel::DamagedPlayer) }"
+        ) && !sword.abilities[1].contains("TargetSpec::EventObject"),
+        "{}",
+        sword.abilities[1]
+    );
+
+    let scamp = read(
+        "Name:Furnace Scamp\nManaCost:R\nTypes:Creature Phyrexian Beast\nPT:1/1\n\
+         T:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Player | CombatDamage$ True | OptionalDecider$ You | Execute$ TrigDamage | TriggerZones$ Battlefield\n\
+         SVar:TrigDamage:AB$ DealDamage | Cost$ Sac<1/CARDNAME> | Defined$ TriggeredTarget | NumDmg$ 3",
+    );
+    assert!(
+        scamp.abilities[0].contains(
+            "Effect::DealDamage { amount: Amount::Fixed(3), target: TargetSpec::Player(PlayerRel::DamagedPlayer) }"
+        ) && !scamp.abilities[0].contains("TargetSpec::EventObject"),
+        "{}",
+        scamp.abilities[0]
+    );
+}
+
+#[test]
+fn temporal_firestorm_taborax_durkwood_and_trigger_optionality_fixes() {
+    let mut rich_cats = cats();
+    rich_cats.creature.push("Cleric".into());
+    rich_cats.normalize();
+    let read_rich = |text: &str| {
+        let parsed = parse(text);
+        transcode(&parsed, &rich_cats, None).unwrap_or_else(|| {
+            panic!(
+                "should be read in full, refused: {:?}",
+                refusal_reason(&parsed, &rich_cats, None)
+            )
+        })
+    };
+    // 4. Temporal Firestorm: DamageAll must trail ChooseCard, never sit inside ChooseCard.then.
+    let firestorm = read(
+        "Name:Temporal Firestorm\nManaCost:3 R R\nTypes:Sorcery\nK:Kicker:1 W:1 U\n\
+         A:SP$ ChooseCard | Choices$ Creature.YouCtrl,Planeswalker.YouCtrl | Amount$ X | MinAmount$ 0 | SubAbility$ DBPhase\n\
+         SVar:DBPhase:DB$ Phases | Defined$ ChosenCard | SubAbility$ DBDamageAll\n\
+         SVar:DBDamageAll:DB$ DamageAll | NumDmg$ 5 | ValidCards$ Creature,Planeswalker\n\
+         SVar:X:Count$TimesKicked",
+    );
+    let ab = &firestorm.abilities[0];
+    assert!(
+        ab.contains("then: &[Effect::PhaseOut { target: Some(TargetSpec::EventObject) }]")
+            && ab.contains("Effect::DealDamageEach { amount: Amount::Fixed(5),")
+            && ab.find("Effect::PhaseOut").unwrap() < ab.find("Effect::DealDamageEach").unwrap(),
+        "{ab}"
+    );
+
+    // 5. Taborax, Hope's Demise: IfCondition(Cleric) wraps MayDo(Draw + LoseLife), not vice versa.
+    let taborax = read_rich(
+        "Name:Taborax, Hope's Demise\nManaCost:2 B\nTypes:Legendary Creature Demon Cleric\nPT:2/2\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Creature.!token+Other+YouCtrl | TriggerZones$ Battlefield | Execute$ TrigPutCounter\n\
+         SVar:TrigPutCounter:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1 | SubAbility$ DBLoseLife\n\
+         SVar:DBLoseLife:DB$ LoseLife | Defined$ You | LifeAmount$ 1 | UnlessCost$ Draw<1/You> | UnlessSwitched$ True | UnlessPayer$ You | ConditionDefined$ TriggeredCardLKICopy | ConditionPresent$ Creature.Cleric | ConditionCompare$ EQ1",
+    );
+    let tab_ab = &taborax.abilities[0];
+    assert!(
+        tab_ab.contains("Effect::IfCondition")
+            && tab_ab.contains(
+                "Effect::MayDo { effects: &[Effect::draw(1), Effect::LoseLife { amount: Amount::Fixed(1), target: PlayerRel::You }] }"
+            )
+            && tab_ab.find("Effect::IfCondition").unwrap() < tab_ab.find("Effect::MayDo").unwrap(),
+        "{tab_ab}"
+    );
+
+    // 6. Durkwood Tracker: Targeted$CardPower to Self with Oracle bite-back lowers to DamageEqualToPower;
+    //    mismatch without Oracle confirmation is refused.
+    let durkwood = read(
+        "Name:Durkwood Tracker\nManaCost:4 G\nTypes:Creature Giant\nPT:4/3\n\
+         A:AB$ DealDamage | Cost$ 1 G T | IsPresent$ Card.Self | PresentZone$ Battlefield | ValidTgts$ Creature.attacking | NumDmg$ X | SubAbility$ DBDamage\n\
+         SVar:DBDamage:DB$ DealDamage | Defined$ Self | NumDmg$ Y\n\
+         SVar:X:Count$CardPower\nSVar:Y:Targeted$CardPower\n\
+         Oracle:{1}{G}, {T}: If Durkwood Tracker is on the battlefield, it deals damage equal to its power to target attacking creature. That creature deals damage equal to its power to Durkwood Tracker.",
+    );
+    assert!(
+        durkwood.abilities[0].contains(
+            "Effect::DamageEqualToPower { dealer: TargetSlot::First, to: TargetSlot::This }"
+        ),
+        "{}",
+        durkwood.abilities[0]
+    );
+    assert!(refused(
+        "Name:BadSelfPowerDmg\nManaCost:4 G\nTypes:Creature Giant\nPT:4/3\n\
+         A:AB$ DealDamage | Cost$ 1 G T | ValidTgts$ Creature | NumDmg$ Y | Defined$ Self\n\
+         SVar:Y:Targeted$CardPower\n\
+         Oracle:{1}{G}, {T}: BadSelfPowerDmg deals damage to itself equal to target creature's power."
+    ));
+
+    // 7. Bloodhall Ooze: intervening-if followed by "you may" in TriggerDescription wraps in MayDo.
+    let ooze = read(
+        "Name:Bloodhall Ooze\nManaCost:R\nTypes:Creature Ooze\nPT:1/1\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | IsPresent$ Permanent.Black+YouCtrl | Execute$ TrigPutCounter | \
+         TriggerDescription$ At the beginning of your upkeep, if you control a black permanent, you may put a +1/+1 counter on CARDNAME.\n\
+         SVar:TrigPutCounter:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1\n\
+         Oracle:At the beginning of your upkeep, if you control a black permanent, you may put a +1/+1 counter on Bloodhall Ooze.",
+    );
+    assert!(
+        ooze.abilities[0].contains(
+            "Effect::MayDo { effects: &[Effect::AddCounter { kind: CounterKind::P1P1, amount: Amount::Fixed(1) }] }"
+        ),
+        "{}",
+        ooze.abilities[0]
+    );
+
+    // 8. Rikala / Timeless Witness: OptionalDecider$ You when Oracle lacks "may" is refused.
+    for bad in [
+        "Name:Rikala, Homarid King\nManaCost:1 G U\nTypes:Legendary Creature Lobster Noble\nPT:0/4\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | OptionalDecider$ You | Execute$ TrigPut\n\
+         SVar:TrigPut:DB$ PutCounter | Defined$ Self | CounterType$ TIDE | CounterNum$ 1\n\
+         Oracle:At the beginning of your upkeep, put a tide counter on Rikala.",
+        "Name:Timeless Witness\nManaCost:2 G G\nTypes:Creature Human Shaman\nPT:2/1\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigRet | OptionalDecider$ You\n\
+         SVar:TrigRet:DB$ ChangeZone | Origin$ Graveyard | Destination$ Hand | ValidTgts$ Card.YouCtrl\n\
+         Oracle:When Timeless Witness enters, return target card from your graveyard to your hand.",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
+}
+
+fn read_with_extra_subtypes(text: &str) -> CardBody {
+    let mut c = cats();
+    c.creature.push("Symbiote".into());
+    c.enchantment.push("Aura".into());
+    c.normalize();
+    let parsed = parse(text);
+    transcode(&parsed, &c, None)
+        .unwrap_or_else(|| panic!("refused: {:?}", refusal_reason(&parsed, &c, None)))
+}
+
+fn refused_with_extra_subtypes(text: &str) -> bool {
+    let mut c = cats();
+    c.creature.push("Symbiote".into());
+    c.enchantment.push("Aura".into());
+    c.normalize();
+    transcode(&parse(text), &c, None).is_none()
+}
+
+#[test]
+fn venom_exile_graveyard_immediate_trigger_remembered_lki() {
+    let venom = read_with_extra_subtypes(
+        "Name:Venom, Deadly Devourer\nManaCost:2 G B\nTypes:Legendary Creature Symbiote Villain\nPT:4/4\n\
+         A:AB$ ChangeZone | Cost$ 3 | Origin$ Graveyard | Destination$ Exile | ValidTgts$ Creature | RememberChanged$ True | SubAbility$ DBImmediateTrigger\n\
+         SVar:DBImmediateTrigger:DB$ ImmediateTrigger | ConditionDefined$ RememberedLKI | ConditionPresent$ Card | RememberObjects$ RememberedLKI | Execute$ TrigPutCounter | SubAbility$ DBCleanup\n\
+         SVar:TrigPutCounter:DB$ PutCounter | ValidTgts$ Symbiote | CounterType$ P1P1 | CounterNum$ X\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:TriggerRemembered$CardToughness",
+    );
+    let a = &venom.abilities[0];
+    assert!(
+        a.contains(
+            "Effect::exile(TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::EachPlayer))"
+        ) && a.contains("ReflexiveWhen::ThisWay(ThisWay::ExiledFromGraveyard(&Filter::Any))")
+            && a.contains("Amount::EventLastToughness"),
+        "{a}"
+    );
+    assert!(refused(
+        "Name:BadTriggerRemToughnessDirect\nManaCost:2 G\nTypes:Sorcery\n\
+         A:SP$ Draw | NumCards$ X\n\
+         SVar:X:TriggerRemembered$CardToughness"
+    ));
+}
+
+#[test]
+fn remembered_bounce_attached_auras_and_ride_down() {
+    let word = read_with_extra_subtypes(
+        "Name:Word of Undoing\nManaCost:U\nTypes:Instant\n\
+         A:SP$ ChangeZone | ValidTgts$ Creature | Origin$ Battlefield | Destination$ Hand | SubAbility$ DBChangeZoneAll | RememberTargets$ True\n\
+         SVar:DBChangeZoneAll:DB$ ChangeZoneAll | ChangeType$ Remembered.Aura+White+Attached+YouOwn | Origin$ Battlefield | Destination$ Hand | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    let wa = &word.abilities[0];
+    assert!(
+        wa.contains("Effect::ReturnAllToHand")
+            && word
+                .statics
+                .contains("Filter::AttachedTo(&Filter::Reference)")
+            && wa.contains("Effect::bounce(TargetSpec::Object(&Filter::CREATURE))")
+            && wa.find("Effect::ReturnAllToHand") < wa.find("Effect::bounce"),
+        "{wa}"
+    );
+
+    let charm = read_with_extra_subtypes(
+        "Name:Orzhov Charm\nManaCost:W B\nTypes:Instant\n\
+         A:SP$ Charm | Choices$ ReturnAll,DBDestroy\n\
+         SVar:ReturnAll:DB$ TargetOnly | ValidTgts$ Creature.YouCtrl | SubAbility$ DBChangeZoneAll | RememberObjects$ Targeted\n\
+         SVar:DBChangeZoneAll:DB$ ChangeZoneAll | ChangeType$ Creature.IsRemembered,Aura.AttachedTo Creature.IsRemembered+YouCtrl | Origin$ Battlefield | Destination$ Hand | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:DBDestroy:DB$ Destroy | ValidTgts$ Creature",
+    );
+    assert!(
+        charm.abilities[0].contains("Effect::ReturnAllToHand")
+            && charm
+                .statics
+                .contains("Filter::AttachedTo(&Filter::Reference)")
+            && charm.abilities[0]
+                .contains("Effect::bounce(TargetSpec::Object(&Filter::YOUR_CREATURE))"),
+        "{}",
+        charm.abilities[0]
+    );
+
+    let ride = read(
+        "Name:Ride Down\nManaCost:R W\nTypes:Instant\n\
+         A:SP$ TargetOnly | ValidTgts$ Creature.blocking | RememberObjects$ Targeted | SubAbility$ DBDestroy\n\
+         SVar:DBDestroy:DB$ Destroy | Defined$ Remembered | SubAbility$ DBPump\n\
+         SVar:DBPump:DB$ PumpAll | ValidCards$ Creature.blockedByRemembered | KW$ Trample | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        ride.abilities[0].contains("Effect::destroy(TargetSpec::Object(")
+            && ride.statics.contains("Filter::BlockedByReferenceThisTurn")
+            && ride.abilities[0].contains("KeywordSet::TRAMPLE"),
+        "{}",
+        ride.abilities[0]
+    );
+
+    for bad in [
+        // Missing ClearRemembered cleanup must stay refused.
+        "Name:BadWordNoCleanup\nManaCost:U\nTypes:Instant\n\
+         A:SP$ ChangeZone | ValidTgts$ Creature | Origin$ Battlefield | Destination$ Hand | SubAbility$ DBChangeZoneAll | RememberTargets$ True\n\
+         SVar:DBChangeZoneAll:DB$ ChangeZoneAll | ChangeType$ Remembered.Aura+Attached | Origin$ Battlefield | Destination$ Hand",
+        // Ride Down shape with non-zero P/T modifier must stay refused.
+        "Name:BadRidePump\nManaCost:R W\nTypes:Instant\n\
+         A:SP$ TargetOnly | ValidTgts$ Creature.blocking | RememberObjects$ Targeted | SubAbility$ DBDestroy\n\
+         SVar:DBDestroy:DB$ Destroy | Defined$ Remembered | SubAbility$ DBPump\n\
+         SVar:DBPump:DB$ PumpAll | ValidCards$ Creature.blockedByRemembered | NumAtt$ +2 | KW$ Trample | SubAbility$ DBCleanup\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn reveal_remembered_counted_mana_counter_and_graveyard_return() {
+    let mut c = cats();
+    c.creature.extend([
+        "Construct".into(),
+        "Elf".into(),
+        "Druid".into(),
+        "Human".into(),
+    ]);
+    c.normalize();
+    let read_c = |src: &str| {
+        let p = parse(src);
+        transcode(&p, &c, None)
+            .unwrap_or_else(|| panic!("expected to read: {:?}", refusal_reason(&p, &c, None)))
+    };
+
+    // Metalworker: Add {C}{C} per revealed artifact
+    let metalworker = read_c(
+        "Name:Metalworker\nManaCost:3\nTypes:Artifact Creature Construct\nPT:1/2\n\
+         A:AB$ Reveal | Cost$ T | RevealValid$ Card.Artifact+YouCtrl | AnyNumber$ True | RememberRevealed$ True | SubAbility$ DBM\n\
+         SVar:DBM:DB$ Mana | Produced$ C | Amount$ X | SubAbility$ DBC\n\
+         SVar:DBC:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$Amount/Twice",
+    );
+    assert!(
+        metalworker.abilities[0].contains("Effect::RevealFromHand")
+            && metalworker.abilities[0].contains("Effect::mana_dynamic(ManaColor::Colorless, Amount::Times { base: &Amount::ThisWay(ThisWay::Revealed(&Filter::Any)), factor: 2 })"),
+        "{:?}",
+        metalworker.abilities
+    );
+
+    // Sacellum Godspeaker: Add {G} per revealed power>=5 creature
+    let godspeaker = read_c(
+        "Name:Sacellum Godspeaker\nManaCost:2 G\nTypes:Creature Elf Druid\nPT:2/2\n\
+         A:AB$ Reveal | Cost$ T | RevealValid$ Creature.powerGE5+YouCtrl | AnyNumber$ True | RememberRevealed$ True | SubAbility$ DBM\n\
+         SVar:DBM:DB$ Mana | Produced$ G | Amount$ X | SubAbility$ DBC\n\
+         SVar:DBC:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$Amount",
+    );
+    assert!(
+        godspeaker.abilities[0].contains("Effect::mana_dynamic(ManaColor::Green, Amount::ThisWay(ThisWay::Revealed(&Filter::Any)))"),
+        "{:?}",
+        godspeaker.abilities
+    );
+
+    // Brine Seer / Scent of Brine: Counter unless pays {1} per revealed blue card
+    let scent = read_c(
+        "Name:Scent of Brine\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ Reveal | Defined$ You | RevealValid$ Card.Blue | AnyNumber$ True | RememberRevealed$ True | SubAbility$ DBCounter\n\
+         SVar:DBCounter:DB$ Counter | TargetType$ Spell | ValidTgts$ Card | UnlessCost$ X | SubAbility$ DBC\n\
+         SVar:DBC:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$Amount",
+    );
+    assert!(
+        scent.abilities[0].contains("Effect::PlayerMayPayOr { player: PlayerRel::ControllerOfTarget, mana: Amount::ThisWay(ThisWay::Revealed(&Filter::Any)), effect: &Effect::CounterTargetSpell }"),
+        "{:?}",
+        scent.abilities
+    );
+
+    // Rofellos Gift: Return enchantment from your graveyard per revealed green card
+    let rofellos = read_c(
+        "Name:Rofellos's Gift\nManaCost:G\nTypes:Sorcery\n\
+         A:SP$ Reveal | RevealValid$ Card.Green+YouCtrl | AnyNumber$ True | RememberRevealed$ True | SubAbility$ DBChangeZone\n\
+         SVar:DBChangeZone:DB$ ChangeZone | Hidden$ True | Mandatory$ True | ChangeType$ Card.Enchantment+YouOwn | ChangeNum$ X | Origin$ Graveyard | Destination$ Hand | SubAbility$ DBC\n\
+         SVar:DBC:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$Amount",
+    );
+    assert!(
+        rofellos.abilities[0].contains("Effect::ChooseCardEx { chooser: PlayerRel::You, zone: ChooseZone::Graveyard(PlayerRel::You)")
+            && rofellos.abilities[0].contains("min: u8::MAX, max: Amount::ThisWay(ThisWay::Revealed(&Filter::Any)), reveal_chosen: false, movement: ChooseMove::Hand"),
+        "{:?}",
+        rofellos.abilities
+    );
+
+    // Honest refusals: RestrictValid$ on Mana, Mind Spike partial hand reveal
+    for bad in [
+        "Name:BadManaRestrict\nManaCost:3\nTypes:Artifact\n\
+         A:AB$ Reveal | Cost$ T | RevealValid$ Card.Artifact+YouCtrl | AnyNumber$ True | RememberRevealed$ True | SubAbility$ DBM\n\
+         SVar:DBM:DB$ Mana | Produced$ C | Amount$ X | RestrictValid$ Spell.CostContainsX\n\
+         SVar:X:Remembered$Amount",
+        "Name:BadMindSpike\nManaCost:B\nTypes:Sorcery\n\
+         A:SP$ Reveal | ValidTgts$ Opponent | RevealAllValid$ Card.nonLand+nonCreature+TargetedPlayerCtrl | RememberRevealed$ True | SubAbility$ DBDiscard\n\
+         SVar:DBDiscard:DB$ Discard | Defined$ Targeted | Mode$ YouChoose | NumCards$ 1 | DiscardValid$ Card.nonLand+nonCreature",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn imprint_battlefield_to_exile_uses_linked_exile_when_read() {
+    let mut c = cats();
+    c.creature.extend(["Phyrexian".into(), "Insect".into()]);
+    c.normalize();
+    let read_c = |src: &str| {
+        let p = parse(src);
+        transcode(&p, &c, None)
+            .unwrap_or_else(|| panic!("expected to read: {:?}", refusal_reason(&p, &c, None)))
+    };
+
+    let ritual = read_c(
+        "Name:Exclusion Ritual\nManaCost:4 W W\nTypes:Enchantment\n\
+         T:Mode$ ChangesZone | ValidCard$ Card.Self | Origin$ Any | Destination$ Battlefield | Execute$ TrigExile\n\
+         SVar:TrigExile:DB$ ChangeZone | Imprint$ True | ValidTgts$ Permanent.nonLand | Origin$ Battlefield | Destination$ Exile\n\
+         S:Mode$ CantBeCast | ValidCard$ Card.sharesNameWith Imprinted\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | ValidCard$ Card.Self | Destination$ Any | Execute$ DBCleanup | Static$ True\n\
+         T:Mode$ ChangesZone | ValidCard$ Card.IsImprinted+ExiledWithSourceLKI | Origin$ Exile | Execute$ DBForget | Static$ True\n\
+         SVar:DBForget:DB$ Bookkeeping | ForgetImprinted$ TriggeredCard\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearImprinted$ True\n\
+         Oracle:Imprint — When Exclusion Ritual enters, exile target nonland permanent.\\nPlayers can't cast spells with the same name as the exiled card.",
+    );
+    assert!(
+        ritual.abilities[0].contains("Effect::exile_linked(TargetSpec::Object(&Filter::NONLAND))"),
+        "{:?}",
+        ritual.abilities
+    );
+
+    let lens = read_c(
+        "Name:Extraplanar Lens\nManaCost:3\nTypes:Artifact\n\
+         T:Mode$ ChangesZone | ValidCard$ Card.Self | Origin$ Any | Destination$ Battlefield | Execute$ TrigExile | OptionalDecider$ You\n\
+         SVar:TrigExile:DB$ ChangeZone | Imprint$ True | Origin$ Battlefield | Destination$ Exile | ValidTgts$ Land.YouCtrl\n\
+         T:Mode$ TapsForMana | ValidCard$ Land.sharesNameWith Imprinted | Execute$ TrigMana | TriggerZones$ Battlefield | Static$ True\n\
+         SVar:TrigMana:DB$ ManaReflected | ColorOrType$ Type | ReflectProperty$ Produced | Defined$ TriggeredCardController\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | ValidCard$ Card.Self | Destination$ Any | Execute$ DBCleanup | Static$ True\n\
+         T:Mode$ ChangesZone | ValidCard$ Card.IsImprinted+ExiledWithSourceLKI | Origin$ Exile | Execute$ DBForget | Static$ True\n\
+         SVar:DBForget:DB$ Bookkeeping | ForgetImprinted$ TriggeredCard\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearImprinted$ True\n\
+         Oracle:Imprint — When Extraplanar Lens enters, you may exile target land you control.\\nWhenever a land with the same name as the exiled card is tapped for mana, its controller adds one mana of any type that land produced.",
+    );
+    assert!(
+        lens.abilities[0].contains("Effect::exile_linked(TargetSpec::Object("),
+        "{:?}",
+        lens.abilities
+    );
+
+    // Honest refusals: Phyrexian Ingester (computed Imprinted P/T) & Imprint without linked reader
+    for bad in [
+        "Name:BadIngester\nManaCost:6 U\nTypes:Creature\nPT:3/3\n\
+         T:Mode$ ChangesZone | ValidCard$ Card.Self | Origin$ Any | Destination$ Battlefield | Execute$ TrigExile\n\
+         SVar:TrigExile:DB$ ChangeZone | Imprint$ True | ValidTgts$ Creature | Origin$ Battlefield | Destination$ Exile\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddPower$ X\n\
+         SVar:X:Imprinted$CardPower",
+        "Name:BadBareImprint\nManaCost:2 W\nTypes:Sorcery\n\
+         A:SP$ ChangeZone | Imprint$ True | ValidTgts$ Creature | Origin$ Battlefield | Destination$ Exile",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn gain_control_each_opponent_self_targeted_controller_and_fickle_efreet() {
+    let taskmaster = read(
+        "Name:Hideous Taskmaster\nManaCost:6 R\nTypes:Creature Eldrazi\nPT:7/2\nK:Devoid\n\
+         T:Mode$ SpellCast | ValidCard$ Card.Self | Execute$ TakeOneEach\n\
+         SVar:TakeOneEach:DB$ GainControl | ValidTgts$ Creature.OppCtrl | TargetMin$ 0 | \
+         TargetMax$ OneEach | TargetsForEachPlayer$ True | LoseControl$ EOT | Untap$ True | \
+         AddKWs$ Trample & Haste & Annihilator:1\n\
+         SVar:OneEach:PlayerCountOpponents$Amount\n\
+         K:Trample\nK:Haste\nK:Annihilator:1",
+    );
+    let tm = taskmaster
+        .abilities
+        .iter()
+        .find(|a| a.contains("Effect::GainControlEx"))
+        .expect("Hideous Taskmaster cast trigger");
+    assert!(
+        tm.contains("Effect::UntapTarget")
+            && tm.contains("Effect::GainControlEx { target: TargetSpec::ObjectOfEachOpponent(&Filter::CREATURE), to: PlayerRel::You, duration: Duration::UntilEndOfTurn")
+            && tm.contains("Effect::AddTempModifier { target: TargetSpec::Object(&Filter::Any),")
+            && tm.contains("targets = Some(TargetReq::up_to(TargetSpec::ObjectOfEachOpponent(&Filter::CREATURE), 255))"),
+        "{tm}"
+    );
+
+    let starke = read(
+        "Name:Starke\nManaCost:1 R R\nTypes:Legendary Creature Human Rogue\nPT:2/2\n\
+         A:AB$ Destroy | Cost$ T | ValidTgts$ Artifact,Creature | SubAbility$ TrigControl\n\
+         SVar:TrigControl:DB$ GainControl | Defined$ Self | NewController$ TargetedController",
+    );
+    assert!(
+        starke.abilities[0]
+            .contains("Effect::ChangeController { new_controller: PlayerRel::ControllerOfTarget }"),
+        "{:?}",
+        starke.abilities
+    );
+
+    let fickle = read(
+        "Name:Fickle\nManaCost:3 R\nTypes:Creature Efreet\nPT:5/2\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | TriggerZones$ Battlefield | Execute$ DelayTrig\n\
+         SVar:DelayTrig:DB$ DelayedTrigger | Mode$ Phase | Phase$ EndCombat | Execute$ TrigFlip\n\
+         SVar:TrigFlip:DB$ FlipCoin | LoseSubAbility$ DBGiveControl\n\
+         SVar:DBGiveControl:DB$ GainControl | Defined$ CorrectedSelf | NewController$ Opponent",
+    );
+    assert!(
+        fickle.abilities[0]
+            .contains("Effect::ChangeController { new_controller: PlayerRel::Opponent }"),
+        "{:?}",
+        fickle.abilities
+    );
+
+    for bad in [
+        // Spell-triggered target binding for Loki is not modelled yet.
+        "Name:LokiRefused\nManaCost:1 R R\nTypes:Creature God\nPT:3/3\n\
+         T:Mode$ SpellCast | ValidCard$ Card | Execute$ TrigGain | ValidActivatingPlayer$ You | \
+         IsSingleTarget$ True | TriggerZones$ Battlefield | TargetsValid$ Creature.inZoneBattlefield\n\
+         SVar:TrigGain:DB$ GainControl | Defined$ TriggeredSpellAbilityTargets | LoseControl$ EOT",
+        // CorrectedSelf is non-spell only.
+        "Name:SpellCorrectedSelf\nManaCost:1 R\nTypes:Instant\n\
+         A:SP$ GainControl | Defined$ CorrectedSelf | NewController$ Opponent",
+        // Starke pattern on a spell or with LoseControl$ must stay refused.
+        "Name:SpellStarke\nManaCost:1 R\nTypes:Sorcery\n\
+         A:SP$ Destroy | ValidTgts$ Creature | SubAbility$ TrigControl\n\
+         SVar:TrigControl:DB$ GainControl | Defined$ Self | NewController$ TargetedController",
+        "Name:TempStarke\nManaCost:1 R\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Destroy | Cost$ T | ValidTgts$ Creature | SubAbility$ TrigControl\n\
+         SVar:TrigControl:DB$ GainControl | Defined$ Self | NewController$ TargetedController | LoseControl$ EOT",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn next_draw_game_loss_and_token_effect_replacements() {
+    let worship = read(
+        "Name:Words of Worship\nManaCost:2 W\nTypes:Enchantment\n\
+         A:AB$ Effect | Cost$ 1 | ReplacementEffects$ DrawReplace\n\
+         SVar:DrawReplace:Event$ Draw | ValidPlayer$ You | ReplaceWith$ WordLife\n\
+         SVar:WordLife:DB$ GainLife | LifeAmount$ 5 | SubAbility$ ExileEffect\n\
+         SVar:ExileEffect:DB$ ChangeZone | Defined$ Self | Origin$ Command | Destination$ Exile",
+    );
+    assert_eq!(
+        worship.abilities,
+        [
+            r#"activated!(cost!("{1}"), &[Effect::AddGlobalTempModifier { filter: &Filter::Any, modifier: Modifier::NextDrawReplace(NextDrawReplacement::GainLife(5)), duration: Duration::UntilEndOfTurn }])"#
+        ]
+    );
+
+    let bear_tokens = TokenLookup::held(&[(
+        "g_2_2_bear",
+        "Name:Bear\nTypes:Creature Bear\nColors:green\nPT:2/2",
+    )]);
+    let mut bear_cats = cats();
+    bear_cats.creature.push("Bear".into());
+    bear_cats.normalize();
+    let wilding = transcode(
+        &parse(
+            "Name:Words of Wilding\nManaCost:2 G\nTypes:Enchantment\n\
+             A:AB$ Effect | Cost$ 1 | ReplacementEffects$ DrawReplace\n\
+             SVar:DrawReplace:Event$ Draw | ValidPlayer$ You | ReplaceWith$ WildToken\n\
+             SVar:WildToken:DB$ Token | TokenOwner$ You | TokenScript$ g_2_2_bear | SubAbility$ ExileEffect\n\
+             SVar:ExileEffect:DB$ ChangeZone | Defined$ Self | Origin$ Command | Destination$ Exile",
+        ),
+        &bear_cats,
+        Some(&bear_tokens),
+    )
+    .expect("Words of Wilding should transcode");
+    assert_eq!(
+        wilding.abilities,
+        [
+            r#"activated!(cost!("{1}"), &[Effect::AddGlobalTempModifier { filter: &Filter::Any, modifier: Modifier::NextDrawReplace(NextDrawReplacement::CreateToken(&generated_tokens::BEAR_2_2_GREEN)), duration: Duration::UntilEndOfTurn }])"#
+        ]
+    );
+
+    let stunning = read(
+        "Name:Stunning Reversal\nManaCost:3 B\nTypes:Instant\n\
+         A:SP$ Effect | ReplacementEffects$ LoseReplace | SubAbility$ DBExile\n\
+         SVar:LoseReplace:Event$ GameLoss | ActiveZones$ Command | ValidPlayer$ You | ReplaceWith$ DrawSeven\n\
+         SVar:DrawSeven:DB$ Draw | NumCards$ 7 | SubAbility$ DBSetLife\n\
+         SVar:DBSetLife:DB$ SetLife | Defined$ You | LifeAmount$ 1 | SubAbility$ ExileEffect\n\
+         SVar:ExileEffect:DB$ ChangeZone | Defined$ Self | Origin$ Command | Destination$ Exile\n\
+         SVar:DBExile:DB$ ChangeZone | Defined$ Self | Origin$ Stack | Destination$ Exile",
+    );
+    assert_eq!(
+        stunning.abilities,
+        [
+            "spell!(&[Effect::AddGlobalTempModifier { filter: &Filter::Any, modifier: Modifier::ReplaceNextGameLoss { draw: 7, set_life: 1 }, duration: Duration::UntilEndOfTurn }, Effect::ExileSource])"
+        ]
+    );
+
+    let cutpurse = read(
+        "Name:Crafty Cutpurse\nManaCost:3 U\nTypes:Creature Human Pirate\nPT:2/2\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigEffect\n\
+         SVar:TrigEffect:DB$ Effect | ReplacementEffects$ OppCreatEnters\n\
+         SVar:OppCreatEnters:Event$ CreateToken | ActiveZones$ Command | ValidToken$ Card.OppCtrl | ReplaceWith$ ETBYourCtrl | Layer$ Control\n\
+         SVar:ETBYourCtrl:DB$ ReplaceToken | Type$ ReplaceController | NewController$ You",
+    );
+    assert_eq!(
+        cutpurse.abilities,
+        [
+            "triggered!(Trigger::ETB, &[Effect::AddGlobalTempModifier { filter: &Filter::Any, modifier: Modifier::StealOpponentTokens, duration: Duration::UntilEndOfTurn }])"
+        ]
+    );
+
+    let kaya_minus = read(
+        "Name:Kaya Ability\nManaCost:1 W B\nTypes:Legendary Planeswalker Kaya\nLoyalty:3\n\
+         A:AB$ Effect | Cost$ SubCounter<2/LOYALTY> | Planeswalker$ True | ReplacementEffects$ TokenReplace\n\
+         SVar:TokenReplace:Event$ CreateToken | ActiveZones$ Battlefield | ValidToken$ Card.YouCtrl | ReplaceWith$ DoubleToken\n\
+         SVar:DoubleToken:DB$ ReplaceToken | Type$ Amount",
+    );
+    assert_eq!(
+        kaya_minus.abilities,
+        [
+            "loyalty!(-2, &[Effect::AddGlobalTempModifier { filter: &Filter::Any, modifier: Modifier::MultiplyTokensCreated { who: PlayerRel::You, factor: 2 }, duration: Duration::UntilEndOfTurn }])"
+        ]
+    );
+}
+
+#[test]
+fn effect_moved_entry_and_graveyard_replacements_and_refusals() {
+    let gather = read(
+        "Name:Gather Specimens\nManaCost:3 U U U\nTypes:Instant\n\
+         A:SP$ Effect | ReplacementEffects$ OppCreatEnters\n\
+         SVar:OppCreatEnters:Event$ Moved | Destination$ Battlefield | ValidCard$ Creature.OppCtrl | ReplaceWith$ ETBYourCtrl | Layer$ Control\n\
+         SVar:ETBYourCtrl:DB$ ChangeZone | Origin$ All | Destination$ Battlefield | Defined$ ReplacedCard | GainControl$ True",
+    );
+    assert_eq!(
+        gather.abilities,
+        [
+            "spell!(&[Effect::AddGlobalTempModifier { filter: &Filter::Any, modifier: Modifier::EnterUnderYourControl(&Filter::CREATURE), duration: Duration::UntilEndOfTurn }])"
+        ]
+    );
+
+    let moonlight = read(
+        "Name:Hallowed Moonlight\nManaCost:1 W\nTypes:Instant\n\
+         A:SP$ Effect | ReplacementEffects$ ReplaceExile | SubAbility$ DBDraw\n\
+         SVar:ReplaceExile:Event$ Moved | ActiveZones$ Command | Destination$ Battlefield | ValidCard$ Creature.!wasCast | ReplaceWith$ DBExile\n\
+         SVar:DBExile:DB$ ChangeZone | Hidden$ True | Origin$ All | Destination$ Exile | Defined$ ReplacedCard\n\
+         SVar:DBDraw:DB$ Draw",
+    );
+    assert_eq!(
+        moonlight.abilities,
+        [
+            "spell!(&[Effect::AddGlobalTempModifier { filter: &Filter::Any, modifier: Modifier::ReplaceBattlefieldEntry { filter: &Filter::CREATURE, predicate: EntryPredicate::NotCast, destination: EntryInsteadZone::Exile }, duration: Duration::UntilEndOfTurn }, Effect::draw(1)])"
+        ]
+    );
+
+    let mistcaller = read(
+        "Name:Mistcaller\nManaCost:U\nTypes:Creature Merfolk Wizard\nPT:1/1\n\
+         A:AB$ Effect | Cost$ Sac<1/CARDNAME> | ReplacementEffects$ EffRMoved\n\
+         SVar:EffRMoved:Event$ Moved | ActiveZones$ Command | Destination$ Battlefield | ValidCard$ Creature.!token+!wasCast | ReplaceWith$ EffDBChangeZone\n\
+         SVar:EffDBChangeZone:DB$ ChangeZone | Defined$ ReplacedCard | Hidden$ True | Origin$ All | Destination$ Exile",
+    );
+    assert_eq!(
+        mistcaller.abilities,
+        [
+            "activated!(cost!(SacrificeSelf), &[Effect::AddGlobalTempModifier { filter: &Filter::Any, modifier: Modifier::ReplaceBattlefieldEntry { filter: &Filter::NONTOKEN_CREATURE, predicate: EntryPredicate::NotCast, destination: EntryInsteadZone::Exile }, duration: Duration::UntilEndOfTurn }])"
+        ]
+    );
+
+    let blink = read(
+        "Name:Don't Blink\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ Effect | ReplacementEffects$ ReplaceETB\n\
+         SVar:ReplaceETB:Event$ Moved | Destination$ Battlefield | Origin$ Stack,Exile | ValidCard$ Creature.wasCastFromExile,Creature.!wasCast | ReplaceWith$ DBShuffle\n\
+         SVar:DBShuffle:DB$ ChangeZone | Hidden$ True | Origin$ All | Destination$ Library | Defined$ ReplacedCard | Shuffle$ True",
+    );
+    assert_eq!(
+        blink.abilities,
+        [
+            "spell!(&[Effect::AddGlobalTempModifier { filter: &Filter::Any, modifier: Modifier::ReplaceBattlefieldEntry { filter: &Filter::CREATURE, predicate: EntryPredicate::FromExileOrCastFromExile, destination: EntryInsteadZone::ShuffleIntoOwnersLibrary }, duration: Duration::UntilEndOfTurn }])"
+        ]
+    );
+
+    let eclipse = read(
+        "Name:Malicious Eclipse\nManaCost:1 B B\nTypes:Sorcery\n\
+         A:SP$ Effect | ReplacementEffects$ DeathRep\n\
+         SVar:DeathRep:Event$ Moved | ValidLKI$ Creature.OppCtrl | Origin$ Battlefield | Destination$ Graveyard | ReplaceWith$ Exile\n\
+         SVar:Exile:DB$ ChangeZone | Defined$ ReplacedCard | Origin$ Battlefield | Destination$ Exile",
+    );
+    assert_eq!(
+        eclipse.abilities,
+        [
+            "spell!(&[Effect::AddGlobalTempModifier { filter: &Filter::Any, modifier: Modifier::ExileMatchingInsteadOfGraveyard { filter: &Filter::CREATURE, origin: Some(ZoneRef::Battlefield), controller_lki: Some(PlayerRel::EachOpponent), rider: None }, duration: Duration::UntilEndOfTurn }])"
+        ]
+    );
+
+    let cosmic = read(
+        "Name:Cosmic Intervention\nManaCost:3 W\nTypes:Instant\n\
+         A:SP$ Effect | ReplacementEffects$ ReplaceGrave\n\
+         SVar:ReplaceGrave:Event$ Moved | ValidCard$ Permanent.YouCtrl | Origin$ Battlefield | Destination$ Graveyard | ReplaceWith$ Exile\n\
+         SVar:Exile:DB$ ChangeZone | Defined$ ReplacedCard | Origin$ All | Destination$ Exile | SubAbility$ DBDelayTrigger\n\
+         SVar:DBDelayTrigger:DB$ DelayedTrigger | RememberObjects$ ReplacedCard | Mode$ Phase | Phase$ End of Turn | Execute$ TrigReturn\n\
+         SVar:TrigReturn:DB$ ChangeZone | Defined$ DelayTriggerRemembered | Destination$ Battlefield",
+    );
+    assert_eq!(
+        cosmic.abilities,
+        [
+            "spell!(&[Effect::AddGlobalTempModifier { filter: &Filter::Any, modifier: Modifier::ExileMatchingInsteadOfGraveyard { filter: &Filter::Any, origin: Some(ZoneRef::Battlefield), controller_lki: Some(PlayerRel::You), rider: Some(GraveyardExileRider::ReturnAtNextEndStep) }, duration: Duration::UntilEndOfTurn }])"
+        ]
+    );
+
+    for bad in [
+        // Plagiarize targets any player and replaces all draws (no DSL target/skip-all match).
+        "Name:Plagiarize\nManaCost:3 U\nTypes:Instant\n\
+         A:SP$ Effect | ValidTgts$ Player | ReplacementEffects$ ReplaceDraw\n\
+         SVar:ReplaceDraw:Event$ Draw | ValidPlayer$ Targeted | ReplaceWith$ DrawSteal\n\
+         SVar:DrawSteal:DB$ Draw | Defined$ You",
+        // Unsupported NextDrawReplace variants stay refused (Words of Wind/Waste/War).
+        "Name:Words of War\nManaCost:2 R\nTypes:Enchantment\n\
+         A:AB$ Effect | Cost$ 1 | ReplacementEffects$ DrawReplace\n\
+         SVar:DrawReplace:Event$ Draw | ValidPlayer$ You | ReplaceWith$ WarDmg\n\
+         SVar:WarDmg:DB$ DealDamage | NumDmg$ 2 | SubAbility$ ExileEffect\n\
+         SVar:ExileEffect:DB$ ChangeZone | Defined$ Self | Origin$ Command | Destination$ Exile",
+        // StealOpponentTokens must refuse Card.YouCtrl.
+        "Name:BadStealOwn\nManaCost:3 U\nTypes:Instant\n\
+         A:SP$ Effect | ReplacementEffects$ Rep\n\
+         SVar:Rep:Event$ CreateToken | ActiveZones$ Command | ValidToken$ Card.YouCtrl | ReplaceWith$ ETB | Layer$ Control\n\
+         SVar:ETB:DB$ ReplaceToken | Type$ ReplaceController | NewController$ You",
+    ] {
+        assert!(refused(bad), "must refuse:\n{bad}");
+    }
 }

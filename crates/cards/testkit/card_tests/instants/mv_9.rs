@@ -3,5 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod decree_of_savagery;
 mod searing_wind;
 mod vitalizing_wind;

@@ -650,3 +650,53 @@ fn owned_by_and_combat_defending_filters_read_public_view() {
         Some(false)
     );
 }
+
+#[test]
+fn greatest_power_among_reads_battlefield_and_refuses_hidden_or_off_battlefield() {
+    use baylee_cards_dsl::Amount;
+    use baylee_view::ObjectStatus;
+
+    static GY_FILTER: Filter = Filter::PowerEqualsAmount(&Amount::GreatestPowerAmong(
+        &Filter::InZone(baylee_cards_dsl::ZoneRef::Graveyard),
+    ));
+    static FILTER: Filter = Filter::And(&[
+        Filter::CREATURE,
+        Filter::PowerEqualsAmount(&Amount::GreatestPowerAmong(&Filter::CREATURE)),
+    ]);
+
+    let mut small = printed(1, 0, "Savannah Lions", 1);
+    small.power = Some(2);
+    let mut big = printed(2, 1, "Craw Wurm", 2);
+    big.power = Some(6);
+    let mut phased = printed(3, 1, "Phased Giant", 3);
+    phased.power = Some(10);
+    phased.status = ObjectStatus::PHASED_OUT;
+
+    let view = ViewBuilder::new(2)
+        .with_battlefield(0, vec![small.clone()])
+        .with_battlefield(1, vec![big.clone(), phased.clone()])
+        .build();
+
+    assert_eq!(matches(&view, &small, &FILTER), Some(false));
+    assert_eq!(matches(&view, &big, &FILTER), Some(true));
+
+    // A face-down permanent on the battlefield hides its identity, so greatest
+    // power cannot be settled from the view alone.
+    let mut face_down = printed(4, 1, "", 0);
+    face_down.card = None;
+    face_down.token = None;
+    face_down.power = Some(2);
+    face_down.toughness = Some(2);
+    face_down.status = ObjectStatus::FACE_DOWN;
+    let hidden_view = ViewBuilder::new(2)
+        .with_battlefield(0, vec![small.clone()])
+        .with_battlefield(1, vec![big.clone(), face_down])
+        .build();
+    assert_eq!(matches(&hidden_view, &big, &FILTER), None);
+
+    // Off-battlefield zone filters stay refused even when the battlefield is empty.
+    let empty_view = ViewBuilder::new(2)
+        .with_battlefield(0, vec![small.clone()])
+        .build();
+    assert_eq!(matches(&empty_view, &small, &GY_FILTER), None);
+}

@@ -28,7 +28,7 @@ impl StaticEffectZone {
         }
     }
 
-    const fn is_battlefield(self) -> bool {
+    pub(super) const fn is_battlefield(self) -> bool {
         matches!(self, Self::Battlefield)
     }
 }
@@ -260,6 +260,8 @@ impl Tx<'_> {
             "OptionalAttackCost" => return self.optional_attack_cost(p),
             "IgnoreLandWalk" => return self.ignore_landwalk(p),
             "ForetellAnyTurn" => return self.wave17c_foretell_any_turn(p),
+            "CantBeBeamedUp" => return self.cant_be_beamed_up_static(p),
+            "UntapOtherPlayer" => return self.statics_untap_other_player(p),
             _ => {}
         }
         if p.peek("EffectZone") == Some("Graveyard") && p.peek("Affected") == Some("Land.YouCtrl") {
@@ -278,6 +280,7 @@ impl Tx<'_> {
             return None;
         }
         let had_description = p.has("Description");
+        let static_desc = p.peek("Description").map(str::to_string);
         p.drop_prose();
         match p.take("Secondary").as_deref() {
             None | Some("True") => {}
@@ -297,8 +300,14 @@ impl Tx<'_> {
             && p.peek("AffectedZone") == Some("Graveyard")
             && p.peek("Affected") == Some("Card.Self")
             && (p.has("AddAbility") || p.has("AddStaticAbility"));
+        let graveyard_self_alt_play = p.peek("EffectZone") == Some("Graveyard")
+            && p.peek("AffectedZone") == Some("Graveyard")
+            && p.peek("Affected") == Some("Card.Self")
+            && p.peek("MayPlay") == Some("True")
+            && self.has_paired_may_play_on_current_rule();
         let graveyard_ok = (p.peek("Affected") == Some("Creature.YouCtrl") && p.has("AddKeyword"))
-            || graveyard_self_grant;
+            || graveyard_self_grant
+            || graveyard_self_alt_play;
         let stack_self_zone = p.peek("EffectZone") == Some("Stack")
             && p.peek("AffectedZone") == Some("Stack")
             && p.peek("Affected") == Some("Card.Self");
@@ -317,6 +326,11 @@ impl Tx<'_> {
                 None => None,
             }
         };
+        if let super::zone_grants::HandGrantOutcome::Handled(handled) =
+            self.try_hand_grant_static(&mut p, effect_zone)
+        {
+            return handled;
+        }
         if p.peek("AffectedZone") == Some("Hand")
             && p.peek("MayLookAt") == Some("Player")
             && p.peek("Affected").is_none()
@@ -325,6 +339,9 @@ impl Tx<'_> {
         }
         if graveyard_self_grant {
             return self.graveyard_self_granted_ability(p);
+        }
+        if graveyard_self_alt_play {
+            return self.continuous_graveyard_self_alt_play(p);
         }
         if effect_zone != Some("ZoneRef::Graveyard")
             && p.peek("AffectedZone") == Some("Graveyard")
@@ -371,11 +388,16 @@ impl Tx<'_> {
         if effect_zone != Some("ZoneRef::Graveyard")
             && p.peek("AffectedZone")
                 .is_some_and(is_all_non_battlefield_zones)
-            && p.peek("AddKeyword").map(str::trim) == Some("Flash")
+            && p.peek("AddKeyword").map(str::trim).is_some_and(|kw| {
+                matches!(kw, "Flash" | "Madness:ManaCost" | "Madness:CardManaCost")
+            })
             && !p.has("MayPlay")
         {
             let raw_zone = p.take("AffectedZone").unwrap_or_default();
-            return self.offboard_flash_static(p, effect_zone, &raw_zone);
+            if p.peek("AddKeyword").map(str::trim) == Some("Flash") {
+                return self.offboard_flash_static(p, effect_zone, &raw_zone);
+            }
+            return self.offboard_madness_static(p, effect_zone, &raw_zone);
         }
         if effect_zone != Some("ZoneRef::Graveyard")
             && p.peek("MayPlay") == Some("True")
@@ -383,7 +405,7 @@ impl Tx<'_> {
                 || p.has("MayPlayWithoutManaCost")
                 || p.peek("AffectedZone") == Some("Exile"))
         {
-            return self.may_cast_with_alt_cost(p, effect_zone);
+            return self.may_cast_with_alt_cost_with_desc(p, effect_zone, static_desc.as_deref());
         }
         if effect_zone.is_none() && p.peek("AffectedZone") == Some("Library") {
             return self.continuous_library_top_dispatch(p);
@@ -786,6 +808,36 @@ impl Tx<'_> {
         })
     }
 
+    fn static_svar_condition(&mut self, var: &str, cmp: &str) -> Option<String> {
+        if let Some(cond) = self
+            .svar_condition_clause(var, cmp)
+            .or_else(|| self.promised_gift_svar_condition(var, cmp))
+            .or_else(|| self.reduce_cost_svar_condition(var, cmp))
+        {
+            return Some(cond);
+        }
+        let raw = if var.trim().starts_with("Count$") || var.trim().starts_with("PlayerCount") {
+            var.trim().to_string()
+        } else {
+            self.svars.get(var.trim())?.trim().to_string()
+        };
+        if raw == "ExiledWith$Amount" && !self.on_a_spell {
+            return Self::wave15_amount_cmp(
+                "Amount::CountOf { filter: &Filter::Any, zone: ZoneSel::LinkedExile }",
+                cmp.trim(),
+            );
+        }
+        if matches!(
+            raw.as_str(),
+            "PlayerCountPropertyYou$LifeLostThisTurn"
+                | "Count$LifeYouLostThisTurn"
+                | "PlayerCountPropertyYou$SacrificedThisTurn Permanent"
+        ) {
+            return self.wave16a_trigger_svar_condition(&raw, cmp);
+        }
+        None
+    }
+
     pub(super) fn static_conditions(
         &mut self,
         p: &mut Params,
@@ -825,11 +877,7 @@ impl Tx<'_> {
         }
         if let Some(var) = p.take("CheckSVar") {
             let cmp = p.take("SVarCompare").unwrap_or_else(|| "GE1".to_string());
-            let Some(first) = self
-                .svar_condition_clause(&var, &cmp)
-                .or_else(|| self.promised_gift_svar_condition(&var, &cmp))
-                .or_else(|| self.reduce_cost_svar_condition(&var, &cmp))
-            else {
+            let Some(first) = self.static_svar_condition(&var, &cmp) else {
                 return self.deny(check_svar_denial.to_string());
             };
             clauses.push(first);
@@ -837,11 +885,7 @@ impl Tx<'_> {
                 let cmp2 = p
                     .take("SecondSVarCompare")
                     .unwrap_or_else(|| "GE1".to_string());
-                let Some(second) = self
-                    .svar_condition_clause(&var2, &cmp2)
-                    .or_else(|| self.promised_gift_svar_condition(&var2, &cmp2))
-                    .or_else(|| self.reduce_cost_svar_condition(&var2, &cmp2))
-                else {
+                let Some(second) = self.static_svar_condition(&var2, &cmp2) else {
                     return self.deny(check_svar_denial.to_string());
                 };
                 clauses.push(second);
@@ -1080,13 +1124,19 @@ impl Tx<'_> {
             return deny_zone(self);
         };
         let zone_arg = effect_zone.map_or_else(String::new, |z| format!(", zone = {z}"));
-        if matches!(
-            affected.as_str(),
-            "Instant.YouCtrl,Sorcery.YouCtrl"
-                | "Sorcery.YouCtrl,Instant.YouCtrl"
-                | "Instant.YouOwn,Sorcery.YouOwn"
-                | "Sorcery.YouOwn,Instant.YouOwn"
-        ) {
+        if !p.has("RaiseCost")
+            && !p.has("MayPlayIgnoreColor")
+            && !p.has("MayPlayIgnoreType")
+            && !p.has("MayPlaySnowIgnoreColor")
+            && !self.has_paired_may_play_on_current_rule()
+            && matches!(
+                affected.as_str(),
+                "Instant.YouCtrl,Sorcery.YouCtrl"
+                    | "Sorcery.YouCtrl,Instant.YouCtrl"
+                    | "Instant.YouOwn,Sorcery.YouOwn"
+                    | "Sorcery.YouOwn,Instant.YouOwn"
+            )
+        {
             if p.take("Condition").as_deref() != Some("PlayerTurn")
                 || p.take("ReplaceGraveyard").as_deref() != Some("Exile")
                 || p.take("MayPlayLimit").as_deref() != Some("1")
@@ -1115,7 +1165,15 @@ impl Tx<'_> {
             ],
             _ => &[],
         };
-        if !modifiers.is_empty() {
+        if !modifiers.is_empty()
+            && !p.has("RaiseCost")
+            && !p.has("ReplaceGraveyard")
+            && !p.has("MayPlayIgnoreColor")
+            && !p.has("MayPlayIgnoreType")
+            && !p.has("MayPlaySnowIgnoreColor")
+            && !p.has("ValidAfterStack")
+            && !self.has_paired_may_play_on_current_rule()
+        {
             let condition =
                 self.static_conditions(&mut p, "unclaimed parameter `Continuous.CheckSVar`")?;
             if p.first_key().is_some() {
@@ -2096,20 +2154,14 @@ impl Tx<'_> {
         let blocker = p.take("ValidBlocker");
         // Peeked before it is taken: a clause of another value stays for
         // `condition` to read or refuse, and is never dropped as if absent.
-        if attacker == "Card.Self"
-            && blocker.is_none()
-            && zone.is_battlefield()
-            && p.peek("IsPresent") == Some("Artifact.DefenderCtrl")
-        {
-            p.take("IsPresent");
-            self.body.abilities.push(
-                "static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::UNBLOCKABLE), condition = Some(Condition::Not(&Condition::SomeDefendingPlayerControlsNone(&Filter::ARTIFACT))))"
-                    .to_string(),
-            );
-            return Some(());
-        }
-        let condition =
+        let defender_ctrl_cond = if zone.is_battlefield() {
+            self.defender_ctrl_present_condition(&mut p).ok()?
+        } else {
+            None
+        };
+        let base_cond =
             self.static_conditions(&mut p, "unclaimed parameter `CantBlockBy.CheckSVar`")?;
+        let condition = Self::merge_static_condition(defender_ctrl_cond.as_deref(), &base_cond);
         if let Some(key) = p.first_key() {
             self.note(format!("unclaimed parameter `CantBlockBy.{key}`"));
             return None;
@@ -2357,6 +2409,53 @@ impl Tx<'_> {
         Some(())
     }
 
+    /// Reads `IsPresent$ <Filter with DefenderCtrl>` on battlefield `CantBlockBy`
+    /// statics ("as long as defending player controls ..."). Refuses when
+    /// qualified by counts/zones/second clauses so `static_conditions` handles them.
+    fn defender_ctrl_present_condition(&mut self, p: &mut Params) -> Result<Option<String>, ()> {
+        let Some(valid) = p.peek("IsPresent").map(str::to_string) else {
+            return Ok(None);
+        };
+        if !valid.contains("DefenderCtrl")
+            || p.has("IsPresent2")
+            || p.has("PresentCompare")
+            || p.has("PresentZone")
+            || p.has("PresentPlayer")
+            || p.has("PresentDefined")
+        {
+            return Ok(None);
+        }
+        let mut stripped_alts = Vec::new();
+        for alt in valid.split(',').map(str::trim) {
+            let Some((base, rest)) = alt.split_once('.') else {
+                return Ok(None);
+            };
+            let mut saw_defender = false;
+            let mut kept = Vec::new();
+            for atom in rest.split('+').map(str::trim).filter(|a| !a.is_empty()) {
+                if atom == "DefenderCtrl" {
+                    saw_defender = true;
+                } else {
+                    kept.push(atom);
+                }
+            }
+            if !saw_defender {
+                return Ok(None);
+            }
+            if kept.is_empty() {
+                stripped_alts.push(base.trim().to_string());
+            } else {
+                stripped_alts.push(format!("{}.{}", base.trim(), kept.join("+")));
+            }
+        }
+        p.take("IsPresent");
+        let expr = self.filter_expr(&stripped_alts.join(",")).ok_or(())?;
+        let name = self.body.filter_static("TARGET", &expr);
+        Ok(Some(format!(
+            "Condition::Not(&Condition::SomeDefendingPlayerControlsNone(&{name}))"
+        )))
+    }
+
     /// `AddPower`/`AddToughness` (layer 7c) and `SetPower`/`SetToughness`
     /// (layer 7b) as static abilities.
     #[allow(clippy::too_many_lines)]
@@ -2374,10 +2473,15 @@ impl Tx<'_> {
             p.take("SetPower");
             p.take("SetToughness");
             p.take("AddType");
-            out.push(Self::static_expr(
-                filter,
-                "Modifier::AnimateNoncreatureArtifact",
-            ));
+            let modifier = if filter.contains("Filter::ARTIFACT")
+                || filter.contains("Filter::YOUR_ARTIFACT")
+                || filter.contains("Filter::AttachedToBySource")
+            {
+                "Modifier::AnimateNoncreatureArtifact"
+            } else {
+                "Modifier::CreatureWithManaValuePT"
+            };
+            out.push(Self::static_expr(filter, modifier));
             return Some(());
         }
         let add_p = p.take("AddPower");
@@ -2860,12 +2964,11 @@ impl Tx<'_> {
         for (key, modifier) in [("AddType", "AddType"), ("RemoveType", "RemoveType")] {
             let Some(raw) = p.take(key) else { continue };
             if raw == "ChosenType" && modifier == "AddType" {
-                let chosen_mod = if filter == "Filter::This"
-                    && self
-                        .body
-                        .enter_modifiers
-                        .iter()
-                        .any(|m| m == "EnterModifier::ChooseBasicLandType")
+                let chosen_mod = if self
+                    .body
+                    .enter_modifiers
+                    .iter()
+                    .any(|m| m == "EnterModifier::ChooseBasicLandType")
                 {
                     "Modifier::AddChosenBasicLandType"
                 } else if self
@@ -3053,7 +3156,10 @@ impl Tx<'_> {
         if !line.trim_start().starts_with("AB$") {
             return self.deny("a granted ability that is not an activated one".to_string());
         }
-        let parsed = self.parse_activated_spec(&line, false, false)?;
+        let prev_on_a_spell = std::mem::replace(&mut self.on_a_spell, false);
+        let parsed = self.parse_activated_spec(&line, false, false);
+        self.on_a_spell = prev_on_a_spell;
+        let parsed = parsed?;
         if parsed.non_battlefield_zone {
             return self.deny("a granted ability activated outside the battlefield".to_string());
         }
@@ -3106,23 +3212,30 @@ impl Tx<'_> {
         let prev_statics_len = self.body.statics.len();
         let prev_trigger_mode = self.trigger_mode.take();
         let prev_block_line = self.block_line.take();
+        let prev_block_half = self.block_half.take();
+        let prev_block_one = std::mem::replace(&mut self.block_line_one_or_more, false);
         let prev_on_a_spell = std::mem::replace(&mut self.on_a_spell, false);
+        let prev_in_granted_trigger = std::mem::replace(&mut self.in_granted_trigger, true);
         let ok = self.triggered(&line);
+        self.in_granted_trigger = prev_in_granted_trigger;
         self.on_a_spell = prev_on_a_spell;
         self.trigger_mode = prev_trigger_mode;
-        if ok.is_none()
-            || self.block_line.is_some()
-            || self.body.abilities.len() != prev_abilities_len + 1
-        {
+        let block_ok =
+            ok.is_some() && self.block_line.is_none() && self.block_halves_paired().is_some();
+        if !block_ok || self.body.abilities.len() != prev_abilities_len + 1 {
             self.body.abilities.truncate(prev_abilities_len);
             self.body.statics.truncate(prev_statics_len);
             self.block_line = prev_block_line;
-            if ok.is_some() {
+            self.block_half = prev_block_half;
+            self.block_line_one_or_more = prev_block_one;
+            if ok.is_some() && self.block_line.is_some() {
                 return self.deny("a granted trigger that is not a single ability".to_string());
             }
             return None;
         }
         self.block_line = prev_block_line;
+        self.block_half = prev_block_half;
+        self.block_line_one_or_more = prev_block_one;
         let ability_expr = self.body.abilities.pop()?;
         if (!ability_expr.starts_with("triggered!(")
             && !ability_expr.starts_with("modal_triggered!("))
@@ -3187,8 +3300,19 @@ impl Tx<'_> {
     /// `Mode$ CantRegenerate` so `regeneration.rs` keeps its narrow contract.
     pub(super) fn grant_static_modifiers_for_animate(&mut self, name: &str) -> Option<Vec<String>> {
         let trimmed = name.trim();
-        if trimmed.is_empty() || trimmed.contains([',', '&']) {
+        if trimmed.is_empty() || trimmed.contains('&') {
             return None;
+        }
+        if trimmed.contains(',') {
+            let mut all = Vec::new();
+            for part in trimmed.split(',') {
+                let p = part.trim();
+                if p.is_empty() {
+                    return None;
+                }
+                all.extend(self.grant_static_modifiers_for_animate(p)?);
+            }
+            return Some(all);
         }
         let line = self.svars.get(trimmed)?.clone();
         let trimmed_line = line.trim_start();
@@ -3389,6 +3513,9 @@ impl Tx<'_> {
         if p.peek("OnlyFirstSpell") == Some("True") {
             return self.wave27d_first_spell_cost_adjust(p, true);
         }
+        if let Some(res) = self.try_raise_cost_modifiers(&p) {
+            return res.ok();
+        }
         let hum_of_the_radix = p.peek("Relative") == Some("True")
             && p.peek("Amount").is_some_and(|a| {
                 self.svars
@@ -3408,9 +3535,17 @@ impl Tx<'_> {
                 p.peek("Activator"),
                 Some("Player.!Active" | "Player.Active")
             )
-            && matches!(p.peek("EffectZone"), None | Some("Battlefield" | "Stack"))
+            && (matches!(p.peek("EffectZone"), None | Some("Battlefield" | "Stack"))
+                || (p.peek("EffectZone") == Some("All")
+                    && p.peek("Type") == Some("Ability")
+                    && p.peek("ValidSpell") == Some("Activated.ManaAbility")
+                    && p.peek("ValidCard") == Some("Card.Self")
+                    && p.peek("Cost") == Some("PayLife<1>")))
             && p.has("Type")
-            && matches!(p.peek("ValidSpell"), None | Some("Activated.ManaAbility"))
+            && matches!(
+                p.peek("ValidSpell"),
+                None | Some("Activated.ManaAbility" | "Spell.Flashback" | "Spell.Dash")
+            )
             && (p.peek("Type") != Some("Spell") || p.has("ValidCard") || p.has("ValidTarget"))
             && p.peek("ValidTarget").is_none_or(|vt| {
                 Self::raise_cost_target_filter(vt, p.peek("EffectZone") == Some("Stack")).is_some()
@@ -3456,7 +3591,11 @@ impl Tx<'_> {
         {
             self.raise_cost_ability(p)
         } else if p.peek("Type") == Some("Spell")
-            || (p.peek("Type").is_none() && p.peek("ValidSpell") == Some("Spell"))
+            || (p.peek("Type").is_none()
+                && matches!(
+                    p.peek("ValidSpell"),
+                    Some("Spell" | "Spell.Flashback" | "Spell.Dash")
+                ))
         {
             self.raise_cost_spell(p)
         } else {
@@ -3611,10 +3750,44 @@ impl Tx<'_> {
         Some(())
     }
 
-    fn raise_cost_spell(&mut self, mut p: Params) -> Option<()> {
-        if p.take("Type").is_none() {
-            p.take("ValidSpell");
+    fn raise_cost_relative_or_amount(
+        &mut self,
+        p: Params,
+        allow_adjust: bool,
+        self_stack_tax: bool,
+        zone: StaticEffectZone,
+    ) -> Option<()> {
+        if allow_adjust {
+            let saved_p = p.clone();
+            let saved_statics = self.body.statics.len();
+            let saved_unclaimed = self.unclaimed.borrow().clone();
+            if self
+                .adjust_spell_cost_by_cast(p, true, self_stack_tax, zone)
+                .is_some()
+            {
+                return Some(());
+            }
+            self.body.statics.truncate(saved_statics);
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
+            if self
+                .adjust_spell_cost_by_amount(saved_p, true, self_stack_tax, zone, true)
+                .is_some()
+            {
+                return Some(());
+            }
         }
+        self.deny("static ability `S: Mode$ RaiseCost`".into())
+    }
+
+    fn raise_cost_spell(&mut self, mut p: Params) -> Option<()> {
+        let spell_type = p.take("Type");
+        let valid_spell = p.take("ValidSpell");
+        let spell_rider = match (spell_type.as_deref(), valid_spell.as_deref()) {
+            (Some("Spell"), None | Some("Spell")) | (None, Some("Spell")) => None,
+            (Some("Spell") | None, Some("Spell.Flashback")) => Some("Filter::CastForFlashback"),
+            (Some("Spell") | None, Some("Spell.Dash")) => Some("Filter::CastForDash"),
+            _ => return self.deny("static ability `S: Mode$ RaiseCost`".into()),
+        };
         let effect_zone = p.take("EffectZone");
         let valid_target = p.take("ValidTarget");
         let stack_self_target = effect_zone.as_deref() == Some("Stack")
@@ -3639,26 +3812,12 @@ impl Tx<'_> {
                 && p.peek("Amount")
                     .is_some_and(|a| a.trim().parse::<u8>().is_err()))
         {
-            if valid_target.is_none() && !stack_self_target {
-                let saved_p = p.clone();
-                let saved_statics = self.body.statics.len();
-                let saved_unclaimed = self.unclaimed.borrow().clone();
-                if self
-                    .adjust_spell_cost_by_cast(p, true, self_stack_tax, zone)
-                    .is_some()
-                {
-                    return Some(());
-                }
-                self.body.statics.truncate(saved_statics);
-                *self.unclaimed.borrow_mut() = saved_unclaimed;
-                if self
-                    .adjust_spell_cost_by_amount(saved_p, true, self_stack_tax, zone, true)
-                    .is_some()
-                {
-                    return Some(());
-                }
-            }
-            return self.deny("static ability `S: Mode$ RaiseCost`".into());
+            return self.raise_cost_relative_or_amount(
+                p,
+                valid_target.is_none() && !stack_self_target,
+                self_stack_tax,
+                zone,
+            );
         }
         let target_filter = match valid_target.as_deref() {
             None => None,
@@ -3704,7 +3863,8 @@ impl Tx<'_> {
             base_filter,
             target_filter
                 .into_iter()
-                .chain(act_filter.map(str::to_string)),
+                .chain(act_filter.map(str::to_string))
+                .chain(spell_rider.map(str::to_string)),
         );
         self.body
             .abilities
@@ -3827,6 +3987,9 @@ impl Tx<'_> {
         if p.peek("OnlyFirstSpell") == Some("True") {
             return self.wave27d_first_spell_cost_adjust(p, false);
         }
+        if let Some(res) = self.try_reduce_cost_modifiers(&p) {
+            return res.ok();
+        }
         // Keep `final_portals::reduce_cost` handling plain battlefield fixed
         // generic spell reductions unchanged.
         if Self::is_plain_battlefield_reduce_cost(&p) {
@@ -3869,11 +4032,19 @@ impl Tx<'_> {
         ) {
             return self.reduce_cost_ability(p);
         }
-        let mut blitz_only = false;
+        let mut spell_rider: Option<&'static str> = None;
         let face_down = match (spell_type.as_deref(), valid_spell.as_deref()) {
             (Some("Spell"), None | Some("Spell")) | (None, Some("Spell")) => false,
             (Some("Spell") | None, Some("Spell.Blitz")) => {
-                blitz_only = true;
+                spell_rider = Some("Filter::CastForBlitz");
+                false
+            }
+            (Some("Spell") | None, Some("Spell.Flashback")) => {
+                spell_rider = Some("Filter::CastForFlashback");
+                false
+            }
+            (Some("Spell") | None, Some("Spell.Dash")) => {
+                spell_rider = Some("Filter::CastForDash");
                 false
             }
             (Some("Spell") | None, Some("Spell.isCastFaceDown")) => true,
@@ -3937,18 +4108,37 @@ impl Tx<'_> {
             is_self_zone,
             face_down,
         )?;
-        let cond = self.reduce_cost_condition(&mut p)?;
-        let Some(modifier) = self.reduce_cost_modifier(&mut p) else {
-            if let Some((saved_p, saved_statics, saved_unclaimed)) = adjust_fallback {
-                return self.try_reduce_cost_dynamic_fallback(
-                    saved_p,
-                    saved_statics,
-                    saved_unclaimed,
-                    is_self_zone,
-                    zone,
-                );
-            }
-            return None;
+        let mut cond = self.reduce_cost_condition(&mut p)?;
+        let modifier = if is_self_zone
+            && cond.is_empty()
+            && !face_down
+            && target_filter.is_none()
+            && !p.has("Color")
+            && p.peek("Amount").is_some_and(|raw| {
+                let raw = raw.trim();
+                raw == "Count$StartingPlayer.0.1"
+                    || self
+                        .svars
+                        .get(raw)
+                        .is_some_and(|d| d.trim() == "Count$StartingPlayer.0.1")
+            }) {
+            p.take("Amount");
+            cond = ", condition = Some(Condition::NotStartingPlayer)".to_string();
+            "Modifier::SpellsCostLess(1)".to_string()
+        } else {
+            let Some(modifier) = self.reduce_cost_modifier(&mut p) else {
+                if let Some((saved_p, saved_statics, saved_unclaimed)) = adjust_fallback {
+                    return self.try_reduce_cost_dynamic_fallback(
+                        saved_p,
+                        saved_statics,
+                        saved_unclaimed,
+                        is_self_zone,
+                        zone,
+                    );
+                }
+                return None;
+            };
+            modifier
         };
         if let Some(key) = p.first_key() {
             return self.deny(format!("unclaimed parameter `ReduceCost.{key}`"));
@@ -3960,7 +4150,7 @@ impl Tx<'_> {
                 .into_iter()
                 .map(str::to_string)
                 .chain(act_filter.map(str::to_string))
-                .chain(blitz_only.then(|| "Filter::CastForBlitz".to_string())),
+                .chain(spell_rider.map(str::to_string)),
         );
         self.body
             .abilities
@@ -4624,7 +4814,8 @@ impl Tx<'_> {
         };
         let amt_expr = self
             .wave14_static_amount(&amt_def)
-            .or_else(|| allow_base_static_count.then(|| self.static_count_expr_ext(&amt_def))?)?;
+            .or_else(|| allow_base_static_count.then(|| self.static_count_expr_ext(&amt_def))?)
+            .or_else(|| self.adjust_spell_cost_extra_amount(&amt_def, is_self_zone))?;
         let cond = self.reduce_cost_condition(&mut p)?;
         if !p.exhausted() {
             return None;
@@ -4639,6 +4830,32 @@ impl Tx<'_> {
             &cond,
         ));
         Some(())
+    }
+
+    fn adjust_spell_cost_extra_amount(&mut self, def: &str, is_self_zone: bool) -> Option<String> {
+        let trimmed = def.trim();
+        if trimmed == "PlayerCount$SacrificedThisTurn Permanent" {
+            return Some(
+                "Amount::PermanentsSacrificedThisTurn { who: PlayerRel::EachPlayer, filter: &Filter::Any }"
+                    .to_string(),
+            );
+        }
+        if trimmed == "Count$AttackersDeclared" {
+            return Some(
+                "Amount::CreaturesAttackedThisTurn { filter: &Filter::Any, controller: PlayerRel::EachPlayer }"
+                    .to_string(),
+            );
+        }
+        if !is_self_zone {
+            return None;
+        }
+        if trimmed == "Count$ThisTurnCast_Card.OppCtrl" {
+            return Some("Amount::SpellsCastThisTurn(PlayerRel::EachOpponent)".to_string());
+        }
+        if let Some(valid) = trimmed.strip_prefix("PlayerCountOpponents$HighestValid ") {
+            return self.wave17b_highest_controlled_amount("PlayerRel::EachOpponent", valid);
+        }
+        None
     }
 
     fn parse_ability_reduction(
@@ -4870,7 +5087,10 @@ impl Tx<'_> {
         }
         if let Some(var) = p.take("CheckSVar") {
             let cmp = p.take("SVarCompare").unwrap_or_else(|| "GE1".to_string());
-            let Some(clause) = self.reduce_cost_svar_condition(&var, &cmp) else {
+            let Some(clause) = self
+                .reduce_cost_svar_condition(&var, &cmp)
+                .or_else(|| self.cost_adjust_svar_condition(&var, &cmp))
+            else {
                 return self.deny("unclaimed parameter `ReduceCost.CheckSVar`".to_string());
             };
             clauses.push(clause);
@@ -4878,7 +5098,10 @@ impl Tx<'_> {
                 let cmp2 = p
                     .take("SecondSVarCompare")
                     .unwrap_or_else(|| "GE1".to_string());
-                let Some(clause2) = self.reduce_cost_svar_condition(&var2, &cmp2) else {
+                let Some(clause2) = self
+                    .reduce_cost_svar_condition(&var2, &cmp2)
+                    .or_else(|| self.cost_adjust_svar_condition(&var2, &cmp2))
+                else {
                     return self.deny("unclaimed parameter `ReduceCost.CheckSVar`".to_string());
                 };
                 clauses.push(clause2);
@@ -4889,6 +5112,54 @@ impl Tx<'_> {
             [one] => format!(", condition = Some({one})"),
             many => format!(", condition = Some(Condition::All(&[{}]))", many.join(", ")),
         })
+    }
+
+    /// `CheckSVar$` + `SVarCompare$` clauses specific to `ReduceCost`/`RaiseCost`
+    /// (`Count$Void.*`, `Count$Left(Battlefield|Graveyard)ThisTurn`, and non-subtype
+    /// `PlayerCountPropertyYou$SacrificedThisTurn <Valid>`). Kept outside
+    /// `reduce_cost_svar_condition` so `Mode$ Continuous` preserves its existing
+    /// `BadSacCardType` refusal boundary.
+    fn cost_adjust_svar_condition(&mut self, var: &str, cmp: &str) -> Option<String> {
+        let trimmed = var.trim();
+        let def = if trimmed.starts_with("Count$") || trimmed.starts_with("PlayerCount") {
+            trimmed.to_string()
+        } else {
+            self.svars.get(trimmed)?.trim().to_string()
+        };
+        let def = def.trim();
+        if let Some(cond) = Self::wave16a_void_condition(def, cmp) {
+            return Some(cond);
+        }
+        let bound = super::count_bound(cmp)?;
+        if let Some(valid) = def.strip_prefix("PlayerCountPropertyYou$SacrificedThisTurn ") {
+            let valid = valid.trim();
+            if self.cats.const_path(valid).is_none()
+                && !has_relative_turn_atom(valid)
+                && let Some(amt) = self.wave16a_sacrificed_this_turn_amount(valid)
+                && amt.contains("who: PlayerRel::You")
+            {
+                return format_amount_bound(&amt, bound);
+            }
+            return None;
+        }
+        let (valid, battlefield) =
+            if let Some(valid) = def.strip_prefix("Count$LeftBattlefieldThisTurn ") {
+                (valid.trim(), true)
+            } else {
+                let valid = def.strip_prefix("Count$LeftGraveyardThisTurn ")?;
+                (valid.trim(), false)
+            };
+        if super::wave16a::has_unmodelled_turn_atom(valid, false)
+            || has_relative_turn_atom(valid)
+            || (!battlefield
+                && valid
+                    .split(',')
+                    .any(|alt| alt.split(['.', '+']).any(|a| a.trim().ends_with("Ctrl"))))
+        {
+            return None;
+        }
+        let amt = self.wave29b_left_zone_this_turn_amount(valid, battlefield)?;
+        format_amount_bound(&amt, bound)
     }
 
     fn reduce_cost_svar_condition(&mut self, var: &str, cmp: &str) -> Option<String> {
@@ -5715,42 +5986,20 @@ impl Tx<'_> {
     /// `Modifier::MayCastWithAltCost` (`CR 118.9`, `CR 601.3e`).
     fn may_cast_with_alt_cost(
         &mut self,
-        mut p: Params,
+        p: Params,
         effect_zone: Option<&'static str>,
     ) -> Option<()> {
+        self.may_cast_with_alt_cost_with_desc(p, effect_zone, None)
+    }
+
+    fn may_cast_with_alt_cost_with_desc(
+        &mut self,
+        mut p: Params,
+        effect_zone: Option<&'static str>,
+        static_desc: Option<&str>,
+    ) -> Option<()> {
         p.take("MayPlay");
-        let price = self.take_alt_cast_price(&mut p)?;
-        let who = match p.take("MayPlayPlayer").as_deref() {
-            None | Some("You") => "PlayerRel::You",
-            Some("Player") => "PlayerRel::EachPlayer",
-            Some("Opponent") => "PlayerRel::EachOpponent",
-            Some(other) => {
-                return self.deny(format!("`Continuous.MayPlayPlayer$ {other}`"));
-            }
-        };
-        let once_per_turn = match p.take("MayPlayLimit").as_deref() {
-            None => false,
-            Some("1") => true,
-            Some(other) => {
-                return self.deny(format!("`Continuous.MayPlayLimit$ {other}`"));
-            }
-        };
-        let with_flash = match p.take("MayPlayWithFlash").as_deref() {
-            None | Some("False") => false,
-            Some("True") => true,
-            Some(other) => {
-                return self.deny(format!("`Continuous.MayPlayWithFlash$ {other}`"));
-            }
-        };
-        let dont_grant_zone = match p.take("MayPlayDontGrantZonePermissions").as_deref() {
-            None | Some("False") => false,
-            Some("True") => true,
-            Some(other) => {
-                return self.deny(format!(
-                    "`Continuous.MayPlayDontGrantZonePermissions$ {other}`"
-                ));
-            }
-        };
+        let opts = self.take_zone_play_options(&mut p, static_desc)?;
         let Some(affected) = p.take("Affected") else {
             return self.deny("`MayPlay` static with no `Affected$`".into());
         };
@@ -5763,13 +6012,15 @@ impl Tx<'_> {
                 || a.contains("ExileMatchingWithSource")
                 || a.contains("ExileTopLinked")
                 || a.contains("RevealUntilFound::ExileLinked")
+                || a.contains("Effect::ExileLinked")
+                || a.contains("Effect::exile_linked(")
                 || a.contains("link_to_source: true")
         });
         let Some(zone_plan) = plan_alt_cast_zones(
             &raw_zones,
             &affected,
-            dont_grant_zone,
-            who,
+            opts.dont_grant_zone,
+            opts.who,
             effect_zone,
             has_linked_exile_producer,
         ) else {
@@ -5777,14 +6028,43 @@ impl Tx<'_> {
                 "static ability reaching `AffectedZone$ {raw_zones}`"
             ));
         };
-        let (card_filter, max_mv_expr, allow_lands) =
-            self.parse_alt_cast_affected(&affected, who, dont_grant_zone, &zone_plan)?;
+        if opts.mana_spending != "ZonePlayManaSpending::Exact" && !zone_plan.grant_zone_permission {
+            return self.deny("mana color/type wash without zone permission".to_string());
+        }
+        let vas_cmc = match &opts.valid_after_stack {
+            Some(super::zone_grants::ValidAfterStackClause::CmcLe(rhs)) => Some(rhs.as_str()),
+            _ => None,
+        };
+        let (mut card_filter, max_mv_expr, allow_lands) = self.parse_alt_cast_affected_ext(
+            &affected,
+            opts.who,
+            opts.dont_grant_zone,
+            &zone_plan,
+            vas_cmc,
+        )?;
+        if matches!(
+            opts.valid_after_stack,
+            Some(super::zone_grants::ValidAfterStackClause::NonCreature)
+        ) {
+            if !allow_lands {
+                return self
+                    .deny("`Continuous.ValidAfterStack$ Spell.nonCreature` without lands".into());
+            }
+            card_filter = super::protection52::conjoin_filter_expr(
+                &card_filter,
+                "Filter::Not(&Filter::CREATURE)",
+            );
+        }
         if allow_lands
-            && (price.starts_with("AltCastPrice::NormalPlus(")
-                || (once_per_turn && price != "AltCastPrice::Normal"))
+            && (opts.price.starts_with("AltCastPrice::NormalPlus(")
+                || (opts.once_per_turn
+                    && opts.price != "AltCastPrice::Normal"
+                    && opts.replace_gy.is_none()))
         {
             return self.deny("`MayPlayLimit$` combined with land-play permission".into());
         }
+        let rider =
+            self.resolve_zone_play_rider(opts.replace_gy.as_deref(), allow_lands, zone_plan.kind)?;
         let condition =
             self.static_conditions(&mut p, "unclaimed parameter `Continuous.CheckSVar`")?;
         if let Some(key) = p.first_key() {
@@ -5794,10 +6074,8 @@ impl Tx<'_> {
             None => StaticEffectZone::Battlefield,
             Some(z) => StaticEffectZone::Explicit(z),
         };
-        let modifier = format!(
-            "Modifier::MayCastWithAltCost {{ who: {who}, zones: {}, grant_zone_permission: {}, allow_lands: {allow_lands}, with_flash: {with_flash}, max_mana_value: {max_mv_expr}, once_per_turn: {once_per_turn}, price: {price} }}",
-            zone_plan.zones_expr, zone_plan.grant_zone_permission
-        );
+        let modifier =
+            format_zone_play_modifier(&opts, &zone_plan, allow_lands, &max_mv_expr, &rider);
         if zone_plan.zones_expr == "AltCastZones::LinkedExile" {
             for ability in &mut self.body.abilities {
                 if ability.contains("ReplacementRule::ExileInsteadOfGraveyard") {
@@ -5814,7 +6092,97 @@ impl Tx<'_> {
         Some(())
     }
 
-    fn take_alt_cast_price(&mut self, p: &mut Params) -> Option<String> {
+    fn take_zone_play_options(
+        &mut self,
+        p: &mut Params,
+        static_desc: Option<&str>,
+    ) -> Option<ZonePlayParsedOpts> {
+        let price = self.take_alt_cast_price(p)?;
+        let who = match p.take("MayPlayPlayer").as_deref() {
+            None | Some("You") => "PlayerRel::You",
+            Some("Player") => "PlayerRel::EachPlayer",
+            Some("Opponent") => "PlayerRel::EachOpponent",
+            Some(other) => {
+                self.note(format!("`Continuous.MayPlayPlayer$ {other}`"));
+                return None;
+            }
+        };
+        let once_per_turn = match p.take("MayPlayLimit").as_deref() {
+            None => false,
+            Some("1") => true,
+            Some(other) => {
+                self.note(format!("`Continuous.MayPlayLimit$ {other}`"));
+                return None;
+            }
+        };
+        let with_flash = match p.take("MayPlayWithFlash").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(other) => {
+                self.note(format!("`Continuous.MayPlayWithFlash$ {other}`"));
+                return None;
+            }
+        };
+        let dont_grant_zone = match p.take("MayPlayDontGrantZonePermissions").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(other) => {
+                self.note(format!(
+                    "`Continuous.MayPlayDontGrantZonePermissions$ {other}`"
+                ));
+                return None;
+            }
+        };
+        let valid_after_stack = if let Some(raw) = p.take("ValidAfterStack") {
+            let Some(clause) = Self::parse_valid_after_stack_clause(&raw) else {
+                self.note(format!("`Continuous.ValidAfterStack$ {raw}`"));
+                return None;
+            };
+            Some(clause)
+        } else {
+            None
+        };
+        let mana_spending = self.take_zone_play_mana_spending(p, static_desc)?;
+        let replace_gy = p.take("ReplaceGraveyard");
+        Some(ZonePlayParsedOpts {
+            price,
+            who,
+            once_per_turn,
+            with_flash,
+            dont_grant_zone,
+            valid_after_stack,
+            mana_spending,
+            replace_gy,
+        })
+    }
+
+    fn resolve_zone_play_rider(
+        &mut self,
+        replace_gy: Option<&str>,
+        allow_lands: bool,
+        kind: AltCastZoneKind,
+    ) -> Option<String> {
+        let paired_rider = self.claim_paired_zone_play_rider();
+        match (replace_gy, paired_rider) {
+            (None, None) => Some("ZonePlayCastRider::None".to_string()),
+            (Some("Exile"), None) if !allow_lands && kind == AltCastZoneKind::GraveyardGrant => {
+                Some("ZonePlayCastRider::ExileInsteadOfGraveyard".to_string())
+            }
+            (Some(other), _) => self.deny(format!("`Continuous.ReplaceGraveyard$ {other}`")),
+            (None, Some(r)) => {
+                let valid_for_lands =
+                    matches!(r.as_str(), "ZonePlayCastRider::GrantLeaveExileReplacement")
+                        || r.starts_with("ZonePlayCastRider::GrantDeathExileAndGainLife(");
+                if allow_lands && !valid_for_lands {
+                    return self
+                        .deny("finality/exile rider combined with land-play permission".into());
+                }
+                Some(r)
+            }
+        }
+    }
+
+    pub(super) fn take_alt_cast_price(&mut self, p: &mut Params) -> Option<String> {
         let raw_alt = p.take("MayPlayAltManaCost");
         let raw_free = p.take("MayPlayWithoutManaCost");
         let raw_raise = p.take("RaiseCost");
@@ -5880,16 +6248,18 @@ impl Tx<'_> {
         Some(crate::body::cost_literal(&mana, &parts))
     }
 
-    fn parse_alt_cast_affected(
+    fn parse_alt_cast_affected_ext(
         &mut self,
         affected: &str,
         who: &str,
         dont_grant_zone: bool,
         plan: &AltCastZonePlan,
+        vas_cmc: Option<&str>,
     ) -> Option<(String, String, bool)> {
         let mut cleaned_alts = Vec::new();
         let mut shared_cmc: Option<Option<String>> = None;
         let mut all_allow_lands = plan.grant_zone_permission;
+        let mut any_land_alt = false;
         for raw_alt in affected.split(',') {
             let Some((cleaned, alt_cmc, saw_nonland)) =
                 clean_alt_cast_alt(raw_alt, who, dont_grant_zone, plan)
@@ -5899,14 +6269,26 @@ impl Tx<'_> {
             if saw_nonland {
                 all_allow_lands = false;
             }
+            let base_is_land = raw_alt.trim().split('.').next() == Some("Land");
+            if base_is_land {
+                any_land_alt = true;
+            }
+            let effective_cmc = if base_is_land && alt_cmc.is_none() && vas_cmc.is_some() {
+                vas_cmc.map(str::to_string)
+            } else {
+                alt_cmc
+            };
             match &shared_cmc {
-                None => shared_cmc = Some(alt_cmc),
-                Some(prev) if *prev == alt_cmc => {}
+                None => shared_cmc = Some(effective_cmc),
+                Some(prev) if *prev == effective_cmc => {}
                 Some(_) => {
                     return self.deny(format!("`MayPlay` `Affected$ {affected}`"));
                 }
             }
             cleaned_alts.push(cleaned);
+        }
+        if any_land_alt && plan.grant_zone_permission {
+            all_allow_lands = true;
         }
         let max_mv_expr = match shared_cmc.flatten() {
             None => "None".to_string(),
@@ -6135,6 +6517,18 @@ impl Tx<'_> {
             ));
             return Some(true);
         }
+        if trimmed == "Hexproof:CardColors" {
+            out.push(Self::static_expr(filter, "Modifier::HexproofFromOwnColors"));
+            return Some(true);
+        }
+        if let Some(expr) = self.hexproof_filter(word) {
+            let from = self.body.filter_static("HEXPROOF", &expr);
+            out.push(Self::static_expr(
+                filter,
+                &format!("Modifier::HexproofFrom(&{from})"),
+            ));
+            return Some(true);
+        }
         if let Some(land) = self.landwalk_filter(word) {
             let name = self.body.filter_static("LANDWALK", &land);
             out.push(Self::static_expr(
@@ -6156,38 +6550,13 @@ impl Tx<'_> {
             ));
             return Some(true);
         }
-        if let Some(rest) = trimmed.strip_prefix("Ward:") {
-            let Some(effect) = self.ward_effect_expr(rest, true) else {
-                self.note(format!("static ability granting keyword `{word}`"));
-                return None;
-            };
-            out.push(Self::static_expr(
-                filter,
-                &format!(
-                    "Modifier::GrantTriggered {{ trigger: Trigger::Ward, \
-                     effects: &[{effect}], target: None }}"
-                ),
-            ));
-            return Some(true);
-        }
-        if trimmed == "Exalted" {
-            out.push(Self::static_expr(
-                filter,
-                "Modifier::GrantTriggered { \
-                 trigger: Trigger::AttacksAlone(&Filter::YOUR_CREATURE), \
-                 effects: &[Effect::PumpEventObject { power: Amount::Fixed(1), \
-                 toughness: Amount::Fixed(1), keywords: KeywordSet::EMPTY, \
-                 duration: Duration::UntilEndOfTurn }], target: None }",
-            ));
+        if self.try_granted_triggered_keyword(trimmed, word, filter, bits, out)? {
             return Some(true);
         }
         if let Some(mods) = granted_damage_prevention_modifiers(trimmed) {
             for m in mods {
                 out.push(Self::static_expr(filter, m));
             }
-            return Some(true);
-        }
-        if self.try_granted_triggered_keyword(trimmed, word, filter, bits, out)? {
             return Some(true);
         }
         self.try_granted_activated_keyword(trimmed, word, filter, allows_equip, bits, out)
@@ -6201,76 +6570,91 @@ impl Tx<'_> {
         bits: &mut Vec<String>,
         out: &mut Vec<String>,
     ) -> Option<bool> {
+        let mut mods = Vec::new();
+        let Some(handled) = self.push_granted_triggered_keyword_modifiers(trimmed, bits, &mut mods)
+        else {
+            self.note(format!("static ability granting keyword `{word}`"));
+            return None;
+        };
+        if handled {
+            for m in mods {
+                out.push(Self::static_expr(filter, &m));
+            }
+            return Some(true);
+        }
+        Some(false)
+    }
+
+    /// Emits keyword bits and `Modifier` strings for triggered keyword grants
+    /// shared between static `AddKeyword$` and `Pump` / `PumpAll` `KW$`.
+    pub(super) fn push_granted_triggered_keyword_modifiers(
+        &mut self,
+        trimmed: &str,
+        bits: &mut Vec<String>,
+        mods: &mut Vec<String>,
+    ) -> Option<bool> {
+        if let Some(rest) = trimmed.strip_prefix("Ward:") {
+            let effect = self.ward_effect_expr(rest, true)?;
+            mods.push(format!(
+                "Modifier::GrantTriggered {{ trigger: Trigger::Ward, \
+                 effects: &[{effect}], target: None }}"
+            ));
+            return Some(true);
+        }
+        if trimmed == "Exalted" {
+            mods.push(
+                "Modifier::GrantTriggered { \
+                 trigger: Trigger::AttacksAlone(&Filter::YOUR_CREATURE), \
+                 effects: &[Effect::PumpEventObject { power: Amount::Fixed(1), \
+                 toughness: Amount::Fixed(1), keywords: KeywordSet::EMPTY, \
+                 duration: Duration::UntilEndOfTurn }], target: None }"
+                    .to_string(),
+            );
+            return Some(true);
+        }
         if let Some(rest) = trimmed.strip_prefix("Annihilator:") {
-            let Some(n) = rest.trim().parse::<u16>().ok().filter(|&n| n >= 1) else {
-                self.note(format!("static ability granting keyword `{word}`"));
-                return None;
-            };
-            out.push(Self::static_expr(
-                filter,
-                &format!(
-                    "Modifier::GrantTriggered {{ trigger: Trigger::Attacks(&Filter::This), \
-                     effects: &[Effect::SacrificeAmountForPlayers {{ \
-                     who: PlayerRel::DefendingPlayer, filter: &Filter::Any, \
-                     amount: Amount::Fixed({n}) }}], target: None }}"
-                ),
+            let n = rest.trim().parse::<u16>().ok().filter(|&n| n >= 1)?;
+            mods.push(format!(
+                "Modifier::GrantTriggered {{ trigger: Trigger::Attacks(&Filter::This), \
+                 effects: &[Effect::SacrificeAmountForPlayers {{ \
+                 who: PlayerRel::DefendingPlayer, filter: &Filter::Any, \
+                 amount: Amount::Fixed({n}) }}], target: None }}"
             ));
             return Some(true);
         }
         if let Some(rest) = trimmed.strip_prefix("Afflict:") {
-            let Some(n) = rest.trim().parse::<u32>().ok().filter(|&n| n >= 1) else {
-                self.note(format!("static ability granting keyword `{word}`"));
-                return None;
-            };
+            let n = rest.trim().parse::<u32>().ok().filter(|&n| n >= 1)?;
             bits.push("KeywordSet::AFFLICT".to_string());
-            out.push(Self::static_expr(
-                filter,
-                &format!(
-                    "Modifier::GrantTriggered {{ trigger: Trigger::BecomesBlocked, \
-                     effects: &[Effect::LoseLife {{ amount: Amount::Fixed({n}), \
-                     target: PlayerRel::DefendingPlayer }}], target: None }}"
-                ),
+            mods.push(format!(
+                "Modifier::GrantTriggered {{ trigger: Trigger::BecomesBlocked, \
+                 effects: &[Effect::LoseLife {{ amount: Amount::Fixed({n}), \
+                 target: PlayerRel::DefendingPlayer }}], target: None }}"
             ));
             return Some(true);
         }
         if let Some(rest) = trimmed.strip_prefix("Afterlife:") {
-            let Some(n) = rest.trim().parse::<u32>().ok().filter(|&n| n >= 1) else {
-                self.note(format!("static ability granting keyword `{word}`"));
-                return None;
-            };
+            let n = rest.trim().parse::<u32>().ok().filter(|&n| n >= 1)?;
             bits.push("KeywordSet::AFTERLIFE".to_string());
-            out.push(Self::static_expr(
-                filter,
-                &format!(
-                    "Modifier::GrantTriggered {{ trigger: Trigger::Dies(&Filter::This), \
-                     effects: &[Effect::CreateTokenN {{ \
-                     token: &generated_tokens::SPIRIT_1_1_WHITE_BLACK_FLYING, \
-                     amount: Amount::Fixed({n}) }}], target: None }}"
-                ),
+            mods.push(format!(
+                "Modifier::GrantTriggered {{ trigger: Trigger::Dies(&Filter::This), \
+                 effects: &[Effect::CreateTokenN {{ \
+                 token: &generated_tokens::SPIRIT_1_1_WHITE_BLACK_FLYING, \
+                 amount: Amount::Fixed({n}) }}], target: None }}"
             ));
             return Some(true);
         }
         if let Some(rest) = trimmed.strip_prefix("Poisonous:") {
-            let Some(n) = rest.trim().parse::<u32>().ok().filter(|&n| n >= 1) else {
-                self.note(format!("static ability granting keyword `{word}`"));
-                return None;
-            };
-            out.push(Self::static_expr(
-                filter,
-                &format!(
-                    "Modifier::GrantTriggered {{ \
-                     trigger: Trigger::DealsCombatDamageToPlayer(&Filter::This), \
-                     effects: &[Effect::Poison {{ who: PlayerRel::DamagedPlayer, \
-                     amount: Amount::Fixed({n}) }}], target: None }}"
-                ),
+            let n = rest.trim().parse::<u32>().ok().filter(|&n| n >= 1)?;
+            mods.push(format!(
+                "Modifier::GrantTriggered {{ \
+                 trigger: Trigger::DealsCombatDamageToPlayer(&Filter::This), \
+                 effects: &[Effect::Poison {{ who: PlayerRel::DamagedPlayer, \
+                 amount: Amount::Fixed({n}) }}], target: None }}"
             ));
             return Some(true);
         }
         if let Some(rest) = trimmed.strip_prefix("Renown:") {
-            let Some(n) = rest.trim().parse::<u8>().ok().filter(|&n| n >= 1) else {
-                self.note(format!("static ability granting keyword `{word}`"));
-                return None;
-            };
+            let n = rest.trim().parse::<u8>().ok().filter(|&n| n >= 1)?;
             bits.push("KeywordSet::RENOWN".to_string());
             let trig_expr = format!(
                 "triggered!(Trigger::DealsCombatDamageToPlayer(&Filter::This), \
@@ -6278,10 +6662,7 @@ impl Tx<'_> {
                  condition = Some(Condition::Not(&Condition::IsRenowned)))"
             );
             let def_name = self.body.ability_static("GRANTED_TRIGGER_", &trig_expr);
-            out.push(Self::static_expr(
-                filter,
-                &format!("Modifier::GrantTriggeredDefinition(&{def_name})"),
-            ));
+            mods.push(format!("Modifier::GrantTriggeredDefinition(&{def_name})"));
             return Some(true);
         }
         Some(false)
@@ -6702,8 +7083,11 @@ fn granted_damage_prevention_modifiers(trimmed: &str) -> Option<&'static [&'stat
     })
 }
 
-fn static_phase_condition(phases: &str) -> Option<&'static str> {
+pub(super) fn static_phase_condition(phases: &str) -> Option<&'static str> {
     Some(match phases.trim() {
+        "Main1,Main2" | "Main1, Main2" => {
+            "Condition::Any(&[Condition::DuringStep(StepKind::FirstMain), Condition::DuringStep(StepKind::PostcombatMain)])"
+        }
         "BeginCombat->EndCombat" => "Condition::DuringCombat",
         "BeginCombat->Declare Attackers" => {
             "Condition::Any(&[Condition::DuringStep(StepKind::CombatBegin), Condition::DuringStep(StepKind::DeclareAttackers)])"
@@ -6879,6 +7263,7 @@ enum AltCastZoneKind {
     HandOnly,
     GraveyardGrant,
     ExileCounter,
+    ExiledByYou,
     LinkedExile { requires_imprinted: bool },
 }
 
@@ -6886,6 +7271,48 @@ struct AltCastZonePlan {
     zones_expr: String,
     grant_zone_permission: bool,
     kind: AltCastZoneKind,
+}
+
+struct ZonePlayParsedOpts {
+    price: String,
+    who: &'static str,
+    once_per_turn: bool,
+    with_flash: bool,
+    dont_grant_zone: bool,
+    valid_after_stack: Option<super::zone_grants::ValidAfterStackClause>,
+    mana_spending: &'static str,
+    replace_gy: Option<String>,
+}
+
+fn format_zone_play_modifier(
+    opts: &ZonePlayParsedOpts,
+    zone_plan: &AltCastZonePlan,
+    allow_lands: bool,
+    max_mv_expr: &str,
+    rider: &str,
+) -> String {
+    if opts.mana_spending == "ZonePlayManaSpending::Exact" && rider == "ZonePlayCastRider::None" {
+        format!(
+            "Modifier::MayCastWithAltCost {{ who: {}, zones: {}, grant_zone_permission: {}, allow_lands: {allow_lands}, with_flash: {}, max_mana_value: {max_mv_expr}, once_per_turn: {}, price: {} }}",
+            opts.who,
+            zone_plan.zones_expr,
+            zone_plan.grant_zone_permission,
+            opts.with_flash,
+            opts.once_per_turn,
+            opts.price
+        )
+    } else {
+        format!(
+            "Modifier::ZonePlayGrant(ZonePlayGrant {{ who: {}, zones: {}, grant_zone_permission: {}, allow_lands: {allow_lands}, with_flash: {}, max_mana_value: {max_mv_expr}, once_per_turn: {}, price: {}, mana_spending: {}, rider: {rider}, your_turn_only: false, as_sorcery_only: false, mana_cost_must_contain: None }})",
+            opts.who,
+            zone_plan.zones_expr,
+            zone_plan.grant_zone_permission,
+            opts.with_flash,
+            opts.once_per_turn,
+            opts.price,
+            opts.mana_spending
+        )
+    }
 }
 
 fn is_forbidden_alt_cast_atom(atom: &str) -> bool {
@@ -6903,9 +7330,89 @@ fn is_forbidden_alt_cast_atom(atom: &str) -> bool {
             | "ThisTurnEntered"
             | "ExiledWithEffectSource"
             | "ExiledWith"
-            | "ExiledByYou"
             | "foretold"
     ) || atom.starts_with("ControlledBy")
+}
+
+#[derive(Default)]
+#[allow(clippy::struct_excessive_bools)]
+struct AltCastQualState<'a> {
+    saw_you_owner_or_ctrl: bool,
+    saw_opp_owner: bool,
+    saw_exiled_with: bool,
+    saw_exiled_by: bool,
+    saw_imprinted: bool,
+    saw_counter: bool,
+    alt_cmc: Option<String>,
+    kept: Vec<&'a str>,
+}
+
+fn push_alt_cast_atom<'a>(
+    atom: &'a str,
+    who: &str,
+    dont_grant_zone: bool,
+    plan_kind: AltCastZoneKind,
+    st: &mut AltCastQualState<'a>,
+) -> Option<()> {
+    let is_hand_only = plan_kind == AltCastZoneKind::HandOnly;
+    let is_gy_grant = plan_kind == AltCastZoneKind::GraveyardGrant;
+    let is_exile_counter = plan_kind == AltCastZoneKind::ExileCounter;
+    let is_exiled_by_you = plan_kind == AltCastZoneKind::ExiledByYou;
+    let is_linked_exile = matches!(plan_kind, AltCastZoneKind::LinkedExile { .. });
+    match atom {
+        "ExiledWithSource" if is_linked_exile => st.saw_exiled_with = true,
+        "IsImprinted" if is_linked_exile => st.saw_imprinted = true,
+        "ExiledByYou" if is_exiled_by_you => st.saw_exiled_by = true,
+        "surveilledThisTurn" if who == "PlayerRel::You" && is_gy_grant => {
+            st.saw_you_owner_or_ctrl = true;
+            st.kept.extend(["surveilledThisTurn", "YouOwn"]);
+        }
+        "ExiledWithSource"
+        | "IsImprinted"
+        | "ExiledByYou"
+        | "surveilledThisTurn"
+        | "!surveilledThisTurn" => return None,
+        "YouCtrl" if who == "PlayerRel::You" => {
+            st.saw_you_owner_or_ctrl = true;
+            if is_gy_grant {
+                st.kept.push("YouOwn");
+            }
+        }
+        "YouOwn" if who == "PlayerRel::You" => {
+            st.saw_you_owner_or_ctrl = true;
+            if !is_hand_only {
+                st.kept.push(atom);
+            }
+        }
+        "OppOwn" if who == "PlayerRel::You" => {
+            if (is_hand_only && !dont_grant_zone) || is_gy_grant {
+                return None;
+            }
+            st.saw_opp_owner = true;
+            st.kept.push(atom);
+        }
+        "YouDontOwn" if who == "PlayerRel::You" => {
+            if (is_hand_only && !dont_grant_zone) || is_gy_grant || is_exile_counter {
+                return None;
+            }
+            st.kept.push(atom);
+        }
+        a if a.contains("Ctrl") || a.contains("Own") => return None,
+        a if a.starts_with("cmcLE") => {
+            let rhs = a.strip_prefix("cmcLE").unwrap_or_default();
+            if rhs.is_empty() || st.alt_cmc.is_some() {
+                return None;
+            }
+            st.alt_cmc = Some(rhs.to_string());
+        }
+        other => {
+            if other.starts_with("counters_GE") {
+                st.saw_counter = true;
+            }
+            st.kept.push(other);
+        }
+    }
+    Some(())
 }
 
 fn clean_alt_cast_alt(
@@ -6926,91 +7433,37 @@ fn clean_alt_cast_alt(
     {
         return None;
     }
-    let is_hand_only = plan.kind == AltCastZoneKind::HandOnly;
-    let is_gy_grant = plan.kind == AltCastZoneKind::GraveyardGrant;
-    let is_exile_counter = plan.kind == AltCastZoneKind::ExileCounter;
-    let linked_requires_imprinted = match plan.kind {
-        AltCastZoneKind::LinkedExile { requires_imprinted } => Some(requires_imprinted),
-        AltCastZoneKind::Generic
-        | AltCastZoneKind::HandOnly
-        | AltCastZoneKind::GraveyardGrant
-        | AltCastZoneKind::ExileCounter => None,
-    };
-    let is_linked_exile = linked_requires_imprinted.is_some();
-    let mut saw_you_owner_or_ctrl = false;
     let mut saw_nonland = base != "Card";
-    let mut saw_exiled_with = false;
-    let mut saw_imprinted = false;
-    let mut saw_counter = false;
-    let mut alt_cmc: Option<String> = None;
-    let mut kept = Vec::new();
-    for atom in qual.split('+').map(str::trim).filter(|a| !a.is_empty()) {
-        if is_forbidden_alt_cast_atom(atom) {
+    let mut st = AltCastQualState::default();
+    for raw_atom in qual.split('+').map(str::trim).filter(|a| !a.is_empty()) {
+        if is_forbidden_alt_cast_atom(raw_atom) {
             return None;
         }
-        match atom {
-            "ExiledWithSource" if is_linked_exile => saw_exiled_with = true,
-            "IsImprinted" if is_linked_exile => saw_imprinted = true,
+        match raw_atom {
+            "inZoneGraveyard" | "inZoneHand" | "inZoneExile" => {}
             "nonLand" => saw_nonland = true,
-            "surveilledThisTurn" if who == "PlayerRel::You" && is_gy_grant => {
-                saw_you_owner_or_ctrl = true;
-                kept.push("surveilledThisTurn");
-                kept.push("YouOwn");
-            }
-            "ExiledWithSource" | "IsImprinted" | "surveilledThisTurn" | "!surveilledThisTurn" => {
-                return None;
-            }
-            "YouCtrl" if who == "PlayerRel::You" => {
-                saw_you_owner_or_ctrl = true;
-                if is_gy_grant {
-                    kept.push("YouOwn");
-                }
-            }
-            "YouOwn" if who == "PlayerRel::You" => {
-                saw_you_owner_or_ctrl = true;
-                if !is_hand_only {
-                    kept.push(atom);
-                }
-            }
-            "OppOwn" | "YouDontOwn" if who == "PlayerRel::You" => {
-                if (is_hand_only && !dont_grant_zone) || is_gy_grant || is_exile_counter {
-                    return None;
-                }
-                kept.push(atom);
-            }
-            a if a.contains("Ctrl") || a.contains("Own") => return None,
-            a if a.starts_with("cmcLE") => {
-                let rhs = a.strip_prefix("cmcLE").unwrap_or_default();
-                if rhs.is_empty() || alt_cmc.is_some() {
-                    return None;
-                }
-                alt_cmc = Some(rhs.to_string());
-            }
-            other => {
-                if other.starts_with("counters_GE") {
-                    saw_counter = true;
-                }
-                kept.push(other);
-            }
+            atom => push_alt_cast_atom(atom, who, dont_grant_zone, plan.kind, &mut st)?,
         }
     }
-    if let Some(requires_imprinted) = linked_requires_imprinted
-        && (!saw_exiled_with || (requires_imprinted && !saw_imprinted))
+    if let AltCastZoneKind::LinkedExile { requires_imprinted } = plan.kind
+        && (!st.saw_exiled_with || (requires_imprinted && !st.saw_imprinted))
     {
         return None;
     }
-    if (is_hand_only && !dont_grant_zone && !saw_you_owner_or_ctrl)
-        || (is_gy_grant && !saw_you_owner_or_ctrl)
-        || (is_exile_counter && (!saw_you_owner_or_ctrl || !saw_counter))
+    if (plan.kind == AltCastZoneKind::HandOnly && !dont_grant_zone && !st.saw_you_owner_or_ctrl)
+        || (plan.kind == AltCastZoneKind::GraveyardGrant && !st.saw_you_owner_or_ctrl)
+        || (plan.kind == AltCastZoneKind::ExileCounter
+            && ((!st.saw_you_owner_or_ctrl && !st.saw_opp_owner) || !st.saw_counter))
+        || (plan.kind == AltCastZoneKind::ExiledByYou && !st.saw_exiled_by)
     {
         return None;
     }
-    let cleaned = if kept.is_empty() {
+    let cleaned = if st.kept.is_empty() {
         base.to_string()
     } else {
-        format!("{base}.{}", kept.join("+"))
+        format!("{base}.{}", st.kept.join("+"))
     };
-    Some((cleaned, alt_cmc, saw_nonland))
+    Some((cleaned, st.alt_cmc, saw_nonland))
 }
 
 fn plan_exile_alt_cast_zone(
@@ -7043,12 +7496,30 @@ fn plan_exile_alt_cast_zone(
             },
         });
     }
-    let all_owned_counter = affected.split(',').all(|alt| {
-        let mut has_you_own = false;
+    let all_exiled_by_you = affected.split(',').all(|alt| {
+        let mut has_exiled_by = false;
+        for a in alt.split(['.', '+']).map(str::trim) {
+            if a == "ExiledByYou" {
+                has_exiled_by = true;
+            } else if matches!(a, "ExiledWithSource" | "ExiledWith" | "IsImprinted") {
+                return false;
+            }
+        }
+        has_exiled_by
+    });
+    if all_exiled_by_you {
+        return Some(AltCastZonePlan {
+            zones_expr: "AltCastZones::ExiledByYou".to_string(),
+            grant_zone_permission: true,
+            kind: AltCastZoneKind::ExiledByYou,
+        });
+    }
+    let all_counter = affected.split(',').all(|alt| {
+        let mut has_owner = false;
         let mut has_counter = false;
         for a in alt.split(['.', '+']).map(str::trim) {
-            if a == "YouOwn" {
-                has_you_own = true;
+            if matches!(a, "YouOwn" | "OppOwn") {
+                has_owner = true;
             } else if a.starts_with("counters_GE") {
                 has_counter = true;
             } else if matches!(
@@ -7058,9 +7529,9 @@ fn plan_exile_alt_cast_zone(
                 return false;
             }
         }
-        has_you_own && has_counter
+        has_owner && has_counter
     });
-    all_owned_counter.then(|| AltCastZonePlan {
+    all_counter.then(|| AltCastZonePlan {
         zones_expr: "AltCastZones::Zones(&[ZoneRef::Exile])".to_string(),
         grant_zone_permission: true,
         kind: AltCastZoneKind::ExileCounter,
@@ -7171,6 +7642,24 @@ pub(super) fn parse_wave14_color(raw: &str) -> Option<&'static str> {
         "Red" => "Red",
         "Green" => "Green",
         _ => return None,
+    })
+}
+
+fn has_relative_turn_atom(valid: &str) -> bool {
+    valid.split(',').any(|alt| {
+        alt.split(['.', '+']).any(|a| {
+            matches!(
+                a.trim(),
+                "Self"
+                    | "StrictlySelf"
+                    | "Other"
+                    | "StrictlyOther"
+                    | "EnchantedBy"
+                    | "EquippedBy"
+                    | "AttachedBy"
+                    | "Attached"
+            )
+        })
     })
 }
 

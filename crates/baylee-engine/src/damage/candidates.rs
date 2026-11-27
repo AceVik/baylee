@@ -35,6 +35,30 @@ impl DamageWork {
                             to: DamageTarget::Player(to),
                         }
                     }
+                    ShieldKind::RedirectNextTo {
+                        remaining,
+                        to,
+                        to_version,
+                        source,
+                    } if remaining > 0
+                        && to != part.view.recipient
+                        && damageable_recipient(state, part.view.recipient)
+                        && damageable_recipient(state, to)
+                        && match to {
+                            DamageTarget::Player(_) => true,
+                            DamageTarget::Object(to_id) => state.object(to_id).is_some_and(|o| {
+                                to_version.is_none_or(|v| o.version == v)
+                                    && !o.status.contains(crate::object::Status::PHASED_OUT)
+                            }),
+                        }
+                        && source.is_none_or(|chosen| {
+                            state
+                                .damage_source(part.view.source, part.source_version)
+                                .is_some_and(|actual| chosen.deals_as(state, actual))
+                        }) =>
+                    {
+                        Kind::RedirectNext { remaining, to }
+                    }
                     ShieldKind::AllCombat if part.view.is_combat => Kind::PreventCombat,
                     ShieldKind::AllFrom { source }
                         if state
@@ -800,6 +824,166 @@ impl DamageWork {
                     };
                     if !super::batch57::damage_source_matches_effect(fx, sources, state, source) {
                         continue;
+                    }
+                    if is_replacement {
+                        Kind::ReplaceAmount { amount: 0 }
+                    } else {
+                        Kind::PreventAll
+                    }
+                }
+                Modifier::PreventDamageRemovingOneCounter {
+                    kind,
+                    require_counter,
+                } => {
+                    let DamageTarget::Object(id) = part.view.recipient else {
+                        continue;
+                    };
+                    let Some(obj) = state
+                        .object(id)
+                        .filter(|o| crate::effects::applies_to(state, fx, o))
+                    else {
+                        continue;
+                    };
+                    if part.view.amount == 0
+                        || (require_counter && self.counter_remaining(state, obj.id, kind) == 0)
+                    {
+                        continue;
+                    }
+                    Kind::PreventAll
+                }
+                Modifier::RedirectDamageToAffected {
+                    sources,
+                    recipients,
+                    combat,
+                } => {
+                    if combat.is_some_and(|c| c != part.view.is_combat)
+                        || !damageable_recipient(state, part.view.recipient)
+                        || !super::batch57::damage_recipients_match(
+                            fx,
+                            recipients,
+                            state,
+                            part.view.recipient,
+                        )
+                    {
+                        continue;
+                    }
+                    let Some(source) = state.damage_source(part.view.source, part.source_version)
+                    else {
+                        continue;
+                    };
+                    if !super::batch57::damage_source_matches_effect(fx, sources, state, source) {
+                        continue;
+                    }
+                    let Some(to) = state.battlefield_seen().find(|&id| {
+                        DamageTarget::Object(id) != part.view.recipient
+                            && damageable_recipient(state, DamageTarget::Object(id))
+                            && state.object(id).is_some_and(|o| {
+                                !o.status.contains(crate::object::Status::PHASED_OUT)
+                                    && crate::effects::applies_to(state, fx, o)
+                            })
+                    }) else {
+                        continue;
+                    };
+                    Kind::Redirect {
+                        to: DamageTarget::Object(to),
+                    }
+                }
+                Modifier::RedirectDamageToAffectedController => {
+                    let DamageTarget::Object(target) = part.view.recipient else {
+                        continue;
+                    };
+                    let Some(obj) = state
+                        .object(target)
+                        .filter(|o| crate::effects::applies_to(state, fx, o))
+                    else {
+                        continue;
+                    };
+                    if state.has_left(obj.controller) {
+                        continue;
+                    }
+                    Kind::Redirect {
+                        to: DamageTarget::Player(obj.controller),
+                    }
+                }
+                Modifier::PreventAllButOneDamage {
+                    sources,
+                    recipients,
+                    combat,
+                } => {
+                    if combat.is_some_and(|c| c != part.view.is_combat)
+                        || !super::batch57::damage_recipients_match(
+                            fx,
+                            recipients,
+                            state,
+                            part.view.recipient,
+                        )
+                    {
+                        continue;
+                    }
+                    let Some(source) = state.damage_source(part.view.source, part.source_version)
+                    else {
+                        continue;
+                    };
+                    if !super::batch57::damage_source_matches_effect(fx, sources, state, source) {
+                        continue;
+                    }
+                    let source_ref = baylee_core::ids::DamageSourceRef {
+                        object: part.view.source,
+                        version: part.source_version.unwrap_or(source.version),
+                    };
+                    let source_key = EffectKey::ContinuousForSource(fx.id, source_ref);
+                    let total = self
+                        .parts
+                        .iter()
+                        .filter(|other| {
+                            other.view.source == part.view.source
+                                && other.source_version == part.source_version
+                                && other.view.recipient == part.view.recipient
+                                && !other.applied.contains(&source_key)
+                        })
+                        .map(|other| other.view.amount)
+                        .fold(0, u32::saturating_add);
+                    if total <= 1 {
+                        continue;
+                    }
+                    key = source_key;
+                    Kind::PreventFromSource {
+                        source: part.view.source,
+                        all_but: 1,
+                        gain_life: false,
+                    }
+                }
+                Modifier::ReplaceOrPreventDamageScopedWithThen {
+                    sources,
+                    recipients,
+                    combat,
+                    is_replacement,
+                    scope,
+                    ..
+                } => {
+                    if combat.is_some_and(|c| c != part.view.is_combat)
+                        || !super::batch57::damage_recipients_match(
+                            fx,
+                            recipients,
+                            state,
+                            part.view.recipient,
+                        )
+                    {
+                        continue;
+                    }
+                    let Some(source) = state.damage_source(part.view.source, part.source_version)
+                    else {
+                        continue;
+                    };
+                    if !super::batch57::damage_source_matches_effect(fx, sources, state, source) {
+                        continue;
+                    }
+                    if matches!(scope, baylee_cards_dsl::DamageRiderScope::PerSource) {
+                        let source_ref = baylee_core::ids::DamageSourceRef {
+                            object: part.view.source,
+                            version: part.source_version.unwrap_or(source.version),
+                        };
+                        key = EffectKey::ContinuousForSource(fx.id, source_ref);
                     }
                     if is_replacement {
                         Kind::ReplaceAmount { amount: 0 }

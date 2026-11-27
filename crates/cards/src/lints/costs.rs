@@ -23,6 +23,7 @@ pub(super) const fn needs_the_source(part: &CostPart) -> bool {
         | CostPart::RemoveCounterSelfX { .. }
         | CostPart::PutCounterSelf { .. }
         | CostPart::RevealSelfFromHand
+        | CostPart::RevealChosenPlayer
         | CostPart::PayAttachedManaCost => true,
         // These ask a *player* something, or ask about another permanent.
         // None of them looks the source up, so none of them cares whether it
@@ -94,6 +95,7 @@ pub(super) const fn moves_the_source(part: &CostPart) -> bool {
         CostPart::TapSelf
         | CostPart::UntapSelf
         | CostPart::ExertSelf
+        | CostPart::RevealChosenPlayer
         | CostPart::RemoveCounterSelf { .. }
         | CostPart::RemoveCounterSelfX { .. }
         | CostPart::RemoveAnyCounter { .. }
