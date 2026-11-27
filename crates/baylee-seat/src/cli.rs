@@ -132,6 +132,7 @@ use launch::program;
 use launch::runnable;
 pub use launch::{Launch, Limits, forbidden};
 use launch::{detach, dialect};
+pub use mind::Said;
 #[cfg(test)]
 use mind::believed;
 use mind::lock_out;

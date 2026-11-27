@@ -55,6 +55,7 @@
 //! ([`scrub`]): errors, transcripts, the terminal.
 
 mod anthropic;
+pub mod deckchat;
 mod openai;
 pub mod prompt;
 mod response;

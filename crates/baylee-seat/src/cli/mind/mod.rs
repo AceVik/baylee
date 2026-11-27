@@ -19,7 +19,10 @@ impl Holds for CliSeat {
     }
 }
 
+mod converse;
 mod process;
+
+pub use converse::Said;
 
 impl CliMind {
     /// A mind that plays with `settings` through `launch`'s tool, its
