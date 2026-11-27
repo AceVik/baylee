@@ -56,6 +56,14 @@ pub fn run() {
         baylee_client_core::say_err!("{reason}");
         return;
     }
+    #[cfg(not(target_arch = "wasm32"))]
+    let auto_login = match crate::lobby::auto_login::from_args() {
+        Ok(cfg) => cfg,
+        Err(reason) => {
+            baylee_client_core::say_err!("{reason}");
+            return;
+        }
+    };
     // A ticket means somebody is already waiting at a table; anything else
     // starts at the lobby.
     let seated = match seated_host() {
@@ -210,6 +218,10 @@ pub fn run() {
             .add_systems(Startup, open_duel);
     } else {
         app.add_plugins((crate::links::LinksPlugin, LobbyPlugin));
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(config) = auto_login {
+            app.insert_resource(crate::lobby::auto_login::AutoLogin::new(config));
+        }
         // The card cache's fill: only here, only with a lobby to steer it.
         // A seat ticket's client has no settled art base and fills nothing.
         crate::cachefill::start();
