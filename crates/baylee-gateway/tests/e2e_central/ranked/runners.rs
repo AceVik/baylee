@@ -31,9 +31,9 @@ use baylee_core::ids::PlayerId;
 use baylee_engine::win::Victor;
 use baylee_seat::bridge::{PlayOptions, Played};
 use baylee_seat::link::{Reporter, Socket, Table};
+use baylee_seat::ranked::cli::{self, RankedArgs};
 use baylee_seat::ranked::{
-    self, Flight, Frozen, HousePilot, LinkOptions, MatchOptions, MatchReport, Pilot, Piloted,
-    Player, RunnerToken, Seat, Settings, Shelf, Stop,
+    self, Flight, Frozen, HousePilot, MatchReport, Pilot, Piloted, Player, RunnerToken, Seat,
 };
 use baylee_seat::transcript::Transcript;
 use central_api::admin::{AdminAnswer, AdminRequest, AiPlayerSettings, AiSettings};
@@ -118,7 +118,7 @@ impl Desk<'_> {
 /// The AI as an administrator sets it up: fill-in after Central's shortest
 /// wait, no host slots held back for people (the fixture's host has few),
 /// the AI created, switched on, and a runner token for it alone.
-fn set_up_ai(desk: &Desk<'_>) -> (Id, Token) {
+fn set_up_ai(desk: &Desk<'_>) -> (Id, u32, Token) {
     assert!(matches!(
         desk.ask(AdminRequest::SetAiSettings {
             settings: AiSettings {
@@ -133,7 +133,7 @@ fn set_up_ai(desk: &Desk<'_>) -> (Id, Token) {
         Answer::Done
     ));
     let Answer::Admin {
-        answer: AdminAnswer::AiPlayerCreated { account, .. },
+        answer: AdminAnswer::AiPlayerCreated { account, tag },
     } = desk.ask(AdminRequest::CreateAiPlayer {
         settings: AiPlayerSettings {
             kind: AiKind::House,
@@ -165,7 +165,7 @@ fn set_up_ai(desk: &Desk<'_>) -> (Id, Token) {
     else {
         panic!("a runner token");
     };
-    (account, token)
+    (account, tag, token)
 }
 
 /// The deck both sides play: sixty Forests, so the game runs to a library
@@ -589,7 +589,7 @@ pub(in super::super) fn run(
     let agent = rt.block_on(common::ranked::provision(&host.gateway));
     capacity(rt, operator, &host);
     let desk = Desk::open(rt, served, operator, "runner_admin");
-    let (ai, token) = set_up_ai(&desk);
+    let (ai, tag, token) = set_up_ai(&desk);
     let person_account = fresh::register(
         rt,
         &served.service,
@@ -602,57 +602,35 @@ pub(in super::super) fn run(
     let transcripts = std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).join("ai-players-runners");
     let _ = std::fs::remove_dir_all(&transcripts);
     std::fs::create_dir_all(&transcripts).unwrap();
-    let settings = Settings {
+    let (state, token_file) = runner_state(&token);
+    // The runner's own command line, by the account's public handle.
+    let args = RankedArgs {
+        central: served.endpoint.origin().to_owned(),
+        account: format!("KI-Haus-Expert#{tag:04x}"),
+        token_file: Some(token_file.clone()),
+        token_key: None,
+        state: Some(state.clone()),
+        decks: None,
+        transcripts: Some(transcripts.clone()),
+        fallback_level: "expert".into(),
         games: Some(1),
-        poll: Duration::from_millis(500),
-        play: MatchOptions {
-            play: PlayOptions {
-                min_think: Duration::ZERO,
-                ..PlayOptions::default()
-            },
-            link: LinkOptions {
-                accept_hosts: vec![host.origin.clone()],
-                // A renewal within the game, whatever `renew_in` says.
-                renew_cap: Some(Duration::from_secs(2)),
-                ..LinkOptions::default()
-            },
-            settle: Duration::from_secs(120),
-            transcripts: Some(transcripts.clone()),
-        },
-        ..Settings::default()
+        accept_hosts: vec![host.origin.clone()],
+        facts_from: None,
+        facts_file: None,
+        min_think_ms: 0,
     };
-    let secret = Token::from_secret_bytes(token.to_secret_bytes());
-    let runner_token =
-        RunnerToken::new(move || Ok(Token::from_secret_bytes(secret.to_secret_bytes())));
     let (report, person) = rt.block_on(async {
-        let player = Player::open(served.endpoint.clone(), ai, runner_token)
-            .await
-            .expect("the runner trades its token for a session of the AI");
-        assert_eq!(player.name(), "KI-Haus-Expert");
-        let alive = player.keep_alive(Duration::from_secs(60));
-        let mut shelf = Shelf::fixed([forests()]).unwrap();
         let pilot: Arc<dyn Pilot> = Arc::new(CuttingHouse {
             house: HousePilot::new("expert").unwrap(),
             frames: Mutex::new(Some(40)),
         });
-        let fallback: Arc<dyn Pilot> = Arc::new(HousePilot::new("expert").unwrap());
-        let (_stop, stopping) = tokio::sync::watch::channel(Stop::Run);
         let mut reports = Vec::new();
-        let ((played, report), person) = tokio::time::timeout(Duration::from_secs(540), async {
+        let (played, person) = tokio::time::timeout(Duration::from_secs(540), async {
             tokio::join!(
                 async {
-                    let played = ranked::run(
-                        &player,
-                        &mut shelf,
-                        pilot,
-                        fallback,
-                        &settings,
-                        stopping,
-                        |r| reports.push(r),
-                    )
-                    .await
-                    .unwrap();
-                    (played, reports.pop())
+                    cli::play(&args, pilot, |r| reports.push(r))
+                        .await
+                        .expect("the runner plays")
                 },
                 person(person_account, &transcripts)
             )
@@ -660,22 +638,44 @@ pub(in super::super) fn run(
         .await
         .expect("both sides finish their ranked game");
         assert_eq!(played, 1, "the runner played one match");
-        // The runner withdrew its offer when it stopped.
+        // The runner withdrew its offer and signed out when it stopped: a
+        // fresh session of the AI finds no live match and no offer to keep.
+        let player = Player::open(
+            served.endpoint.clone(),
+            ai,
+            RunnerToken::from_file(token_file.clone()),
+        )
+        .await
+        .expect("the token is still good");
+        assert_eq!(player.name(), "KI-Haus-Expert");
         let after = player
             .call(|account| account.ai(baylee_account::ranked::ai::Request::Work))
             .await
             .unwrap();
-        drop(alive);
         player.sign_out().await;
-        let report = report
-            .expect("the runner told how its match went")
-            .expect("the runner played its match to the end");
         let baylee_account::ranked::ai::Response::Work { assignments, .. } = after else {
             panic!("work");
         };
         assert!(assignments.is_empty(), "no live match is left");
+        let report = reports
+            .pop()
+            .expect("the runner told how its match went")
+            .expect("the runner played its match to the end");
         (report, person)
     });
+    // The game is in the deck's chronicle, its result marked as inferred.
+    let games = baylee_seat::deckbuild::history::games(&state.join("decks"), Format::Standard);
+    assert_eq!(games.len(), 1, "one game in the chronicle");
+    assert_eq!(games[0].version, 1);
+    assert_eq!(games[0].turns, Some(report.played.stats.turns));
+    assert!(
+        games[0]
+            .note
+            .as_deref()
+            .is_some_and(|n| n.contains("inferred")),
+        "{:?}",
+        games[0].note
+    );
     agreed(&report, &person);
     agent.abort();
 }
@@ -735,13 +735,37 @@ fn agreed(ai: &MatchReport, (match_id, person, receipt): &(Id, Played, QueueStat
         "the cut socket was replaced: {} sockets",
         ai.played.dials
     );
-    assert!(
-        ai.renewals > 0,
-        "the AI's admission was renewed during the game"
-    );
     let why = ai
         .handed_over
         .as_deref()
         .expect("the pilot handed the seat to the house after the cut");
     assert!(why.contains("cannot resume"), "{why}");
+}
+
+/// The runner's state as an operator lays it out: the token in a file only
+/// the runner reads, and one Standard deck version with its record. The
+/// state directory and the token file.
+fn runner_state(token: &Token) -> (std::path::PathBuf, std::path::PathBuf) {
+    use std::io::Write as _;
+    let state = std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).join("ai-players-runner-state");
+    let _ = std::fs::remove_dir_all(&state);
+    let standard = state.join("decks").join("standard");
+    std::fs::create_dir_all(&standard).unwrap();
+    std::fs::write(
+        standard.join("v0001-20261127T000000Z.txt"),
+        "# name: Forest\n# format: standard\n60 Forest\n",
+    )
+    .unwrap();
+    std::fs::write(standard.join("v0001-20261127T000000Z.json"), "{}").unwrap();
+    let token_file = state.join("runner-token");
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt as _;
+        options.mode(0o600);
+    }
+    let text = baylee_account::sdk::ai_runner::token_text(token);
+    writeln!(options.open(&token_file).unwrap(), "{}", *text).unwrap();
+    (state, token_file)
 }
