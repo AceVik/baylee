@@ -121,6 +121,32 @@ fn run_house_shape_admits_six_slots_but_retained_builds_keep_their_limits() {
 }
 
 #[test]
+fn run_house_shape_admits_runic_relics() {
+    use baylee_tower::{
+        cards::Formation,
+        v2::catalog::{Definition, Family, Rarity, RunicRecipe},
+    };
+    // The calibrated ladder's builds carry relics of the current generation:
+    // the outer shape check must not stop them before the store's own check.
+    let runic = Definition {
+        family: Family::Runic(RunicRecipe::from_index(0).expect("a first recipe")),
+        rarity: Rarity::Common,
+    };
+    let mut house = input(json!({
+        "action": "publish_house", "publisher": "22".repeat(32),
+        "cohort": Uuid::now_v7(), "stage": 1, "archetype": 1,
+        "build": {
+            "formation": Formation { commander: baylee_core::ids::CardIndex::new(5), sideboard: vec![] },
+            "deck": [], "active": [runic], "potions": [0, 0]
+        }
+    }));
+    assert!(parses(&house));
+    // A retained build of the third generation never had one.
+    house["operation"]["build"]["formation"] = json!(null);
+    assert!(!parses(&house));
+}
+
+#[test]
 fn supervision_is_three_closed_transitions_on_one_run() {
     let run = Uuid::now_v7();
     let supervise = |recovery: serde_json::Value| {

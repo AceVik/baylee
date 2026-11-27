@@ -148,9 +148,11 @@ impl Operation {
                     return Err(Error::Contract);
                 }
                 // The store rechecks the exact persisted cohort. This outer
-                // request bound admits both retained and Commander builds.
+                // request bound admits both retained and Commander builds: a
+                // Commander build is bounded by the widest run generation, as
+                // `Build::validate` does, or a runic relic is refused here.
                 let generator = if build.formation.is_some() {
-                    baylee_tower::v2::generation::RUN
+                    baylee_tower::v2::generation::RUNIC
                 } else {
                     3
                 };
