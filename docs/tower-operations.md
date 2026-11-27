@@ -320,15 +320,20 @@ only into root-owned 0600 files that a process reads on stdin.
    refused on every other database. Both URLs use
    `sslmode=verify-full&sslrootcert=/etc/baylee-tower/db-ca.pem` (a copy of
    the database's private CA certificate, 0644) with host `127.0.0.1`.
-2. **The retained engine.** After the release deploy, copy the deployed
+2. **The cohort's engine.** After the release deploy, copy the deployed
    `/opt/baylee/bin/baylee-engine-tower` to
-   `/opt/baylee/engines/tower-<short commit>/` and list that copy, with
-   `/opt/baylee/bin/baylee-engine-standard-loops`, in the agent's
-   `BAYLEE_ENGINE_BINS` (a set value turns sibling discovery off; the same
-   identity twice stops the agent, so never list the deployed sibling too).
-   The cohort binds to this copy; a later deploy replaces the sibling and
-   leaves every run of the cohort playable. Restart the agent only with no
-   game running.
+   `/opt/baylee/engines/tower-<short commit>/`; the service's verifier
+   replays records with that copy, whatever a later deploy installs. The
+   agent advertises the deployed sibling, which has the same identity until
+   the next deploy. A deploy that changes the Tower engine strands the
+   cohort's open runs (their next duel finds no host; players can abandon),
+   unless the agent keeps the copy: `BAYLEE_ENGINE_BINS` listing it with
+   `/opt/baylee/bin/baylee-engine-standard-loops` (a set value turns sibling
+   discovery off; the same identity twice stops the agent). An agent keeps
+   an engine of an older protocol installed, but the gateway starts a Tower
+   duel only on one of its own protocol, so a protocol bump strands the
+   cohort in any case. Where the server's configuration is managed as code,
+   that is where the variable goes; pause enrollment before such a deploy.
 3. **Binaries.** `baylee-tower-service` and `baylee-tower-provision`
    (`cargo build --release --locked -p baylee-tower-service -p
    baylee-tower-provision`) in `/opt/baylee-tower/bin`; a system user
