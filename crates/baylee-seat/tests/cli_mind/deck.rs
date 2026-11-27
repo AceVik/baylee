@@ -179,3 +179,49 @@ fn the_build_command_keeps_the_deck_a_cli_model_proposed() {
     );
     assert_eq!(history::versions(&dir, Format::Standard).len(), 2);
 }
+
+/// A tool that answers one message a process (Codex) converses too: each
+/// message a process of its own, the second going on with the first's
+/// conversation by its id, the opening sent once.
+#[tokio::test]
+async fn a_one_shot_cli_converses_and_goes_on_with_its_conversation() {
+    let rig = Rig::new(
+        "deck-codex",
+        one_shot("codex"),
+        &json!({"steps": [
+            answer(&json!({"search": {"text": "island"}})),
+            answer(&json!({"read": ["Island"]})),
+        ]}),
+    );
+    let Access::Cli(launch) = llm::check(&rig.plan, &rig.env()).unwrap() else {
+        panic!("a cli profile is a CLI");
+    };
+    let brief = Brief {
+        system: "BUILD A DECK".into(),
+        schema: baylee_seat::deckbuild::brief::schema(),
+        task: "Baylee deck building",
+        answer: "the action JSON",
+    };
+    let mind = CliMind::with_brief(rig.plan.settings.clone(), launch, Limits::default(), brief);
+    let wait = Duration::from_secs(20);
+    let first = mind
+        .converse("deck-1", "THE OPENING", "Begin.", wait)
+        .await
+        .unwrap();
+    assert_eq!(first.value, Some(json!({"search": {"text": "island"}})));
+    let second = mind
+        .converse("deck-1", "THE OPENING", "Results.", wait)
+        .await
+        .unwrap();
+    assert_eq!(second.value, Some(json!({"read": ["Island"]})));
+    let prompts = rig.prompts();
+    assert_eq!(prompts.len(), 2);
+    assert_ne!(prompts[0].0, prompts[1].0, "a process each");
+    assert_eq!(prompts[0].1.trim_end(), "THE OPENING\n\nBegin.");
+    assert_eq!(prompts[1].1.trim_end(), "Results.", "the opening once");
+    let starts = rig.starts();
+    assert_eq!(
+        resumed_from("codex", &starts[1]),
+        Some(first_id("codex", &starts[0]))
+    );
+}

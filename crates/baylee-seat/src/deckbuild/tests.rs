@@ -397,6 +397,24 @@ fn every_lent_deck_is_legal_deterministic_and_admitted() {
             frozen.digest, one.frozen.digest,
             "the runner freezes the file as lent"
         );
+        // And as the runner reads it: the newest version, from its file.
+        let dir = std::env::temp_dir().join(format!(
+            "baylee-deck-lent-{}-{}",
+            format.as_str(),
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        let mut record = history::Record {
+            made: NOW.into(),
+            how: "lend".into(),
+            ..history::Record::default()
+        };
+        let saved = history::save(&dir, format, &text, &mut record).unwrap();
+        assert_eq!(history::newest(&dir, format), Some(saved.deck.clone()));
+        let offered = crate::ranked::Frozen::from_file(&saved.deck, format).unwrap();
+        assert_eq!(offered.digest, one.frozen.digest, "{}", format.as_str());
+        assert_eq!(offered.admitted(&facts), Ok(()), "{}", format.as_str());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
 

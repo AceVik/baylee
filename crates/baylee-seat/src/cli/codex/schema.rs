@@ -45,28 +45,40 @@ mod tests {
     use crate::llm::prompt;
     use crate::narrator::Decision;
 
-    #[test]
-    fn every_object_is_closed_and_requires_all_its_fields() {
-        fn check(value: &Value) {
-            match value {
-                Value::Object(map) => {
-                    if value["type"] == "object" {
-                        assert_eq!(value["additionalProperties"], false);
-                        let properties = value["properties"].as_object().unwrap();
-                        let required = value["required"].as_array().unwrap();
-                        assert_eq!(required.len(), properties.len());
-                        for name in properties.keys() {
-                            assert!(required.contains(&json!(name)), "{name}");
-                        }
-                    }
-                    for child in map.values() {
-                        check(child);
+    /// Every object of `value` closed, each of its fields required.
+    fn check(value: &Value) {
+        match value {
+            Value::Object(map) => {
+                if value["type"] == "object" {
+                    assert_eq!(value["additionalProperties"], false);
+                    let properties = value["properties"].as_object().unwrap();
+                    let required = value["required"].as_array().unwrap();
+                    assert_eq!(required.len(), properties.len());
+                    for name in properties.keys() {
+                        assert!(required.contains(&json!(name)), "{name}");
                     }
                 }
-                Value::Array(values) => values.iter().for_each(check),
-                _ => {}
+                for child in map.values() {
+                    check(child);
+                }
             }
+            Value::Array(values) => values.iter().for_each(check),
+            _ => {}
         }
+    }
+
+    /// The deck builder's schema, which Codex is handed as a brief's, is
+    /// closed as strict mode asks, nested rows included.
+    #[test]
+    fn the_deck_builders_schema_is_closed_too() {
+        let schema = closed(&crate::deckbuild::brief::schema());
+        check(&schema);
+        let row = &schema["properties"]["propose"]["anyOf"][0]["properties"]["cards"]["items"];
+        assert_eq!(row["additionalProperties"], false, "{row}");
+    }
+
+    #[test]
+    fn every_object_is_closed_and_requires_all_its_fields() {
         let schema = answer(prompt::Extras::default());
         check(&schema);
         assert_eq!(schema["properties"]["ask"]["type"], "string");

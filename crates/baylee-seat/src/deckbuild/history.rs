@@ -335,3 +335,32 @@ pub fn games(dir: &Path, format: Format) -> Vec<Game> {
             .collect()
     })
 }
+
+/// The prefixes an AI's public label starts with: Central's for AI
+/// accounts, and a mind's own on a table (`crate::Disclosure::prefix`).
+const AI_LABELS: [&str; 5] = ["KI-", "LLM-", "NET-", "HOUSE-", "TEST-"];
+
+impl Game {
+    /// The game as a model is told it: one line, the opponent named only
+    /// when it is an AI by its label. No player is named to a model
+    /// (`docs/llm-seat.md`), so a person is "a person".
+    #[must_use]
+    pub fn told(&self) -> String {
+        let against = self.opponent.as_deref().map_or_default(|o| {
+            if AI_LABELS.iter().any(|prefix| o.starts_with(prefix)) {
+                format!(" · against {o}")
+            } else {
+                " · against a person".to_string()
+            }
+        });
+        format!(
+            "{} · version {} · {}{}{}{against}{}",
+            self.at,
+            self.version,
+            self.result,
+            self.turns.map_or_default(|t| format!(" in {t} turns")),
+            self.delta.map_or_default(|d| format!(" · Elo {d:+}")),
+            self.note.as_deref().map_or_default(|n| format!(" · {n}")),
+        )
+    }
+}

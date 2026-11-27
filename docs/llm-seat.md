@@ -1539,7 +1539,9 @@ baylee-seat deck improve (the options of build) [--most 6] [--recent 20] [--game
   `<dir>/<format>/games.jsonl` is the format's games, one line each
   (`history::record_game`: when, the version that played, `won`, `lost`,
   `draw` or `unrated`, turns, Elo and its change, the opponent's public
-  label, a note). `deck improve` reads it.
+  label, a note). The runner appends a line after each match, and `deck
+  improve` reads it. An opponent is told to the model by its label only when
+  that is an AI's (`KI-`, `LLM-`, `HOUSE-`, …); a person is "a person".
 - **The deck file** is Baylee text (`docs/deck-format.md`): `# name:`,
   `# format: <f>`, plain `N Name` rows, `CMD:` for a commander, no sideboard.
   It is one of the four formats `deck.rs` reads. Before a version is kept,
@@ -1604,7 +1606,9 @@ baylee-seat deck improve (the options of build) [--most 6] [--recent 20] [--game
   The profile's fallbacks, or `--fallback-profile`, take over in order when
   a model is limited, failing or out of budget.
 - **Spend.** Under a settings file each model of the chain reserves its
-  profile's budget in the spend book before the work begins, as a game does.
+  profile's game budget in the spend book before the work begins, as a game
+  does, but under no day or month cap (owner, 27.11.2026: no caps for the
+  AIs' deck work; the book still records it).
   It settles with what it spent when the work ends however it ends (Ctrl-C
   and errors included); a fallback that never answered settles at nothing.
   The record keeps the replies, calls, tokens and, where the price is known,
@@ -1622,10 +1626,12 @@ baylee-seat deck improve (the options of build) [--most 6] [--recent 20] [--game
   24,000 in all). It lets the model move at most `--most` cards, each copy
   in or out counting once. The result is held to the check, and the change
   is kept as a new version with `parent`, `removed` and `added`.
-- **Tests** reach no model: a scripted chat answers fixed objects
-  (`deckbuild/tests.rs`), and the fake agent CLI plays `deck build` end to
-  end (`tests/cli_mind/deck.rs`). The facts are read from a stand-in
-  gateway.
+- **Tests** reach no model. A scripted chat answers fixed objects
+  (`deckbuild/tests.rs`), and a stand-in Messages API answers
+  `llm::deckchat`. The fake agent CLI converses as Claude Code and as Codex,
+  and plays `deck build` end to end (`tests/cli_mind/deck.rs`). The facts
+  are read from a stand-in gateway. Lent decks are proven on a table where
+  every card is legal, not yet on a real host's.
 
 ## What the game's record says played
 

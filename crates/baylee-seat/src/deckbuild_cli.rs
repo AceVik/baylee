@@ -341,7 +341,10 @@ fn chain_of(
         args.fallback_profiles.clone()
     };
     let system = brief::system(format, job, args.rounds);
-    let caps = file.as_ref().map_or_default(|file| file.caps);
+    // No caps for an AI's deck work (owner, 27.11.2026): the book still
+    // records each reservation and what it spent, under no day or month
+    // cap, and the work's own budget is its profile's game budget.
+    let caps = baylee_client_core::llmseat::Caps::default();
     let book = paths.book(file.is_some());
     let book = book.as_ref();
     let mut reached = vec![reach(plan.clone(), &system, book, &caps, env, keys)?];
@@ -465,19 +468,7 @@ fn games_text(
         out.push_str("No game of this format is recorded yet.\n");
     }
     for game in &games[from..] {
-        let _ = writeln!(
-            out,
-            "{} · version {} · {}{}{}{}{}",
-            game.at,
-            game.version,
-            game.result,
-            game.turns.map_or_default(|t| format!(" in {t} turns")),
-            game.delta.map_or_default(|d| format!(" · Elo {d:+}")),
-            game.opponent
-                .as_deref()
-                .map_or_default(|o| format!(" · against {o}")),
-            game.note.as_deref().map_or_default(|n| format!(" · {n}")),
-        );
+        let _ = writeln!(out, "{}", game.told());
     }
     let mut told = 0;
     for path in files {

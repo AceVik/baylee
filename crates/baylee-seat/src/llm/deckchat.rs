@@ -234,3 +234,122 @@ impl DeckChat {
         headers
     }
 }
+
+#[cfg(test)]
+mod tests {
+    //! [`DeckChat`] against a stand-in for the Messages API on this
+    //! machine.
+
+    use super::*;
+    use crate::llm::{Provider, Spec, credentials_at};
+    use axum::Json;
+    use axum::Router;
+    use axum::http::StatusCode;
+    use axum::response::IntoResponse;
+    use axum::routing::post;
+    use std::sync::PoisonError;
+
+    type Asked = Arc<Mutex<Vec<Value>>>;
+
+    /// Answers each request with the next of `answers`: a status and a
+    /// body.
+    async fn api(answers: Vec<(u16, Value)>) -> (String, Asked) {
+        let asked: Asked = Arc::default();
+        let kept = Arc::clone(&asked);
+        let answers = Arc::new(Mutex::new(std::collections::VecDeque::from(answers)));
+        let app = Router::new().route(
+            "/v1/messages",
+            post(move |Json(body): Json<Value>| {
+                let (kept, answers) = (Arc::clone(&kept), Arc::clone(&answers));
+                async move {
+                    kept.lock()
+                        .unwrap_or_else(PoisonError::into_inner)
+                        .push(body);
+                    let (status, body) = answers
+                        .lock()
+                        .unwrap_or_else(PoisonError::into_inner)
+                        .pop_front()
+                        .unwrap_or((500, json!({})));
+                    (StatusCode::from_u16(status).unwrap(), Json(body)).into_response()
+                }
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        tokio::spawn(async move { axum::serve(listener, app).await });
+        (format!("http://127.0.0.1:{port}"), asked)
+    }
+
+    fn reply(content: &Value) -> Value {
+        json!({"content": content, "stop_reason": "tool_use",
+               "usage": {"input_tokens": 10, "output_tokens": 5}})
+    }
+
+    /// The instructions and the one tool go with the conversation; an
+    /// answer by the tool is read; the next turn answers its call; a
+    /// limit is the mind limited, and leaves the conversation as it was.
+    #[tokio::test]
+    async fn a_conversation_answers_by_its_tool_and_survives_a_limit() {
+        let input = json!({"search": {"text": "island"}});
+        let (base, asked) = api(vec![
+            (
+                200,
+                reply(&json!([
+                    {"type": "text", "text": "Looking."},
+                    {"type": "tool_use", "id": "call-1", "name": "act", "input": input},
+                ])),
+            ),
+            (
+                429,
+                json!({"error": {"type": "rate_limit_error", "message": "slow down"}}),
+            ),
+            (
+                200,
+                reply(&json!([{"type": "text", "text": "{\"read\": [\"Island\"]}"}])),
+            ),
+        ])
+        .await;
+        let key =
+            |name: &str| (name == "ANTHROPIC_API_KEY").then(|| "TEST-key-0123456789".to_string());
+        let credentials =
+            credentials_at(Provider::Anthropic, "ANTHROPIC_API_KEY", Some(&base), &key).unwrap();
+        let spec = Spec {
+            provider: Provider::Anthropic,
+            model: "claude-sonnet-5-5".into(),
+        };
+        let chat = DeckChat::new(
+            Settings::new(&spec),
+            credentials,
+            "BUILD A DECK".into(),
+            json!({"type": "object"}),
+        );
+        let wait = Duration::from_secs(10);
+        let first = chat.send("OPENING", "Begin.", wait).await.unwrap();
+        assert_eq!(first.value, Some(input));
+        assert_eq!(first.text, "Looking.");
+        let limited = chat.send("OPENING", "Results.", wait).await.unwrap_err();
+        assert!(matches!(limited, MindError::Limited { .. }), "{limited}");
+        let third = chat.send("OPENING", "Results again.", wait).await.unwrap();
+        assert_eq!(third.value, Some(json!({"read": ["Island"]})));
+        let asked = asked.lock().unwrap_or_else(PoisonError::into_inner).clone();
+        assert_eq!(asked.len(), 3);
+        assert_eq!(asked[0]["system"][0]["text"], "BUILD A DECK");
+        assert_eq!(asked[0]["tools"][0]["name"], TOOL);
+        assert_eq!(
+            asked[0]["messages"][0]["content"][0]["text"],
+            "OPENING\n\nBegin."
+        );
+        // The limited turn left nothing behind: the third goes on from the
+        // first's reply, its call answered.
+        let messages = asked[2]["messages"].as_array().unwrap();
+        assert_eq!(messages.len(), 3, "{messages:?}");
+        assert_eq!(messages[1]["role"], "assistant");
+        assert_eq!(messages[2]["content"][0]["type"], "tool_result");
+        assert_eq!(messages[2]["content"][0]["tool_use_id"], "call-1");
+        assert_eq!(messages[2]["content"][1]["text"], "Results again.");
+        let tally = chat.tally();
+        let tally = tally.lock().unwrap_or_else(PoisonError::into_inner);
+        assert_eq!(tally.calls, 3);
+        assert_eq!(tally.usage.input, 20);
+    }
+}
