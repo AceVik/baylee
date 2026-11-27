@@ -192,6 +192,17 @@ impl Default for Worker {
 /// taken for a slow reply rather than a clock, in seconds.
 const MAX_SKEW: i64 = 6 * 3600;
 
+/// Whether a search accepting `ai` takes the opponent a match found: a
+/// person always, an AI as the choice allows (the local AIs are the free
+/// kinds, house and net).
+fn takes(ai: AiOpponents, opponent: Option<&baylee_account::ranked::ai::AiBadge>) -> bool {
+    opponent.is_none_or(|badge| match ai {
+        AiOpponents::None => false,
+        AiOpponents::Local => badge.kind.free(),
+        AiOpponents::Any => true,
+    })
+}
+
 const POLL: Duration = Duration::from_secs(3);
 const MAX_DELAY: Duration = Duration::from_secs(30);
 
@@ -337,15 +348,27 @@ impl Worker {
     }
 
     fn observe(&mut self, queue: QueueState) {
-        // A switch ends where the new search stands, or where a match came
-        // first; Idle is the way between the two searches.
+        // A switch ends where the new search stands; Idle is the way between
+        // the two searches. A match that came first ends it too when the new
+        // choice takes that opponent (a person always): the cancel still
+        // waiting to go is dropped and the match is played. Against an AI
+        // the person has just turned away the cancel goes on, voiding the
+        // match, and the search joins again as they asked.
         if let Some(switch) = &self.switch {
             let done = match (&switch.shown, &queue) {
                 (QueueState::Waiting { key: old, .. }, QueueState::Waiting { key, .. }) => {
                     old != key
                 }
                 (_, QueueState::Idle | QueueState::Finished { .. }) => false,
-                _ => true,
+                // A move only ever starts from a waiting search.
+                (_, QueueState::Waiting { .. }) => true,
+                (_, QueueState::Assigned { assignment, .. }) => {
+                    let taken = takes(self.ai, assignment.opponent_ai.as_ref());
+                    if taken && matches!(self.intent, Some(Request::Cancel { .. })) {
+                        self.intent = None;
+                    }
+                    taken
+                }
             };
             if done {
                 self.switch = None;

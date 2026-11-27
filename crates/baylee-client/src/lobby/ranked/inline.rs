@@ -69,6 +69,7 @@ pub(super) fn owns(action: Action) -> bool {
             | Action::Resume
             | Action::Opponents(_)
             | Action::PickOpponents(_)
+            | Action::PeopleOnly
     )
 }
 
@@ -121,6 +122,11 @@ pub(super) fn press(action: Action, cx: Cx<'_, '_, '_, '_, '_>) {
         }
         Action::Opponents(choice) => {
             choice::choose(cx.state.bypass_change_detection(), cx.settings, choice);
+            return;
+        }
+        Action::PeopleOnly => {
+            let people = baylee_client_core::aiplayers::Opponents::People;
+            choice::choose(cx.state.bypass_change_detection(), cx.settings, people);
             return;
         }
         _ => {}
@@ -284,7 +290,11 @@ fn own_rank(book: &Book, format: Format) -> Option<OwnRank> {
 pub(super) fn patch(
     mut commands: Commands,
     state: Res<LobbyState>,
-    book: Option<Res<Book>>,
+    // The account's standing, and the device's settings its choice is kept in.
+    (book, settings): (
+        Option<Res<Book>>,
+        Option<Res<crate::settings::ClientSettings>>,
+    ),
     fonts: Option<Res<crate::hud::UiFonts>>,
     desks: Query<(Entity, &Desk)>,
     captions: Query<Entity, With<TileCaption>>,
@@ -353,7 +363,7 @@ pub(super) fn patch(
         m: desk.metrics,
         german: state.lobby.lang() == Lang::De,
     };
-    let view = queue::look(&state, own);
+    let view = queue::look(&state, own, settings.as_deref());
     if painted.queue.as_ref() != Some(&view) {
         commands.entity(desk.queue).despawn_children();
         queue::draw(&mut commands, desk.queue, kit, &state, &view);

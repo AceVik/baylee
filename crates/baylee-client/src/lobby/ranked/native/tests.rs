@@ -445,3 +445,47 @@ fn a_ticket_this_client_did_not_send_names_no_kind() {
     assert_eq!(w.ticket_choice(), None);
     assert_eq!(w.fill_in_at(), Some(65), "the countdown still shows");
 }
+
+fn assigned_against(
+    key: Id,
+    opponent_ai: Option<baylee_account::ranked::ai::AiBadge>,
+) -> QueueState {
+    let QueueState::Assigned { mut assignment, .. } = assigned(key) else {
+        unreachable!("assigned() builds an assignment")
+    };
+    assignment.opponent_ai = opponent_ai;
+    QueueState::Assigned { key, assignment }
+}
+
+/// A match can come in the poll already under way when the person moves
+/// the search, most likely at the countdown's end. An AI they have just
+/// turned away is cancelled and the search joins again; a person is played,
+/// and the cancel that was to follow is dropped.
+#[test]
+fn a_match_that_comes_first_is_played_only_if_the_new_choice_takes_it() {
+    let house = baylee_account::ranked::ai::AiBadge {
+        kind: baylee_account::ranked::ai::AiKind::House,
+        label: "Haus-KI · Expert".into(),
+    };
+    for (opponent, played) in [(Some(house), false), (None, true)] {
+        let mut state = LobbyState::new();
+        let key = *Uuid::now_v7().as_bytes();
+        state.ranked_net.queue = waiting(key, 5, Some(65));
+        state.ranked_net.ticket_ai = Some((key, AiOpponents::Local));
+        assert!(switch(&mut state, AiOpponents::None, "deck"));
+        let w = &mut state.ranked_net;
+        finish(
+            w,
+            7,
+            Reply::Queue(Request::Status, Ok(assigned_against(key, opponent))),
+        );
+        if played {
+            assert!(!w.switching());
+            assert_eq!(w.intent, None, "the match against a person is played");
+        } else {
+            assert!(w.switching(), "the search still shows as moving");
+            assert_eq!(w.intent, Some(Request::Cancel { key }));
+            assert!(matches!(w.shown_queue(), QueueState::Waiting { .. }));
+        }
+    }
+}

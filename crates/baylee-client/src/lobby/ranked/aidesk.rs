@@ -40,29 +40,50 @@ pub(super) fn opponents(
         )
     });
     commands.entity(parent).add_child(control);
-    let meaning = chosen.map_or(Phrase::RankedOpponentsUnset, Opponents::meaning);
+    // Every meaning stands in one grid cell, the chosen one seen and the
+    // others hidden but laid out, so the room is as tall as the longest in
+    // this language and text step and a change of choice moves nothing.
     let room = commands
         .spawn((
             Node {
                 width: Val::Percent(100.0),
-                min_height: Val::Px(kit.m.small * crate::hud::UI_SCALE * 1.25 * 2.0),
+                display: Display::Grid,
+                grid_template_columns: RepeatedGridTrack::flex(1, 1.0),
                 ..default()
             },
             Pickable::IGNORE,
         ))
         .id();
-    let line = parts::line(
-        commands,
-        kit,
-        meaning.text(lang),
-        kit.m.small,
-        if chosen == Some(Opponents::Any) {
-            tokens::INK
-        } else {
-            tokens::MUTED
-        },
-    );
-    commands.entity(room).add_child(line);
+    let chosen_meaning = chosen.map_or(Phrase::RankedOpponentsUnset, Opponents::meaning);
+    for meaning in [Phrase::RankedOpponentsUnset]
+        .into_iter()
+        .chain(Opponents::ALL.map(Opponents::meaning))
+    {
+        let line = parts::line(
+            commands,
+            kit,
+            meaning.text(lang),
+            kit.m.small,
+            if meaning == Opponents::Any.meaning() {
+                tokens::INK
+            } else {
+                tokens::MUTED
+            },
+        );
+        commands.entity(line).insert((
+            Node {
+                grid_row: GridPlacement::start(1),
+                grid_column: GridPlacement::start(1),
+                ..default()
+            },
+            if meaning == chosen_meaning {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            },
+        ));
+        commands.entity(room).add_child(line);
+    }
     commands.entity(parent).add_child(room);
 }
 
@@ -146,7 +167,7 @@ pub(super) fn fill_in_slot(commands: &mut Commands, parent: Entity, kit: Kit) {
         Opponents::People.title().text(lang),
         Weight::Ghost,
         Live::Yes,
-        Press::Ranked(Action::Opponents(Opponents::People)),
+        Press::Ranked(Action::PeopleOnly),
     );
     commands
         .entity(slot)

@@ -297,7 +297,17 @@ fn first_search_asks_counts_down_and_goes_to_people(
             && s.shows("Der Anbieter eines Sprachmodells erhält die Züge dieser Partie.")
     })?;
     capture(client, "ranked-opponents-sheet")?;
+    anyhow::ensure!(
+        client
+            .screen()?
+            .control("Shared(ConfirmDestructive)")
+            .is_none(),
+        "Search answers nothing before a choice is picked"
+    );
     client.click(press("Ranked(PickOpponents(Local))"))?;
+    client.wait_until("Search answers once a choice is picked", |s| {
+        s.control("Shared(ConfirmDestructive)").is_some()
+    })?;
     client.click(press("Shared(ConfirmDestructive)"))?;
     let waiting = client.wait_until("the waiting queue beside the ladder", |s| {
         s.shows("Gegner für Highlander wird gesucht") && s.shows("Mistral-01")
@@ -316,7 +326,7 @@ fn first_search_asks_counts_down_and_goes_to_people(
         "Leave moved when the countdown came"
     );
     capture(client, "ranked-page-countdown")?;
-    client.click(press("Ranked(Opponents(People))"))?;
+    client.click(press("Ranked(PeopleOnly)"))?;
     let people = client.wait_until("a search for people only", |s| {
         !s.shows("KI-Gegner in") && s.shows("Du wartest auf einen Menschen")
     })?;
