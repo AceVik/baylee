@@ -11,7 +11,7 @@
 //! the opponents and the reward offers, so the published builds cannot be
 //! derived from this repository.
 //!
-//! Nothing here claims balance. `baylee-tower-lab ladder` measures every
+//! Nothing here claims balance. The Tower lab (`baylee-engine-server` example `tower_lab`, `ladder`) measures every
 //! stage's fifty builds against each other and against the stage before, and
 //! `docs/tower-operations.md` §"Calibration" records what it found.
 use super::worth;
@@ -75,7 +75,7 @@ impl Ladder {
 
 /// Which of the scripted runs' variants each published cell takes:
 /// `PICKS[stage - 1][archetype - 1]`, 0 for the run the private seed starts
-/// itself. Chosen with `baylee-tower-lab ladder --candidates`, each cell the
+/// itself. Chosen with the Tower lab's `candidates` (`baylee-engine-server` example `tower_lab`), each cell the
 /// variant whose build came closest to even against its stage's field, and
 /// then measured again as the whole ladder (`docs/tower-operations.md`
 /// §"Calibration"). The table holds indices, never a build.

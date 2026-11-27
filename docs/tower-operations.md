@@ -180,6 +180,37 @@ live authorization boundary, not retroactive cancellation of transactions that
 committed before it. Replacing a revoked Host requires a fresh credential/ID and
 explicit handling of retained assignments; there is no silent origin takeover.
 
+## Calibration
+
+Measured on 27.11.2026 with the Tower lab, the `baylee-engine-server` example
+`tower_lab` (built with `--no-default-features --features tower`),
+which plays native duels of this compiled Tower executor in process: the
+package → preset → session path of a hosted duel, no database or network.
+The Tower Expert has no foresight tier (`AIProfile::TOWER_EXPERT`), so the
+house chair plays exactly as at a hosting engine; the human chair is answered
+by the same Expert heuristics through its own view. Every pairing is played in
+both chair assignments on the same deals, so a chair advantage (the house
+chair wins about 55 %) cancels. A duel ended by a bound (30,000 steps, 60
+turns, 300 s) is counted apart and never scored. The bands were fixed before
+any result was read; a choice among candidates is selection, so only a fresh
+measurement of the whole field counts as the result.
+
+- **Starters:** every bare starter against every other, 20 deals per ordered
+  pair: 1,960 duels per starter, 49,000 in all. Band: 40–60 % against the
+  field.
+- **House:** each stage's fifty builds against each other in both chairs,
+  and each build against four builds of the stage below. Band: 30–70 %
+  within a stage; every stage beats the one below.
+
+**Starters.** The first matrix ranged from 15.7 % (Kykar) to 93.2 % (Lyra);
+28 of 50 lay outside the band. the lab's `variants` then measured, for
+each of them, every builder archetype under four seed variants against the
+field (196 duels each), and replacement commanders of the same colours where
+no variant came near. The chosen variant is the third value in `LEADERS`;
+Lyra Dawnbringer, Giada, Dwynen and Eutropia gave way to Soraya the Falconer,
+Loran of the Third Path, Eladamri and Sab-Sunen. Measured again on fresh deals
+(another 49,000 duels): 37.8 % (Talrand) to 61.9 % (Elas il-Kor).
+
 ## Runtime grants
 
 The service never runs as the schema owner. Its runtime role gets exactly

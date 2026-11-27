@@ -4,6 +4,7 @@
 #![forbid(unsafe_code)]
 
 use anyhow::{Context as _, Result, bail};
+// The card registry links in only where it is named.
 use baylee_cards_pool as _;
 use clap::{Parser, Subcommand};
 use std::io::Read as _;

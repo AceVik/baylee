@@ -1,7 +1,7 @@
 //! What a relic is worth to one deck, in rough points of one opposing life.
 //!
 //! This is the house shopper's taste, not a balance claim: the ladder's
-//! strength is measured afterwards in native duels (`baylee-tower-lab`), and
+//! strength is measured afterwards in native duels (the `baylee-engine-server` example `tower_lab`), and
 //! a taste that buys badly shows up there as a weak stage, not as a number
 //! here. The event rates come from the deck's own composition; the relic
 //! levels from the native definitions (`baylee_tower_relics::Level`).

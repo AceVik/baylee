@@ -11,7 +11,7 @@ mod theme;
 // Lower commander costs and several distinct plans per colour pair avoid a pool
 // made solely of expensive finishers. Seeds are explicit and append-only; the
 // third value is a measured calibration variant of the builder seed (0: none),
-// chosen with `baylee-tower-lab starters` (docs/tower-operations.md §"Calibration").
+// chosen with the `tower_lab` example's `variants` (docs/tower-operations.md §"Calibration").
 const LEADERS: [(&str, Archetype, u16); 50] = [
     ("Emmara, Soul of the Accord", Archetype::Midrange, 2),
     ("Elas il-Kor, Sadistic Pilgrim", Archetype::Control, 0),
