@@ -1426,6 +1426,65 @@ async fn a_finished_record_is_kept_as_one_piece() {
     agent.abort();
 }
 
+/// A report a ranked AI seat filed: Lightning Bolt dealt 2, rule 120.3.
+fn seat_report() -> baylee_seat::reports::Filed {
+    use baylee_seat::reports::{Card, Checked, Filed, Kind, Moment, Report, Source};
+    let report = Report {
+        kind: Kind::WrongOutcome,
+        severity: None,
+        confidence: None,
+        cards: vec![Card {
+            name: "Lightning Bolt".into(),
+            oracle_quote: None,
+        }],
+        rules: vec!["120.3".into()],
+        observed: "Bolt dealt 2.".into(),
+        expected: Some("It deals 3 damage.".into()),
+        evidence: None,
+        references: Vec::new(),
+    };
+    let checked = Checked::new(&report, "Priority", |_| Vec::new());
+    Filed {
+        source: Source::LlmSeat,
+        game_id: "TEST-game".into(),
+        seat: 1,
+        question: 12,
+        model: "house".into(),
+        profile: Some("house:expert".into()),
+        report,
+        checked,
+        moment: Moment {
+            turn: 4,
+            phase: None,
+            step: None,
+            pending: "Priority".into(),
+            options: Vec::new(),
+            answer: None,
+            seq: 77,
+            policy_chose: None,
+            model_would: None,
+        },
+        lookups: 0,
+        unix: 1_700_000_000,
+        seen: Vec::new(),
+        log_lines: 0,
+    }
+}
+
+/// What the runner says of its AI and the match beside the seat's fields.
+fn ai_about() -> serde_json::Map<String, serde_json::Value> {
+    let serde_json::Value::Object(about) = serde_json::json!({
+        "ai": {"account": "TEST-account", "name": "KI-Haus#0001", "kind": "house",
+               "profile": "house:expert"},
+        "match_id": "TEST-match",
+        "format": "standard",
+        "host": "https://host.example",
+    }) else {
+        unreachable!("an object")
+    };
+    about
+}
+
 /// A ranked AI seat's reports as its runner sends them (`baylee-seat
 /// ranked --reports-to`, `baylee_seat::ranked::DirectReports`): the seat's
 /// own body passes the official gateway's direct route as it is, Central
@@ -1437,7 +1496,6 @@ async fn a_finished_record_is_kept_as_one_piece() {
 async fn a_ranked_ai_seat_s_reports_reach_central_by_the_direct_route() {
     use baylee_seat::ranked::DirectReports;
     use baylee_seat::ranked::reports::Pass;
-    use baylee_seat::reports::{Card, Checked, Filed, Kind, Moment, Report, Source};
     let bridge = baylee_account::Token::generate().expect("a token");
     let (url, filed) = stub_central(bridge.bearer().to_string()).await;
     let file = central_file(&url, &bridge);
@@ -1462,59 +1520,10 @@ async fn a_ranked_ai_seat_s_reports_reach_central_by_the_direct_route() {
     ));
     std::fs::create_dir_all(&state).unwrap();
     let reports = DirectReports::open(&format!("http://127.0.0.1:{}", gw.port), &state).unwrap();
-    let report = Report {
-        kind: Kind::WrongOutcome,
-        severity: None,
-        confidence: None,
-        cards: vec![Card {
-            name: "Lightning Bolt".into(),
-            oracle_quote: None,
-        }],
-        rules: vec!["120.3".into()],
-        observed: "Bolt dealt 2.".into(),
-        expected: Some("It deals 3 damage.".into()),
-        evidence: None,
-        references: Vec::new(),
-    };
-    let checked = Checked::new(&report, "Priority", |_| Vec::new());
-    let seat_reports = [Filed {
-        source: Source::LlmSeat,
-        game_id: "TEST-game".into(),
-        seat: 1,
-        question: 12,
-        model: "house".into(),
-        profile: Some("house:expert".into()),
-        report,
-        checked,
-        moment: Moment {
-            turn: 4,
-            phase: None,
-            step: None,
-            pending: "Priority".into(),
-            options: Vec::new(),
-            answer: None,
-            seq: 77,
-            policy_chose: None,
-            model_would: None,
-        },
-        lookups: 0,
-        unix: 1_700_000_000,
-        seen: Vec::new(),
-        log_lines: 0,
-    }];
-    let serde_json::Value::Object(about) = serde_json::json!({
-        "ai": {"account": "TEST-account", "name": "KI-Haus#0001", "kind": "house",
-               "profile": "house:expert"},
-        "match_id": "TEST-match",
-        "format": "standard",
-        "host": "https://host.example",
-    }) else {
-        unreachable!("an object")
-    };
     let body = baylee_seat::reports::direct(
-        &seat_reports,
+        &[seat_report()],
         None,
-        &about,
+        &ai_about(),
         reports.device(),
         reports.build(),
     )
