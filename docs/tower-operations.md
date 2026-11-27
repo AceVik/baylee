@@ -334,29 +334,46 @@ only into root-owned 0600 files that a process reads on stdin.
 
 1. **Database.** A database `baylee_tower` in the shared PostgreSQL container,
    owned by a login role `tower_owner`, with a login role `tower_runtime`
-   that owns nothing. In `pg_hba.conf`, above every `host` line:
-   `hostnossl baylee_tower all all reject`, then `hostssl baylee_tower
-   tower_owner,tower_runtime 127.0.0.1/32 scram-sha-256`, and both roles
-   refused on every other database. Both URLs use
-   `sslmode=verify-full&sslrootcert=/etc/baylee-tower/db-ca.pem` (a copy of
-   the database's private CA certificate, 0644) with host `127.0.0.1`.
-2. **The cohort's engine.** After the release deploy, copy the deployed
-   `/opt/baylee/bin/baylee-engine-tower` to
-   `/opt/baylee/engines/tower-<short commit>/`; the service's verifier
-   replays records with that copy, whatever a later deploy installs. The
-   agent advertises the deployed sibling, which has the same identity until
-   the next deploy. A deploy that changes the Tower engine strands the
-   cohort's open runs (their next duel finds no host; players can abandon),
-   unless the agent keeps the copy: `BAYLEE_ENGINE_BINS` listing it with
-   `/opt/baylee/bin/baylee-engine-standard-loops` (a set value turns sibling
-   discovery off; the same identity twice stops the agent). An agent keeps
-   an engine of an older protocol installed, but the gateway starts a Tower
-   duel only on one of its own protocol, so a protocol bump strands the
-   cohort in any case. Where the server's configuration is managed as code,
-   that is where the variable goes; pause enrollment before such a deploy.
+   that owns nothing. In `pg_hba.conf`, beside Central's lines and above
+   every other `host` line: `hostnossl baylee_tower all all reject`, then
+   `hostssl baylee_tower tower_owner,tower_runtime all scram-sha-256`, then
+   `host all tower_owner,tower_runtime all reject`. The address is `all`, as
+   in Central's lines: the container sees the Docker bridge, never
+   `127.0.0.1`. Check `pg_hba_file_rules` for an `error` before
+   `pg_reload_conf()`. Create the roles in one superuser session that first
+   sets `log_statement = 'none'`, `log_min_duration_statement = -1` and
+   `log_min_error_statement = panic`, with the passwords on standard input.
+   Both URLs use `sslmode=verify-full&sslrootcert=/etc/baylee-tower/db-ca.pem`
+   (a copy of the database's private CA certificate, 0644) with host
+   `127.0.0.1`.
+2. **The cohort's engine.** After the release deploy, check that
+   `/opt/baylee/bin/baylee-engine-tower --metadata` names the release in
+   `build` and `cards`, and copy it to
+   `/opt/baylee/engines/tower-<short commit>/`. The name is deliberately not
+   a bare revision: a deploy that keeps games (`docs/deploy-hooks.md`)
+   prunes every `engines/<revision>/` no game plays on. The service's
+   verifier replays records with that copy, whatever a later deploy
+   installs. A deploy that changes the Tower engine strands the cohort's
+   open runs (their next duel finds no host; players can abandon), unless
+   the agent keeps the copy: a drop-in
+   `/etc/systemd/system/baylee-agent.service.d/tower-engine.conf` with
+   `Environment=BAYLEE_ENGINE_BINS=/opt/baylee/bin/baylee-engine-standard-loops:<the
+   copy>`. A set value turns sibling discovery off, so it lists
+   standard-loops; it never lists the deployed Tower engine (the same
+   identity twice stops the agent, and a newer one is not the cohort's). The
+   agent reads it at its next start; restart it once, while no game runs,
+   rather than let the next deploy find out. A keeping deploy writes
+   `/etc/baylee/agent-engines.env`, which as the unit's `EnvironmentFile`
+   overrides the drop-in and names the deployed Tower engine: whoever turns
+   keeping on carries the pin into it. An agent keeps an engine of an older
+   protocol installed, but the gateway starts a Tower duel only on one of
+   its own protocol, so a protocol bump strands the cohort in any case.
+   Where the server's configuration is managed as code, that is where the
+   pin goes too; pause enrollment before such a deploy.
 3. **Binaries.** `baylee-tower-service` and `baylee-tower-provision`
    (`cargo build --release --locked -p baylee-tower-service -p
-   baylee-tower-provision`) in `/opt/baylee-tower/bin`; a system user
+   baylee-tower-provision`, or the same commit built on the same OS and
+   C library elsewhere) in `/opt/baylee-tower/bin`; a system user
    `baylee-tower` without a shell or home.
 4. **Cohort.** `baylee-tower-provision` reads one JSON value:
    `{"service": "/opt/baylee-tower/bin/baylee-tower-service", "engine":
@@ -371,11 +388,19 @@ only into root-owned 0600 files that a process reads on stdin.
    seed; `§"Calibration"`), all through `--migrate`/`--admin`, and prints the
    cohort and operator IDs. An exact repeat succeeds with the same IDs.
    Keep the seed and the credentials in `/etc/baylee-tower/` (root, 0600).
+   The publication is immutable, so before it compare a hash prefix of the
+   seed with the one the calibration measured with, and rehearse the run
+   with that seed on a throwaway PostgreSQL first: the stored builds' count
+   of each relic rarity, potions and mean items per stage must equal the
+   report's `loadout` (`docs/history/tower-calibration-2026-11-27/`), and
+   the production builds must then be byte-equal to the rehearsal's.
 5. **Central.** Provision the award issuer for `https://tower.baylee.app`
-   with the migrator's connection (`central_identity.tower_award_issuers`,
-   the SHA-256 digest of a fresh 32-byte `Token`, never the Courier's), set
-   `tower_origin` to `https://tower.baylee.app` in `central.json`, restart
-   Central.
+   with the migrator's connection (`central_identity.tower_award_issuers`:
+   the SHA-256 digest of a fresh 32-byte `Token`'s 32 bytes, not of its hex
+   text, and never the Courier's; a wrong digest stays silent until the
+   first award), set `tower_origin` to `https://tower.baylee.app` in
+   `central.json` (check it with `--check-accounts-stdin`), restart
+   Central. Do this last: Central then shows the Tower to every client.
 6. **Service.** `/etc/baylee-tower/service.json` (root 0600): the runtime
    URL, `"development": false`, and `service`: `listen` 127.0.0.1:28796,
    `origin` `https://tower.baylee.app`, `record_bytes`, one `workers` entry
@@ -383,11 +408,17 @@ only into root-owned 0600 files that a process reads on stdin.
    credentials) and `awards` (the courier and the issuer credentials).
    Install `scripts/server/baylee-tower.service` and
    `scripts/server/tower.caddy`, `systemctl enable --now baylee-tower`,
-   reload Caddy, and check `https://tower.baylee.app/health`.
+   reload Caddy, and check `https://tower.baylee.app/health`. A Caddy
+   reload closes the WebSockets of every site without `stream_close_delay`,
+   the gateway's among them: reload in a window without games.
 7. **Gateway.** `BAYLEE_TOWER_ORIGIN=https://tower.baylee.app` and
    `BAYLEE_TOWER_HOST_TOKEN=<host credential>` in the gateway's environment;
    the gateway restart ends running games, so it waits for an empty table
-   list. Central then shows the Tower tile in the client.
+   list.
+8. **Acceptance.** One duel played to its settled result, its award
+   recorded in Central. Until then the switch can be taken back: remove
+   `tower_origin`, restart Central, and pause enrollment
+   (`--admin pause_enrollment`).
 
 ## Reproducible focused checks
 
