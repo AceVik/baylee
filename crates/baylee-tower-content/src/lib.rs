@@ -240,7 +240,7 @@ pub fn run_card(index: CardIndex) -> Result<Card, Error> {
 /// whole card registry, so a registry change can change them; the house's
 /// `PICKS` and the measured balance hold only for this exact content, and the
 /// production publication refuses any other.
-pub const CALIBRATED: &str = "";
+pub const CALIBRATED: &str = "6f8b0c7a6cc0babb94a7c6ae3c277b73161e35627086ada97c1b16db57098364";
 
 /// SHA-256 over the canonical JSON of `content`'s catalog and starters.
 /// # Errors
