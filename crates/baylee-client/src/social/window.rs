@@ -874,10 +874,11 @@ fn sync_lobby_window(
     host: Res<SocialHost>,
     ui: Res<ChatUi>,
     fonts: Res<UiFonts>,
-    (settings, phase, lobby): (
+    (settings, phase, lobby, journey): (
         Option<Res<crate::settings::ClientSettings>>,
         Option<Res<State<DuelPhase>>>,
         Option<Res<crate::lobby::LobbyState>>,
+        Option<Res<crate::arrival::Journey>>,
     ),
     (duel, texts, folds): (
         Option<Res<Duel>>,
@@ -917,8 +918,20 @@ fn sync_lobby_window(
 ) {
     use crate::hud::motion;
     let _zoom = super::zoom::Scope::new(zoom.0);
-    let at_table =
-        phase.is_some_and(|p| matches!(*p.get(), DuelPhase::Playing | DuelPhase::Finished));
+    let at_table = phase
+        .as_ref()
+        .is_some_and(|p| matches!(*p.get(), DuelPhase::Playing | DuelPhase::Finished));
+    let arriving = journey.as_ref().is_some_and(|j| j.active())
+        || phase
+            .as_ref()
+            .is_some_and(|p| *p.get() == DuelPhase::Opening)
+        || (!at_table
+            && lobby.as_ref().is_some_and(|l| {
+                matches!(
+                    l.lobby.screen(),
+                    baylee_client_core::lobby::Screen::Seated(_)
+                )
+            }));
     let shell = lobby.as_ref().is_some_and(|l| {
         (l.central_ready() && l.can_use_contacts())
             || !matches!(
@@ -927,7 +940,10 @@ fn sync_lobby_window(
             )
     });
     let ending = at_table && duel.as_ref().is_some_and(|d| d.ending().is_some());
-    let Some(machine) = host.machine().filter(|_| (at_table || shell) && !ending) else {
+    let Some(machine) = host
+        .machine()
+        .filter(|_| (at_table || shell) && !ending && !arriving)
+    else {
         for (_, _, mut seen, _, _) in &mut roots {
             seen.set_if_neq(Visibility::Hidden);
         }
@@ -1033,20 +1049,13 @@ fn sync_lobby_window(
         }
     };
     // Screens with a top header (`Screen::Table`, `Screen::Build`, Central hub)
-    // already carry `HeaderPress::Chat` in the navbar; only the headerless
-    // waiting-room screen (`Screen::Seated`) shows the bottom-left pill so
-    // footer version pills and builder shortcut legends are never covered.
-    let show_closed_pill = !at_table
-        && lobby.as_ref().is_some_and(|l| {
-            matches!(
-                l.lobby.screen(),
-                baylee_client_core::lobby::Screen::Seated(_)
-            )
-        });
+    // already carry `HeaderPress::Chat` in the navbar, and `Screen::Seated` /
+    // `DuelPhase::Opening` stand under the arrival cover (`arriving` above), so
+    // no floating closed pill is shown over the viewport.
     let root = if let Some((root, ..)) = roots.iter().next() {
         root
     } else {
-        let initial_vis = if ui.open || show_closed_pill {
+        let initial_vis = if ui.open {
             Visibility::Visible
         } else {
             Visibility::Hidden
@@ -1109,7 +1118,7 @@ fn sync_lobby_window(
             seen.set_if_neq(Visibility::Hidden);
             return;
         }
-        seen.set_if_neq(if ui.open || show_closed_pill {
+        seen.set_if_neq(if ui.open {
             Visibility::Visible
         } else {
             Visibility::Hidden

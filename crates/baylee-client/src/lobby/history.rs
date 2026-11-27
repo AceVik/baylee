@@ -48,6 +48,10 @@ pub(super) fn sheet(commands: &mut Commands, root: Entity, state: &LobbyState, k
                 .find(|d| &d.id == id)
                 .map(|d| d.name.clone())
         })
+        .or_else(|| {
+            (lobby.builder().editing() == Some(id.as_str()))
+                .then(|| lobby.builder().name().to_string())
+        })
         .unwrap_or_default();
     let phone = kit.m.frame == ShellFrame::Phone;
     let columns = commands
@@ -320,6 +324,10 @@ pub(super) fn version_rows(
                 .iter()
                 .find(|d| &d.id == id)
                 .map(|d| d.name.clone())
+        })
+        .or_else(|| {
+            (lobby.builder().editing() == Some(id.as_str()))
+                .then(|| lobby.builder().name().to_string())
         })
         .unwrap_or_default();
     Some(baylee_client_core::deckbuilder::transfer::VersionRows {

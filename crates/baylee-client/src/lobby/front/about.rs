@@ -65,8 +65,6 @@ pub(crate) fn about(
                 node.width = Val::Percent(100.0);
                 node.max_width = Val::Percent(100.0);
                 node.max_height = Val::Percent(100.0);
-            } else {
-                node.max_height = Val::Vh(86.0);
             }
         });
 

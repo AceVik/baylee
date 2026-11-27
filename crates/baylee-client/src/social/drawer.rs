@@ -830,8 +830,10 @@ fn presses(
 }
 
 /// The friends button in the bottom-right corner on screens without a top
-/// header (`Screen::Build`, `Screen::Seated`, `DuelPhase::Opening`): online
-/// friends and a dot for anything waiting (requests, invites).
+/// header: online friends and a dot for anything waiting (requests, invites).
+/// Hidden while the arrival cover stands (`Journey::active()`,
+/// `DuelPhase::Opening`, `Screen::Seated`) so it never floats over the loading
+/// portal.
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)] // a Bevy system: what it reads
 fn sync_door(
     mut commands: Commands,
@@ -841,6 +843,7 @@ fn sync_door(
     settings: Option<Res<crate::settings::ClientSettings>>,
     phase: Option<Res<State<crate::DuelPhase>>>,
     lobby: Option<Res<crate::lobby::LobbyState>>,
+    journey: Option<Res<crate::arrival::Journey>>,
     doors: Query<(Entity, &mut Visibility), With<FriendsDoor>>,
     mut drawn: Local<Option<(usize, bool, bool, u8)>>,
     zoom: Res<super::zoom::Zoom>,
@@ -852,19 +855,21 @@ fn sync_door(
             crate::DuelPhase::Playing | crate::DuelPhase::Finished
         )
     });
-    let loading = phase
-        .as_ref()
-        .is_some_and(|p| *p.get() == crate::DuelPhase::Opening)
-        || lobby.as_ref().is_some_and(|l| {
-            matches!(
-                l.lobby.screen(),
-                baylee_client_core::lobby::Screen::Seated(_)
-            )
-        });
-    // The header has the friends button (including the deck builder's
-    // header); only the loading screen has none, so there the button floats
-    // bottom-right.
-    let shell = loading;
+    let arriving = journey.as_ref().is_some_and(|j| j.active())
+        || phase
+            .as_ref()
+            .is_some_and(|p| *p.get() == crate::DuelPhase::Opening)
+        || (!on_table
+            && lobby.as_ref().is_some_and(|l| {
+                matches!(
+                    l.lobby.screen(),
+                    baylee_client_core::lobby::Screen::Seated(_)
+                )
+            }));
+    // Every lobby screen, waiting room, and deck builder wears the header's
+    // Contacts button, and the arrival cover hides floating social pills; only
+    // a headerless standalone shell outside loading shows this door.
+    let shell = !arriving && lobby.is_none();
     // The panel's head has the friends button while the panel stands.
     let panel = ui.open && !ui.minimised;
     let machine = host

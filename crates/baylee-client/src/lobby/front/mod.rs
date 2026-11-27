@@ -1027,18 +1027,20 @@ fn card(
     card
 }
 
-/// The gear's menu, under the gear: the language, by each language's own
-/// name, and the way to the whole settings screen.
+/// The gear's menu, under the gear: audio, the way to the whole settings screen,
+/// and the language switcher when the header does not already stand a language
+/// pill beside the gear.
 ///
 /// A veil over the rest of the page closes it when pressed, as any press
 /// outside a menu does.
-#[allow(clippy::too_many_lines)] // header + language pills + audio card + primary settings action
+#[allow(clippy::too_many_lines)] // header + optional language pills + audio card + primary settings action
 pub(super) fn gear_menu(
     commands: &mut Commands,
     state: &LobbyState,
     fonts: &UiFonts,
     metrics: Metrics,
     side: f32,
+    show_language: bool,
 ) -> Entity {
     let lang = state.lobby.lang();
     let holder = commands
@@ -1192,58 +1194,63 @@ pub(super) fn gear_menu(
     commands.entity(close_btn).add_child(close_icon);
     commands.entity(head).add_children(&[head_left, close_btn]);
 
-    let lang_box = commands
-        .spawn((
-            Node {
-                width: Val::Percent(100.0),
-                flex_direction: FlexDirection::Column,
-                padding: UiRect::all(px_fixed(10.0)),
-                row_gap: px_fixed(8.0),
-                border: UiRect::all(px_fixed(1.0)),
-                border_radius: BorderRadius::all(px_fixed(10.0)),
-                ..default()
-            },
-            BackgroundColor(Color::srgba(0.03, 0.06, 0.10, 0.72)),
-            BorderColor::all(palette::DOCK_EDGE.with_alpha(0.32)),
-            Pickable::IGNORE,
-        ))
-        .id();
-    let caption = note(commands, fonts, metrics, Phrase::Language.text(lang));
-    let mut chips = Vec::new();
-    for offered in Lang::ALL {
-        let active = offered == lang;
-        let bg = if active {
-            Color::srgba(0.09, 0.22, 0.26, 0.92)
-        } else {
-            Color::srgba(0.06, 0.10, 0.16, 0.88)
-        };
-        let chip = button(
-            commands,
-            fonts,
-            metrics,
-            offered.name(),
-            Press::Shared(SharedPress::PickLang(offered)),
-            bg,
-            true,
-        );
-        let flag = door::flag_icon(commands, offered);
-        commands
-            .entity(chip)
-            .insert(crate::shellkit::surfaces::elevation_control())
-            .insert_children(0, &[flag]);
-        if active {
-            commands.entity(chip).insert((
-                BackgroundColor(bg),
-                BorderColor::all(crate::shellkit::tokens::ACCENT.with_alpha(0.65)),
-                crate::ambience::Feel::tinting_to(bg, crate::shellkit::tokens::HOVER),
-            ));
+    let lang_box = if show_language {
+        let lang_box = commands
+            .spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    flex_direction: FlexDirection::Column,
+                    padding: UiRect::all(px_fixed(10.0)),
+                    row_gap: px_fixed(8.0),
+                    border: UiRect::all(px_fixed(1.0)),
+                    border_radius: BorderRadius::all(px_fixed(10.0)),
+                    ..default()
+                },
+                BackgroundColor(Color::srgba(0.03, 0.06, 0.10, 0.72)),
+                BorderColor::all(palette::DOCK_EDGE.with_alpha(0.32)),
+                Pickable::IGNORE,
+            ))
+            .id();
+        let caption = note(commands, fonts, metrics, Phrase::Language.text(lang));
+        let mut chips = Vec::new();
+        for offered in Lang::ALL {
+            let active = offered == lang;
+            let bg = if active {
+                Color::srgba(0.09, 0.22, 0.26, 0.92)
+            } else {
+                Color::srgba(0.06, 0.10, 0.16, 0.88)
+            };
+            let chip = button(
+                commands,
+                fonts,
+                metrics,
+                offered.name(),
+                Press::Shared(SharedPress::PickLang(offered)),
+                bg,
+                true,
+            );
+            let flag = door::flag_icon(commands, offered);
+            commands
+                .entity(chip)
+                .insert(crate::shellkit::surfaces::elevation_control())
+                .insert_children(0, &[flag]);
+            if active {
+                commands.entity(chip).insert((
+                    BackgroundColor(bg),
+                    BorderColor::all(crate::shellkit::tokens::ACCENT.with_alpha(0.65)),
+                    crate::ambience::Feel::tinting_to(bg, crate::shellkit::tokens::HOVER),
+                ));
+            }
+            chips.push(chip);
         }
-        chips.push(chip);
-    }
-    let languages = halves(commands, metrics, &chips);
-    commands
-        .entity(lang_box)
-        .add_children(&[caption, languages]);
+        let languages = halves(commands, metrics, &chips);
+        commands
+            .entity(lang_box)
+            .add_children(&[caption, languages]);
+        Some(lang_box)
+    } else {
+        None
+    };
 
     let audio_box = commands
         .spawn((
@@ -1296,9 +1303,13 @@ pub(super) fn gear_menu(
     });
     let report = crate::report::button(commands, fonts, metrics, lang);
     commands.entity(actions_col).add_children(&[all, report]);
+    commands.entity(menu).add_children(&[nipple, head]);
+    if let Some(lang_box) = lang_box {
+        commands.entity(menu).add_child(lang_box);
+    }
     commands
         .entity(menu)
-        .add_children(&[nipple, head, lang_box, audio_box, actions_col]);
+        .add_children(&[audio_box, actions_col]);
     commands.entity(holder).add_children(&[veil, menu]);
     holder
 }

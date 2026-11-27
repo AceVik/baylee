@@ -54,8 +54,6 @@ pub enum ShellAction {
     GoPlay,
     /// Go to Decks (`2`).
     GoDecks,
-    /// Go to Settings (`3`).
-    GoSettings,
     /// Back one step (`Alt+←`, `⌘[` on macOS).
     Back,
     /// Focus the screen's search (`/`, `Ctrl/Cmd+F`).
@@ -92,8 +90,8 @@ pub enum ShellAction {
     ImportDeck,
     /// Export (`Ctrl/Cmd+E`, in the builder).
     ExportDeck,
-    /// Go to Replays (`4`, desktop). Last in the enum, so nothing stored
-    /// moves; second-to-last in the overlay's order, beside its siblings.
+    /// Go to Replays (`3`, desktop). Last in the enum, so nothing stored
+    /// moves; right after Decks in the overlay's order, matching the header.
     GoReplays,
     /// The friends drawer (`f`; the beta.8 social design §12.1).
     Friends,
@@ -101,11 +99,10 @@ pub enum ShellAction {
 
 impl ShellAction {
     /// Every action, in the overlay's order.
-    pub const ALL: [Self; 23] = [
+    pub const ALL: [Self; 22] = [
         Self::GoPlay,
         Self::GoDecks,
         Self::GoReplays,
-        Self::GoSettings,
         Self::Back,
         Self::Search,
         Self::Overlay,
@@ -134,7 +131,6 @@ impl ShellAction {
             Self::GoPlay => "go-play",
             Self::GoDecks => "go-decks",
             Self::GoReplays => "go-replays",
-            Self::GoSettings => "go-settings",
             Self::Back => "back",
             Self::Search => "search",
             Self::Overlay => "overlay",
@@ -182,7 +178,7 @@ impl ShellAction {
             Self::GoPlay => Phrase::ShellPlay,
             Self::GoDecks => Phrase::ShellDecks,
             Self::GoReplays => Phrase::GroupReplay,
-            Self::GoSettings | Self::OpenSettings => Phrase::Settings,
+            Self::OpenSettings => Phrase::Settings,
             Self::Back => Phrase::Back,
             Self::Search => Phrase::ShellKeySearch,
             Self::Overlay => Phrase::ShellKeyOverlay,
@@ -232,8 +228,7 @@ impl ShellAction {
         match self {
             Self::GoPlay => vec![C::code("Digit1")],
             Self::GoDecks => vec![C::code("Digit2")],
-            Self::GoReplays => vec![C::code("Digit4")],
-            Self::GoSettings => vec![C::code("Digit3")],
+            Self::GoReplays => vec![C::code("Digit3")],
             Self::Back => vec![C::code("ArrowLeft").alt(), C::code("BracketLeft").mac_cmd()],
             Self::Search => vec![C::ch("/"), C::ch("f").cmd()],
             Self::Overlay => vec![C::ch("?"), C::ch("/").cmd()],
@@ -1254,6 +1249,48 @@ mod tests {
         assert_eq!(
             resolve(&map, &ctrl_f, quiet(Context::Play), false),
             Some(ShellAction::Search)
+        );
+    }
+
+    #[test]
+    fn header_tabs_are_one_to_three_and_settings_appears_once() {
+        assert_eq!(
+            &ShellAction::ALL[..3],
+            &[
+                ShellAction::GoPlay,
+                ShellAction::GoDecks,
+                ShellAction::GoReplays
+            ]
+        );
+        let settings_entries: Vec<_> = ShellAction::ALL
+            .into_iter()
+            .filter(|a| a.label() == Phrase::Settings)
+            .collect();
+        assert_eq!(settings_entries, vec![ShellAction::OpenSettings]);
+        let map = ShellKeymap::standard();
+        assert_eq!(
+            map.chords(ShellAction::GoPlay),
+            &[ShellChord::code("Digit1")]
+        );
+        assert_eq!(
+            map.chords(ShellAction::GoDecks),
+            &[ShellChord::code("Digit2")]
+        );
+        assert_eq!(
+            map.chords(ShellAction::GoReplays),
+            &[ShellChord::code("Digit3")]
+        );
+        assert_eq!(
+            map.chords(ShellAction::OpenSettings),
+            &[ShellChord::ch(",").cmd()]
+        );
+        // Stored keymaps from older builds that held `go-settings` drop it and
+        // let `go-replays` take Digit3.
+        let legacy = r#"{"go-settings":[{"key":"Digit3"}]}"#;
+        let read: ShellKeymap = serde_json::from_str(legacy).expect("reads");
+        assert_eq!(
+            read.chords(ShellAction::GoReplays),
+            &[ShellChord::code("Digit3")]
         );
     }
 }

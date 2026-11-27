@@ -389,3 +389,84 @@ fn every_level_is_named_and_the_one_that_peeks_says_it_is_unfair() {
     }
     assert_eq!(ai_name(Lang::De, "seer"), Some("Seher (unfair)"));
 }
+
+/// Deck builder legality and stats counts use Fluent plural selectors in both
+/// English and German so singular counts never read "1 cards", "1 pips" or
+/// "1 lands".
+#[test]
+fn builder_counts_pluralize_in_english_and_german() {
+    assert_eq!(Phrase::CheckCount.fill(Lang::En, &["1"]), "1 card");
+    assert_eq!(Phrase::CheckCount.fill(Lang::En, &["0"]), "0 cards");
+    assert_eq!(Phrase::CheckCount.fill(Lang::En, &["2"]), "2 cards");
+    assert_eq!(Phrase::CheckCount.fill(Lang::De, &["1"]), "1 Karte");
+    assert_eq!(Phrase::CheckCount.fill(Lang::De, &["2"]), "2 Karten");
+
+    assert_eq!(
+        Phrase::CheckCountAtLeast.fill(Lang::En, &["1", "60"]),
+        "1 card, at least 60"
+    );
+    assert_eq!(
+        Phrase::CheckCountAtLeast.fill(Lang::De, &["1", "60"]),
+        "1 Karte, mindestens 60"
+    );
+    assert_eq!(
+        Phrase::CheckCountExactly.fill(Lang::En, &["1", "100"]),
+        "1 of 100 cards"
+    );
+    assert_eq!(
+        Phrase::CheckCountExactly.fill(Lang::De, &["1", "100"]),
+        "1 von 100 Karten"
+    );
+
+    assert_eq!(
+        Phrase::BuildPipsDetail.fill(Lang::En, &["1", "0"]),
+        "1 pip · 0 sources"
+    );
+    assert_eq!(
+        Phrase::BuildPipsDetail.fill(Lang::En, &["2", "1"]),
+        "2 pips · 1 source"
+    );
+    assert_eq!(
+        Phrase::BuildPipsDetail.fill(Lang::De, &["1", "1"]),
+        "1 Pip · 1 Quelle"
+    );
+    assert_eq!(
+        Phrase::BuildPipsDetail.fill(Lang::De, &["2", "0"]),
+        "2 Pips · 0 Quellen"
+    );
+
+    assert_eq!(
+        Phrase::BuildHandSummary.fill(Lang::En, &["1", "6"]),
+        "Drawn hand: 1 land · 6 non-lands"
+    );
+    assert_eq!(
+        Phrase::BuildHandSummary.fill(Lang::En, &["6", "1"]),
+        "Drawn hand: 6 lands · 1 non-land"
+    );
+    assert_eq!(
+        Phrase::BuildHandSummary.fill(Lang::De, &["1", "1"]),
+        "Gezogene Hand: 1 Land · 1 Nichtland"
+    );
+    assert_eq!(
+        Phrase::BuildHandSummary.fill(Lang::De, &["2", "5"]),
+        "Gezogene Hand: 2 Länder · 5 Nichtländer"
+    );
+
+    assert_eq!(
+        Phrase::BuildStatManaSub.fill(Lang::En, &["2", "1"]),
+        "Σ 2 mana · 1 spell"
+    );
+    assert_eq!(
+        Phrase::BuildStatLegendary.fill(Lang::En, &["1"]),
+        "1 legendary card"
+    );
+    assert_eq!(
+        Phrase::BuildStatLegendary.fill(Lang::De, &["1"]),
+        "1 legendäre Karte"
+    );
+    assert_eq!(Phrase::BuildVariantIssues.fill(Lang::En, &["1"]), "1 issue");
+    assert_eq!(
+        Phrase::BuildVariantIssues.fill(Lang::De, &["1"]),
+        "1 Problem"
+    );
+}

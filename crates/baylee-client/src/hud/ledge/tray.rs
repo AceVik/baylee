@@ -313,7 +313,7 @@ pub fn sync_tray_strip(
             &mut commands,
             &fonts,
             open,
-            glyph::GEAR,
+            glyph::DIAMOND,
             Phrase::EchoesRunTableItems.text(lang),
             MenuAction::ToggleTowerItems,
         );

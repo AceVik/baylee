@@ -88,9 +88,10 @@ pub(super) fn install(app: &mut App) {
 /// The actions the overlay lists: those a key can reach here (Quick switch
 /// is native only).
 fn listed() -> impl Iterator<Item = ShellAction> {
-    ShellAction::ALL
-        .into_iter()
-        .filter(|a| cfg!(not(target_arch = "wasm32")) || *a != ShellAction::QuickSwitch)
+    ShellAction::ALL.into_iter().filter(|a| {
+        cfg!(not(target_arch = "wasm32"))
+            || !matches!(a, ShellAction::QuickSwitch | ShellAction::GoReplays)
+    })
 }
 
 /// The rows the search leaves, in the overlay's order: an action matches

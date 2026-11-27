@@ -190,10 +190,11 @@ pub(super) fn spawn_leave_button(
     }
 }
 
-/// The end sheet's consent: a box and its words, on the parchment.
+/// The end sheet's consent: a box and its words, on Reading glass.
 fn share_toggle(commands: &mut Commands, fonts: &UiFonts, lang: Lang, shared: bool) -> Entity {
+    use crate::shellkit::tokens;
     use baylee_client_core::replay::words::ReplayPhrase;
-    let ink = crate::hud::palette::PARCHMENT_INK;
+    let ink = tokens::INK;
     commands
         .spawn((
             UiButton,
@@ -207,10 +208,7 @@ fn share_toggle(commands: &mut Commands, fonts: &UiFonts, lang: Lang, shared: bo
                 ..default()
             },
             BackgroundColor(Color::NONE),
-            crate::ambience::Feel::tinting_to(
-                Color::NONE,
-                crate::hud::palette::PARCHMENT_EDGE.with_alpha(0.25),
-            ),
+            crate::ambience::Feel::tinting_to(Color::NONE, tokens::HOVER),
         ))
         .with_children(|row| {
             // A drawn box: the icon face has a filled square only, which
@@ -225,8 +223,12 @@ fn share_toggle(commands: &mut Commands, fonts: &UiFonts, lang: Lang, shared: bo
                     justify_content: JustifyContent::Center,
                     ..default()
                 },
-                BorderColor::all(ink),
-                BackgroundColor(if shared { ink } else { Color::NONE }),
+                BorderColor::all(if shared {
+                    tokens::ACCENT
+                } else {
+                    tokens::MUTED
+                }),
+                BackgroundColor(if shared { tokens::ACCENT } else { Color::NONE }),
                 Pickable::IGNORE,
             ))
             .with_children(|tick| {
@@ -234,7 +236,7 @@ fn share_toggle(commands: &mut Commands, fonts: &UiFonts, lang: Lang, shared: bo
                     tick.spawn((
                         Text::new("\u{f00c}"),
                         crate::hud::icon_tf(fonts, 9.0),
-                        TextColor(crate::hud::palette::PARCHMENT),
+                        TextColor(tokens::INK_ON_LIGHT),
                         Pickable::IGNORE,
                     ));
                 }

@@ -18,6 +18,7 @@ pub(super) fn activate(
         if event.by_key
             && event.stop.table == ORDER.name
             && duel.tower_inventory
+            && duel.armed.is_none()
             && let Ok(button) = buttons.get(event.entity)
         {
             click(&mut duel, button.action);

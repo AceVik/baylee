@@ -1227,19 +1227,47 @@ fn mine(
     let any_filter =
         state.decks.has_active_filters() || !lobby.field(Field::DeckSearch).trim().is_empty();
     if lobby.decks().is_empty() || (order.is_empty() && !any_filter) {
+        commands
+            .entity(grid)
+            .entry::<Node>()
+            .and_modify(|mut n| n.display = Display::None);
         let empty = empty_shelf(commands, state, kit);
         commands.entity(scroll).add_child(empty);
         return;
     }
     if order.is_empty() {
+        commands
+            .entity(grid)
+            .entry::<Node>()
+            .and_modify(|mut n| n.display = Display::None);
+        commands
+            .entity(scroll)
+            .entry::<Node>()
+            .and_modify(|mut n| n.justify_content = JustifyContent::Center);
         let query = lobby.field(Field::DeckSearch).trim();
         let said = if query.is_empty() {
             Phrase::DecksNoneMatchFilters.text(lang).to_string()
         } else {
             Phrase::DecksNoMatch.fill(lang, &[query])
         };
-        let none = parts::line(commands, kit, &said, kit.m.text, tokens::MUTED);
-        commands.entity(scroll).add_child(none);
+        let reset = controls::button(
+            commands,
+            kit,
+            Phrase::DecksResetFilters.text(lang),
+            Weight::Secondary,
+            Live::Yes,
+            None,
+            Press::Decks(DecksPress::ClearFilters),
+        );
+        let empty = crate::shellkit::states::empty(
+            commands,
+            kit,
+            crate::hud::glyph::MAGNIFIER,
+            &said,
+            Some(reset),
+        );
+        commands.entity(scroll).add_child(empty);
+        return;
     }
     let now = parts::now_secs();
     let view = state.decks.view;
@@ -1391,9 +1419,11 @@ fn mine(
             menus::draw(commands, root, kit, more, items);
         }
     }
-    let new = new_tile(commands, kit, lang, view);
-    orders::item(commands, new, &orders::DECKS, "tiles", walked);
-    commands.entity(grid).add_child(new);
+    if !any_filter {
+        let new = new_tile(commands, kit, lang, view);
+        orders::item(commands, new, &orders::DECKS, "tiles", walked);
+        commands.entity(grid).add_child(new);
+    }
 }
 
 /// Polished empty state when no decks exist yet: hero icon badge, inviting
@@ -1646,14 +1676,37 @@ fn house(
     }
     let order = filtered_house_indices(state);
     if order.is_empty() {
+        commands
+            .entity(grid)
+            .entry::<Node>()
+            .and_modify(|mut n| n.display = Display::None);
+        commands
+            .entity(scroll)
+            .entry::<Node>()
+            .and_modify(|mut n| n.justify_content = JustifyContent::Center);
         let query = lobby.field(Field::DeckSearch).trim();
         let said = if query.is_empty() {
             Phrase::DecksNoTemplatesMatchFilters.text(lang).to_string()
         } else {
             Phrase::DecksNoMatch.fill(lang, &[query])
         };
-        let none = parts::line(commands, kit, &said, kit.m.text, tokens::MUTED);
-        commands.entity(scroll).add_child(none);
+        let reset = controls::button(
+            commands,
+            kit,
+            Phrase::DecksResetFilters.text(lang),
+            Weight::Secondary,
+            Live::Yes,
+            None,
+            Press::Decks(DecksPress::ClearFilters),
+        );
+        let empty = crate::shellkit::states::empty(
+            commands,
+            kit,
+            crate::hud::glyph::MAGNIFIER,
+            &said,
+            Some(reset),
+        );
+        commands.entity(scroll).add_child(empty);
         return;
     }
     let view = state.decks.view;
@@ -2639,6 +2692,7 @@ fn spawn_preview_card_entry(
                         padding: UiRect::all(kit.m.px(6.0)),
                         border: UiRect::all(px_fixed(1.0)),
                         border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
+                        overflow: Overflow::clip(),
                         ..default()
                     },
                     BackgroundColor(tokens::CONTROL.with_alpha(0.45)),
@@ -2662,6 +2716,8 @@ fn spawn_preview_card_entry(
                         width: percent(100),
                         align_items: AlignItems::Center,
                         column_gap: kit.m.px(5.0),
+                        min_width: px_fixed(0.0),
+                        overflow: Overflow::clip_x(),
                         ..default()
                     },
                     Pickable::IGNORE,
@@ -2683,16 +2739,37 @@ fn spawn_preview_card_entry(
                     .id();
                 commands.entity(foot).add_child(dot);
             }
-            let lbl = commands
+            let full_label = format!("{count}× {card_name}");
+            let lbl_clip = commands
                 .spawn((
-                    Text::new(format!("{count}× {}", shortened(&card_name, 16))),
-                    crate::hud::tf_bold(kit.fonts, kit.m.small * 0.90),
-                    TextColor(tokens::INK),
-                    TextLayout::no_wrap(),
+                    Node {
+                        flex_grow: 1.0,
+                        flex_shrink: 1.0,
+                        flex_basis: px_fixed(0.0),
+                        min_width: px_fixed(0.0),
+                        overflow: Overflow::clip_x(),
+                        ..default()
+                    },
                     Pickable::IGNORE,
                 ))
                 .id();
-            commands.entity(foot).add_child(lbl);
+            let lbl = commands
+                .spawn((
+                    Text::new(full_label.clone()),
+                    crate::hud::tf_bold(kit.fonts, kit.m.small * 0.90),
+                    TextColor(tokens::INK),
+                    TextLayout::no_wrap(),
+                    Node {
+                        min_width: px_fixed(0.0),
+                        flex_shrink: 1.0,
+                        ..default()
+                    },
+                    crate::buildui::ElideText::new(full_label),
+                    Pickable::IGNORE,
+                ))
+                .id();
+            commands.entity(lbl_clip).add_child(lbl);
+            commands.entity(foot).add_child(lbl_clip);
             commands.entity(tile).add_child(foot);
             tile
         }
@@ -2818,6 +2895,7 @@ pub(in crate::lobby) fn spawn_preview_section_container(
             .spawn((
                 Node {
                     width: percent(100),
+                    flex_shrink: 0.0,
                     flex_direction: FlexDirection::Row,
                     flex_wrap: FlexWrap::Wrap,
                     column_gap: kit.m.px(8.0),
@@ -2832,6 +2910,7 @@ pub(in crate::lobby) fn spawn_preview_section_container(
                 Node {
                     display: Display::Grid,
                     width: percent(100),
+                    flex_shrink: 0.0,
                     grid_template_columns: vec![RepeatedGridTrack::flex(2, 1.0)],
                     column_gap: kit.m.px(8.0),
                     row_gap: kit.m.px(5.0),
@@ -2844,6 +2923,7 @@ pub(in crate::lobby) fn spawn_preview_section_container(
             .spawn((
                 Node {
                     width: percent(100),
+                    flex_shrink: 0.0,
                     flex_direction: FlexDirection::Column,
                     row_gap: kit.m.px(5.0),
                     ..default()

@@ -241,6 +241,7 @@ fn activity_lane(
         .spawn((
             Node {
                 flex_direction: FlexDirection::Column,
+                height: if side { percent(100) } else { Val::Auto },
                 row_gap: px_fixed(kit.m.body),
                 overflow: Overflow::scroll_y(),
                 min_height: px(0),
@@ -280,11 +281,11 @@ fn activity_lane(
                 percent(100)
             };
             n.max_width = if wide { kit.m.px(560.0) } else { Val::Auto };
-            n.max_height = if phone || wide {
-                percent(100)
-            } else {
-                Val::Vh(42.0)
-            };
+            if side {
+                n.height = percent(100);
+                n.align_self = AlignSelf::Stretch;
+            }
+            n.max_height = if side { percent(100) } else { Val::Vh(42.0) };
             if fold_gap > 0.0 {
                 n.margin.right = px_fixed(-fold_gap);
             }
@@ -576,7 +577,7 @@ fn picker(
                 display: Display::Grid,
                 grid_template_columns: vec![RepeatedGridTrack::minmax(
                     GridTrackRepetition::AutoFill,
-                    MinTrackSizingFunction::Px(kit.m.scaled(200.0)),
+                    MinTrackSizingFunction::Px(kit.m.scaled(240.0)),
                     MaxTrackSizingFunction::Fraction(1.0),
                 )],
                 column_gap: px_fixed(kit.m.gap),
@@ -602,11 +603,13 @@ fn picker(
             .spawn((
                 Role::Tile,
                 Node {
-                    column_gap: kit.m.px(10.0),
-                    align_items: AlignItems::Center,
+                    flex_direction: FlexDirection::Column,
+                    row_gap: kit.m.px(4.0),
+                    align_items: AlignItems::Stretch,
                     padding: UiRect::all(px_fixed((kit.m.scaled(8.0) - extra).max(0.0))),
                     border: UiRect::all(px_fixed(if chosen { 2.0 } else { 1.0 })),
                     border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
+                    overflow: Overflow::clip(),
                     ..default()
                 },
                 BorderColor::all(if chosen {
@@ -621,34 +624,17 @@ fn picker(
                 crate::ambience::FeelShadow,
             ))
             .id();
-        if let Some(art) = deck.art() {
-            let picture = parts::art_with_credit(commands, kit, lang, &art, 78.0);
-            commands.entity(tile).add_child(picture);
-        }
-        let words = commands
-            .spawn((
-                Node {
-                    flex_direction: FlexDirection::Column,
-                    min_width: px(0),
-                    ..default()
-                },
-                Pickable::IGNORE,
-            ))
-            .id();
-        let name = parts::line(commands, kit, &deck.name, kit.m.text, tokens::INK);
-        let format = parts::line(
+        let art = deck.art();
+        let format = shelf::format_label(lang, &deck.format);
+        let blocked = shelf::blocked_badge(lang, &deck.blocked);
+        picker_tile_body(
             commands,
             kit,
-            &shelf::format_label(lang, &deck.format),
-            kit.m.small,
-            tokens::MUTED,
+            lang,
+            tile,
+            art.as_ref(),
+            (&deck.name, &format, blocked.as_deref()),
         );
-        commands.entity(words).add_children(&[name, format]);
-        if let Some(said) = shelf::blocked_badge(lang, &deck.blocked) {
-            let blocked = parts::line(commands, kit, &said, kit.m.small, tokens::DANGER);
-            commands.entity(words).add_child(blocked);
-        }
-        commands.entity(tile).add_child(words);
         orders::item(commands, tile, &orders::PICKER, "tiles", walked);
         commands
             .entity(tile)
@@ -665,7 +651,7 @@ fn picker(
                     display: Display::Grid,
                     grid_template_columns: vec![RepeatedGridTrack::minmax(
                         GridTrackRepetition::AutoFill,
-                        MinTrackSizingFunction::Px(kit.m.scaled(200.0)),
+                        MinTrackSizingFunction::Px(kit.m.scaled(240.0)),
                         MaxTrackSizingFunction::Fraction(1.0),
                     )],
                     column_gap: px_fixed(kit.m.gap),
@@ -680,11 +666,13 @@ fn picker(
                 .spawn((
                     Role::Tile,
                     Node {
-                        column_gap: kit.m.px(10.0),
-                        align_items: AlignItems::Center,
+                        flex_direction: FlexDirection::Column,
+                        row_gap: kit.m.px(4.0),
+                        align_items: AlignItems::Stretch,
                         padding: UiRect::all(px_fixed(kit.m.scaled(8.0))),
                         border: UiRect::all(px_fixed(1.0)),
                         border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
+                        overflow: Overflow::clip(),
                         ..default()
                     },
                     BorderColor::all(tokens::BORDER),
@@ -695,30 +683,16 @@ fn picker(
                     crate::ambience::FeelShadow,
                 ))
                 .id();
-            if let Some(art) = deck.art() {
-                let picture = parts::art_with_credit(commands, kit, lang, &art, 78.0);
-                commands.entity(tile).add_child(picture);
-            }
-            let words = commands
-                .spawn((
-                    Node {
-                        flex_direction: FlexDirection::Column,
-                        min_width: px(0),
-                        ..default()
-                    },
-                    Pickable::IGNORE,
-                ))
-                .id();
-            let name = parts::line(commands, kit, &deck.name, kit.m.text, tokens::INK);
-            let format = parts::line(
+            let art = deck.art();
+            let format = shelf::format_label(lang, &deck.format);
+            picker_tile_body(
                 commands,
                 kit,
-                &shelf::format_label(lang, &deck.format),
-                kit.m.small,
-                tokens::MUTED,
+                lang,
+                tile,
+                art.as_ref(),
+                (&deck.name, &format, None),
             );
-            commands.entity(words).add_children(&[name, format]);
-            commands.entity(tile).add_child(words);
             commands.entity(house_grid).add_child(tile);
         }
         sheet_body.push(head);
@@ -756,6 +730,84 @@ fn picker(
         .entity(surface)
         .insert(Press::Shared(SharedPress::PickerNothing));
     commands.entity(root).add_child(scrim);
+}
+
+/// Fills one Change-deck tile: artwork beside the eliding title/format lines,
+/// with the artist credit on its own full-width line underneath so a long
+/// artist name never pushes the format label outside the tile's border.
+fn picker_tile_body(
+    commands: &mut Commands,
+    kit: Kit,
+    lang: Lang,
+    tile: Entity,
+    art: Option<&shelf::DeckArt>,
+    (name, format, blocked): (&str, &str, Option<&str>),
+) {
+    let top = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                align_items: AlignItems::Center,
+                column_gap: kit.m.px(10.0),
+                min_width: px_fixed(0.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    if let Some(art) = art {
+        let picture = parts::art_picture(commands, kit, art, 74.0);
+        commands.entity(top).add_child(picture);
+    }
+    let words = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                flex_grow: 1.0,
+                flex_shrink: 1.0,
+                flex_basis: px_fixed(0.0),
+                min_width: px_fixed(0.0),
+                overflow: Overflow::clip_x(),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let line_node = || Node {
+        min_width: px_fixed(0.0),
+        flex_shrink: 1.0,
+        ..default()
+    };
+    let name_node = parts::line(commands, kit, name, kit.m.text, tokens::INK);
+    commands.entity(name_node).insert((
+        line_node(),
+        TextLayout::no_wrap(),
+        crate::buildui::ElideText::new(name),
+    ));
+    let format_node = parts::line(commands, kit, format, kit.m.small, tokens::MUTED);
+    commands.entity(format_node).insert((
+        line_node(),
+        TextLayout::no_wrap(),
+        crate::buildui::ElideText::new(format),
+    ));
+    commands
+        .entity(words)
+        .add_children(&[name_node, format_node]);
+    if let Some(said) = blocked {
+        let blocked_node = parts::line(commands, kit, said, kit.m.small, tokens::DANGER);
+        commands.entity(blocked_node).insert((
+            line_node(),
+            TextLayout::no_wrap(),
+            crate::buildui::ElideText::new(said),
+        ));
+        commands.entity(words).add_child(blocked_node);
+    }
+    commands.entity(top).add_child(words);
+    commands.entity(tile).add_child(top);
+    if let Some(art) = art {
+        let credit = parts::art_credit(commands, kit, lang, art);
+        commands.entity(tile).add_child(credit);
+    }
 }
 
 /// The Create-table sheet where it is up: over Play, and over the room for

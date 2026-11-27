@@ -339,6 +339,177 @@ pub(crate) fn place_menus(
     }
 }
 
+/// Places the card window's Set dropdown next to its search field once both
+/// have been laid out, outside the modal's clipped scrolling body and above
+/// its footer. Flips above the field when there is not enough room below.
+#[allow(clippy::type_complexity)] // popup, anchor and transform queries
+pub(crate) fn place_set_popup(
+    mut popups: Query<
+        (Entity, &mut Node, &mut Visibility, &ComputedNode),
+        With<super::print_picker::PickerSetPopup>,
+    >,
+    anchors: Query<(&ComputedNode, &UiGlobalTransform), With<super::print_picker::PickerSetAnchor>>,
+    children: Query<&Children>,
+    mut transforms: Query<&mut UiGlobalTransform, Without<super::print_picker::PickerSetAnchor>>,
+    (windows, ui): (Query<&Window>, Option<Res<UiScale>>),
+) {
+    let Some(window) = windows.iter().next() else {
+        return;
+    };
+    let Some((anchor_laid, anchor_at)) = anchors.iter().next() else {
+        return;
+    };
+    let anchor_scale = anchor_laid.inverse_scale_factor();
+    let anchor_size = anchor_laid.size() * anchor_scale;
+    if anchor_size.x <= 0.0 || anchor_size.y <= 0.0 {
+        return;
+    }
+    let anchor_mid = anchor_at.translation * anchor_scale;
+    let anchor_rect = Rect::from_corners(
+        anchor_mid - anchor_size * 0.5,
+        anchor_mid + anchor_size * 0.5,
+    );
+    let (width, height) = crate::hud::scale::desktop_dimensions(window, ui.as_deref());
+    for (entity, mut node, mut shown, laid) in &mut popups {
+        let scale = laid.inverse_scale_factor();
+        let size = laid.size() * scale;
+        if size.y <= 0.0 {
+            continue;
+        }
+        let pop_w = anchor_size.x;
+        let left = anchor_rect.min.x.clamp(8.0, (width - pop_w - 8.0).max(8.0));
+        let below = anchor_rect.max.y + 4.0;
+        let above = anchor_rect.min.y - size.y - 4.0;
+        let top = if below + size.y <= height - 8.0 {
+            below
+        } else if above >= 8.0 {
+            above
+        } else {
+            (height - size.y - 8.0).max(8.0)
+        };
+        let changed = !matches!(node.left, Val::Px(x) if (x - left).abs() <= 0.5)
+            || !matches!(node.top, Val::Px(y) if (y - top).abs() <= 0.5)
+            || !matches!(node.width, Val::Px(w) if (w - pop_w).abs() <= 0.5);
+        if changed {
+            node.left = Val::Px(left);
+            node.top = Val::Px(top);
+            node.width = Val::Px(pop_w);
+        }
+        if (*shown == Visibility::Hidden || changed)
+            && scale > 0.0
+            && let Ok(cur_at) = transforms.get(entity)
+        {
+            let cur_min = cur_at.translation * scale - size * 0.5;
+            let delta = (Vec2::new(left, top) - cur_min) / scale;
+            for target in std::iter::once(entity).chain(children.iter_descendants(entity)) {
+                if let Ok(mut t) = transforms.get_mut(target) {
+                    *t = UiGlobalTransform::from(bevy::math::Affine2 {
+                        matrix2: t.matrix2,
+                        translation: t.translation + delta,
+                    });
+                }
+            }
+        }
+        if *shown != Visibility::Inherited {
+            *shown = Visibility::Inherited;
+        }
+    }
+}
+
+/// Shortens `full` (whose full measured pixel width is `full_width`) with a
+/// trailing `…` so it fits within `clip_width`.
+#[must_use]
+#[allow(
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss
+)]
+pub(crate) fn elide_to_fit(full: &str, full_width: f32, clip_width: f32) -> String {
+    if full_width <= clip_width + 0.5 {
+        return full.to_string();
+    }
+    let chars: Vec<char> = full.chars().collect();
+    if chars.is_empty() {
+        return String::new();
+    }
+    let avg = (full_width / chars.len() as f32).max(1.0);
+    let ellipsis_w = avg * 1.15;
+    let target = (clip_width - ellipsis_w).max(0.0);
+    let keep = ((target / full_width) * chars.len() as f32)
+        .floor()
+        .max(0.0) as usize;
+    let keep = keep.min(chars.len().saturating_sub(1));
+    let prefix: String = chars[..keep].iter().collect();
+    let cleaned = prefix.trim_end_matches([' ', ',', ';', ':', '\u{b7}', '-', '\u{2014}']);
+    format!("{cleaned}\u{2026}")
+}
+
+/// Replaces the clipped tail of any [`super::ElideText`] whose laid-out width
+/// exceeds its `Overflow::clip_x()` parent box with a trailing `…`, without
+/// mutating anything on quiet frames at rest.
+#[allow(
+    clippy::type_complexity,
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss
+)]
+pub(crate) fn elide_cells(
+    mut texts: Query<(
+        &mut Text,
+        &mut super::ElideText,
+        &bevy::text::TextLayoutInfo,
+        &ChildOf,
+    )>,
+    clips: Query<&ComputedNode>,
+) {
+    for (mut text, mut elide, layout, parent) in &mut texts {
+        let laid_w = layout.size.x;
+        if laid_w <= 0.0 {
+            continue;
+        }
+        let Ok(clip) = clips.get(parent.parent()) else {
+            continue;
+        };
+        let clip_w = clip.size().x;
+        if clip_w <= 0.0 {
+            continue;
+        }
+        if elide.full_width <= 0.0 && text.0 == elide.full {
+            elide.full_width = laid_w;
+        }
+        if elide.full_width <= 0.0 {
+            continue;
+        }
+        if laid_w <= clip_w + 0.5 && (text.0 == elide.full || clip_w <= elide.last_clip + 4.0) {
+            continue;
+        }
+        if text.0 == "\u{2026}" && laid_w > clip_w + 0.5 {
+            continue;
+        }
+        let want = if elide.full_width <= clip_w + 0.5 {
+            elide.full.clone()
+        } else if laid_w > clip_w + 0.5 && text.0 != elide.full {
+            let trimmed = text.0.trim_end_matches('\u{2026}');
+            let cur_chars: Vec<char> = trimmed.chars().collect();
+            let avg = (laid_w / (cur_chars.len() + 1).max(1) as f32).max(1.0);
+            let ratio = ((clip_w - avg * 0.6) / laid_w).clamp(0.0, 0.99);
+            let next_keep = ((cur_chars.len() as f32 * ratio).floor().max(0.0) as usize)
+                .min(cur_chars.len().saturating_sub(1));
+            let prefix: String = cur_chars[..next_keep].iter().collect();
+            let cleaned = prefix.trim_end_matches([' ', ',', ';', ':', '\u{b7}', '-', '\u{2014}']);
+            format!("{cleaned}\u{2026}")
+        } else {
+            elide_to_fit(&elide.full, elide.full_width, clip_w)
+        };
+        if (elide.last_clip - clip_w).abs() > 0.5 {
+            elide.last_clip = clip_w;
+        }
+        if text.0 != want {
+            text.0 = want;
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -361,6 +532,25 @@ mod tests {
             nav_of("title", Nav::Idle, false),
             Nav::Idle,
             "Tab onto the title does not start renaming"
+        );
+    }
+
+    #[test]
+    fn elide_to_fit_keeps_fitting_text_and_ends_overflow_with_ellipsis() {
+        assert_eq!(
+            elide_to_fit("Lightning Bolt", 100.0, 120.0),
+            "Lightning Bolt"
+        );
+        assert_eq!(
+            elide_to_fit("Lightning Bolt", 100.0, 100.0),
+            "Lightning Bolt"
+        );
+        let cut = elide_to_fit("70,000 Light-Years from Home", 220.0, 110.0);
+        assert!(cut.ends_with('\u{2026}'), "expected ellipsis: {cut}");
+        assert!(cut.chars().count() < "70,000 Light-Years from Home".chars().count());
+        assert!(
+            !cut.ends_with(" \u{2026}"),
+            "no trailing space before ellipsis: {cut}"
         );
     }
 }

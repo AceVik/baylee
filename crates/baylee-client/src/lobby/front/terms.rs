@@ -1312,14 +1312,14 @@ pub(crate) fn sheet(
         commands.entity(surface).add_child(foot);
     }
     let scrim = surfaces::sheet(commands, surface);
+    let insets = surfaces::modal_insets(kit);
     commands
         .entity(scrim)
         .entry::<Node>()
         .and_modify(move |mut node| {
+            node.padding = insets;
             if phone {
                 node.align_items = AlignItems::Stretch;
-            } else {
-                node.padding = UiRect::all(px_fixed(kit.m.body));
             }
         });
     commands.entity(root).add_child(scrim);

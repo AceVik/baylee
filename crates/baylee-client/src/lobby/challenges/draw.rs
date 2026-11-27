@@ -44,7 +44,7 @@ pub(in crate::lobby) fn draw(
                 flex_grow: 1.0,
                 min_height: px(0),
                 row_gap: px_fixed(kit.m.gap),
-                padding: UiRect::all(px_fixed(kit.m.body)),
+                padding: UiRect::axes(px_fixed(kit.m.body), kit.m.px(14.0)),
                 overflow: if metrics.frame == Frame::Compact {
                     Overflow::DEFAULT
                 } else {
@@ -91,12 +91,20 @@ pub(in crate::lobby) fn draw(
 /// The way back leads, as a breadcrumb does; the title names the page and,
 /// on the calendar, one sentence says what the page is for.
 fn masthead(commands: &mut Commands, body: Entity, kit: Kit, lang: Lang, model: &State) {
+    let inner = model.selected.is_some() || model.tower.opened;
     let head = layout::section(commands, body, kit);
+    if inner {
+        commands
+            .entity(head)
+            .entry::<Node>()
+            .and_modify(move |mut n| {
+                n.padding = UiRect::axes(px_fixed(kit.m.pad), kit.m.px(10.0));
+            });
+    }
     let line = row(commands, head, kit);
     commands.entity(line).entry::<Node>().and_modify(|mut n| {
         n.flex_wrap = FlexWrap::NoWrap;
     });
-    let inner = model.selected.is_some() || model.tower.opened;
     if inner {
         button(
             commands,

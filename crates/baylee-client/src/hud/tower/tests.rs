@@ -339,3 +339,142 @@ fn drawer_wears_wooden_frame_omits_empty_opponent_slots_and_separates_rarity() {
         "item tooltip titles never concatenate ' · Rarity': {texts:?}"
     );
 }
+
+#[test]
+fn enter_activates_armed_ability_even_when_tower_drawer_is_open() {
+    use baylee_engine::choice::PlayerAction;
+    use bevy::input::keyboard::KeyboardInput;
+    use shellkit::focus::{Activated, FocusReport, Stop};
+
+    let mut duel = fixture();
+    let mine = ObjectId::new(10, 0);
+    let expected = PlayerAction::ActivateAbility {
+        source: mine,
+        ability_index: 0,
+    };
+    duel.armed = Some(crate::Armed {
+        object: mine,
+        deed: crate::Deed::Ability(expected.clone()),
+    });
+    duel.tower_inventory = true;
+
+    let mut app = App::new();
+    app.insert_resource(duel)
+        .insert_resource(FocusReport {
+            table: Some(keys::ORDER.name),
+            ..default()
+        })
+        .init_resource::<ButtonInput<KeyCode>>()
+        .init_resource::<crate::prefs::Prefs>()
+        .init_resource::<ClientSettings>()
+        .add_message::<KeyboardInput>()
+        .add_message::<Activated>()
+        .add_systems(Update, (keys::activate, crate::input::keyboard).chain());
+
+    // Even if a Tower drawer button also emits a keyboard Activated event on
+    // the same Enter press, the already-armed ability takes priority.
+    let button = app
+        .world_mut()
+        .spawn(MenuButton {
+            action: MenuAction::UseTowerItem(mine),
+        })
+        .id();
+    app.world_mut()
+        .resource_mut::<Messages<Activated>>()
+        .write(Activated {
+            entity: button,
+            stop: Stop::item(keys::ORDER.name, "potions", 0),
+            by_key: true,
+        });
+    app.world_mut()
+        .resource_mut::<ButtonInput<KeyCode>>()
+        .press(KeyCode::Enter);
+    app.update();
+
+    let duel = app.world().resource::<Duel>();
+    assert!(
+        !duel.tower_inventory,
+        "confirming the armed ability closes the Run items drawer"
+    );
+    assert!(duel.armed.is_none(), "armed ability was committed");
+    assert_eq!(duel.outbox(), &[expected]);
+}
+
+#[test]
+fn tower_drawer_steps_left_of_open_stack_panel_and_restores_when_stack_empties() {
+    let spell = baylee_client_core::test_support::printed(99, 0, "Lightning Bolt", 1);
+    let view_with_stack = ViewBuilder::new(2).with_stack(vec![spell]).build();
+    let board_with_stack = baylee_client_core::BoardModel::from_view(
+        &view_with_stack,
+        baylee_client_core::board::Openings::none(),
+        &[],
+        crate::cardart::registry(),
+    );
+    assert!(!board_with_stack.stack.is_empty());
+
+    let fonts = UiFonts::default();
+    for canvas in [
+        Vec2::new(1280.0, 720.0),
+        Vec2::new(1600.0, 938.0),
+        Vec2::new(1920.0, 1080.0),
+    ] {
+        let kit = Kit {
+            fonts: &fonts,
+            german: false,
+            m: shellkit::ShellMetrics::of(
+                shellkit::Viewport::desktop(canvas.x, canvas.y),
+                shellkit::TextSize::M,
+            ),
+        };
+
+        let duel_empty = fixture();
+        assert_eq!(
+            super::super::stack::stack_clearance(&duel_empty, canvas),
+            0.0
+        );
+        let mut world_empty = World::new();
+        draw::draw(
+            &mut world_empty.commands(),
+            kit,
+            &duel_empty,
+            canvas,
+            Lang::En,
+            0.0,
+        );
+        world_empty.flush();
+        let empty_right = world_empty
+            .query_filtered::<&Node, (With<Root>, Without<MenuButton>)>()
+            .single(&world_empty)
+            .expect("tower drawer root")
+            .right;
+        assert_eq!(empty_right, shellkit::px_fixed(16.0));
+
+        let mut duel_stacked = fixture();
+        duel_stacked.board = Some(board_with_stack.clone());
+        let expected_clear = super::super::EDGE + super::super::stack::STACK_PANEL_W + 12.0;
+        assert_eq!(
+            super::super::stack::stack_clearance(&duel_stacked, canvas),
+            expected_clear
+        );
+        let mut world_stacked = World::new();
+        draw::draw(
+            &mut world_stacked.commands(),
+            kit,
+            &duel_stacked,
+            canvas,
+            Lang::En,
+            0.0,
+        );
+        world_stacked.flush();
+        let stacked_right = world_stacked
+            .query_filtered::<&Node, (With<Root>, Without<MenuButton>)>()
+            .single(&world_stacked)
+            .expect("tower drawer root with stack")
+            .right;
+        assert_eq!(
+            stacked_right,
+            shellkit::px_fixed(expected_clear),
+            "{canvas:?}: Tower drawer must stand clear left of the open Stack panel"
+        );
+    }
+}

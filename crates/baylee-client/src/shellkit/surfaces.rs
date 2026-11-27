@@ -641,6 +641,38 @@ fn title_beside(commands: &mut Commands, kit: Kit, title: Entity, beside: Entity
 #[derive(Component, Clone, Copy, Default, PartialEq, Eq, Debug)]
 pub struct SheetScroller;
 
+/// Outer padding carried from a [`sheet_box`] or [`dialog`] surface to
+/// [`sheet`] so every modal shares one viewport inset without requiring every
+/// `surfaces::sheet` caller to pass `kit` a second time.
+#[derive(Component, Clone, Copy, Debug)]
+struct SheetInsets(UiRect);
+
+/// Shared outer margin for desktop modal scrims ([`sheet`] and [`scrim`]):
+/// clears the top header bar (`kit.m.header`) with breathing room above and
+/// keeps a matching margin on the sides and bottom. Phones fill the viewport.
+#[must_use]
+pub fn modal_insets(kit: Kit) -> UiRect {
+    if kit.m.frame == super::Frame::Phone {
+        UiRect::ZERO
+    } else {
+        UiRect {
+            left: px_fixed(kit.m.body),
+            right: px_fixed(kit.m.body),
+            top: px_fixed(kit.m.header + kit.m.gap),
+            bottom: px_fixed(kit.m.body),
+        }
+    }
+}
+
+/// Default desktop modal insets used immediately by [`sheet`] before a
+/// surface's own [`SheetInsets`] (if any) overrides them.
+const DEFAULT_MODAL_INSETS: UiRect = UiRect {
+    left: px_fixed(20.0),
+    right: px_fixed(20.0),
+    top: px_fixed(68.0),
+    bottom: px_fixed(20.0),
+};
+
 /// Spawns a full-width dialog action row that distributes its buttons
 /// symmetrically across the available width, wrapping cleanly on narrow frames.
 pub fn dialog_button_row(commands: &mut Commands, kit: Kit, entities: &[Entity]) -> Entity {
@@ -751,6 +783,7 @@ fn sheet_box_parts<C: Bundle>(
         .spawn((
             Role::Opaque,
             Pickable::default(),
+            SheetInsets(modal_insets(kit)),
             Node {
                 width: if phone {
                     Val::Percent(100.0)
@@ -788,8 +821,6 @@ fn sheet_box_parts<C: Bundle>(
                 flex_direction: FlexDirection::Column,
                 flex_shrink: 1.0,
                 min_height: px_fixed(0.0),
-                padding: UiRect::all(px_fixed(kit.m.pad)),
-                row_gap: px_fixed(kit.m.gap),
                 overflow: Overflow::scroll_y(),
                 ..default()
             },
@@ -797,7 +828,25 @@ fn sheet_box_parts<C: Bundle>(
         ))
         .insert(marker)
         .id();
-    commands.entity(scroller).add_children(body);
+    // Put padding and row-gap on an inner content column rather than directly
+    // on the `Overflow::scroll_y()` node so auto-sized sheets (e.g. Tower
+    // starter deck previews) measure `content_size.y == size.y` when all rows
+    // fit and never show a spurious scrollbar for bottom padding.
+    let content = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
+                flex_shrink: 0.0,
+                padding: UiRect::all(px_fixed(kit.m.pad)),
+                row_gap: px_fixed(kit.m.gap),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(content).add_children(body);
+    commands.entity(scroller).add_child(content);
     let band = if fixed_viewport {
         let band = crate::lobby::scrollbars::band_stable(commands, scroller, phone);
         commands.entity(band).entry::<Node>().and_modify(|mut n| {
@@ -1093,6 +1142,7 @@ pub fn dialog(
         .spawn((
             Role::Opaque,
             Pickable::default(),
+            SheetInsets(modal_insets(kit)),
             Node {
                 width: if phone { Val::Percent(100.0) } else { width },
                 max_width: Val::Percent(100.0),
@@ -1135,7 +1185,6 @@ pub fn scrim(
     action: impl Bundle,
     surface: Entity,
 ) -> Entity {
-    let phone = kit.m.frame == super::Frame::Phone;
     let backdrop = commands
         .spawn((
             ModalScrim,
@@ -1148,7 +1197,7 @@ pub fn scrim(
                 height: Val::Percent(100.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
-                padding: UiRect::all(px_fixed(if phone { 0.0 } else { kit.m.body })),
+                padding: modal_insets(kit),
                 ..default()
             },
             BackgroundColor(tokens::SCRIM),
@@ -1175,6 +1224,7 @@ pub fn sheet(commands: &mut Commands, surface: Entity) -> Entity {
                 height: Val::Percent(100.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
+                padding: DEFAULT_MODAL_INSETS,
                 ..default()
             },
             BackgroundColor(tokens::SCRIM),
@@ -1182,6 +1232,13 @@ pub fn sheet(commands: &mut Commands, surface: Entity) -> Entity {
         ))
         .id();
     commands.entity(scrim).add_child(surface);
+    commands.queue(move |world: &mut World| {
+        if let Some(insets) = world.get::<SheetInsets>(surface).copied()
+            && let Some(mut node) = world.get_mut::<Node>(scrim)
+        {
+            node.padding = insets.0;
+        }
+    });
     scrim
 }
 

@@ -893,7 +893,14 @@ fn modal(
         .entity(shade)
         .insert((GlobalZIndex(tokens::z::SHEET + 2), cancel))
         .entry::<Node>()
-        .and_modify(move |mut node| node.padding = UiRect::all(px(metrics.pad)));
+        .and_modify(move |mut node| {
+            node.padding = UiRect {
+                left: px_fixed(metrics.pad),
+                right: px_fixed(metrics.pad),
+                top: px_fixed(56.0 + metrics.pad),
+                bottom: px_fixed(metrics.pad),
+            };
+        });
     commands.entity(root).add_child(shade);
     panel
 }

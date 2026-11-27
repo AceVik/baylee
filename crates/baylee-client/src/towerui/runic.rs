@@ -146,3 +146,45 @@ pub(super) fn ability(
         _ => return None,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn runic_charge_and_activate_use_fluent_plurals_in_english_and_german() {
+        assert_eq!(
+            P::RunicCharge.fill(Lang::En, &["Whenever you gain life", "1"]),
+            "Whenever you gain life, put 1 charge counter on this item."
+        );
+        assert_eq!(
+            P::RunicCharge.fill(Lang::En, &["Whenever you gain life", "2"]),
+            "Whenever you gain life, put 2 charge counters on this item."
+        );
+        assert_eq!(
+            P::RunicCharge.fill(Lang::De, &["Immer wenn du Lebenspunkte dazuerhältst", "1"]),
+            "Immer wenn du Lebenspunkte dazuerhältst, lege 1 Ladungsmarke auf diesen Gegenstand."
+        );
+        assert_eq!(
+            P::RunicCharge.fill(Lang::De, &["Immer wenn du Lebenspunkte dazuerhältst", "2"]),
+            "Immer wenn du Lebenspunkte dazuerhältst, lege 2 Ladungsmarken auf diesen Gegenstand."
+        );
+
+        assert_eq!(
+            P::RunicActivate.fill(Lang::En, &["", "1", "Draw a card"]),
+            "Remove 1 charge counter from this item: Draw a card. Activate from the command zone."
+        );
+        assert_eq!(
+            P::RunicActivate.fill(Lang::En, &["{1}, ", "3", "Draw a card"]),
+            "{1}, Remove 3 charge counters from this item: Draw a card. Activate from the command zone."
+        );
+        assert_eq!(
+            P::RunicActivate.fill(Lang::De, &["", "1", "Ziehe eine Karte"]),
+            "Entferne 1 Ladungsmarke von diesem Gegenstand: Ziehe eine Karte. Aktiviere dies aus der Kommandozone."
+        );
+        assert_eq!(
+            P::RunicActivate.fill(Lang::De, &["{1}, ", "3", "Ziehe eine Karte"]),
+            "{1}, Entferne 3 Ladungsmarken von diesem Gegenstand: Ziehe eine Karte. Aktiviere dies aus der Kommandozone."
+        );
+    }
+}

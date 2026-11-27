@@ -590,10 +590,41 @@ type StackPanelQuery<'w, 's> = Query<
 type StackGroupToggleQuery<'w, 's> =
     Query<'w, 's, (&'static StackGroupToggleText, &'static mut Text), Without<StackToggle>>;
 
+/// Right-edge horizontal clearance that keeps desktop in-game panels (Tower
+/// items drawer, Game Log, Zone Browser / Trigger Order) completely left of an
+/// open Stack panel. Returns zero while the stack is empty or on a phone.
+#[must_use]
+pub(in crate::hud) fn stack_clearance(duel: &Duel, window: Vec2) -> f32 {
+    use baylee_client_core::tableview::TableFrame;
+    let stack_open = duel.board.as_ref().is_some_and(|b| !b.stack.is_empty());
+    if !stack_open || TableFrame::of(window.x, window.y) == TableFrame::Phone {
+        return 0.0;
+    }
+    EDGE + STACK_PANEL_W + 12.0
+}
+
+type StackMenuQuery<'w, 's> = Query<
+    'w,
+    's,
+    (
+        &'static ComputedNode,
+        &'static UiGlobalTransform,
+        &'static Visibility,
+    ),
+    (
+        With<super::ledge::menu::MenuPanel>,
+        Without<StackPanel>,
+        Without<StackViewport>,
+        Without<StackGroupBody>,
+        Without<StackControls>,
+    ),
+>;
+
 /// Animate clipping instead of scaling text, so the stack remains readable;
 /// and keep the panel where [`panel_room`] puts it, which on a phone follows
 /// the hand drawer.
 #[allow(clippy::too_many_arguments)] // a Bevy system: the panel's parts
+#[allow(clippy::too_many_lines)]
 pub fn fold_the_stack(
     time: Res<Time>,
     prefs: Res<crate::prefs::Prefs>,
@@ -605,6 +636,7 @@ pub fn fold_the_stack(
     mut panels: StackPanelQuery,
     mut controls: StackControlsQuery,
     strips: StripQuery,
+    menu: StackMenuQuery,
     mut toggles: Query<&mut Text, (With<StackToggle>, Without<StackGroupToggleText>)>,
     mut group_bodies: StackGroupBodyQuery,
     mut group_toggles: StackGroupToggleQuery,
@@ -623,7 +655,7 @@ pub fn fold_the_stack(
             fold.open = next;
         }
     }
-    let room = windows.single().map_or(
+    let mut room = windows.single().map_or(
         PanelRoom {
             top: TOP_CLEAR,
             right: EDGE,
@@ -640,6 +672,19 @@ pub fn fold_the_stack(
             )
         },
     );
+    if !room.phone
+        && duel
+            .as_ref()
+            .is_some_and(|d| d.game_menu && d.ending().is_none())
+    {
+        for (computed, place, seen) in &menu {
+            if *seen != Visibility::Hidden && computed.size().y > 0.0 {
+                let menu_top =
+                    (place.translation.y - computed.size().y * 0.5) * computed.inverse_scale_factor;
+                room.max_height = room.max_height.min((menu_top - room.top - 8.0).max(80.0));
+            }
+        }
+    }
     for mut node in &mut panels {
         // Through `bypass_change_detection` and marked changed only on a
         // real move: every frame used to write all of these.
@@ -817,7 +862,7 @@ const STACK_QUEUED_TARGET_H: f32 = STACK_QUEUED_TARGET_W * 88.0 / 63.0;
 /// and **every** face in the pool fits, with the longest
 /// (`Okina, Temple to the Grandfathers`, 202 px at 14 in Faustina, 245 in
 /// Inter) still 65 px short of the edge.
-const STACK_PANEL_W: f32 = 352.0;
+pub(in crate::hud) const STACK_PANEL_W: f32 = 352.0;
 
 /// Bounded visible rows, including overscan for smooth scrolling.
 const STACK_COMPACT_ROWS: usize = 16;

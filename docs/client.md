@@ -10395,12 +10395,13 @@ width and draws it empty, so every sentence starts at one edge
 (`ledge::log::subject_ink`). The panel's words are `GameLog…` phrases,
 because every `Log…` phrase is a sentence of the book's.
 
-**The end screen** (`hud::finish::write_the_log`) carries the whole log
-between the loss lines and the way out, under a "Game log" caption, in a box
-at most 320 high that scrolls. It uses the panel's own rows
-(`ledge::log::spawn_line`) in the sheet's inks (`LineInks`): parchment ink,
-headings, times and "(×N)" in the slip's softer ink, links in the darkened
-candle, and no seat swatch. Its colours
+**The end screen** (`hud::finish::write_the_log`) wears `Density::Reading` glass
+(`shellkit::glass::ground`, `shellkit::glass::rim`, and card shadow) and carries
+the whole log between the loss lines and the way out, under a "Game log" caption,
+in a box at most 320 high that scrolls. It uses the panel's own rows
+(`ledge::log::spawn_line`) in Reading-glass inks (`LineInks`): primary ink
+(`tokens::INK`), headings, times and "(×N)" in muted ink (`tokens::MUTED`),
+links in accent (`tokens::ACCENT`), and no seat swatch. Its colours
 go on clear and rise with the veil (`finish::Settling`), like the rest of the
 sheet. It starts at the top and does not follow its end, because it is read
 from the start of the game and nothing arrives any more. It is built once:

@@ -7021,6 +7021,9 @@ ShellAddAndUse = Add and use
 # The gold primary while the player holds a seat.
 ShellReturnToGame = Return to game
 
+# The gold primary while the player holds a chair at a waiting table.
+ShellReturnToTable = Return to table
+
 # Why a control is off while there is no gateway.
 ShellNeedsGateway = Needs the gateway
 
@@ -9419,15 +9422,27 @@ CheckUnknown = Can't say whether this is legal for { $name }
 
 # The deck's size against a format that takes this many or more.
 # Arguments: have, need
-CheckCountAtLeast = { $have } cards, at least { $need }
+CheckCountAtLeast =
+    { $have } { $have ->
+        [one] card
+       *[other] cards
+    }, at least { $need }
 
 # The deck's size against a format that takes exactly this many.
 # Arguments: have, need
-CheckCountExactly = { $have } of { $need } cards
+CheckCountExactly =
+    { $have } of { $need } { $need ->
+        [one] card
+       *[other] cards
+    }
 
 # The deck's size where no size is known.
 # Arguments: have
-CheckCount = { $have } cards
+CheckCount =
+    { $have } { $have ->
+        [one] card
+       *[other] cards
+    }
 
 # Rows read from a stored deck are waiting for the pool.
 CheckWaitsForPool = The check waits for the card pool.
@@ -9751,7 +9766,11 @@ BuildVariantLegal = Legal
 
 # A saved variant has problems in its format.
 # Arguments: count
-BuildVariantIssues = { $count } issues
+BuildVariantIssues =
+    { $count } { $count ->
+        [one] issue
+       *[other] issues
+    }
 
 # A saved variant has not been checked.
 BuildVariantUnchecked = Unchecked
@@ -9764,7 +9783,11 @@ BuildStatAvgMana = AVG MANA VALUE
 
 # Under the average mana value: the total and the number of spells.
 # Arguments: total, spells
-BuildStatManaSub = Σ { $total } mana · { $spells } spells
+BuildStatManaSub =
+    Σ { $total } mana · { $spells } { $spells ->
+        [one] spell
+       *[other] spells
+    }
 
 # The statistics tile: the lands' share of the deck.
 BuildStatLandShare = LAND SHARE
@@ -9774,7 +9797,11 @@ BuildStatInstantSpeed = INSTANT SPEED
 
 # Under the instant-speed tile: the legendary cards.
 # Arguments: count
-BuildStatLegendary = { $count } legendary cards
+BuildStatLegendary =
+    { $count } { $count ->
+        [one] legendary card
+       *[other] legendary cards
+    }
 
 # The statistics tile: the deck's record and rank.
 BuildStatRecord = RECORD & RANK
@@ -9795,7 +9822,14 @@ BuildPipsVsSources = Cost pips vs. mana sources
 
 # One colour's detail on the colour pips card.
 # Arguments: pips, sources
-BuildPipsDetail = { $pips } pips · { $sources } sources
+BuildPipsDetail =
+    { $pips } { $pips ->
+        [one] pip
+       *[other] pips
+    } · { $sources } { $sources ->
+        [one] source
+       *[other] sources
+    }
 
 # The statistics heading over the rarity pills.
 BuildRarityDistribution = Rarity distribution
@@ -9809,7 +9843,14 @@ BuildOddsText = ≥ 2 lands: { $two_plus }% · 2–4 lands: { $two_to_four }% ·
 
 # The simulated hand's summary.
 # Arguments: lands, spells
-BuildHandSummary = Drawn hand: { $lands } lands · { $spells } non-lands
+BuildHandSummary =
+    Drawn hand: { $lands } { $lands ->
+        [one] land
+       *[other] lands
+    } · { $spells } { $spells ->
+        [one] non-land
+       *[other] non-lands
+    }
 
 # The card download popover: the number of cards downloaded.
 CardFillTileCards = Cards downloaded
@@ -10819,9 +10860,17 @@ RunicEventEcho = Whenever you discard a card
 RunicEventWraith = Whenever a creature an opponent controls dies
 RunicEventStar = Whenever you cast or copy an instant or sorcery spell
 # Arguments: event, count
-RunicCharge = { $event }, put { $count } charge counters on this item.
+RunicCharge =
+    { $count ->
+        [one] { $event }, put { $count } charge counter on this item.
+       *[other] { $event }, put { $count } charge counters on this item.
+    }
 # Arguments: mana, charges, reward
-RunicActivate = { $mana }Remove { $charges } charge counters from this item: { $reward }. Activate from the command zone.
+RunicActivate =
+    { $charges ->
+        [one] { $mana }Remove { $charges } charge counter from this item: { $reward }. Activate from the command zone.
+       *[other] { $mana }Remove { $charges } charge counters from this item: { $reward }. Activate from the command zone.
+    }
 RunicOnce = Activate only once each turn.
 # Arguments: count
 RunicLimit = Activate only { $count } times each turn.
@@ -10834,10 +10883,18 @@ RunicRewardDrain = Each opponent loses { $count } life
 # Arguments: count
 RunicRewardScry = Scry { $count }
 # Arguments: count
-RunicRewardPlant = Create { $count } 1/1 green Plant creature tokens
+RunicRewardPlant =
+    { $count ->
+        [one] Create { $count } 1/1 green Plant creature token
+       *[other] Create { $count } 1/1 green Plant creature tokens
+    }
 RunicRewardDraw = Draw a card
 # Arguments: count
-RunicRewardSoldier = Create { $count } 1/1 white Soldier creature tokens
+RunicRewardSoldier =
+    { $count ->
+        [one] Create { $count } 1/1 white Soldier creature token
+       *[other] Create { $count } 1/1 white Soldier creature tokens
+    }
 RunicRewardMana = Add one mana of any color
 # Arguments: count
 RunicRewardGuard = Creatures you control get +0/+{ $count } until end of turn

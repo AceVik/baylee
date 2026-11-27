@@ -654,3 +654,161 @@ fn silent_refresh_keeps_loaded_tiles_and_back_alive() {
         "blocking actions still disable controls until they settle"
     );
 }
+
+#[test]
+fn escape_in_tower_dismisses_spare_cards_then_returns_to_play_like_back() {
+    use super::front_keys::press_key;
+
+    let (mut app, _jobs) = screen(Lang::En);
+    stocked(&mut app);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.gateway_selected = true;
+        state.echoes.tower_answered(true);
+        state.lobby.apply(LobbyEvent::Games(GameListing::default()));
+        state.hub = Hub::Challenges;
+        state.echoes.opened = true;
+        state.echoes.spare_cards_open = true;
+    }
+    settle(&mut app);
+
+    // First Escape closes the inline spare-cards drawer and stays in the Tower.
+    press_key(&mut app, KeyCode::Escape, Key::Escape, &[]);
+    {
+        let state = app.world().resource::<LobbyState>();
+        assert!(!state.echoes.spare_cards_open);
+        assert!(state.echoes.opened);
+        assert_eq!(state.hub, Hub::Challenges);
+    }
+
+    // Second Escape closes the Tower and lands on Lobby Play, matching Back.
+    press_key(&mut app, KeyCode::Escape, Key::Escape, &[]);
+    {
+        let state = app.world().resource::<LobbyState>();
+        assert!(!state.echoes.opened);
+        assert_eq!(state.hub, Hub::Play);
+    }
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn folded_daily_and_weekly_briefings_fit_without_scrollbar_at_default_desktop() {
+    use crate::shellkit::{ShellMetrics, TextSize, Viewport, controls::Kit, px_fixed};
+    use bevy::ui_widgets::Scrollbar;
+
+    for (kind, instructions_en, instructions_de) in [
+        (
+            api::Kind::Daily,
+            "Win this game as fast as you can using the supplied red-green burn deck.",
+            "Gewinne dieses Spiel so schnell wie möglich mit dem vorgegebenen Rot-Grün-Deck.",
+        ),
+        (
+            api::Kind::Weekly,
+            "Outlast a patient opponent across a longer game. Manage your resources carefully across multiple turns, hold back removal for key threats, and close the match cleanly without losing tempo or running out of answers.",
+            "Bestehe gegen einen geduldigen Gegner über ein längeres Spiel. Teile deine Ressourcen über mehrere Züge sorgfältig ein, halte Antworten für wichtige Bedrohungen bereit und schließe die Partie sauber ab.",
+        ),
+    ] {
+        for lang in [Lang::En, Lang::De] {
+            let (mut app, fonts) = crate::face::tests::layout_app();
+            app.add_systems(Update, crate::lobby::scrollbars::show_when_needed);
+            let mut state = LobbyState::default();
+            central::restored_for_test(&mut state, Vec::new());
+            state.lobby.set_lang(lang);
+            assert!(
+                state.can_enter_challenges(),
+                "test exercises the full challenge detail page"
+            );
+            let id = [7; 16];
+            let now = i64::try_from(crate::lobby::parts::now_secs()).unwrap_or(1_794_182_401);
+            let model = &mut state.challenges.model;
+            model.busy = false;
+            model.loaded = true;
+            model.now = now;
+            model.selected = Some(id);
+            model.detail = Some(api::Challenge {
+                id,
+                digest: [1; 32],
+                withdrawn: false,
+                description: api::Description {
+                    period: api::Period::containing(kind, model.now).unwrap(),
+                    title: api::Words {
+                        en: "The long game".into(),
+                        de: "Das lange Spiel".into(),
+                    },
+                    instructions: api::Words {
+                        en: instructions_en.into(),
+                        de: instructions_de.into(),
+                    },
+                    deck: "[deck:Crossroads]\n24 Mountain\n16 Forest\n4 Lightning Bolt".into(),
+                    executor: "test".into(),
+                    target_turn: 6,
+                    expected_minutes: 15,
+                },
+            });
+            model.personal = Some(api::TaskProgress {
+                challenge: id,
+                starts: 0,
+                failures: 0,
+                hint_level: 0,
+                listed: false,
+                first_win: None,
+                completed_at: None,
+                live_week: None,
+                tactician: false,
+                first_try: false,
+                best_turn: None,
+            });
+            let kit = Kit {
+                fonts: &fonts,
+                m: ShellMetrics::of(Viewport::desktop(1728.0, 1052.0), TextSize::M),
+                german: lang == Lang::De,
+            };
+            let scrolled = Scrolled::default();
+            let mut commands = app.world_mut().commands();
+            let root = commands
+                .spawn(Node {
+                    width: px_fixed(1728.0),
+                    height: px_fixed(1052.0 - kit.m.header),
+                    flex_direction: FlexDirection::Column,
+                    ..default()
+                })
+                .id();
+            crate::lobby::challenges::draw::draw(
+                &mut commands,
+                root,
+                &state,
+                Metrics::of(1728.0),
+                kit,
+                &scrolled,
+            );
+            app.world_mut().flush();
+            for _ in 0..5 {
+                app.update();
+            }
+            let world = app.world_mut();
+            let (scroller, computed) = world
+                .query::<(Entity, &Scrollable, &ComputedNode)>()
+                .iter(world)
+                .find(|(_, scrollable, _)| scrollable.0 == List::Table)
+                .map(|(e, _, c)| (e, *c))
+                .expect("challenge detail scroller");
+            assert!(
+                computed.content_size.y <= computed.size.y + 0.5,
+                "{kind:?} {lang:?}: folded briefing overflows default 1728x1052 viewport ({:.1} > {:.1})",
+                computed.content_size.y,
+                computed.size.y
+            );
+            let bar_display = world
+                .query_filtered::<(&Scrollbar, &Node), With<crate::lobby::scrollbars::OnlyWhenNeeded>>()
+                .iter(world)
+                .find(|(bar, _)| bar.target == scroller)
+                .map(|(_, node)| node.display)
+                .expect("challenge detail scrollbar");
+            assert_eq!(
+                bar_display,
+                Display::None,
+                "{kind:?} {lang:?}: folded briefing must hide its scrollbar when it fits"
+            );
+        }
+    }
+}

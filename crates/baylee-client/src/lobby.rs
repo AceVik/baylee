@@ -1140,6 +1140,7 @@ pub(crate) mod entrance;
 mod feed;
 mod field;
 mod focusing;
+pub(crate) use focusing::Primary;
 mod header;
 pub(crate) use header::Notice;
 #[cfg(not(target_arch = "wasm32"))]

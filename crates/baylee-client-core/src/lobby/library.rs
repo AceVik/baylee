@@ -330,9 +330,12 @@ impl Lobby {
         }
         let id = id.to_string();
         // A house deck's history is read-only (Q-C4); its list is kept, so
-        // the sheet knows it for one and closing returns to it.
+        // the sheet knows it for one and closing returns to it. A deck newly
+        // saved in the builder is also ours before `ListDecks` catches up.
         let house = self.library.house.iter().any(|deck| deck.id == id);
-        if !house && !self.decks.iter().any(|deck| deck.id == id) {
+        let own = self.decks.iter().any(|deck| deck.id == id)
+            || self.builder.editing() == Some(id.as_str());
+        if !house && !own {
             return None;
         }
         self.library = Library {

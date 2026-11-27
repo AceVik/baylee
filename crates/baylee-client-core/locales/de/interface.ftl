@@ -2357,6 +2357,7 @@ ShellUseForNextGame = Fürs nächste Spiel
 ShellEdit = Bearbeiten
 ShellAddAndUse = Hinzufügen & nutzen
 ShellReturnToGame = Zurück zum Spiel
+ShellReturnToTable = Zurück zum Tisch
 ShellNeedsGateway = Braucht das Gateway
 ShellSeatedAt = Du sitzt an { $table }
 ShellCouldNotReach = { $gateway } ist nicht erreichbar
@@ -3226,9 +3227,21 @@ CheckIllegal =
        *[other] Nicht legal für { $name }: { $count } Probleme
     }
 CheckUnknown = Ob das für { $name } legal ist, lässt sich nicht sagen
-CheckCountAtLeast = { $have } Karten, mindestens { $need }
-CheckCountExactly = { $have } von { $need } Karten
-CheckCount = { $have } Karten
+CheckCountAtLeast =
+    { $have } { $have ->
+        [one] Karte
+       *[other] Karten
+    }, mindestens { $need }
+CheckCountExactly =
+    { $have } von { $need } { $need ->
+        [one] Karte
+       *[other] Karten
+    }
+CheckCount =
+    { $have } { $have ->
+        [one] Karte
+       *[other] Karten
+    }
 CheckWaitsForPool = Die Prüfung wartet auf den Kartenpool.
 CheckNoStatuses = Bann, Beschränkung und welche Karten das Format kennt, konnten nicht geprüft werden: Dafür braucht es die Kartentabelle des Gateways.
 CheckNoShape = Deckgröße, Kopien und Anführer dieses Formats werden hier nicht geprüft.
@@ -3374,26 +3387,48 @@ BuildSortDirDescTip = Sortierung: Absteigend (klicken für Zurücksetzen)
 BuildSortDirUnsetTip = Sortierung: Standardreihenfolge (klicken für Aufsteigend)
 BuildVariantsTitle = Format-Varianten dieses Decks
 BuildVariantSave = + Stand als { $format }-Variante sichern
-BuildVariantsNote = Speichere angepasste Kartenlisten dieses Decks für mehrere Formate gleichzeitig. Jede Variante wird gegen ihr Format und ihre Banlist validiert.
+BuildVariantsNote = Speichere angepasste Kartenlisten dieses Decks für mehrere Formate gleichzeitig. Jede Variante wird gegen ihr Format und ihre Bannliste validiert.
 BuildVariantLegal = Gültig
-BuildVariantIssues = { $count } Probleme
+BuildVariantIssues =
+    { $count } { $count ->
+        [one] Problem
+       *[other] Probleme
+    }
 BuildVariantUnchecked = Ungeprüft
 BuildVariantActivate = Aktivieren
 BuildStatAvgMana = Ø MANABETRAG
 BuildStatManaSub = Σ { $total } Mana · { $spells } Zauber
 BuildStatLandShare = LÄNDER-ANTEIL
-BuildStatInstantSpeed = INSTANT-TEMPO
-BuildStatLegendary = { $count } Legendäre Karten
+BuildStatInstantSpeed = SPONTAN-TEMPO
+BuildStatLegendary =
+    { $count } { $count ->
+        [one] legendäre Karte
+       *[other] legendäre Karten
+    }
 BuildStatRecord = BILANZ & RANG
 BuildStatNoGames = 0 Spiele
 BuildStatRecordLine = { $wins }S / { $games }Sp ({ $percent }%)
 BuildStatTierLine = Stufe { $level }/11 · { $title }
 BuildPipsVsSources = Symbole in Kosten vs. Mana-Quellen
-BuildPipsDetail = { $pips } Pips · { $sources } Quellen
+BuildPipsDetail =
+    { $pips } { $pips ->
+        [one] Pip
+       *[other] Pips
+    } · { $sources } { $sources ->
+        [one] Quelle
+       *[other] Quellen
+    }
 BuildRarityDistribution = Seltenheits-Verteilung
 BuildOddsHead = Starthand-Chancen (7 Karten) & Simulator
 BuildOddsText = ≥ 2 Länder: { $two_plus }% · 2–4 Länder: { $two_to_four }% · Spielzug MV ≤ 2: { $early }%
-BuildHandSummary = Gezogene Hand: { $lands } Länder · { $spells } Nichtländer
+BuildHandSummary =
+    Gezogene Hand: { $lands } { $lands ->
+        [one] Land
+       *[other] Länder
+    } · { $spells } { $spells ->
+        [one] Nichtland
+       *[other] Nichtländer
+    }
 CardFillTileCards = Karten geladen
 CardFillTileSpeed = Geschwindigkeit
 CardFillTileDownloaded = Heruntergeladen
@@ -4077,25 +4112,49 @@ RunicEventEcho = Immer wenn du eine Karte abwirfst
 RunicEventWraith = Immer wenn eine Kreatur unter gegnerischer Kontrolle stirbt
 RunicEventStar = Immer wenn du einen Spontanzauber oder eine Hexerei wirkst oder kopierst
 # Arguments: event, count
-RunicCharge = { $event }, lege { $count } Ladungsmarken auf diesen Gegenstand.
+RunicCharge =
+    { $count ->
+        [one] { $event }, lege { $count } Ladungsmarke auf diesen Gegenstand.
+       *[other] { $event }, lege { $count } Ladungsmarken auf diesen Gegenstand.
+    }
 # Arguments: mana, charges, reward
-RunicActivate = { $mana }Entferne { $charges } Ladungsmarken von diesem Gegenstand: { $reward }. Aktiviere dies aus der Kommandozone.
+RunicActivate =
+    { $charges ->
+        [one] { $mana }Entferne { $charges } Ladungsmarke von diesem Gegenstand: { $reward }. Aktiviere dies aus der Kommandozone.
+       *[other] { $mana }Entferne { $charges } Ladungsmarken von diesem Gegenstand: { $reward }. Aktiviere dies aus der Kommandozone.
+    }
 RunicOnce = Aktiviere dies nur einmal pro Zug.
 # Arguments: count
 RunicLimit = Aktiviere dies nur { $count } Mal pro Zug.
 # Arguments: reward
 RunicLegend = Zu Beginn deines Versorgungssegments: { $reward }.
 # Arguments: count
-RunicRewardLife = Du erhältst { $count } Lebenspunkte dazu
+RunicRewardLife =
+    { $count ->
+        [one] Du erhältst { $count } Lebenspunkt dazu
+       *[other] Du erhältst { $count } Lebenspunkte dazu
+    }
 # Arguments: count
-RunicRewardDrain = Jeder Gegner verliert { $count } Lebenspunkte
+RunicRewardDrain =
+    { $count ->
+        [one] Jeder Gegner verliert { $count } Lebenspunkt
+       *[other] Jeder Gegner verliert { $count } Lebenspunkte
+    }
 # Arguments: count
 RunicRewardScry = Hellsicht { $count }
 # Arguments: count
-RunicRewardPlant = Erzeuge { $count } grüne 1/1 Pflanzen-Kreaturenspielsteine
+RunicRewardPlant =
+    { $count ->
+        [one] Erzeuge { $count } grünen 1/1 Pflanzen-Kreaturenspielstein
+       *[other] Erzeuge { $count } grüne 1/1 Pflanzen-Kreaturenspielsteine
+    }
 RunicRewardDraw = Ziehe eine Karte
 # Arguments: count
-RunicRewardSoldier = Erzeuge { $count } weiße 1/1 Soldaten-Kreaturenspielsteine
+RunicRewardSoldier =
+    { $count ->
+        [one] Erzeuge { $count } weißen 1/1 Soldaten-Kreaturenspielstein
+       *[other] Erzeuge { $count } weiße 1/1 Soldaten-Kreaturenspielsteine
+    }
 RunicRewardMana = Erzeuge ein Mana einer beliebigen Farbe
 # Arguments: count
 RunicRewardGuard = Kreaturen unter deiner Kontrolle erhalten +0/+{ $count } bis zum Ende des Zuges

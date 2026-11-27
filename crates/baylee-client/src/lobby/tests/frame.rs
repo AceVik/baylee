@@ -300,3 +300,91 @@ fn the_desktop_canvas_floor_preserves_the_tree_and_its_controls() {
         );
     }
 }
+
+/// Filtered or searched-empty views on both My decks and House decks render a
+/// centered `shellkit::states::empty` block with a Reset filters action and
+/// never leave the redundant "+ New deck" grid tile behind.
+#[test]
+fn decks_filtered_empty_shows_centered_empty_state_without_new_deck_tile() {
+    let mut app = headless();
+    stocked(&mut app);
+    sized(&mut app, 1400.0);
+    to_decks(&mut app);
+
+    let new_before = presses(&mut app)
+        .into_iter()
+        .filter(|p| *p == Press::Decks(DecksPress::NewDeck))
+        .count();
+    assert_eq!(
+        new_before, 2,
+        "unfiltered My decks has both toolbar button and grid tile"
+    );
+
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .set_field(Field::DeckSearch, "zzzznomatch");
+    app.update();
+    app.update();
+
+    let found = presses(&mut app);
+    let new_after = found
+        .iter()
+        .filter(|p| **p == Press::Decks(DecksPress::NewDeck))
+        .count();
+    assert_eq!(
+        new_after, 1,
+        "filtered-empty My decks hides the redundant grid tile and keeps only the toolbar button"
+    );
+    assert!(found.contains(&Press::Decks(DecksPress::ClearFilters)));
+    let centered_empty = {
+        let world = app.world_mut();
+        world
+            .query::<(&Text, &TextLayout)>()
+            .iter(world)
+            .any(|(t, l)| t.0.contains("zzzznomatch") && l.justify == Justify::Center)
+    };
+    assert!(centered_empty, "My decks empty state is centered");
+
+    // House decks filtered-empty shows the same centered empty state.
+    {
+        use client_core::lobby::library::{HouseDeck, Reply};
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.decks.tab = super::decks::DecksTab::House;
+        state.lobby.browse_house();
+        state
+            .lobby
+            .apply(LobbyEvent::Library(Reply::House(vec![HouseDeck {
+                id: "h1".into(),
+                name: "Starter".into(),
+                format: "commander".into(),
+                description: String::new(),
+                version: 1,
+                cards: 70,
+                sideboard: 0,
+                commanders: vec!["Aang and Katara".into()],
+                ..Default::default()
+            }])));
+    }
+    app.update();
+    app.update();
+    let centered_house = {
+        let world = app.world_mut();
+        world
+            .query::<(&Text, &TextLayout)>()
+            .iter(world)
+            .any(|(t, l)| t.0.contains("zzzznomatch") && l.justify == Justify::Center)
+    };
+    assert!(centered_house, "House decks empty state is centered");
+    assert!(presses(&mut app).contains(&Press::Decks(DecksPress::ClearFilters)));
+
+    // Resetting clears both the search field and the empty state.
+    press(&mut app, Press::Decks(DecksPress::ClearFilters));
+    assert!(
+        app.world()
+            .resource::<LobbyState>()
+            .lobby
+            .field(Field::DeckSearch)
+            .is_empty()
+    );
+}

@@ -338,15 +338,7 @@ pub(super) fn sheet(
         // full is read, and the sign-in form must not show through its words.
         .insert(crate::shellkit::glass::ground(
             crate::shellkit::glass::Density::Solid,
-        ))
-        .entry::<Node>()
-        .and_modify(move |mut node| {
-            node.max_height = if phone {
-                Val::Percent(100.0)
-            } else {
-                Val::Percent(94.0)
-            };
-        });
+        ));
     let scrim = surfaces::scrim(
         commands,
         kit,

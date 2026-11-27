@@ -405,6 +405,21 @@ pub(crate) fn window(
     commands
         .entity(scrim)
         .insert(Press::Build(BuildPress::PickerClose));
+    // Mount the Set dropdown directly on the scrim so neither the scrolling
+    // body nor the clipped sheet cuts it off behind the footer.
+    if picker.from_catalog()
+        && picker.sets().len() > 1
+        && let Some(popup) = super::print_picker::set_popup(
+            commands,
+            kit.fonts,
+            env.lobby_metrics(),
+            lang,
+            picker,
+            Some(print_w),
+        )
+    {
+        commands.entity(scrim).add_child(popup);
+    }
     Some(scrim)
 }
 
@@ -606,13 +621,15 @@ fn strip(commands: &mut Commands, env: &Env, picker: &Picker) -> Entity {
                 ..default()
             },
             BackgroundColor(Color::NONE),
-            // Enter on the strip is the window's primary (§A.3 keyboard).
+            // Enter on the strip is the window's primary (§A.3 keyboard);
+            // held as `Primary` rather than `Press` so clicking empty space
+            // between thumbnails never adds a card.
             (
-                Press::Build(if picker.replacing() {
+                crate::lobby::Primary(Press::Build(if picker.replacing() {
                     BuildPress::PickerConfirm
                 } else {
                     BuildPress::WindowAdd(picker.zone())
-                }),
+                })),
                 stop("printings"),
             ),
         ))

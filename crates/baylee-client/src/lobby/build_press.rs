@@ -377,9 +377,11 @@ impl BuildPress {
             }
             BuildPress::DeleteBuildDeck => {
                 state.build.menu = None;
-                state.confirmation = Some(confirm::Destructive::DeleteBuildDeck(
-                    state.lobby.builder().editing().map(str::to_owned),
-                ));
+                if state.lobby.builder().editing().is_some() || state.deck_save_out() {
+                    state.confirmation = Some(confirm::Destructive::DeleteBuildDeck(
+                        state.lobby.builder().editing().map(str::to_owned),
+                    ));
+                }
             }
             BuildPress::SetPoolView(view) => {
                 if state.build.pool_view != view {
@@ -545,6 +547,7 @@ impl BuildPress {
                     state.lobby.builder_mut().set_text("is:commander");
                 }
                 state.lobby.builder_mut().focus_on(BuildField::Search);
+                crate::buildui::move_nav(state, crate::buildui::Nav::Field);
                 scrolled.set(List::Pool, 0.0);
             }
             BuildPress::CancelCommanderPick => {
@@ -759,11 +762,16 @@ impl BuildPress {
                 state.lobby.builder_mut().remove_at(at, zone);
             }
             BuildPress::ToggleHeaderMenu => {
-                state.build.menu = if state.build.menu == Some(BuildMenu::Header) {
-                    None
-                } else {
-                    Some(BuildMenu::Header)
-                };
+                let deck = state.lobby.builder();
+                let has_cards =
+                    !deck.entries(Zone::Main).is_empty() || !deck.entries(Zone::Side).is_empty();
+                let can_delete = deck.editing().is_some() || state.deck_save_out();
+                state.build.menu =
+                    if state.build.menu == Some(BuildMenu::Header) || (!has_cards && !can_delete) {
+                        None
+                    } else {
+                        Some(BuildMenu::Header)
+                    };
             }
             BuildPress::ToggleGroupingMenu => {
                 state.build.menu = if state.build.menu == Some(BuildMenu::Grouping) {

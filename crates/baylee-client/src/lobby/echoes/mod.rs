@@ -142,7 +142,7 @@ pub(crate) struct Ui {
     queued: Option<(Uuid, Command)>,
     choices: choices::Draft,
     bag: Bag,
-    spare_cards_open: bool,
+    pub(super) spare_cards_open: bool,
     reward_gold_open: bool,
     reward_deck_open: bool,
     pub(super) preview: Option<baylee_core::ids::CardIndex>,

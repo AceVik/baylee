@@ -311,23 +311,44 @@ fn import_face(
 }
 
 /// A framed block of text: the paste, or the export. At most
-/// [`PREVIEW_LINES`] of it; the count of the rest after that.
+/// [`PREVIEW_LINES`] of it; the count of the rest after that. Keeps its text
+/// inside the border with an on-demand scrollbar when the preview is taller
+/// than the box.
 fn text_box(commands: &mut Commands, kit: Kit, text: &str, empty: Option<&str>) -> Entity {
     let frame = commands
         .spawn((
             Node {
                 width: Val::Percent(100.0),
                 flex_direction: FlexDirection::Column,
-                padding: UiRect::all(kit.m.px(12.0)),
+                flex_shrink: 0.0,
                 border: UiRect::all(px_fixed(1.0)),
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
                 min_height: kit.m.px(72.0),
+                max_height: kit.m.px(260.0),
+                overflow: Overflow::clip(),
                 ..default()
             },
             BackgroundColor(tokens::CONTROL.with_alpha(0.55)),
             BorderColor::all(tokens::BORDER),
             surfaces::elevation_subcard(),
             Pickable::IGNORE,
+        ))
+        .id();
+    let scroller = commands
+        .spawn((
+            surfaces::SheetScroller,
+            crate::shellkit::Role::Scroll,
+            Pickable::default(),
+            Node {
+                width: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
+                padding: UiRect::all(kit.m.px(12.0)),
+                min_height: kit.m.px(70.0),
+                max_height: kit.m.px(258.0),
+                overflow: Overflow::scroll_y(),
+                ..default()
+            },
+            ScrollPosition::default(),
         ))
         .id();
     let (shown, ink) = if text.trim().is_empty() {
@@ -350,10 +371,17 @@ fn text_box(commands: &mut Commands, kit: Kit, text: &str, empty: Option<&str>) 
             Text::new(shown),
             tf(kit.fonts, kit.m.small),
             TextColor(ink),
+            Node {
+                width: Val::Percent(100.0),
+                flex_shrink: 0.0,
+                ..default()
+            },
             Pickable::IGNORE,
         ))
         .id();
-    commands.entity(frame).add_child(body);
+    commands.entity(scroller).add_child(body);
+    let band = crate::lobby::scrollbars::band_when_needed(commands, scroller, false);
+    commands.entity(frame).add_child(band);
     frame
 }
 
@@ -370,6 +398,11 @@ fn said(commands: &mut Commands, kit: Kit, body: &mut Vec<Entity>, lines: &[Line
                 Text::new(line.text.clone()),
                 tf(kit.fonts, kit.m.small),
                 TextColor(ink),
+                Node {
+                    width: Val::Percent(100.0),
+                    flex_shrink: 0.0,
+                    ..default()
+                },
                 Pickable::IGNORE,
             ))
             .id();

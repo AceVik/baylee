@@ -728,3 +728,70 @@ fn chat_pill_is_visible_and_table_chat_steps_aside_for_open_friends_drawer() {
         "table chat ({right_open_drawer}) must step left of the open Friends Drawer ({right_closed_drawer})"
     );
 }
+
+#[test]
+fn chat_surface_and_pill_stay_hidden_while_arrival_cover_stands() {
+    use baylee_client_core::social::{ChatPrefs, Me, Social};
+
+    let mut app = app();
+    let (machine, _) = Social::start(
+        Me {
+            tag: "AB12".into(),
+            handle: "Alice#AB12".into(),
+            guest: false,
+            gateway: "https://example.test".into(),
+        },
+        None,
+        None,
+        ChatPrefs::default(),
+        1_000,
+        &mut crate::social::OsEntropy,
+    );
+    app.insert_resource(UiFonts::default())
+        .init_resource::<Windows>()
+        .init_resource::<crate::social::zoom::Zoom>()
+        .init_resource::<LobbyChatSizing>()
+        .init_resource::<LobbyChatPlacing>()
+        .insert_resource(State::new(DuelPhase::Opening))
+        .insert_resource(SocialHost {
+            machine: Some(machine),
+            ..default()
+        })
+        .add_systems(Update, sync_lobby_window);
+
+    // During DuelPhase::Opening, LobbyChat must not appear as a pill or window.
+    app.update();
+    assert!(
+        app.world_mut()
+            .query_filtered::<&Visibility, With<LobbyChat>>()
+            .iter(app.world())
+            .all(|v| *v == Visibility::Hidden),
+        "Chat pill must stay hidden during DuelPhase::Opening"
+    );
+
+    // Once Playing opens, an open chat panel becomes visible, and an active
+    // arrival Journey cover immediately hides it again.
+    app.insert_resource(State::new(DuelPhase::Playing));
+    app.world_mut().resource_mut::<ChatUi>().open = true;
+    app.update();
+    let vis = *app
+        .world_mut()
+        .query_filtered::<&Visibility, With<LobbyChat>>()
+        .single(app.world())
+        .expect("LobbyChat spawned");
+    assert_eq!(vis, Visibility::Visible);
+
+    app.init_resource::<crate::arrival::Journey>();
+    crate::arrival::start_login(&mut app);
+    app.update();
+    let vis = *app
+        .world_mut()
+        .query_filtered::<&Visibility, With<LobbyChat>>()
+        .single(app.world())
+        .expect("LobbyChat retained");
+    assert_eq!(
+        vis,
+        Visibility::Hidden,
+        "Chat must stay hidden while the arrival cover stands"
+    );
+}

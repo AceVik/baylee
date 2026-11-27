@@ -247,3 +247,42 @@ fn ranked_desk_scrolls_and_wears_an_only_when_needed_scrollbar() {
         "Ranked desk scroll offset persists across rebuilds"
     );
 }
+
+#[test]
+fn escape_on_ranked_dismisses_leagues_then_returns_to_previous_hub() {
+    use super::front_keys::press_key;
+    use super::{stocked, tap_control};
+    use bevy::input::keyboard::Key;
+
+    let mut app = headless();
+    sized(&mut app, 1440.0);
+    stocked(&mut app);
+    settle(&mut app);
+
+    tap_control(&mut app, "open Ranked", |p| {
+        *p == Press::Ranked(Action::Open)
+    });
+    assert_eq!(app.world().resource::<LobbyState>().hub, Hub::Ranked);
+
+    tap_control(&mut app, "open league picker", |p| {
+        *p == Press::Ranked(Action::ToggleLeagues)
+    });
+    assert!(
+        presses(&mut app).contains(&Press::Ranked(Action::League(api::League::Bronze))),
+        "league picker opened"
+    );
+
+    press_key(&mut app, KeyCode::Escape, Key::Escape, &[]);
+    assert_eq!(app.world().resource::<LobbyState>().hub, Hub::Ranked);
+    assert!(
+        !presses(&mut app).contains(&Press::Ranked(Action::League(api::League::Bronze))),
+        "first Escape closes the open league picker"
+    );
+
+    press_key(&mut app, KeyCode::Escape, Key::Escape, &[]);
+    assert_eq!(
+        app.world().resource::<LobbyState>().hub,
+        Hub::Play,
+        "second Escape leaves Ranked back to Play like Back"
+    );
+}

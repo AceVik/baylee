@@ -118,6 +118,65 @@ fn failure(lang: Lang, error: Error) -> String {
     }
 }
 
+/// Maximum deck name length accepted by `DeckDraft::validate`.
+const MAX_DECK_NAME_BYTES: usize = 64;
+
+fn fit_name(text: &str, max_bytes: usize) -> &str {
+    let mut end = text.len().min(max_bytes);
+    while end > 0 && !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    text[..end].trim_end()
+}
+
+/// A distinct name for a duplicated personal deck, matching the offline
+/// library (`Phrase::ListCopyName`) and staying within Central's 64-byte cap.
+fn copy_name(original: &str, existing: &[String], lang: Lang) -> String {
+    let raw = Phrase::ListCopyName.fill(lang, &[original]);
+    let base = fit_name(&raw, MAX_DECK_NAME_BYTES).to_string();
+    if !existing.iter().any(|n| n.eq_ignore_ascii_case(&base)) {
+        return base;
+    }
+    for n in 2usize.. {
+        let suffix = format!(" ({n})");
+        let prefix = fit_name(&base, MAX_DECK_NAME_BYTES.saturating_sub(suffix.len()));
+        let candidate = format!("{prefix}{suffix}");
+        if !existing
+            .iter()
+            .any(|name| name.eq_ignore_ascii_case(&candidate))
+        {
+            return candidate;
+        }
+    }
+    base
+}
+
+enum CopySource {
+    Own {
+        id: Uuid,
+        existing: Vec<String>,
+        lang: Lang,
+    },
+    Published(shared::Source),
+}
+
+fn copy_source(state: &mut LobbyState, key: &str) -> Result<CopySource, Error> {
+    if state.lobby.decks().iter().any(|deck| deck.id == key) {
+        let existing = state
+            .lobby
+            .decks()
+            .iter()
+            .map(|deck| deck.name.clone())
+            .collect();
+        return Ok(CopySource::Own {
+            id: id(key)?,
+            existing,
+            lang: state.lobby.lang(),
+        });
+    }
+    Ok(CopySource::Published(shared::published(state, key)?))
+}
+
 #[derive(Clone, Copy)]
 enum Target {
     Event,
@@ -167,6 +226,7 @@ fn submit(
     }
 }
 
+#[allow(clippy::too_many_lines)]
 pub(in crate::lobby) fn dispatch(
     state: &mut LobbyState,
     mailbox: &Mailbox,
@@ -233,11 +293,20 @@ pub(in crate::lobby) fn dispatch(
                 Ok(Reply::Event(LobbyEvent::DeckDeleted))
             });
         }
-        LobbyRequest::Library(LibraryRequest::Copy(id)) => {
-            let source = shared::published(state, &id);
+        LobbyRequest::Library(LibraryRequest::Copy(key)) => {
+            let source = copy_source(state, &key);
             submit(state, mailbox, Target::Library, move |account, versions| {
-                let draft = source?.read()?;
-                let saved = account.save_deck(None, None, draft)?;
+                let saved = match source? {
+                    CopySource::Own { id, existing, lang } => {
+                        let snapshot = account.load_deck(id)?;
+                        let name = copy_name(&snapshot.draft.name, &existing, lang);
+                        account.copy_deck(snapshot, name)?
+                    }
+                    CopySource::Published(published) => {
+                        let draft = published.read()?;
+                        account.save_deck(None, None, draft)?
+                    }
+                };
                 versions.listed.insert(saved.id, saved.revision);
                 Ok(Reply::Event(LobbyEvent::Library(library::Reply::Copied(
                     saved.id.to_string(),
@@ -387,5 +456,40 @@ mod tests {
         assert_eq!(versions.expected(id), Ok(1));
         assert!(super::id("system:starter").is_err());
         assert_eq!(super::id(&id.to_string()), Ok(id));
+    }
+
+    #[test]
+    fn duplicating_an_own_central_deck_plans_an_account_copy_and_names_it() {
+        let own = Uuid::now_v7();
+        let mut state = LobbyState::default();
+        state.lobby.apply(LobbyEvent::Decks(vec![
+            baylee_client_core::lobby::DeckSummary {
+                id: own.to_string(),
+                name: "Burn".to_string(),
+                ..Default::default()
+            },
+        ]));
+        assert!(matches!(
+            copy_source(&mut state, &own.to_string()),
+            Ok(CopySource::Own { id, .. }) if id == own
+        ));
+        assert!(matches!(
+            copy_source(&mut state, &Uuid::now_v7().to_string()),
+            Err(Error::Conflict)
+        ));
+
+        let en_base = Phrase::ListCopyName.fill(Lang::En, &["Burn"]);
+        assert_eq!(copy_name("Burn", &["Burn".to_string()], Lang::En), en_base);
+        assert_eq!(
+            copy_name("Burn", &["Burn".to_string(), en_base.clone()], Lang::En),
+            format!("{en_base} (2)")
+        );
+        assert_eq!(
+            copy_name("Burn", &[], Lang::De),
+            Phrase::ListCopyName.fill(Lang::De, &["Burn"])
+        );
+        let long = "Ä".repeat(40);
+        let fitted = copy_name(&long, &[], Lang::De);
+        assert!(!fitted.is_empty() && fitted.len() <= MAX_DECK_NAME_BYTES);
     }
 }

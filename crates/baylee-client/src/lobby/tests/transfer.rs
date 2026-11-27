@@ -158,3 +158,84 @@ fn the_export_dialog_offers_every_format_and_answers_its_keys() {
     key(&mut app, None, KeyCode::Escape);
     assert!(transfer(&app).is_none(), "Esc closes the dialog");
 }
+
+/// Both Export and Import preview boxes keep long text inside a clipping,
+/// non-shrinking border with a scrolling viewport so lines never spill over
+/// the summary or shortcut rows below.
+#[test]
+fn transfer_preview_boxes_scroll_inside_a_clipping_frame() {
+    let assert_bounded = |app: &mut App, needle: &str| {
+        let text_entity = {
+            let world = app.world_mut();
+            world
+                .query::<(Entity, &Text)>()
+                .iter(world)
+                .find(|(_, t)| t.0.contains(needle))
+                .map_or_else(|| panic!("preview text containing {needle:?}"), |(e, _)| e)
+        };
+        let mut cur = app.world().get::<ChildOf>(text_entity).map(ChildOf::parent);
+        let mut saw_scroller = false;
+        let mut saw_frame = false;
+        while let Some(e) = cur {
+            if app
+                .world()
+                .get::<crate::shellkit::surfaces::SheetScroller>(e)
+                .is_some()
+                && let Some(node) = app.world().get::<Node>(e)
+                && node.overflow.y == bevy::ui::OverflowAxis::Scroll
+            {
+                saw_scroller = true;
+            }
+            if saw_scroller
+                && let Some(node) = app.world().get::<Node>(e)
+                && node.flex_shrink == 0.0
+                && node.overflow == Overflow::clip()
+                && matches!(node.max_height, Val::Px(h) if h > 0.0)
+            {
+                saw_frame = true;
+                break;
+            }
+            cur = app.world().get::<ChildOf>(e).map(ChildOf::parent);
+        }
+        assert!(
+            saw_scroller,
+            "preview text lives inside a vertical scroller"
+        );
+        assert!(
+            saw_frame,
+            "preview scroller sits inside a non-shrinking, bounded, clipping frame"
+        );
+    };
+
+    let mut app = headless();
+    stocked(&mut app);
+    sized(&mut app, 1280.0);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.build_deck();
+        let builder = state.lobby.builder_mut();
+        builder.set_name("Elves");
+        assert!(builder.add(0, Zone::Main));
+        builder.open_export();
+    }
+    app.update();
+    press(
+        &mut app,
+        Press::Build(BuildPress::ExportFormat(FormatId::Json)),
+    );
+    assert_bounded(&mut app, "\"version\": 1");
+
+    press(&mut app, Press::Build(BuildPress::TransferClose));
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        let builder = state.lobby.builder_mut();
+        builder.open_import();
+        let long_list = (0..50)
+            .map(|i| format!("1 Card {i}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        builder.import_paste(&long_list);
+    }
+    app.update();
+    assert_bounded(&mut app, "1 Card 0");
+}

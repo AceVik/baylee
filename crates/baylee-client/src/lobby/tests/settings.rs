@@ -1542,3 +1542,48 @@ fn settings_search_jump_scrolls_target_row_into_view() {
         "jump must not fight later scrolling, got {after}"
     );
 }
+
+#[test]
+fn quick_settings_omits_language_when_header_pill_is_shown_and_never_draws_double_icon() {
+    let mut app = headless();
+    stocked(&mut app);
+    sized(&mut app, 1400.0);
+    settle(&mut app);
+
+    // On Wide frames the header carries the dedicated Language pill beside the gear.
+    assert!(
+        presses(&mut app).contains(&Press::Header(HeaderPress::Language)),
+        "wide header shows the language pill"
+    );
+    press(&mut app, Press::Front(FrontPress::FrontMenu));
+    settle(&mut app);
+    let wide_presses = presses(&mut app);
+    assert!(
+        !wide_presses
+            .iter()
+            .any(|p| matches!(p, Press::Shared(SharedPress::PickLang(_)))),
+        "Quick settings must not repeat language buttons beside the header language pill"
+    );
+
+    // Close Quick settings and resize to Narrow, where the header hides its language pill.
+    press(&mut app, Press::Front(FrontPress::FrontMenu));
+    sized(&mut app, 900.0);
+    settle(&mut app);
+    assert!(
+        !presses(&mut app).contains(&Press::Header(HeaderPress::Language)),
+        "narrow header omits the language pill"
+    );
+    press(&mut app, Press::Front(FrontPress::FrontMenu));
+    settle(&mut app);
+    let narrow_presses = presses(&mut app);
+    for offered in Lang::ALL {
+        assert!(
+            narrow_presses.contains(&Press::Shared(SharedPress::PickLang(offered))),
+            "Quick settings keeps {offered:?} when no header language pill stands beside it"
+        );
+    }
+    assert!(
+        !labels(&mut app).iter().any(|t| t == "\u{f1ab}"),
+        "language buttons must not prepend the redundant fa-language glyph beside their flag"
+    );
+}

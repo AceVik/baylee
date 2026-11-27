@@ -622,8 +622,32 @@ fn overlay_holder(commands: &mut Commands, parent: Entity) -> Entity {
 // ------------------------------------------------------------ the makers
 
 /// One line of text that never wraps: the words in a box that may shrink
-/// and clips them (`Overflow` clips children, not a node's own glyphs), so a
-/// long name is cut at the box's edge and the row's height never changes.
+/// Marks a single-line [`Text`] inside an `Overflow::clip_x()` container so
+/// [`focus::elide_cells`] replaces the clipped tail with a trailing `…`
+/// whenever the laid-out string overflows its clip box.
+#[derive(Component, Clone, Debug)]
+pub(crate) struct ElideText {
+    pub(crate) full: String,
+    pub(crate) full_width: f32,
+    pub(crate) last_clip: f32,
+}
+
+impl ElideText {
+    /// Tracks `text` for post-layout ellipsis truncation when clipped.
+    #[must_use]
+    pub(crate) fn new(text: impl Into<String>) -> Self {
+        Self {
+            full: text.into(),
+            full_width: 0.0,
+            last_clip: -1.0,
+        }
+    }
+}
+
+/// One line of a list or panel: holds `words` on a single line, clips them
+/// (`Overflow` clips children, not a node's own glyphs), and ends overflow with
+/// an ellipsis via [`ElideText`], so a long name never shifts row height or
+/// hard-clips mid-letter.
 pub(crate) fn cell(
     commands: &mut Commands,
     kit: Kit,
@@ -635,6 +659,7 @@ pub(crate) fn cell(
     let words = commands
         .spawn((
             Text::new(text),
+            ElideText::new(text),
             if bold {
                 tf_bold(kit.fonts, size)
             } else {

@@ -227,8 +227,9 @@ impl DeckBuilder {
     }
 
     /// Seven cards of the main deck, drawn without replacement from a fresh
-    /// shuffle seeded by `seed`: the Stats tab's "Draw seven". Nothing
-    /// leaves the deck. Fewer than seven when the deck holds fewer.
+    /// shuffle seeded by `seed`: the Stats tab's "Draw seven". Commanders
+    /// start in the command zone and stay out of the sampled library. Nothing
+    /// leaves the deck. Fewer than seven when the library holds fewer.
     #[must_use]
     pub fn sample_hand(&self, seed: u64) -> Vec<usize> {
         let mut library: Vec<usize> = self
@@ -236,6 +237,11 @@ impl DeckBuilder {
             .iter()
             .flat_map(|entry| std::iter::repeat_n(entry.slot, usize::from(entry.count)))
             .collect();
+        for leader in &self.commanders {
+            if let Some(at) = library.iter().position(|slot| slot == leader) {
+                library.remove(at);
+            }
+        }
         let mut state = seed;
         // Fisher–Yates over a splitmix64 stream: the client's own shuffle,
         // nothing a rules path reads.
@@ -516,6 +522,42 @@ mod tests {
         small.set_pool(vec![card(1, "Forest", &["Land"], 0, "")], true);
         small.load("d", "x", &["3 Forest".into()], &[], &[]);
         assert_eq!(small.sample_hand(1).len(), 3);
+    }
+
+    #[test]
+    fn sample_hand_leaves_commanders_in_the_command_zone() {
+        let mut deck = DeckBuilder::new();
+        let mut cmdr_a = card(1, "Thrasios", &["Creature"], 2, "UG");
+        cmdr_a.commander = true;
+        let mut cmdr_b = card(2, "Akiri", &["Creature"], 2, "RW");
+        cmdr_b.commander = true;
+        deck.set_pool(
+            vec![
+                cmdr_a,
+                cmdr_b,
+                card(3, "Lightning Bolt", &["Instant"], 1, "R"),
+                card(4, "Forest", &["Land"], 0, ""),
+            ],
+            true,
+        );
+        deck.load(
+            "d",
+            "Partners",
+            &[
+                "1 Thrasios".into(),
+                "1 Akiri".into(),
+                "4 Lightning Bolt".into(),
+                "1 Forest".into(),
+            ],
+            &[],
+            &["Thrasios".into(), "Akiri".into()],
+        );
+        for seed in 0..16 {
+            let hand = deck.sample_hand(seed);
+            assert_eq!(hand.len(), 5, "only the 5 library cards are drawn");
+            assert!(!hand.contains(&0), "first commander stays in command zone");
+            assert!(!hand.contains(&1), "second commander stays in command zone");
+        }
     }
 
     #[test]

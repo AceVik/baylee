@@ -59,12 +59,18 @@ pub(super) fn draw(
             action: MenuAction::ToggleTowerItems,
         },
     ));
+    let stack_clear = super::super::stack::stack_clearance(duel, canvas);
+    let right = if stack_clear > 0.0 && canvas.x - stack_clear >= 340.0 {
+        stack_clear
+    } else {
+        16.0
+    };
     let root = commands
         .spawn((
             Root,
             Node {
                 position_type: PositionType::Absolute,
-                right: px_fixed(16.0),
+                right: px_fixed(right),
                 bottom: px_fixed(
                     super::super::hand::HAND_ZONE_H - super::super::hand::LEDGE_H + 56.0,
                 ),
@@ -83,7 +89,7 @@ pub(super) fn draw(
             shellkit::Role::Opaque,
             Node {
                 width: kit.m.px(464.0),
-                max_width: px_fixed((canvas.x - 32.0).max(280.0)),
+                max_width: px_fixed((canvas.x - right - 16.0).max(280.0)),
                 max_height: px_fixed((canvas.y - 104.0).max(240.0)),
                 flex_direction: FlexDirection::Column,
                 border: UiRect::all(px_fixed(1.0)),

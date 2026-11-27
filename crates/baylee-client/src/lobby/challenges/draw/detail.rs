@@ -9,7 +9,7 @@ use crate::hud::tf_bold;
 use baylee_client_core::challenges::presentation as formatting;
 
 /// The height of the task's landscape, at the default text step.
-const BANNER: f32 = 156.0;
+const BANNER: f32 = 104.0;
 
 pub(super) fn draw(
     commands: &mut Commands,
@@ -25,6 +25,15 @@ pub(super) fn draw(
     layout::share(commands, card, stacked, 1.2);
     let board = layout::section(commands, columns, kit);
     layout::share(commands, board, stacked, 1.0);
+    for section in [card, board] {
+        commands
+            .entity(section)
+            .entry::<Node>()
+            .and_modify(move |mut n| {
+                n.padding = UiRect::axes(px_fixed(kit.m.pad), kit.m.px(14.0));
+                n.row_gap = kit.m.px(8.0);
+            });
+    }
     brief(commands, card, kit, lang, model, task);
     progress(commands, card, kit, lang, model);
     launch(commands, card, kit, lang, model, task);
@@ -342,7 +351,8 @@ fn more(
     if model.show_deck {
         let list = layout::inset(commands, card, kit);
         layout::caption(commands, list, kit, Phrase::ChallengeDeck.text(lang));
-        layout::prose(commands, list, kit, &task.description.deck, tokens::INK);
+        let deck = supplied_deck_text(&task.description.deck, lang);
+        layout::prose(commands, list, kit, &deck, tokens::INK);
     }
     if model.show_rules {
         let rules = layout::inset(commands, card, kit);
@@ -619,5 +629,76 @@ impl Columns {
             commands.entity(line).add_child(cell);
         }
         commands.entity(root).add_child(line);
+    }
+}
+
+/// Formats a challenge's supplied deck list for players by stripping raw
+/// internal `[deck:…]` headers and comment lines, and rendering section markers
+/// as plain headings.
+fn supplied_deck_text(raw: &str, lang: Lang) -> String {
+    let mut out: Vec<&str> = Vec::new();
+    for line in raw.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            if out.last().is_some_and(|prev| !prev.is_empty()) {
+                out.push("");
+            }
+            continue;
+        }
+        if trimmed.starts_with('#') {
+            continue;
+        }
+        if let Some(inner) = trimmed.strip_prefix('[').and_then(|s| s.strip_suffix(']')) {
+            let tag = inner.trim().to_ascii_lowercase();
+            if tag == "deck" || tag.starts_with("deck:") {
+                continue;
+            }
+            if tag == "commander" {
+                if out.last().is_some_and(|prev| !prev.is_empty()) {
+                    out.push("");
+                }
+                out.push(Phrase::BuildCommander.text(lang));
+                continue;
+            }
+            if tag == "sideboard" {
+                if out.last().is_some_and(|prev| !prev.is_empty()) {
+                    out.push("");
+                }
+                out.push(Phrase::BuildTabSide.text(lang));
+                continue;
+            }
+        }
+        out.push(trimmed);
+    }
+    while out.last().is_some_and(|line| line.is_empty()) {
+        out.pop();
+    }
+    out.join("\n")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn supplied_deck_text_strips_internal_deck_header_and_formats_sections() {
+        let raw = "[deck:Crossroads]\n24 Mountain\n16 Forest\n4 Grizzly Bears\n";
+        assert_eq!(
+            supplied_deck_text(raw, Lang::En),
+            "24 Mountain\n16 Forest\n4 Grizzly Bears"
+        );
+        assert_eq!(
+            supplied_deck_text("4 Lightning Bolt", Lang::En),
+            "4 Lightning Bolt"
+        );
+        let with_sections = "# comment\n[deck:Test]\n\n4 Lightning Bolt\n\n[sideboard]\n2 Abrade\n[commander]\n1 Ragavan\n";
+        assert_eq!(
+            supplied_deck_text(with_sections, Lang::En),
+            format!(
+                "4 Lightning Bolt\n\n{}\n2 Abrade\n\n{}\n1 Ragavan",
+                Phrase::BuildTabSide.text(Lang::En),
+                Phrase::BuildCommander.text(Lang::En),
+            )
+        );
     }
 }

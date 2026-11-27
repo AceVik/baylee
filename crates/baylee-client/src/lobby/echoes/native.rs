@@ -117,6 +117,18 @@ pub(in crate::lobby) fn ask(state: &mut LobbyState, action: Action) {
             ui.sounds.push(crate::sound::tower::TowerSound::Open);
         }
         ui.opened = true;
+        let active = ui.model.run().is_some_and(|run| {
+            !matches!(
+                run.phase,
+                api::Phase::Conquered
+                    | api::Phase::Exhausted
+                    | api::Phase::Abandoned
+                    | api::Phase::Interrupted
+            )
+        });
+        ui.page = if active { Page::Shop } else { Page::Overview };
+        ui.preview = None;
+        ui.starter_preview = None;
         if !ui.model.busy() {
             ui.refresh();
         }

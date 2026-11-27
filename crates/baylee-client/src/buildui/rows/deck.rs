@@ -23,10 +23,12 @@ pub(crate) fn deck_row(
     let m = kit.m;
     let height = pitch - m.scaled(4.0);
     let hover = crate::towerprints::hover(deck, card, Some(&entry.print), state.lobby.lang());
+    let mut row_node = frame(kit, top, height);
+    row_node.column_gap = m.px(6.0);
     let row = commands
         .spawn((
             Role::Row,
-            frame(kit, top, height),
+            row_node,
             BackgroundColor(ROW_GROUND),
             crate::ambience::Feel::tinting_to(ROW_GROUND, ROW_HOT),
             Press::Build(BuildPress::InspectRow(at)),
@@ -55,9 +57,9 @@ pub(crate) fn deck_row(
         super::pool::rarity_dot(commands, kit, deck.entry_rarity(entry), state.lobby.lang());
     let name = cell(commands, kit, &card.name, m.text, ink, false);
     commands.entity(name).insert(Node {
-        min_width: px_fixed(0.0),
+        min_width: m.px(92.0),
         flex_shrink: 1.0,
-        flex_grow: 1.0,
+        flex_grow: 2.0,
         flex_basis: px_fixed(0.0),
         overflow: Overflow::clip_x(),
         ..default()
@@ -98,9 +100,9 @@ pub(crate) fn deck_row(
     if !chosen.is_empty() && deck.limited().is_none() {
         let mark = cell(commands, kit, &chosen, m.small * 0.9, tokens::ACCENT, false);
         commands.entity(mark).insert(Node {
-            max_width: m.px(110.0),
+            max_width: m.px(88.0),
             min_width: px_fixed(0.0),
-            flex_shrink: 1.0,
+            flex_shrink: 4.0,
             overflow: Overflow::clip_x(),
             ..default()
         });

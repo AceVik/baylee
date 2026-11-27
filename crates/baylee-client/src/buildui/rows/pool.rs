@@ -422,8 +422,9 @@ pub(crate) fn pool_compact_row(
     let name = cell(commands, kit, &card.name, m.text, tokens::INK, true);
     commands.entity(name).insert(Node {
         flex_grow: 1.0,
+        flex_shrink: 1.0,
         flex_basis: px_fixed(0.0),
-        min_width: px_fixed(0.0),
+        min_width: m.px(110.0),
         overflow: Overflow::clip_x(),
         ..default()
     });
@@ -457,7 +458,8 @@ pub(crate) fn pool_compact_row(
         false,
     );
     commands.entity(sub).insert(Node {
-        max_width: m.px(180.0),
+        max_width: Val::Percent(45.0),
+        min_width: px_fixed(0.0),
         flex_shrink: 1.0,
         overflow: Overflow::clip_x(),
         ..default()
@@ -526,7 +528,7 @@ pub(crate) fn pool_grid_row(
             Pickable::IGNORE,
         ))
         .id();
-    let art_h = (height - m.scaled(52.0)).max(96.0).round();
+    let art_h = (height - m.scaled(68.0)).max(96.0).round();
     let art_w = (art_h * 5.0 / 7.0).round();
     for cell_item in cells.iter().take(cols) {
         let Some((slot, at)) = *cell_item else {
@@ -609,27 +611,13 @@ pub(crate) fn pool_grid_row(
             .entity(art_wrap)
             .add_children(&[thumb, count_badge]);
 
-        let bottom = commands
+        let footer = commands
             .spawn((
                 Node {
                     width: Val::Percent(100.0),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::SpaceBetween,
-                    column_gap: m.px(4.0),
-                    ..default()
-                },
-                Pickable::IGNORE,
-            ))
-            .id();
-        let meta = commands
-            .spawn((
-                Node {
                     flex_direction: FlexDirection::Column,
-                    flex_grow: 1.0,
-                    flex_basis: px_fixed(0.0),
+                    row_gap: m.px(4.0),
                     min_width: px_fixed(0.0),
-                    row_gap: m.px(2.0),
-                    overflow: Overflow::clip_x(),
                     ..default()
                 },
                 Pickable::IGNORE,
@@ -640,6 +628,7 @@ pub(crate) fn pool_grid_row(
         let title_row = commands
             .spawn((
                 Node {
+                    width: Val::Percent(100.0),
                     align_items: AlignItems::Center,
                     column_gap: m.px(4.0),
                     min_width: px_fixed(0.0),
@@ -651,6 +640,14 @@ pub(crate) fn pool_grid_row(
             .id();
         let r_dot = rarity_dot(commands, kit, deck.card_rarity(slot), lang);
         let title = cell(commands, kit, &card.name, m.small, tokens::INK, true);
+        commands.entity(title).insert(Node {
+            flex_grow: 1.0,
+            flex_shrink: 1.0,
+            flex_basis: px_fixed(0.0),
+            min_width: px_fixed(0.0),
+            overflow: Overflow::clip_x(),
+            ..default()
+        });
         commands.entity(title_row).add_children(&[r_dot, title]);
         if is_deck_fav || is_global_fav {
             let star = commands
@@ -672,12 +669,34 @@ pub(crate) fn pool_grid_row(
                 .id();
             commands.entity(title_row).add_child(star);
         }
-        commands.entity(meta).add_child(title_row);
+        let actions_row = commands
+            .spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    align_items: AlignItems::Center,
+                    column_gap: m.px(4.0),
+                    min_width: px_fixed(0.0),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        let mut actions = Vec::new();
         if let Some(cost) =
             crate::manaui::spawn_cost_or_text(commands, kit.fonts, &card.mana_cost, m.small * 0.95)
         {
-            commands.entity(meta).add_child(cost);
+            actions.push(cost);
         }
+        let spacer = commands
+            .spawn((
+                Node {
+                    flex_grow: 1.0,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        actions.push(spacer);
         let add = icon_button(
             commands,
             kit,
@@ -695,13 +714,15 @@ pub(crate) fn pool_grid_row(
                 focus::MenuOpener(BuildMenu::Pool(slot)),
             ),
         );
-        let mut actions = vec![meta];
         if let Some(sell) = sell_pill(commands, kit, state, slot) {
             actions.push(sell);
         }
         actions.extend([add, more]);
-        commands.entity(bottom).add_children(&actions);
-        commands.entity(tile).add_children(&[art_wrap, bottom]);
+        commands.entity(actions_row).add_children(&actions);
+        commands
+            .entity(footer)
+            .add_children(&[title_row, actions_row]);
+        commands.entity(tile).add_children(&[art_wrap, footer]);
         commands.entity(row).add_child(tile);
     }
     row

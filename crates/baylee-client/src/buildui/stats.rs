@@ -6,7 +6,6 @@
 
 #[allow(clippy::wildcard_imports)] // the builder's own vocabulary
 use super::*;
-use crate::lobby::hover_of_card;
 use crate::shellkit::focus::Current;
 use crate::shellkit::surfaces;
 use baylee_client_core::deckbuilder::{Rarity, STAT_GROUPS};
@@ -54,13 +53,14 @@ fn kpi_tile(
         .spawn((
             Node {
                 flex_grow: 1.0,
-                flex_basis: m.px(130.0),
-                min_width: m.px(120.0),
+                flex_basis: Val::Percent(45.0),
+                min_width: m.px(160.0),
                 flex_direction: FlexDirection::Column,
                 row_gap: m.px(3.0),
                 padding: UiRect::axes(m.px(10.0), m.px(8.0)),
                 border: UiRect::all(px_fixed(1.0)),
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
+                overflow: Overflow::clip(),
                 ..default()
             },
             BackgroundColor(tokens::CONTROL.with_alpha(0.55)),
@@ -78,9 +78,29 @@ fn kpi_tile(
         tokens::MUTED,
         true,
     );
+    commands.entity(lbl).insert(Node {
+        flex_grow: 1.0,
+        flex_shrink: 1.0,
+        flex_basis: px_fixed(0.0),
+        min_width: px_fixed(0.0),
+        overflow: Overflow::clip_x(),
+        ..default()
+    });
     let top_row = line(commands, kit, &[ico, lbl]);
     let val = cell(commands, kit, value_txt, m.head * 0.98, tokens::INK, true);
+    commands.entity(val).insert(Node {
+        width: Val::Percent(100.0),
+        min_width: px_fixed(0.0),
+        overflow: Overflow::clip_x(),
+        ..default()
+    });
     let sub = cell(commands, kit, sub_txt, m.small * 0.86, accent, false);
+    commands.entity(sub).insert(Node {
+        width: Val::Percent(100.0),
+        min_width: px_fixed(0.0),
+        overflow: Overflow::clip_x(),
+        ..default()
+    });
     commands.entity(box_node).add_children(&[top_row, val, sub]);
     box_node
 }
@@ -227,7 +247,7 @@ pub(crate) fn draw(commands: &mut Commands, env: &Env) -> Entity {
         '\u{f6fc}',
         tokens::GOLD,
         Phrase::BuildStatLandShare.text(lang),
-        &format!("{land_pct} %"),
+        &format!("{land_pct}%"),
         &Phrase::BuildLandShare.fill(lang, &[&counts.lands.to_string(), &counts.main.to_string()]),
     );
     let kpi_tempo = kpi_tile(
@@ -678,10 +698,29 @@ pub(crate) fn draw(commands: &mut Commands, env: &Env) -> Entity {
     commands.entity(column).add_child(type_card);
 
     // ---- 5. Opening Hand Odds (Hypergeometric) & Sample Hand Simulator Card
-    let pop = counts.main;
+    // Commanders begin in the command zone, so leave them out of the sampled library.
+    let mut pop = counts.main;
+    let mut lib_lands = counts.lands;
+    let mut lib_early_plays = early_plays;
+    for &slot in deck.commanders() {
+        if deck
+            .entries(Zone::Main)
+            .iter()
+            .any(|e| e.slot == slot && e.count > 0)
+        {
+            pop = pop.saturating_sub(1);
+            if let Some(card) = deck.card(slot) {
+                if card.is("Land") {
+                    lib_lands = lib_lands.saturating_sub(1);
+                } else if card.cmc <= 2 {
+                    lib_early_plays = lib_early_plays.saturating_sub(1);
+                }
+            }
+        }
+    }
     let p_2plus_lands = if pop >= 7 {
         (2..=7)
-            .map(|k| hypergeom_pmf(pop, counts.lands, 7, k))
+            .map(|k| hypergeom_pmf(pop, lib_lands, 7, k))
             .sum::<f64>()
             * 100.0
     } else {
@@ -689,14 +728,14 @@ pub(crate) fn draw(commands: &mut Commands, env: &Env) -> Entity {
     };
     let p_2to4_lands = if pop >= 7 {
         (2..=4)
-            .map(|k| hypergeom_pmf(pop, counts.lands, 7, k))
+            .map(|k| hypergeom_pmf(pop, lib_lands, 7, k))
             .sum::<f64>()
             * 100.0
     } else {
         0.0
     };
     let p_early_play = if pop >= 7 {
-        (1.0 - hypergeom_pmf(pop, early_plays, 7, 0)) * 100.0
+        (1.0 - hypergeom_pmf(pop, lib_early_plays, 7, 0)) * 100.0
     } else {
         0.0
     };
@@ -753,14 +792,19 @@ pub(crate) fn draw(commands: &mut Commands, env: &Env) -> Entity {
                 Pickable::IGNORE,
             ))
             .id();
-        for slot in &ui.hand {
-            let Some(card) = deck.card(*slot) else {
+        let mut drawn_per_slot = std::collections::BTreeMap::<usize, usize>::new();
+        for &slot in &ui.hand {
+            let Some(card) = deck.card(slot) else {
                 continue;
             };
             if card.is("Land") {
                 hand_lands += 1;
             }
-            let hover = hover_of_card(card);
+            let seen = drawn_per_slot.entry(slot).or_insert(0);
+            let copy_index = *seen;
+            *seen += 1;
+            let print = main_print_for_copy(deck, slot, copy_index);
+            let hover = crate::towerprints::hover(deck, card, print, lang);
             let thumb = crate::lobby::thumbnails::spawn(commands, &hover);
             let height = m.scaled(82.0);
             commands.entity(thumb).insert((
@@ -778,7 +822,7 @@ pub(crate) fn draw(commands: &mut Commands, env: &Env) -> Entity {
                 crate::ambience::FeelShadow,
                 hover,
                 Pickable::default(),
-                Press::Build(BuildPress::Inspect(*slot)),
+                Press::Build(BuildPress::Inspect(slot)),
             ));
             commands.entity(hand).add_child(thumb);
         }
@@ -800,4 +844,31 @@ pub(crate) fn draw(commands: &mut Commands, env: &Env) -> Entity {
     let sim_card = stat_card(commands, kit, &sim_items);
     commands.entity(column).add_child(sim_card);
     column
+}
+
+/// The chosen printing for the `copy`-th non-commander copy of `slot` in Main.
+fn main_print_for_copy(
+    deck: &DeckBuilder,
+    slot: usize,
+    mut copy: usize,
+) -> Option<&baylee_core::deckrow::PrintChoice> {
+    let mut skip_commander = usize::from(deck.is_commander(slot));
+    let mut fallback = None;
+    for entry in deck.entries(Zone::Main) {
+        if entry.slot != slot {
+            continue;
+        }
+        fallback = Some(&entry.print);
+        let mut available = usize::from(entry.count);
+        if skip_commander > 0 {
+            let skipped = available.min(skip_commander);
+            available -= skipped;
+            skip_commander -= skipped;
+        }
+        if copy < available {
+            return Some(&entry.print);
+        }
+        copy -= available;
+    }
+    fallback
 }

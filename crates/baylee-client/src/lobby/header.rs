@@ -284,7 +284,16 @@ pub(super) fn draw(
     }
     let builder = matches!(state.lobby.screen(), Screen::Build);
     if state.front_menu && (wears_header(state) || builder) {
-        let menu = super::front::gear_menu(commands, state, kit.fonts, metrics, metrics.pad);
+        let has_lang_pill =
+            wears_header(state) && matches!(kit.m.frame, ShellFrame::Wide | ShellFrame::Vast);
+        let menu = super::front::gear_menu(
+            commands,
+            state,
+            kit.fonts,
+            metrics,
+            metrics.pad,
+            !has_lang_pill,
+        );
         commands.entity(root).add_child(menu);
     }
     strips(commands, root, state, kit, seated);

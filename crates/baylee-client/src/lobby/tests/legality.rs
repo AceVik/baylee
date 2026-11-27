@@ -335,3 +335,59 @@ fn a_refused_deck_reads_why() {
             .is_none()
     );
 }
+
+/// The builder footer wraps its headline and primary advisory onto clean lines
+/// instead of clipping mid-word, carries the full tooltip on the bar, and keeps
+/// "Format and list" from shrinking at 1280px.
+#[test]
+fn builder_footer_wraps_advisories_and_keeps_format_button_unshrunk() {
+    let mut app = builder();
+    sized(&mut app, 1280.0);
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .builder_mut()
+        .set_format("modern");
+    app.update();
+    app.update();
+
+    let open_node = {
+        let world = app.world_mut();
+        world
+            .query::<(&Press, &Node)>()
+            .iter(world)
+            .find(|(p, _)| **p == Press::Build(BuildPress::OpenCheck))
+            .map(|(_, n)| n.clone())
+            .expect("the Format and list button")
+    };
+    assert_eq!(open_node.flex_shrink, 0.0);
+
+    let (head_entity, head_node, head_layout) = {
+        let world = app.world_mut();
+        world
+            .query::<(Entity, &Text, &Node, &TextLayout)>()
+            .iter(world)
+            .find(|(_, text, _, _)| text.0.contains("Not legal for"))
+            .map(|(e, _, n, l)| (e, n.clone(), *l))
+            .expect("the illegal deck headline")
+    };
+    assert_eq!(head_node.flex_grow, 1.0);
+    assert_eq!(head_layout.linebreak, bevy::text::LineBreak::WordBoundary);
+
+    let mut cur = Some(head_entity);
+    let mut found_bar = None;
+    while let Some(e) = cur {
+        if let Some(hint) = app.world().get::<crate::lobby::HoverHint>(e) {
+            let node = app.world().get::<Node>(e).expect("bar node").clone();
+            found_bar = Some((node, hint.0.clone()));
+            break;
+        }
+        cur = app.world().get::<ChildOf>(e).map(ChildOf::parent);
+    }
+    let (bar_node, tip) = found_bar.expect("the footer bar carries the full advisory tooltip");
+    assert_eq!(bar_node.flex_direction, FlexDirection::Column);
+    assert_eq!(bar_node.overflow.x, bevy::ui::OverflowAxis::Visible);
+    assert_eq!(bar_node.overflow.y, bevy::ui::OverflowAxis::Visible);
+    assert!(tip.contains("Not legal for"), "{tip}");
+    assert!(tip.contains("60"), "{tip}");
+}

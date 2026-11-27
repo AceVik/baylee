@@ -65,6 +65,159 @@ fn the_printing_picker_offers_every_control_it_needs() {
     assert!(presses(&mut app).contains(&Press::Build(BuildPress::PickerSet(Some(1)))));
 }
 
+/// Empty space in the card window's printing strip must not carry an add
+/// `Press`, while Enter on the strip's focus stop still activates its primary
+/// action and thumbnails still select their printing.
+#[test]
+fn printing_strip_keeps_enter_primary_without_click_to_add() {
+    use crate::buildui::cardwindow::CARD;
+    use crate::shellkit::focus::Stop;
+
+    let mut app = headless();
+    stocked(&mut app);
+    sized(&mut app, 1400.0);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.build_deck();
+        state.lobby.builder_mut().open_picker(0, Zone::Main);
+        state.lobby.apply(LobbyEvent::Printings {
+            card: 1,
+            printings: serde_json::from_value(serde_json::json!([
+                {
+                    "scryfall_id": "11111111-2222-3333-4444-555555555555",
+                    "oracle_id": "o", "lang": "en", "set": "m19",
+                    "set_name": "Core Set 2019", "collector_number": "314",
+                    "finishes": ["nonfoil"], "name": "Llanowar Elves"
+                },
+                {
+                    "scryfall_id": "66666666-7777-8888-9999-aaaaaaaaaaaa",
+                    "oracle_id": "o", "lang": "en", "set": "dom",
+                    "set_name": "Dominaria", "collector_number": "168",
+                    "finishes": ["nonfoil"], "name": "Llanowar Elves"
+                }
+            ]))
+            .expect("printings decode"),
+            from_catalog: true,
+        });
+    }
+    app.update();
+
+    let strip = {
+        let world = app.world_mut();
+        world
+            .query::<(Entity, &Stop)>()
+            .iter(world)
+            .find(|(_, s)| s.table == CARD && s.id == "printings")
+            .map(|(e, _)| e)
+            .expect("the printings strip stop")
+    };
+    assert!(
+        app.world().get::<Press>(strip).is_none(),
+        "empty space in the strip container must not carry a clickable Press"
+    );
+    assert_eq!(
+        app.world().get::<Primary>(strip).copied(),
+        Some(Primary(Press::Build(BuildPress::WindowAdd(Zone::Main)))),
+        "Enter on the strip still runs the window's primary action"
+    );
+    let children: Vec<Entity> = app
+        .world()
+        .get::<Children>(strip)
+        .expect("thumbnail children")
+        .iter()
+        .collect();
+    assert_eq!(children.len(), 2);
+    assert_eq!(
+        app.world().get::<Press>(children[0]).copied(),
+        Some(Press::Build(BuildPress::PickerGo(0)))
+    );
+    assert_eq!(
+        app.world().get::<Press>(children[1]).copied(),
+        Some(Press::Build(BuildPress::PickerGo(1)))
+    );
+}
+
+/// The card window's Set dropdown must be mounted outside the scroll-clipped
+/// body and above the modal footer so clicking a matched set never hits Close.
+#[test]
+fn set_dropdown_stands_outside_clipped_body_and_above_footer() {
+    use crate::buildui::print_picker::PickerSetPopup;
+
+    let mut app = headless();
+    stocked(&mut app);
+    sized(&mut app, 1400.0);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.build_deck();
+        state.lobby.builder_mut().open_picker(0, Zone::Main);
+        state.lobby.apply(LobbyEvent::Printings {
+            card: 1,
+            printings: serde_json::from_value(serde_json::json!([
+                {
+                    "scryfall_id": "11111111-2222-3333-4444-555555555555",
+                    "oracle_id": "o", "lang": "en", "set": "m19",
+                    "set_name": "Core Set 2019", "collector_number": "314",
+                    "finishes": ["nonfoil"], "name": "Llanowar Elves"
+                },
+                {
+                    "scryfall_id": "66666666-7777-8888-9999-aaaaaaaaaaaa",
+                    "oracle_id": "o", "lang": "en", "set": "m10",
+                    "set_name": "Magic 2010", "collector_number": "168",
+                    "finishes": ["nonfoil"], "name": "Llanowar Elves"
+                }
+            ]))
+            .expect("printings decode"),
+            from_catalog: true,
+        });
+        state.lobby.builder_mut().focus_on(BuildField::PickerSet);
+    }
+    app.update();
+
+    let (popup, z) = {
+        let world = app.world_mut();
+        world
+            .query_filtered::<(Entity, &GlobalZIndex), With<PickerSetPopup>>()
+            .iter(world)
+            .next()
+            .map(|(e, z)| (e, z.0))
+            .expect("the open set popup")
+    };
+    assert!(
+        z > crate::shellkit::tokens::z::SHEET,
+        "set popup must sit above the modal sheet and its footer: {z}"
+    );
+    let parent = app
+        .world()
+        .get::<ChildOf>(popup)
+        .map(ChildOf::parent)
+        .expect("set popup has a parent");
+    assert!(
+        app.world()
+            .get::<crate::shellkit::surfaces::ModalScrim>(parent)
+            .is_some(),
+        "set popup must mount directly on the full-window ModalScrim, outside the clipped sheet and footer"
+    );
+    let mut cur = Some(parent);
+    while let Some(ancestor) = cur {
+        if app.world().get::<LobbyRoot>(ancestor).is_some() {
+            break;
+        }
+        if let Some(node) = app.world().get::<Node>(ancestor) {
+            assert_eq!(
+                node.overflow.x,
+                OverflowAxis::Visible,
+                "no modal or overlay ancestor may clip the set popup horizontally"
+            );
+            assert_eq!(
+                node.overflow.y,
+                OverflowAxis::Visible,
+                "no modal or overlay ancestor may clip the set popup vertically"
+            );
+        }
+        cur = app.world().get::<ChildOf>(ancestor).map(ChildOf::parent);
+    }
+}
+
 /// The row the pool draws is the one that opens the picker; without it
 /// the whole feature is unreachable from the builder.
 #[test]
@@ -143,4 +296,57 @@ fn a_card_with_no_printing_previews_nothing() {
         ..PoolCard::default()
     };
     assert!(hover_of_card(&card).url.is_none());
+}
+
+/// Draw seven on the Stats tab must render each drawn card with the printing
+/// chosen for it in the deck rather than the pool card's default printing.
+#[test]
+fn draw_seven_uses_the_chosen_printing_from_the_deck() {
+    use crate::buildui::DeckTab;
+    use crate::buildui::sample_hand::SampleHand;
+
+    let mut app = headless();
+    stocked(&mut app);
+    sized(&mut app, 1400.0);
+    let chosen = baylee_core::deckrow::PrintChoice {
+        scryfall_id: Some("11111111-2222-3333-4444-555555555555".to_string()),
+        finish: Some(Finish::Foil),
+        ..baylee_core::deckrow::PrintChoice::default()
+    };
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.build_deck();
+        assert!(state.lobby.builder_mut().add_print(0, Zone::Main, chosen));
+        state.build.tab = DeckTab::Stats;
+    }
+    app.update();
+    press(&mut app, Press::Build(BuildPress::DrawSeven));
+    let hand = {
+        let world = app.world_mut();
+        world
+            .query_filtered::<Entity, With<SampleHand>>()
+            .iter(world)
+            .next()
+            .expect("the sample hand row")
+    };
+    let children: Vec<Entity> = app
+        .world()
+        .get::<Children>(hand)
+        .expect("drawn thumbnails")
+        .iter()
+        .collect();
+    assert_eq!(children.len(), 1);
+    let hover = app
+        .world()
+        .get::<HoverCard>(children[0])
+        .expect("thumbnail hover");
+    assert!(
+        hover
+            .url
+            .as_deref()
+            .is_some_and(|u| u.contains("11111111-2222-3333-4444-555555555555")),
+        "expected chosen printing url, got {:?}",
+        hover.url
+    );
+    assert_eq!(hover.finish, FinishTreatment::Foil);
 }

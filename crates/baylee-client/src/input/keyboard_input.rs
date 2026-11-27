@@ -259,6 +259,13 @@ fn tower_keys(
     {
         return false;
     }
+    // If an ability is already armed and the HUD advertises `Enter` to activate
+    // it, let Enter/Confirm close the drawer and flow through to `armed_keys`.
+    if duel.armed.is_some() && (fired.has(Action::Primary) || fired.has(Action::Confirm)) {
+        duel.tower_inventory = false;
+        typed.clear();
+        return false;
+    }
     if fired.has(Action::Cancel) || fired.has(Action::ToggleTowerItems) {
         duel.tower_inventory = false;
     }

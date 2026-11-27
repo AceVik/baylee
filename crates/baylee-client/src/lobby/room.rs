@@ -906,6 +906,7 @@ fn seat_card(
     } else if !seat.deck.is_empty()
         && !seat.format.is_empty()
         && let Some(theirs) = table_format
+        && theirs != client_core::lobby::play::DUEL
     {
         let chip = if client_core::lobby::play::fits(theirs, &seat.format) {
             super::parts::badge(commands, kit, Phrase::RoomFits.text(lang), tokens::ACCENT)
