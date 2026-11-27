@@ -43,7 +43,6 @@ card!(
         face!(
             name = "The Invincible Iron Man",
             mana_cost = mana!("{4}{U}{R}"),
-            castable_from_hand = false,
             types = TypeSet::ARTIFACT.union(TypeSet::CREATURE),
             supertypes = SupertypeSet::LEGENDARY,
             subtypes = &[subtypes::creature::HUMAN, subtypes::creature::HERO],

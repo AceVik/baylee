@@ -47,7 +47,6 @@ card!(
         face!(
             name = "The Incredible Hulk",
             mana_cost = mana!("{2}{R}{R}{G}{G}"),
-            castable_from_hand = false,
             types = TypeSet::CREATURE,
             supertypes = SupertypeSet::LEGENDARY,
             subtypes = &[

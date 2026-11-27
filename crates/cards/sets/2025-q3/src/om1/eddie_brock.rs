@@ -70,7 +70,6 @@ card!(
         face!(
             name = "Venom, Lethal Protector",
             mana_cost = mana!("{3}{B}{R}{G}"),
-            castable_from_hand = false,
             types = TypeSet::CREATURE,
             supertypes = SupertypeSet::LEGENDARY,
             subtypes = &[

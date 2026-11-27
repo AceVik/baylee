@@ -53,7 +53,6 @@ card!(
         face!(
             name = "Black Panther, Hope Enduring",
             mana_cost = mana!("{4}{W}{U}"),
-            castable_from_hand = false,
             types = TypeSet::CREATURE,
             supertypes = SupertypeSet::LEGENDARY,
             subtypes = &[

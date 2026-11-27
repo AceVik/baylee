@@ -42,7 +42,6 @@ card!(
         face!(
             name = "Photon, Living Light",
             mana_cost = mana!("{2}{R}{W}{W}"),
-            castable_from_hand = false,
             types = TypeSet::CREATURE,
             supertypes = SupertypeSet::LEGENDARY,
             subtypes = &[subtypes::creature::ELEMENTAL, subtypes::creature::HERO],
