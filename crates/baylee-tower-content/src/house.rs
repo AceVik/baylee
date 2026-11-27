@@ -51,4 +51,4 @@ pub fn development_house(starter: &Collection, stage: u8) -> Build {
 
 mod ladder;
 mod worth;
-pub use ladder::{Ladder, PATH, check, ladder};
+pub use ladder::{Ladder, PATH, PICKS, candidates, check, ladder};

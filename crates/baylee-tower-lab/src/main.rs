@@ -8,6 +8,7 @@ use baylee_cards_pool as _;
 use clap::{Parser, Subcommand};
 use std::io::Read as _;
 
+mod candidates;
 mod duel;
 mod jobs;
 mod ladder;
@@ -54,6 +55,22 @@ enum Command {
         /// Name every build's equipment on stderr: private diagnosis only.
         #[arg(long)]
         detail: bool,
+    },
+    /// Candidate sets of scripted runs for the house ladder, each cell measured
+    /// against its stage's field; suggests the pick table. Seed on stdin.
+    Candidates {
+        /// Independent sets of scripted runs (set 0 is the plain seed's).
+        #[arg(long, default_value_t = 3)]
+        sets: u8,
+        /// Independent deals per opponent and chair.
+        #[arg(long, default_value_t = 1)]
+        seeds: u32,
+        /// Opponents per cell from the stage's field.
+        #[arg(long, default_value_t = 24)]
+        field: usize,
+        /// Only these stages (repeatable).
+        #[arg(long)]
+        stage: Vec<u8>,
     },
     /// Implemented commanders of one colour identity (`WUBRG` letters, `C` for
     /// none), as replacement candidates for a starter.
@@ -124,6 +141,25 @@ fn main() -> Result<()> {
             )
         }
         Command::Leaders { identity } => leaders(&identity),
+        Command::Candidates {
+            sets,
+            seeds,
+            field,
+            stage,
+        } => {
+            let seed = private_seed()?;
+            let sets = baylee_tower_content::house_candidates(&content, &seed, sets)?;
+            candidates::measure(
+                &content,
+                &cohort,
+                &sets,
+                seeds,
+                field,
+                cli.seed,
+                cli.threads,
+                &stage,
+            )
+        }
         Command::Variants {
             starter,
             salts,

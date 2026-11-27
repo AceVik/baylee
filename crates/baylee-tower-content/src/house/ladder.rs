@@ -73,10 +73,60 @@ impl Ladder {
     }
 }
 
-/// Play the fifty scripted runs of `content` under the private `seed`.
+/// Which of the scripted runs' variants each published cell takes:
+/// `PICKS[stage - 1][archetype - 1]`, 0 for the run the private seed starts
+/// itself. Chosen with `baylee-tower-lab ladder --candidates`, each cell the
+/// variant whose build came closest to even against its stage's field, and
+/// then measured again as the whole ladder (`docs/tower-operations.md`
+/// §"Calibration"). The table holds indices, never a build.
+pub const PICKS: [[u8; 50]; 12] = [[0; 50]; 12];
+
+/// The published ladder: each cell from the scripted-run variant [`PICKS`]
+/// names, all under the private `seed`.
 /// # Errors
 /// A run the real machine refuses, which is a defect here, never a balance result.
 pub fn ladder(content: &Content, seed: &[u8; 32]) -> Result<Ladder, Error> {
+    let variants = PICKS.iter().flatten().copied().max().unwrap_or(0);
+    let candidates = candidates(content, seed, variants + 1)?;
+    if content.starters.len() != PICKS[0].len() {
+        return Err(Error::House("the pick table does not match the starters"));
+    }
+    let mut stages = Vec::with_capacity(usize::from(MAX_STAGES));
+    for (stage, picks) in PICKS.iter().enumerate() {
+        stages.push(
+            picks
+                .iter()
+                .enumerate()
+                .map(|(archetype, pick)| {
+                    candidates[usize::from(*pick)].stages[stage][archetype].clone()
+                })
+                .collect(),
+        );
+    }
+    Ok(Ladder { stages })
+}
+
+/// `count` independent sets of fifty scripted runs under the private `seed`;
+/// set 0 is the one [`PICKS`] calls 0.
+/// # Errors
+/// A run the real machine refuses.
+pub fn candidates(content: &Content, seed: &[u8; 32], count: u8) -> Result<Vec<Ladder>, Error> {
+    (0..count.max(1))
+        .map(|variant| scripted(content, seed, variant))
+        .collect()
+}
+
+fn scripted(content: &Content, seed: &[u8; 32], variant: u8) -> Result<Ladder, Error> {
+    let seed = &if variant == 0 {
+        *seed
+    } else {
+        Sha256::new()
+            .chain_update(b"baylee/tower/house-ladder/variant\0")
+            .chain_update(seed)
+            .chain_update([variant])
+            .finalize()
+            .into()
+    };
     let catalog = &content.catalog;
     let cohort = construction_cohort(catalog)?;
     let pool = prepared_pool();

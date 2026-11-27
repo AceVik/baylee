@@ -12,7 +12,10 @@ mod house;
 mod presentation;
 mod starters;
 pub use expeditions::{Workshop, expeditions};
-pub use house::{Ladder, PATH as HOUSE_PATH, check as check_ladder, development_house, ladder};
+pub use house::{
+    Ladder, PATH as HOUSE_PATH, PICKS as HOUSE_PICKS, candidates as house_candidates,
+    check as check_ladder, development_house, ladder,
+};
 pub use presentation::runic;
 
 #[cfg(test)]
