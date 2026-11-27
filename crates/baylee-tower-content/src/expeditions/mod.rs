@@ -12,7 +12,9 @@ mod theme;
 // Lower commander costs and several distinct plans per colour pair avoid a pool
 // made solely of expensive finishers. Seeds are explicit and append-only; the
 // third value is a measured calibration variant of the builder seed (0: none),
-// chosen with the `tower_lab` example's `variants` (docs/tower-operations.md §"Calibration").
+// chosen with the `tower_lab` example's `variants` (docs/tower-operations.md
+// §"Calibration"). The published decks are the frozen ones (`frozen.rs`); these
+// recipes rebuild a starter only for a calibration candidate and a house refit.
 const LEADERS: [(&str, Archetype, u16); 50] = [
     ("Emmara, Soul of the Accord", Archetype::Midrange, 2),
     ("Neva, Stalked by Nightmares", Archetype::Midrange, 0),

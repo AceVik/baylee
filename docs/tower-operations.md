@@ -245,12 +245,18 @@ change to the run's balance for players too, not to the house alone.
 
 **What the numbers hold for.** Both chairs are the Expert heuristics, so
 these are measurements of builds, not of human play: a person who shops
-and pilots better than the Expert beats the house more often. The content
-is the release `e476745f7`'s card registry: the starters come from the
-shared builder over the whole registry, so a later card wave can change
-them. `baylee_tower_content::CALIBRATED` holds the measured content's
-fingerprint, and `baylee-tower-provision` refuses to publish any other;
-a new cohort on a later registry is measured again with the same commands
+and pilots better than the Expert beats the house more often. The shared
+builder draws on the whole card registry, and Wave 19 (`fc309f1d4`) would
+have moved twenty of the fifty generated decks out of the band. The decks
+measured here are therefore frozen data (`expeditions/frozen.rs`), each card
+checked against the registry but never rebuilt from it; on Wave 19's
+registry they differ from the measured ones in reference printings only.
+`baylee_tower_content::CALIBRATED` holds the content's fingerprint (images
+left out), and `baylee-tower-provision` refuses to publish any other. A
+house refit requires only the core cards its starter holds, so a card wave
+cannot reach the ladder through a starter's theme either; the ladder is
+still built over the registry's card definitions, which is why it is
+measured again on the engine a cohort binds to
 (`docs/history/tower-calibration-2026-11-27/`).
 
 ## Runtime grants
