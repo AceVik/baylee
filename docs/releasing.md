@@ -988,11 +988,19 @@ pumping workload. Unsupported Tower modes/four seats and mismatched
 server/workload features are refused. The regular variants retain their
 existing training and comparison shapes.
 
-Focused tests establish this wiring, not a completed profile-guided release.
-**Tower release acceptance remains open until its actual release build, count
-coverage and plain/profiled comparison pass.** A plain comparison using a
-different registry or variant is not a valid semantic proof, and profiling does
-not certify Tower balance.
+The Tower variant's whole run passed by hand on 27.11.2026 on Linux (Ryzen 9
+3900X, `cargo tools pgo engine-server tower`): 2 708 of 27 698 functions without
+counts (9.8 %), all in `baylee-engine-server`'s own crates, and the profiled
+build played the sixteen duels byte for byte as the plain one. A plain
+comparison using a different registry or variant is not a valid semantic proof,
+and profiling does not certify Tower balance.
+
+The coverage check holds on Linux, where the servers are built. On a Mac the
+same Tower run left 9 874 of 20 482 without counts (48 %) and stopped: the
+profile took effect there too (the engine's and the gamehost's crates matched),
+but it held 7 216 fewer function records than the Linux one: records of code the
+workload never reaches do not survive the link on macOS, while Linux keeps them
+with zero counts. Run the engine's steps on Linux.
 
 Server staging requires the full set:
 `baylee-engine-server` (standard), `baylee-engine-standard-loops`, and

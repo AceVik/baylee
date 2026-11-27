@@ -289,4 +289,29 @@ mod tests {
         assert_ne!(line_id(1), line_id(2));
         assert_eq!(line_id(3), line_id(3));
     }
+
+    /// Offline the shipped client has no social machine; a seed of friends
+    /// stands up the harness's own, whose welcome makes it an account's, so
+    /// the contacts open (the training's long lists). Without a seed, offline
+    /// stays without contacts.
+    #[test]
+    fn an_offline_seed_stands_up_the_harness_session_and_opens_the_contacts() {
+        let mut lobby = LobbyState::new();
+        let _ = lobby.lobby.play_offline();
+        let mut host = SocialHost::default();
+        assert!(lobby.lobby.offline());
+        assert!(!lobby.can_use_contacts(), "offline has no contacts");
+        let said = answer(
+            r#"{"friends":5,"lines":3}"#,
+            Some(&mut host),
+            Some(&mut lobby),
+            None,
+            None,
+        );
+        assert!(said.starts_with(r#"{"ok":true,"frames":5,"#), "{said}");
+        assert!(lobby.seeded_social && lobby.can_use_contacts());
+        let machine = host.machine().expect("the seeded session's machine");
+        assert!(!machine.me().guest, "the seed's welcome makes it an account's");
+        assert!(machine.contacts().friend("1004").is_some());
+    }
 }
