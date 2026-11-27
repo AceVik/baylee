@@ -139,19 +139,33 @@ impl AiDef {
 /// wait, no host slots held back for people (the fixture's host has few),
 /// the AI created, switched on, and a runner token for it alone.
 fn set_up_ai(desk: &Desk<'_>, ai: &AiDef) -> (Id, u32, Token) {
+    ai_settings(desk, true);
+    let (account, tag) = create_ai(desk, ai);
+    (account, tag, runner_token(desk, vec![account]))
+}
+
+/// Every AI's settings: fill-in after Central's shortest wait where
+/// `fill_in`, else the carousel only (one AI match at once, ten a day); no
+/// host slots held back for people (the fixture's host has few).
+fn ai_settings(desk: &Desk<'_>, fill_in: bool) {
     assert!(matches!(
         desk.ask(AdminRequest::SetAiSettings {
             settings: AiSettings {
+                fill_in,
                 fill_in_after: 30,
                 drain_minutes: 30,
                 global_seats: 8,
                 host_reserve: 0,
-                carousel_games: 0,
-                carousel_daily: 0,
+                carousel_games: u8::from(!fill_in),
+                carousel_daily: if fill_in { 0 } else { 10 },
             },
         }),
         Answer::Done
     ));
+}
+
+/// The AI `ai`, created and switched on: its account and tag.
+fn create_ai(desk: &Desk<'_>, ai: &AiDef) -> (Id, u32) {
     let Answer::Admin {
         answer: AdminAnswer::AiPlayerCreated { account, tag },
     } = desk.ask(AdminRequest::CreateAiPlayer {
@@ -176,17 +190,22 @@ fn set_up_ai(desk: &Desk<'_>, ai: &AiDef) -> (Id, u32, Token) {
         }),
         Answer::Done
     ));
+    (account, tag)
+}
+
+/// A runner token for `accounts`.
+fn runner_token(desk: &Desk<'_>, accounts: Vec<Id>) -> Token {
     let Answer::Admin {
         answer: AdminAnswer::AiRunnerTokenCreated { token, .. },
     } = desk.ask(AdminRequest::CreateAiRunnerToken {
         name: "e2e runner".into(),
-        accounts: vec![account],
+        accounts,
         days: 1,
     })
     else {
         panic!("a runner token");
     };
-    (account, tag, token)
+    token
 }
 
 /// The deck both sides play: sixty Forests, so the game runs to a library
@@ -652,6 +671,7 @@ pub(in super::super) fn run(
         facts_from: None,
         facts_file: None,
         min_think_ms: 0,
+        no_carousel: false,
     };
     let (report, person) = rt.block_on(async {
         let pilot: Arc<dyn Pilot> = Arc::new(CuttingHouse {
@@ -783,8 +803,17 @@ fn runner_state(
     token: &Token,
     decks: Option<&std::path::Path>,
 ) -> (std::path::PathBuf, std::path::PathBuf) {
+    state_named("ai-players-runner-state", token, decks)
+}
+
+/// [`runner_state`] under `<target>/tmp/<name>`.
+fn state_named(
+    name: &str,
+    token: &Token,
+    decks: Option<&std::path::Path>,
+) -> (std::path::PathBuf, std::path::PathBuf) {
     use std::io::Write as _;
-    let state = std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).join("ai-players-runner-state");
+    let state = std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).join(name);
     let _ = std::fs::remove_dir_all(&state);
     if let Some(decks) = decks {
         copy_dir(decks, &state.join("decks"));
@@ -1050,4 +1079,133 @@ fn fresh_transcripts() -> std::path::PathBuf {
     let _ = std::fs::remove_dir_all(&transcripts);
     std::fs::create_dir_all(&transcripts).unwrap();
     transcripts
+}
+
+#[test]
+#[ignore = "requires owned PostgreSQL 18 fixture from cargo dev central integration --ai-players-only"]
+fn two_ai_runners_meet_in_the_carousel_and_finish_a_ranked_game() {
+    super::super::integration(super::super::Scenario::Carousel);
+}
+
+/// Two house AIs, each its own runner, with fill-in off and the carousel on
+/// (calibration): the carousel pairs their standing offers in Standard,
+/// they finish the game, and Central's results for both agree with the
+/// table's.
+pub(in super::super) fn carousel(
+    rt: &Runtime,
+    served: &Served,
+    store: &AccountStore,
+    operator: &DatabaseConnection,
+) {
+    let _owner = fresh::register(
+        rt,
+        &served.service,
+        &served.endpoint,
+        "carousel_host",
+        fresh::DOCUMENT,
+    );
+    let host = registered(rt, served, store, operator, "carousel_host", true);
+    let agent = rt.block_on(common::ranked::provision(&host.gateway));
+    capacity(rt, operator, &host);
+    let desk = Desk::open(rt, served, operator, "carousel_admin");
+    ai_settings(&desk, false);
+    let names = ["KI-Haus-Eins", "KI-Haus-Zwei"];
+    let ais = names.map(|name| {
+        create_ai(
+            &desk,
+            &AiDef {
+                name,
+                ..AiDef::house()
+            },
+        )
+    });
+    let token = runner_token(&desk, ais.iter().map(|(account, _)| *account).collect());
+    let transcripts = fresh_transcripts();
+    let args = [0, 1].map(|at| {
+        let (state, token_file) = state_named(&format!("ai-players-carousel-{at}"), &token, None);
+        RankedArgs {
+            central: served.endpoint.origin().to_owned(),
+            account: format!("{}#{:04x}", names[at], ais[at].1),
+            token_file: Some(token_file),
+            token_key: None,
+            state: Some(state),
+            decks: None,
+            transcripts: Some(transcripts.clone()),
+            fallback_level: "expert".into(),
+            games: Some(1),
+            accept_hosts: vec![host.origin.clone()],
+            facts_from: None,
+            facts_file: None,
+            min_think_ms: 0,
+            no_carousel: false,
+        }
+    });
+    let reports = rt.block_on(async {
+        let fly = |args: RankedArgs| async move {
+            let mut reports = Vec::new();
+            let pilot: Arc<dyn Pilot> = Arc::new(HousePilot::new("expert").unwrap());
+            let played = cli::play(&args, pilot, |r| reports.push(r))
+                .await
+                .expect("the runner plays");
+            assert_eq!(played, 1, "each runner played one match");
+            reports
+                .pop()
+                .expect("the runner told how its match went")
+                .expect("the runner played its match to the end")
+        };
+        let [one, two] = args;
+        tokio::time::timeout(Duration::from_secs(540), async {
+            tokio::join!(fly(one), fly(two))
+        })
+        .await
+        .expect("both AIs finish their carousel game")
+    });
+    let (one, two) = reports;
+    assert_eq!(
+        one.match_id, two.match_id,
+        "the carousel paired the two AIs"
+    );
+    let receipts = [&one, &two].map(carousel_receipt);
+    assert_ne!(receipts[0].seat, receipts[1].seat);
+    assert_eq!(receipts[0].outcome, receipts[1].outcome);
+    agent.abort();
+}
+
+/// One carousel AI's whole game, Central's result for it (not inferred),
+/// and the two agreeing.
+fn carousel_receipt(report: &MatchReport) -> ranked::Receipt {
+    let receipt = report.receipt.expect("Central settled the match");
+    assert!(
+        !receipt.inferred,
+        "Central's own result, not the standing's"
+    );
+    let result = report
+        .played
+        .result
+        .expect("the seat saw the game's end on its socket");
+    let won = match result.winner {
+        Some(Victor::Player(winner)) => Some(winner == PlayerId::new(receipt.seat)),
+        Some(Victor::Team(_)) => panic!("a duel has no teams"),
+        None => None,
+    };
+    assert_eq!(
+        won,
+        receipt.won(),
+        "the table and Central agree on the result"
+    );
+    assert!(
+        report.played.stats.turns >= 100,
+        "a whole game, not a forfeit: {} turns, {result:?}",
+        report.played.stats.turns
+    );
+    assert_eq!(
+        report.played.stats.fallbacks.expired, 0,
+        "no question ran out of time"
+    );
+    assert_eq!(
+        report.opponent.as_deref(),
+        Some("Haus-KI · Expert"),
+        "each was told its opponent is an AI"
+    );
+    receipt
 }

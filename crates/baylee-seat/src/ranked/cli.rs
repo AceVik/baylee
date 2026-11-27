@@ -85,6 +85,11 @@ pub struct RankedArgs {
     /// the table can follow.
     #[arg(long, default_value_t = 1500)]
     pub min_think_ms: u64,
+    /// Ask Central's carousel for no matches against other AIs (its
+    /// calibration games); matches Central makes from the offers are
+    /// played all the same.
+    #[arg(long)]
+    pub no_carousel: bool,
 }
 
 impl RankedArgs {
@@ -197,6 +202,7 @@ pub async fn play(
                 .flatten()
         }),
         facts_file: args.facts_file.clone(),
+        carousel: !args.no_carousel,
         play: MatchOptions {
             play: PlayOptions {
                 min_think: Duration::from_millis(args.min_think_ms),
@@ -248,10 +254,15 @@ fn report(match_report: anyhow::Result<MatchReport>) {
         Ok(m) => {
             let result = match m.receipt.and_then(|r| r.won().map(|won| (won, r))) {
                 Some((won, r)) => format!(
-                    "{} (Elo {}{}, inferred from the account's standing)",
+                    "{} (Elo {}{}{})",
                     if won { "won" } else { "lost" },
                     r.elo,
-                    r.delta.map_or_default(|d| format!(" {d:+}"))
+                    r.delta.map_or_default(|d| format!(" {d:+}")),
+                    if r.inferred {
+                        ", inferred from the account's standing"
+                    } else {
+                        ""
+                    }
                 ),
                 None => "no rated result".to_owned(),
             };

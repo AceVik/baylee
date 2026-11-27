@@ -159,8 +159,10 @@ follows to `hyper` 1.13.0 and `sha2` 0.11.2; the native shipping gate checks
 the all-feature reverse dependency graph at this pin.
 
 The AI players' pin of 27.11.2026 moves Central to
-`16ed416e60916eb9e7f50e118515cc6491abbe58` (Central's branch
-`claude/ai-players`, pull request 98, not merged yet). The `central-crypto`
+`eb6504e652b000f540f4f1fb85edefae6b2b63ea` (Central's branch
+`claude/ai-players`, pull request 98, not merged yet; its migration 000055
+and grants come with it, the integration fixture's copy of `ops/grants.sql`
+following). The `central-crypto`
 Git tree is unchanged (`fecfee3b4b4433a4bfd5a57ae9b1fb4154c141f8`), and so is
 Central's own lock file, so this review stands; only the `central-*` entries
 of Baylee's lock file moved.

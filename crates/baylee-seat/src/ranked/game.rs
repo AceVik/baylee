@@ -8,7 +8,7 @@ use crate::bridge::{PlayOptions, Played};
 use crate::transcript::Transcript;
 use anyhow::{Context as _, bail};
 use baylee_account::ranked::{
-    Assignment, Format, Id, Outcome, ProfileTarget, Request, Response, Standing, Track,
+    Assignment, Format, Id, Outcome, ProfileTarget, Request, Response, Standing, Track, ai,
 };
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -49,9 +49,8 @@ impl Default for MatchOptions {
     }
 }
 
-/// Central's result for a finished match, as the account's standing in
-/// the match's format moved: an AI account holds no queue entry whose
-/// receipt it could read.
+/// Central's result for a finished match: as its `Work` lists the account's
+/// finished matches, else inferred from how the account's standing moved.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Receipt {
     /// The engine's result, as Central counted it.
@@ -62,6 +61,9 @@ pub struct Receipt {
     pub elo: i32,
     /// The change; `None` where the account had no standing before.
     pub delta: Option<i32>,
+    /// Whether it was inferred from the standing, Central's list of finished
+    /// matches not naming the match.
+    pub inferred: bool,
 }
 
 impl Receipt {
@@ -176,11 +178,11 @@ pub async fn play_match(
     transcript.flush();
     let receipt = settled(player, &link, before, options.settle).await;
     if let Some(r) = &receipt {
-        // Central says no result per match to an AI account: this one is
-        // read from its public standing, and the record says so.
+        // Where the result was inferred, the record says so.
         transcript.write_value(&serde_json::json!({ "receipt": {
             "outcome": format!("{:?}", r.outcome), "seat": r.seat, "elo": r.elo,
-            "delta": r.delta, "inferred": "from the account's public standing",
+            "delta": r.delta,
+            "source": if r.inferred { "inferred from the account's public standing" } else { "Central" },
         }}));
         transcript.flush();
     }
@@ -219,56 +221,96 @@ async fn standing(player: &Player, format: Format) -> Option<Standing> {
         })
 }
 
-/// Central's result for the link's match, read from the account's standing
-/// until it counts one game more than `before`, or `patience` runs out.
+/// Central's result for the link's match: the one its `Work` lists among
+/// the account's finished matches (`ai::Finished`), asked until it does or
+/// `patience` runs out; else, where Central's list does not name it, the
+/// account's standing read once against `before`, marked inferred.
 async fn settled(
     player: &Player,
     link: &RankedLink,
     before: Option<Standing>,
     patience: Duration,
 ) -> Option<Receipt> {
-    let (format, seat) = (link.assignment().format, link.assignment().seat);
+    let (match_id, format, seat) = (
+        link.assignment().match_id,
+        link.assignment().format,
+        link.assignment().seat,
+    );
     let until = tokio::time::Instant::now() + patience;
     loop {
-        if let Some(after) = standing(player, format).await {
-            let (games, wins, losses) = before
-                .as_ref()
-                .map_or((0, 0, 0), |b| (b.games, b.wins, b.losses));
-            match after.games.checked_sub(games) {
-                Some(1) => {
-                    let won = if after.wins > wins {
-                        Some(true)
-                    } else if after.losses > losses {
-                        Some(false)
-                    } else {
-                        None
-                    };
-                    // The first seat won where this seat won and is the
-                    // first, or lost and is the second.
-                    let outcome = match won {
-                        None => Outcome::Draw,
-                        Some(won) if won == (seat == 0) => Outcome::FirstWins,
-                        Some(_) => Outcome::SecondWins,
-                    };
-                    return Some(Receipt {
-                        outcome,
-                        seat,
-                        elo: after.elo,
-                        delta: before.map(|b| after.elo - b.elo),
-                    });
-                }
-                Some(0) | None => {}
-                Some(_) => {
-                    tracing::info!(
-                        "another match of the account settled meanwhile: no result of its own"
-                    );
-                    return None;
-                }
-            }
+        if let Some(receipt) = from_work(player, match_id).await {
+            return Some(receipt);
         }
         if tokio::time::Instant::now() >= until {
-            return None;
+            break;
         }
         tokio::time::sleep(Duration::from_secs(1)).await;
     }
+    tracing::info!("Central's finished matches do not name this one: the standing says the result");
+    inferred(player, format, seat, before).await
+}
+
+/// The match `match_id` among the account's finished ones, as Central's
+/// `Work` lists them.
+async fn from_work(player: &Player, match_id: Id) -> Option<Receipt> {
+    let reply = player
+        .call(|account| account.ai(ai::Request::Work))
+        .await
+        .ok()?;
+    let ai::Response::Work { finished, .. } = reply else {
+        return None;
+    };
+    let done = finished.into_iter().find(|f| f.match_id == match_id)?;
+    // The first seat won where this seat won and is the first, or lost and
+    // is the second.
+    let outcome = match done.result {
+        ai::MatchResult::Draw => Outcome::Draw,
+        result if (result == ai::MatchResult::Win) == (done.seat == 0) => Outcome::FirstWins,
+        _ => Outcome::SecondWins,
+    };
+    Some(Receipt {
+        outcome,
+        seat: done.seat,
+        elo: done.elo,
+        delta: Some(done.delta),
+        inferred: false,
+    })
+}
+
+/// The account's standing in `format` read once: one game more than
+/// `before`, its result inferred from what moved.
+async fn inferred(
+    player: &Player,
+    format: Format,
+    seat: u8,
+    before: Option<Standing>,
+) -> Option<Receipt> {
+    let after = standing(player, format).await?;
+    let (games, wins, losses) = before
+        .as_ref()
+        .map_or((0, 0, 0), |b| (b.games, b.wins, b.losses));
+    if after.games.checked_sub(games) != Some(1) {
+        return None;
+    }
+    let won = if after.wins > wins {
+        Some(true)
+    } else if after.losses > losses {
+        Some(false)
+    } else {
+        None
+    };
+    // The first seat won where this seat won and is the first, or lost and
+    // is the second.
+    let outcome = match won {
+        None => Outcome::Draw,
+        Some(won) if won == (seat == 0) => Outcome::FirstWins,
+        Some(_) => Outcome::SecondWins,
+    };
+    Some(Receipt {
+        outcome,
+        seat,
+        elo: after.elo,
+        delta: before.map(|b| after.elo - b.elo),
+        inferred: true,
+    })
 }

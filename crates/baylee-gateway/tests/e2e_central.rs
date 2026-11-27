@@ -272,17 +272,25 @@ enum Scenario {
     Ranked,
     Replicated,
     Runners,
+    Carousel,
+}
+
+impl Scenario {
+    /// The fixture's database the scenario runs in, its own.
+    const fn database(self) -> &'static str {
+        match self {
+            Self::Migration => "central_native_test",
+            Self::Ranked => "central_ranked_test",
+            Self::Replicated => "central_replica_test",
+            Self::Runners => "central_runners_test",
+            Self::Carousel => "central_carousel_test",
+        }
+    }
 }
 
 fn integration(scenario: Scenario) {
     let runtime = Runtime::new().unwrap();
-    let name = match scenario {
-        Scenario::Migration => "central_native_test",
-        Scenario::Ranked => "central_ranked_test",
-        Scenario::Replicated => "central_replica_test",
-        Scenario::Runners => "central_runners_test",
-    };
-    let (operator, store, legacy) = runtime.block_on(integration_stores(name));
+    let (operator, store, legacy) = runtime.block_on(integration_stores(scenario.database()));
     let served = serve(&runtime, &store, &legacy, "central", None);
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         match scenario {
@@ -290,8 +298,9 @@ fn integration(scenario: Scenario) {
             Scenario::Replicated => {
                 return ranked::replication::run(&runtime, &served, &store, &operator);
             }
-            Scenario::Runners => {
-                return ranked::runners::run(&runtime, &served, &store, &operator);
+            Scenario::Runners => return ranked::runners::run(&runtime, &served, &store, &operator),
+            Scenario::Carousel => {
+                return ranked::runners::carousel(&runtime, &served, &store, &operator);
             }
             Scenario::Migration => {}
         }

@@ -36,6 +36,7 @@ fn a_receipt_says_who_won_from_the_seat() {
         seat,
         elo: 1500,
         delta: Some(0),
+        inferred: false,
     };
     assert_eq!(receipt(Outcome::FirstWins, 0).won(), Some(true));
     assert_eq!(receipt(Outcome::FirstWins, 1).won(), Some(false));
@@ -324,5 +325,22 @@ fn a_deck_the_host_refused_is_offered_no_more_and_the_one_before_it_is() {
         said.iter()
             .any(|l| l.contains("v0002") && l.contains("would not seat it")),
         "{said:?}"
+    );
+}
+
+#[test]
+fn the_carousel_waits_are_jittered_and_tomorrow_is_past_midnight() {
+    for _ in 0..50 {
+        let wait = jittered(Duration::from_secs(40));
+        assert!(
+            wait >= Duration::from_secs(30) && wait <= Duration::from_secs(50),
+            "{wait:?}"
+        );
+    }
+    let tomorrow = until_midnight_utc();
+    assert!(tomorrow > Duration::ZERO && tomorrow <= Duration::from_secs(86_405));
+    assert!(
+        Settings::default().carousel,
+        "the carousel is asked by default"
     );
 }

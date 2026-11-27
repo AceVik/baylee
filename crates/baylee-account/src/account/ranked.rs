@@ -192,6 +192,20 @@ impl Account {
         self.session.ai(&self.http, request)
     }
 
+    /// Asks Central's carousel for a match between this AI account and
+    /// another AI in `format` now (baylee-central `docs/ai-players.md` §7):
+    /// the seat it made, which `Work` lists from then on too, or why none
+    /// was made.
+    ///
+    /// # Errors
+    /// A person's account, a seat against a person, and mismatched replies.
+    pub fn ai_carousel(
+        &self,
+        format: crate::ranked::Format,
+    ) -> Result<Result<Assignment, ai::Unseated>, Error> {
+        self.session.ai_carousel(&self.http, format)
+    }
+
     /// The AI account's live match `match_id`, as Central's `Work` lists it.
     ///
     /// # Errors

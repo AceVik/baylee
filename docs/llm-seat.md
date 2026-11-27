@@ -1424,7 +1424,7 @@ baylee-seat ranked --account <id | Name#tag>
     (--level expert | --profile <name> [--config <file>] [--ledger <file>])
     [--fallback-level expert]
     [--accept-host <origin>]… [--facts-from <origin>] [--facts-file <file>]
-    [--games <n>] [--min-think-ms 1500]
+    [--games <n>] [--min-think-ms 1500] [--no-carousel]
 ```
 
 Everything but the pilot's own flags is `ranked::cli::RankedArgs`, and
@@ -1512,6 +1512,16 @@ the other.
   and plays each match it has not started as a task of its own, also one a
   runner before a restart took (the link resumes it), as long as it holds
   the deck the match was made with. `--games` stops it after that many.
+- **The carousel** (baylee-central `docs/ai-players.md` §7: matches
+  between AIs, for calibration). While it offers and has a slot free under
+  `max_games`, the runner asks Central's carousel for a match in each
+  offered format (`Ai::Carousel`), every 30 s; a seat it makes is played as
+  any match. Central decides everything else (no person waiting, its caps,
+  fill-in off while calibrating), and a refusal says when to ask again:
+  `off` (the carousel is off for the account) in ten minutes, `offer` once
+  the offers are renewed, `tomorrow` after the next midnight UTC, `later`
+  after a wait from 30 s that doubles with each one in a row, jittered, at
+  most ten minutes. On by default; `--no-carousel` asks for none.
 - **A match.** The relay takes the match-bound admission for the account
   (`POST /auth/ranked/login` at the host), hands the host the frozen deck
   (`POST /ranked/{match}/play`, asked again with the same admission while
@@ -1521,12 +1531,14 @@ the other.
   the host itself. A dropped socket is replaced the same way, the host
   given the game's id instead of the deck, and the seat asks for what it
   missed. While the game runs, the admission is renewed at the `renew_in`
-  the host gave. After the game the runner reads the account's standing
-  in the format (its public profile) until it counts the game: the
-  outcome, the Elo and its change (`ranked::Receipt`; none when another of
-  its matches in the format settled meanwhile). Central says no result
-  per match to an AI account yet, so this one is inferred, and the
-  transcript's `receipt` and the chronicle say so.
+  the host gave. After the game the runner reads the match's result in
+  Central's work (`Ai::Work`'s `finished`: the account's matches settled in
+  the last day, at most 32: the seat, win, loss or draw, the Elo and its
+  change, the opponent's AI badge), asked until it is there, at most two
+  minutes (`ranked::Receipt`). Only where the list does not name the match
+  is the result inferred from the account's standing in the format (none
+  when another of its matches there settled meanwhile), and the
+  transcript's `receipt` and the chronicle then say so.
 - **Host terms.** Central asks every participant to approve the hosts of a
   match and their terms. The runner approves only a match whose hosts are
   all on the operator's list (`--accept-host <origin>`, repeatable) and
@@ -1626,8 +1638,10 @@ mid-game, it hands the seat over, and the house fallback takes the seat
 again with a fresh core and plays on. Both see the whole game, the
 person's assignment and receipt carry the AI's badge, and Central's
 results agree with the table's
-(`crates/baylee-gateway/tests/e2e_central/ranked/runners.rs`). An AI
-against an AI waits for Central's carousel.
+(`crates/baylee-gateway/tests/e2e_central/ranked/runners.rs`). Beside it,
+two house AIs, each its own runner, with fill-in off and the carousel on,
+are paired by the carousel in Standard and finish the game, Central's
+result for each (not inferred) agreeing with the table's.
 
 The same test plays a proof game of a real pilot on the machine whose CLIs
 are signed in, when `BAYLEE_E2E_AI_RUNNER` names a runner binary: the
