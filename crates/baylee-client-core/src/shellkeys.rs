@@ -625,6 +625,15 @@ impl<'de> Deserialize<'de> for ShellKeymap {
                 binds.insert(action, chords);
             }
         }
+        // Replays left `4` for `3` when Settings left the number row (0.2.4):
+        // a stored map still holding the old default takes the new one where
+        // it is free, and a rebind of the player's own stays.
+        if binds
+            .get(&ShellAction::GoReplays)
+            .is_some_and(|chords| *chords == [ShellChord::code("Digit4")])
+        {
+            binds.remove(&ShellAction::GoReplays);
+        }
         let mut map = Self { binds };
         for action in ShellAction::ALL {
             if map.binds.contains_key(&action) {
@@ -1291,6 +1300,20 @@ mod tests {
         assert_eq!(
             read.chords(ShellAction::GoReplays),
             &[ShellChord::code("Digit3")]
+        );
+        // A full map saved by such a build, with Replays on its old `4`.
+        let saved = r#"{"go-settings":[{"key":"Digit3"}],"go-replays":[{"key":"Digit4"}]}"#;
+        let read: ShellKeymap = serde_json::from_str(saved).expect("reads");
+        assert_eq!(
+            read.chords(ShellAction::GoReplays),
+            &[ShellChord::code("Digit3")]
+        );
+        // A player's own rebind is kept.
+        let own = r#"{"go-replays":[{"key":"KeyR"}]}"#;
+        let read: ShellKeymap = serde_json::from_str(own).expect("reads");
+        assert_eq!(
+            read.chords(ShellAction::GoReplays),
+            &[ShellChord::code("KeyR")]
         );
     }
 }
