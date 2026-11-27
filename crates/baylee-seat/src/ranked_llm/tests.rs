@@ -230,3 +230,25 @@ fn a_path_that_could_not_answer_is_held_back_as_the_next_takes_over() {
     assert_eq!(declared.level, "expert");
     assert!(held.lock().unwrap().contains_key("haiku-second"));
 }
+
+#[test]
+fn a_path_that_keeps_failing_before_its_games_is_held_back_ever_longer() {
+    let dir = Scratch::new("failing");
+    let pilot = LlmPilot::new(&setup(&dir, "haiku-high"), keys()).unwrap();
+    let left = |pilot: &LlmPilot| {
+        pilot.held.lock().unwrap()["haiku-api"].saturating_duration_since(Instant::now())
+    };
+    pilot.failed("haiku-api", "TEST: the model list did not answer");
+    let first = left(&pilot);
+    assert!(
+        first > Duration::from_mins(9) && first <= FAILED_HOLD,
+        "{first:?}"
+    );
+    pilot.failed("haiku-api", "TEST: still not");
+    let second = left(&pilot);
+    assert!(second > Duration::from_mins(19), "doubled: {second:?}");
+    for _ in 0..10 {
+        pilot.failed("haiku-api", "TEST: never");
+    }
+    assert!(left(&pilot) <= MOST_HOLD);
+}

@@ -45,9 +45,10 @@ use baylee_seat::seat::{BridgeConfig, Labelled};
 use baylee_seat::spend;
 use baylee_seat::{Mind, SeatCore, declare};
 use clap::Parser as _;
+use std::collections::BTreeMap;
 use std::ffi::OsString;
 use std::path::PathBuf;
-use std::sync::{Arc, PoisonError};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
 /// A game's budget in dollars where the profile names none.
@@ -88,6 +89,8 @@ pub struct LlmPilot {
     house: AIProfile,
     keys: Arc<dyn KeyStore>,
     held: Held,
+    /// Failures in a row before a game, per path.
+    failures: Arc<Mutex<BTreeMap<String, u32>>>,
 }
 
 impl std::fmt::Debug for LlmPilot {
@@ -212,6 +215,7 @@ impl LlmPilot {
             house,
             keys,
             held: Held::default(),
+            failures: Arc::default(),
         })
     }
 
@@ -231,20 +235,52 @@ impl LlmPilot {
         hold_back(&self.held, profile, hold, why);
     }
 
-    /// The chain's first live path, reached and reserved for a game: the
-    /// mind, its tally and booking, what it declares and how long it may
-    /// think; a path that cannot be reached or reserved now is held back
-    /// and the next tried. With the rest of the live paths behind it.
-    fn first<'a>(&self, live: &'a [&'a Path]) -> Option<(Started, &'a [&'a Path])> {
+    /// The chain's first live path, reached, reserved and checked for a
+    /// game: the mind, its booking, what it declares and how long it may
+    /// think. A path that cannot be reached or reserved, or whose free
+    /// check fails (a model's entry, a CLI's login: `Mind::check`, no
+    /// game's call), is held back and the next tried, each failure in a
+    /// row holding it twice as long ([`Self::failed`]). With the rest of
+    /// the live paths behind it.
+    async fn first<'a>(&self, live: &'a [&'a Path]) -> Option<(Started, &'a [&'a Path])> {
         for (at, path) in live.iter().enumerate() {
-            match start(path, &*self.keys) {
-                Ok(started) => return Some((started, &live[at + 1..])),
-                Err(why) => self.hold(&path.profile, FAILED_HOLD, &why),
-            }
+            let why = match start(path, &*self.keys) {
+                Ok(started) => match started.mind.check().await {
+                    Ok(()) => {
+                        self.failures
+                            .lock()
+                            .unwrap_or_else(PoisonError::into_inner)
+                            .remove(&path.profile);
+                        return Some((started, &live[at + 1..]));
+                    }
+                    Err(why) => why,
+                },
+                Err(why) => why,
+            };
+            self.failed(&path.profile, &why);
         }
         None
     }
+
+    /// `profile` failed before a game: held back for [`FAILED_HOLD`],
+    /// doubled for each failure in a row, at most [`MOST_HOLD`], so a path
+    /// that stays dead is asked rarely.
+    fn failed(&self, profile: &str, why: &str) {
+        let times = {
+            let mut failures = self.failures.lock().unwrap_or_else(PoisonError::into_inner);
+            let times = failures.entry(profile.to_owned()).or_insert(0);
+            *times = times.saturating_add(1);
+            *times
+        };
+        let hold = FAILED_HOLD
+            .saturating_mul(1 << (times - 1).min(5))
+            .min(MOST_HOLD);
+        self.hold(profile, hold, why);
+    }
 }
+
+/// The longest a path that keeps failing before its games is held back.
+pub const MOST_HOLD: Duration = Duration::from_hours(4);
 
 /// `join` under the owner's no-caps decision: each per-game budget the
 /// profile `own` does not name is lifted. A model without a price takes
@@ -355,7 +391,7 @@ impl Pilot for LlmPilot {
     fn fly<'a>(&'a self, seat: Seat<'a>) -> Flight<'a> {
         Box::pin(async move {
             let live = self.live(Instant::now());
-            let Some((started, rest)) = self.first(&live) else {
+            let Some((started, rest)) = self.first(&live).await else {
                 return Ok(Piloted::HandOver(
                     "no access path of the model could take the game".into(),
                 ));

@@ -313,12 +313,16 @@ fn a_deck_the_host_refused_is_offered_no_more_and_the_one_before_it_is() {
     assert_ne!(before, newest);
     assert_eq!(shelf.version_of(&before), Some(1));
     assert!(
-        said.iter()
-            .any(|l| l.contains("would not seat it at a match")),
-        "{said:?}"
-    );
-    assert!(
         shelf.by_digest(&newest).is_some(),
         "a match made with it still plays"
+    );
+    // Under other facts the refusal lapses: the newer version is weighed
+    // again (and these facts, which know no Grizzly Bears, pass it over).
+    said.clear();
+    shelf.refresh(Some(&facts("l", Vec::new())), |line| said.push(line));
+    assert!(
+        said.iter()
+            .any(|l| l.contains("v0002") && l.contains("would not seat it")),
+        "{said:?}"
     );
 }
