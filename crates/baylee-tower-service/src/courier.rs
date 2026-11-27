@@ -1,7 +1,7 @@
 //! Durable permanent-fact delivery; no game or replay state crosses this boundary.
 use crate::{Error, identity::Central};
 use baylee_tower::v2::run::Outcome as DuelOutcome;
-use baylee_tower_store::{Award, AwardDelivery, Principal, Role, Store};
+use baylee_tower_store::{Award, Principal, Role, Store};
 use central_api::{
     Endpoint, Token,
     tower_awards::{Delivery, Disposition, Fact, Outcome},
