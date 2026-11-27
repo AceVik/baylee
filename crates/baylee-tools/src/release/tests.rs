@@ -401,10 +401,10 @@ fn every_release_build_makes_the_seat_bridge() {
             .any(|l| l.contains("cargo build-client ")
                 && l.contains("--profile \"$PACKAGE_PROFILE\""))
     );
-    // A release, which comes with the client's profile, builds `dist`; only
+    // A release, with or without the client's profile, builds `dist`; only
     // a main push's packages, never shipped, build the quicker check.
     assert!(workflow.contains(
-        "PACKAGE_PROFILE: ${{ inputs.client-profile != '' && 'dist' || 'package-check' }}"
+        "PACKAGE_PROFILE: ${{ (inputs.release || inputs.client-profile != '') && 'dist' || 'package-check' }}"
     ));
     assert!(cargo_alias(&root, "build-client").contains("--bin baylee-seat"));
 }
