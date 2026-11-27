@@ -48,7 +48,7 @@ const LEADERS: [(&str, Archetype, u16); 50] = [
     ("Emry, Lurker of the Loch", Archetype::Aggro, 2),
     ("Linden, the Steadfast Queen", Archetype::Aggro, 1),
     ("Arasta of the Endless Web", Archetype::Midrange, 0),
-    ("Eutropia the Twice-Favored", Archetype::Midrange, 0),
+    ("Sab-Sunen, Luxa Embodied", Archetype::Midrange, 0),
     ("Chevill, Bane of Monsters", Archetype::Ramp, 0),
     ("Kaervek, the Spiteful", Archetype::Midrange, 0),
     ("Emiel the Blessed", Archetype::Midrange, 0),
