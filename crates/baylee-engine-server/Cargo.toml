@@ -56,6 +56,9 @@ rustix = { workspace = true, features = ["fs", "process"] }
 
 [dev-dependencies]
 baylee-tower-content.workspace = true
+# The Tower calibration lab (`examples/tower_lab`): its command line and errors.
+anyhow.workspace = true
+clap.workspace = true
 baylee-tower.workspace = true
 baylee-tower-store.workspace = true
 baylee-tower-service.workspace = true
@@ -80,4 +83,13 @@ path = "tests/tower_authority/mod.rs"
 
 [[example]]
 name = "tower_build_pilot"
+required-features = ["tower"]
+
+# Measures starters and house opponents in this executor's own duels
+# (`docs/tower-operations.md` §"Calibration"). A Tower build only:
+# `cargo run --release -p baylee-engine-server --no-default-features
+# --features tower --example tower_lab -- --help`.
+[[example]]
+name = "tower_lab"
+path = "examples/tower_lab/main.rs"
 required-features = ["tower"]

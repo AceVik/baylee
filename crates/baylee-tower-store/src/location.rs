@@ -56,8 +56,11 @@ impl Store {
                 vec![run.into(), i16::from(state.shop.stage).into()])).await.map_err(|_| Error::Unavailable)?.ok_or(Error::NotFound)?;
             let reservation: Uuid = column(&row, "id")?;
             let host: Uuid = column(&row, "host")?;
+            // An approved location never changes (`approve_host` only repeats it), so
+            // the enabled operator row is the one to hold; the runtime has no
+            // UPDATE on locations to lock them with (`runtime_grants.sql`).
             let destination = tx.query_one_raw(self.statement("SELECT l.origin,l.development,o.name FROM @tower.host_locations l JOIN @tower.operators o ON o.id=l.host
-                WHERE l.host=$1 AND o.role='host' AND o.enabled FOR SHARE OF l,o", vec![host.into()])).await.map_err(|_| Error::Unavailable)?;
+                WHERE l.host=$1 AND o.role='host' AND o.enabled FOR SHARE OF o", vec![host.into()])).await.map_err(|_| Error::Unavailable)?;
             if let Some(destination) = destination {
                 let origin = column::<String>(&destination, "origin")?;
                 central_api::gateway::validate_origin(

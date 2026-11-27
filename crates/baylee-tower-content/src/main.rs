@@ -11,7 +11,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "generation": baylee_tower::v2::GENERATOR,
             "starters": content.starters.len(),
             "tested_cards": content.catalog.cards.len(),
-            "balance_measured": false,
+            "fingerprint": baylee_tower_content::fingerprint(&content)?,
+            "calibrated": baylee_tower_content::fingerprint(&content)? == baylee_tower_content::CALIBRATED,
         }),
         [mode] if mode == "--catalog" => serde_json::to_value(content)?,
         [mode] if mode == "--publication" => {

@@ -134,6 +134,7 @@ a fixed diagnostic containing no input. A failed preflight never changes state.
 | `publish_house` | `publisher`, `cohort`, `stage`, `archetype`, `build` | `done`. Additionally requires a live dedicated Publisher credential. Stage is 1–12, archetype 1–8 (1–3 for retained cohorts). The typed `Build` contains `formation`, `deck`, `active`, `potions`; it must validate against that cohort's saved catalog and loadout bounds. Run equipment has six slots; retained builds keep three. An exact repeat succeeds; changing a published fallback refuses. |
 | `pause_enrollment` | `cohort` | `done`. Closes new enrollment, preserving existing runs, receipts and immutable content. Exact repeats succeed. Republishing the same content cannot reopen it. |
 | `supervise` | `supervisor`, `run`, `revision`, `recovery` | `{"result":"supervised","revision":<u64>}`. Additionally requires a live dedicated Supervisor credential and the run's current saved revision. `recovery` is `{"kind":"quarantine"}` (stop a reserved, playing or verifying duel and revoke its generations), `{"kind":"resume","host":<UUIDv7 or null>}` (a quarantined run returns to its exact retained package/prefix; an unsealed duel names an enabled compatible Host, a sealed record names none and returns to verification) or `{"kind":"interrupt"}` (retire a quarantined run without a rules result or compensation). A stale revision or wrong phase refuses without change; the reply's revision is the one to name next. |
+| `grant_runtime` | `role` | `done`. Renews the runtime role's reviewed grants (§"Runtime grants") after taking every earlier one back. Refuses a role that is or inherits the schema owner, and any caller that is not the owner. |
 
 All IDs must be UUIDv7. There is no arbitrary SQL, script, state patch, currency
 grant, award injection, unrevocation, content rewrite or reopening operation.
@@ -178,6 +179,215 @@ Already committed results and outbox records remain durable. Revocation is a
 live authorization boundary, not retroactive cancellation of transactions that
 committed before it. Replacing a revoked Host requires a fresh credential/ID and
 explicit handling of retained assignments; there is no silent origin takeover.
+
+## Calibration
+
+Measured on 27.11.2026 with the Tower lab, the `baylee-engine-server` example
+`tower_lab` (built with `--no-default-features --features tower`),
+which plays native duels of this compiled Tower executor in process: the
+package → preset → session path of a hosted duel, no database or network.
+The Tower Expert has no foresight tier (`AIProfile::TOWER_EXPERT`), so the
+house chair plays exactly as at a hosting engine; the human chair is answered
+by the same Expert heuristics through its own view. Every pairing is played in
+both chair assignments on the same deals, so a chair advantage (the house
+chair wins about 55 %) cancels. A duel ended by a bound (30,000 steps, 60
+turns, 300 s) is counted apart and never scored. The bands were fixed before
+any result was read; a choice among candidates is selection, so only a fresh
+measurement of the whole field counts as the result.
+
+- **Starters:** every bare starter against every other, 20 deals per ordered
+  pair: 1,960 duels per starter, 49,000 in all. Band: 40–60 % against the
+  field.
+- **House:** each stage's fifty builds against each other in both chairs,
+  and each build against four builds of the stage below. Band: 30–70 %
+  within a stage; every stage beats the one below.
+
+**Starters.** The first matrix ranged from 15.7 % (Kykar) to 93.2 % (Lyra);
+28 of 50 lay outside the band. the lab's `variants` then measured, for
+each of them, every builder archetype under four seed variants against the
+field (196 duels each), and replacement commanders of the same colours where
+no variant came near. The chosen variant is the third value in `LEADERS`;
+Lyra Dawnbringer, Giada, Dwynen and Eutropia gave way to Soraya the Falconer,
+Loran of the Third Path, Eladamri and Sab-Sunen. Measured again on fresh deals
+(another 49,000 duels): 37.8 % (Talrand) to 61.9 % (Elas il-Kor). A third
+round moved Talrand, Arasta, Hapatra and Rishkar to other variants and
+replaced Elas il-Kor and Arvad with Neva, Stalked by Nightmares and Selenia,
+Dark Angel. The final field, on fresh deals (24,500 duels, 980 per starter):
+every starter between 40.1 % (Samut) and 59.6 % (Ayara), all fifty inside
+the band; the 95 % intervals are about ±3 points. The human chair wins 45.8 %
+of all duels.
+
+**House.** Built from the second round's starters and measured before any
+cell was touched (33,800 duels), the ladder rose at every stage (each stage's
+builds beat the stage below 50–67 %), but within a stage the builds ranged
+from 2 % to 100 %, with 9 to 28 of 50 outside the band per stage. The
+winners were creature and token decks whose relics pump the whole team
+(Banner and Bulwark recipes, Swarm Banner, Grove, Dawn Aegis); the losers
+were spell decks, whose relic options do much less for them. That is the
+relic catalogue's balance as much as the house's, and players meet it too.
+The house is calibrated cell by cell instead: `PICKS` gives each of the 600
+cells the candidate that came closest to even against its stage's field,
+out of its own build, one to three of its most valuable relics left in the
+bag, and the builds of two further shop runs (86,400 duels). Measured again
+on fresh deals (33,800 duels): every stage still beats the one below
+(53–70 %); outside the band per stage 1 (stage 1), 6–14 (stages 2–9) and
+17–19 (stages 10–12), with the extremes at 9 % and 97 %. A second round
+touched only the cells that fresh measurement found outside the band: each
+took the best of its pick, one or two relics more or one less in the bag,
+and the same trim of the other two shop runs, measured against the
+published ladder itself (76,224 duels). The ladder that is published,
+measured on fresh deals (33,800 duels, `ladder-v4.json`): every stage beats
+the one below by 54–69 %; 505 of the 600 cells lie inside 30–70 % (before
+any cell calibration 336), outside per stage 1, 2, 7, 7, 5, 6, 8, 7, 10,
+13, 16 and 13, between 12 % and 97 %. The later stages, where whole-team
+relic engines are complete, keep most of the rest; tuning those relics is a
+change to the run's balance for players too, not to the house alone.
+
+**On Wave 19's rules.** The cohort binds to the Tower engine of 0.2.2,
+whose card registry Wave 19 (`fc309f1d4`) set; the AI-player work in it
+changes no card, engine, house AI or Tower crate. The frozen starters
+measured again under those rules (24,500 duels, `w19-starters.json`):
+38.7 % (Ghen) to 60.2 % (Vona); 45 of 50 inside the band and the other five
+within 1.3 points of its edge, inside their own intervals. The house ladder
+was calibrated afresh on that registry (86,400 duels for the first pick
+table, then 55,344 for the 125 cells a fresh measurement still found outside
+the band, with up to four relics in the bag and the other shop runs). The
+published ladder, on fresh deals (33,800 duels, `w19-ladder-v2.json`):
+every stage beats the one below by 51–64 %; 531 of the 600 cells lie inside
+30–70 %, outside per stage 2, 3, 6, 7, 1, 2, 5, 6, 12, 7, 9 and 9, between
+10 % and 88 %.
+
+**What the numbers hold for.** Both chairs are the Expert heuristics, so
+these are measurements of builds, not of human play: a person who shops
+and pilots better than the Expert beats the house more often. The shared
+builder draws on the whole card registry, and Wave 19 (`fc309f1d4`) would
+have moved twenty of the fifty generated decks out of the band. The decks
+measured here are therefore frozen data (`expeditions/frozen.rs`), each card
+checked against the registry but never rebuilt from it; on Wave 19's
+registry they differ from the measured ones in reference printings only.
+`baylee_tower_content::CALIBRATED` holds the content's fingerprint (images
+left out), and `baylee-tower-provision` refuses to publish any other. A
+house refit requires only the core cards its starter holds, so a card wave
+cannot reach the ladder through a starter's theme either; the ladder is
+still built over the registry's card definitions, which is why it is
+measured again on the engine a cohort binds to
+(`docs/history/tower-calibration-2026-11-27/`).
+
+## Runtime grants
+
+The service never runs as the schema owner. Its runtime role gets exactly
+`crates/baylee-tower-store/src/runtime_grants.sql`, which the owner renews
+after every migration with the closed admin action
+`{"action":"grant_runtime","role":"<runtime role>"}`; the action takes every
+earlier grant back first and refuses a role that is or inherits the owner.
+Production startup (`development: false`) refuses a connection that owns the
+schema, may create in it, or may write published cohorts, house builds,
+approved gateway origins, operator records or their enabled flag
+(`Store::runtime_least_privilege`).
+
+| Table | Runtime may |
+| --- | --- |
+| every table | `SELECT` |
+| `players` | `INSERT`; `UPDATE` of the byte/chunk/run counters, echo consent and ranking listing columns |
+| `enrollment` | `INSERT`; `UPDATE (start_seed)` |
+| `runs` | `INSERT`; `UPDATE (state, revision, active, touched_at, expires_at)` |
+| `requests` | `INSERT` |
+| `operators` | `UPDATE (capabilities)` only: a host's own engine inventory, also what lets the service hold an operator row `FOR SHARE` |
+| `host_availability` | `INSERT`, `DELETE` |
+| `reservations` | `INSERT`; `UPDATE (host, automatic_recoveries)` |
+| `execution_claims`, `record_chunks`, `record_batches` | `INSERT` |
+| `execution_watch` | `INSERT`, `DELETE`; `UPDATE (fence, lease_until)` |
+| `verification_jobs` | `INSERT`; `UPDATE (fence, generation, verifier, claim, lease_until, ready, failure)` |
+| `verification_claims`, `settled_duels` | `INSERT` |
+| `award_outbox` | `INSERT`; `UPDATE (courier, claim, lease_until, retry_after, backoff, delivered_at)` |
+| `echo_snapshots` | `INSERT` |
+| `echo_partitions` | `INSERT`; `UPDATE (population, generation, prune_slot)` |
+| `eligible_echoes` | `INSERT`, `DELETE`; `UPDATE (slot)` |
+| `personal_bests` | `INSERT`; `UPDATE (wins, defeats, listed)` |
+| `cohorts`, `house_builds`, `host_locations`, `schema_version` | nothing beyond `SELECT` |
+
+No `TRUNCATE`, `REFERENCES`, `TRIGGER` or `CREATE` anywhere. The store's
+`execution` test target plays a whole run (reservation, record, seal,
+verification, settlement, reward claims, award delivery, rankings, echo
+withdrawal) as a role holding only these grants and proves every
+administrative write refused, through the store and in plain SQL
+(`tests/execution/grants.rs`).
+
+## Deleted accounts
+
+Tower data is not deleted with a Central account: it is kept until its
+season ends, about six months, and pseudonymised (Central's privacy policy
+2026-11-27, § 7; the deletion at a season's end comes with the next major
+update). What does go is the account's display name and tag on the Tower
+leaderboard. The award courier learns of a deletion from Central's answer
+`account_gone`: on a delivery, and once a day for every listed account, by
+repeating its newest delivered fact exactly (Central deduplicates it and
+changes nothing). Either way the listing is withdrawn as if the owner had
+removed their public identity (`Store::ranking_identity`). The first daily
+check runs ten minutes after the service starts.
+
+## Production on one server
+
+The official cohort runs beside the gateway on the release server
+(`docs/releasing.md`). Everything below is root's, done once; credentials go
+only into root-owned 0600 files that a process reads on stdin.
+
+1. **Database.** A database `baylee_tower` in the shared PostgreSQL container,
+   owned by a login role `tower_owner`, with a login role `tower_runtime`
+   that owns nothing. In `pg_hba.conf`, above every `host` line:
+   `hostnossl baylee_tower all all reject`, then `hostssl baylee_tower
+   tower_owner,tower_runtime 127.0.0.1/32 scram-sha-256`, and both roles
+   refused on every other database. Both URLs use
+   `sslmode=verify-full&sslrootcert=/etc/baylee-tower/db-ca.pem` (a copy of
+   the database's private CA certificate, 0644) with host `127.0.0.1`.
+2. **The cohort's engine.** After the release deploy, copy the deployed
+   `/opt/baylee/bin/baylee-engine-tower` to
+   `/opt/baylee/engines/tower-<short commit>/`; the service's verifier
+   replays records with that copy, whatever a later deploy installs. The
+   agent advertises the deployed sibling, which has the same identity until
+   the next deploy. A deploy that changes the Tower engine strands the
+   cohort's open runs (their next duel finds no host; players can abandon),
+   unless the agent keeps the copy: `BAYLEE_ENGINE_BINS` listing it with
+   `/opt/baylee/bin/baylee-engine-standard-loops` (a set value turns sibling
+   discovery off; the same identity twice stops the agent). An agent keeps
+   an engine of an older protocol installed, but the gateway starts a Tower
+   duel only on one of its own protocol, so a protocol bump strands the
+   cohort in any case. Where the server's configuration is managed as code,
+   that is where the variable goes; pause enrollment before such a deploy.
+3. **Binaries.** `baylee-tower-service` and `baylee-tower-provision`
+   (`cargo build --release --locked -p baylee-tower-service -p
+   baylee-tower-provision`) in `/opt/baylee-tower/bin`; a system user
+   `baylee-tower` without a shell or home.
+4. **Cohort.** `baylee-tower-provision` reads one JSON value:
+   `{"service": "/opt/baylee-tower/bin/baylee-tower-service", "engine":
+   <retained engine>, "configuration": {"database_url": <owner URL>,
+   "schema": "tower", "development": false}, "gateway":
+   "https://gateway.baylee.app", "runtime_role": "tower_runtime",
+   "house_seed": <64 hex>, "credentials": {"host", "verifier", "supervisor",
+   "publisher", "courier"}}`, each credential a fresh `Token` in 64 hex. It
+   migrates, renews the runtime grants, provisions the five operators,
+   approves the gateway, publishes the cohort bound to the engine's identity
+   and the house's 600 builds (12 stages × 50 starters, from the private
+   seed; `§"Calibration"`), all through `--migrate`/`--admin`, and prints the
+   cohort and operator IDs. An exact repeat succeeds with the same IDs.
+   Keep the seed and the credentials in `/etc/baylee-tower/` (root, 0600).
+5. **Central.** Provision the award issuer for `https://tower.baylee.app`
+   with the migrator's connection (`central_identity.tower_award_issuers`,
+   the SHA-256 digest of a fresh 32-byte `Token`, never the Courier's), set
+   `tower_origin` to `https://tower.baylee.app` in `central.json`, restart
+   Central.
+6. **Service.** `/etc/baylee-tower/service.json` (root 0600): the runtime
+   URL, `"development": false`, and `service`: `listen` 127.0.0.1:28796,
+   `origin` `https://tower.baylee.app`, `record_bytes`, one `workers` entry
+   (the cohort, the retained engine, the verifier and supervisor
+   credentials) and `awards` (the courier and the issuer credentials).
+   Install `scripts/server/baylee-tower.service` and
+   `scripts/server/tower.caddy`, `systemctl enable --now baylee-tower`,
+   reload Caddy, and check `https://tower.baylee.app/health`.
+7. **Gateway.** `BAYLEE_TOWER_ORIGIN=https://tower.baylee.app` and
+   `BAYLEE_TOWER_HOST_TOKEN=<host credential>` in the gateway's environment;
+   the gateway restart ends running games, so it waits for an empty table
+   list. Central then shows the Tower tile in the client.
 
 ## Reproducible focused checks
 

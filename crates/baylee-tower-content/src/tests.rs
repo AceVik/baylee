@@ -105,6 +105,7 @@ fn fifty_build_arounds_pass_native_admission_with_real_mana_bases() {
     );
     // A legal generic pile is not a tribal build-around. These independent
     // checks inspect the final native definitions, after builder refinement.
+    // (Giada and Dwynen left the set in the 27.11.2026 calibration.)
     for (leader, tribes) in [
         (
             "Rin and Seri, Inseparable",
@@ -112,14 +113,6 @@ fn fifty_build_arounds_pass_native_admission_with_real_mana_bases() {
                 baylee_core::generated::subtypes::creature::CAT,
                 baylee_core::generated::subtypes::creature::DOG,
             ],
-        ),
-        (
-            "Giada, Font of Hope",
-            vec![baylee_core::generated::subtypes::creature::ANGEL],
-        ),
-        (
-            "Dwynen, Gilt-Leaf Daen",
-            vec![baylee_core::generated::subtypes::creature::ELF],
         ),
         (
             "Pashalik Mons",
@@ -394,4 +387,39 @@ fn every_development_house_is_a_legal_build_of_its_starter() {
     }
     let late = development_house(&content.starters[0], baylee_tower::v2::MAX_STAGES);
     assert_eq!(late.active.len(), 3);
+}
+
+/// The house's ladder is what the real run machine let fifty scripted runs
+/// hold: every stage and starter has one, each a legal build of its own
+/// commander, its equipment growing with the gold the stages pay.
+#[test]
+fn the_house_ladder_covers_every_stage_and_starter_with_legal_reachable_builds() {
+    let content = runic().unwrap();
+    let ladder = ladder(&content, &[42; 32]).unwrap();
+    check_ladder(&ladder, &content).unwrap();
+    // Equipment tiers rise with the gold the stages pay, also where a cell
+    // leaves relics in its bag (`PICKS`).
+    let tiers = |stage: u8| -> u32 {
+        (1..=50)
+            .flat_map(|archetype| ladder.build(stage, archetype).unwrap().active.clone())
+            .map(|item| u32::from(item.rarity.tier()))
+            .sum()
+    };
+    assert!(tiers(1) < tiers(4) && tiers(4) < tiers(12));
+    for archetype in 1..=50 {
+        let build = ladder.build(12, archetype).unwrap();
+        assert!(build.active.len() <= 6);
+        build
+            .validate_for(&content.catalog, baylee_tower::v2::GENERATOR)
+            .unwrap();
+    }
+    assert!(ladder.build(13, 1).is_none() && ladder.build(1, 51).is_none());
+    // A different private seed gives different builds somewhere.
+    let other = super::ladder(&content, &[43; 32]).unwrap();
+    assert!((1..=12).any(|stage| {
+        (1..=50).any(|archetype| {
+            ladder.build(stage, archetype).unwrap().active
+                != other.build(stage, archetype).unwrap().active
+        })
+    }));
 }

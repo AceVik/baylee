@@ -111,3 +111,56 @@ impl Store {
         tx.commit().await.map_err(|_| Error::Unavailable)
     }
 }
+
+/// A listed account's newest delivered fact: repeated exactly, Central answers
+/// whether the account still exists, and changes nothing either way.
+pub struct ListedReceipt {
+    /// The listed Central account.
+    pub account: Uuid,
+    /// The already delivered event's stable identity.
+    pub event: Uuid,
+    /// That event's immutable fact.
+    pub award: Award,
+}
+
+impl Store {
+    /// One page of accounts whose names stand on a Tower leaderboard, in
+    /// account order after `after`, each with its newest delivered fact.
+    /// A listed account without a delivered fact has a pending one, whose own
+    /// delivery reports the account's absence.
+    /// # Errors
+    /// Wrong/disabled role, bad bound or database failure.
+    pub async fn listed_receipts(
+        &self,
+        principal: &Principal,
+        after: Option<Uuid>,
+        limit: u8,
+    ) -> Result<Vec<ListedReceipt>, Error> {
+        if !(1..=64).contains(&limit) {
+            return Err(Refusal::Capacity.into());
+        }
+        let tx = self.transaction().await?;
+        self.role(&tx, principal, Role::Courier).await?;
+        let rows = tx
+            .query_all_raw(self.statement(
+                "SELECT DISTINCT ON (p.account) p.account,a.id,a.event
+                 FROM @tower.players p JOIN @tower.award_outbox a ON a.account=p.account
+                 WHERE p.rank_listed AND a.delivered_at IS NOT NULL
+                   AND ($1::uuid IS NULL OR p.account>$1::uuid)
+                 ORDER BY p.account,a.created_at DESC,a.id DESC LIMIT $2",
+                vec![after.into(), i64::from(limit).into()],
+            ))
+            .await
+            .map_err(|_| Error::Unavailable)?;
+        tx.commit().await.map_err(|_| Error::Unavailable)?;
+        rows.iter()
+            .map(|row| {
+                Ok(ListedReceipt {
+                    account: column(row, "account")?,
+                    event: column(row, "id")?,
+                    award: decode(&column::<Vec<u8>>(row, "event")?)?,
+                })
+            })
+            .collect()
+    }
+}

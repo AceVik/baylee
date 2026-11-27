@@ -1,0 +1,710 @@
+//! The house's opponents: what fifty scripted runs hold before each duel.
+//!
+//! Each starter plays one run through the real run machine: the cohort's own
+//! shop stream, automatic fusion, verified-settlement income and the reward
+//! cards of the opponent it met, claimed and played the way a careful player
+//! would. Only the duel outcomes are scripted, along [`PATH`], the record of a
+//! run that reaches the twelfth duel at all (7–4); every stage's build is the
+//! run's frozen pre-duel build there, exactly what an echo of a player at
+//! that stage is. The opponents whose cards a run is offered are the other
+//! scripted runs at the same stage. A private seed picks the shop streams,
+//! the opponents and the reward offers, so the published builds cannot be
+//! derived from this repository.
+//!
+//! Nothing here claims balance. The Tower lab (`baylee-engine-server` example `tower_lab`, `ladder`) measures every
+//! stage's fifty builds against each other and against the stage before, and
+//! `docs/tower-operations.md` §"Calibration" records what it found.
+use super::worth;
+use crate::{
+    Content, Error,
+    expeditions::{Recipe, prepared_pool, recipes},
+};
+use baylee_cards::deckgen::Pool;
+use baylee_core::{color::ColorSet, ids::CardIndex};
+use baylee_protocol::execution::{Identity, Variant};
+use baylee_tower::{
+    cards::{CardRarity, Catalog, Formation, Stack},
+    v2::{
+        GENERATOR, MAX_STAGES,
+        catalog::Definition,
+        execution::{MAX_RECORD_BYTES, Prefix},
+        generation,
+        inventory::Slot,
+        package::{Build, Cohort, Opponent, Origin, Package, Seeds},
+        run::{Binding, Command, Outcome, Phase, Run, Settlement, WorkerCommand},
+        shop::{Delivery, Goods},
+    },
+};
+use sha2::{Digest, Sha256};
+use std::collections::{BTreeMap, BTreeSet};
+
+/// The scripted outcomes of duels one to eleven: seven victories and four
+/// defeats, alternating early so that no stage's build is all luck or all loss.
+pub const PATH: [Outcome; 11] = [
+    Outcome::Victory,
+    Outcome::Defeat,
+    Outcome::Victory,
+    Outcome::Defeat,
+    Outcome::Victory,
+    Outcome::Victory,
+    Outcome::Defeat,
+    Outcome::Victory,
+    Outcome::Defeat,
+    Outcome::Victory,
+    Outcome::Victory,
+];
+
+/// At most this many paid refreshes per visit; a careful player stops there.
+const REFRESHES: u8 = 2;
+
+/// Every stage's house builds, one per starter, in publication order.
+pub struct Ladder {
+    /// `stages[stage - 1][archetype - 1]`.
+    pub stages: Vec<Vec<Build>>,
+}
+
+impl Ladder {
+    /// The build published for one-based `stage` and `archetype`.
+    #[must_use]
+    pub fn build(&self, stage: u8, archetype: u8) -> Option<&Build> {
+        self.stages
+            .get(usize::from(stage).checked_sub(1)?)?
+            .get(usize::from(archetype).checked_sub(1)?)
+    }
+}
+
+/// What each published cell takes, `PICKS[stage - 1][archetype - 1]`: the set
+/// of scripted runs `pick / TRIMS` (0 is the one the private seed starts
+/// itself) and how many of its most valuable equipped relics the house leaves
+/// in its bag, `pick % TRIMS` (an unequipped relic is a state every player can
+/// reach). Chosen with the Tower lab's `candidates` (`baylee-engine-server`
+/// example `tower_lab`): each cell the candidate whose build came closest to
+/// even against its stage's field, then the whole ladder measured again
+/// (`docs/tower-operations.md` §"Calibration"). Indices only, never a build.
+#[rustfmt::skip]
+pub const PICKS: [[u8; 50]; 12] = [
+    [8, 0, 8, 8, 16, 3, 16, 0, 8, 8, 2, 1, 1, 0, 2, 0, 8, 3, 8, 0, 2, 0, 0, 8, 0, 16, 8, 16, 8, 0, 2, 0, 16, 2, 0, 16, 1, 8, 8, 1, 0, 0, 3, 1, 0, 8, 0, 1, 16, 8],
+    [0, 16, 0, 16, 8, 0, 16, 10, 1, 1, 1, 3, 8, 16, 0, 0, 16, 0, 0, 0, 16, 0, 16, 0, 0, 18, 3, 1, 0, 0, 0, 1, 0, 18, 0, 16, 16, 2, 16, 8, 8, 8, 16, 16, 0, 16, 2, 2, 16, 2],
+    [0, 16, 0, 0, 18, 8, 10, 16, 0, 0, 8, 8, 8, 3, 2, 0, 1, 0, 0, 1, 16, 0, 0, 10, 16, 18, 0, 16, 10, 0, 8, 16, 2, 20, 0, 8, 10, 3, 1, 8, 8, 8, 8, 16, 8, 0, 8, 12, 0, 0],
+    [0, 8, 0, 0, 2, 2, 3, 16, 16, 3, 2, 8, 4, 0, 2, 1, 16, 16, 0, 0, 16, 1, 0, 0, 16, 16, 16, 1, 16, 0, 16, 8, 8, 0, 1, 18, 0, 3, 8, 16, 16, 8, 8, 16, 1, 2, 8, 10, 0, 8],
+    [0, 16, 8, 0, 16, 0, 2, 16, 16, 0, 16, 8, 16, 0, 16, 1, 2, 16, 0, 10, 18, 2, 0, 11, 0, 3, 16, 0, 16, 1, 16, 1, 1, 2, 16, 8, 0, 16, 8, 16, 16, 8, 8, 8, 0, 0, 8, 0, 0, 0],
+    [0, 16, 16, 0, 1, 1, 3, 16, 16, 1, 8, 9, 8, 16, 3, 0, 8, 16, 8, 0, 16, 16, 0, 8, 8, 16, 16, 16, 0, 0, 16, 1, 1, 1, 1, 8, 16, 8, 8, 16, 16, 16, 8, 8, 1, 1, 18, 1, 0, 8],
+    [0, 16, 16, 1, 18, 1, 11, 16, 16, 2, 8, 0, 8, 11, 16, 16, 0, 16, 8, 8, 16, 0, 16, 10, 8, 3, 0, 16, 17, 0, 16, 8, 8, 8, 0, 8, 16, 8, 8, 16, 16, 3, 1, 8, 16, 0, 16, 8, 16, 16],
+    [0, 0, 16, 1, 0, 3, 10, 8, 16, 3, 8, 0, 16, 2, 8, 16, 16, 8, 8, 8, 0, 1, 8, 0, 16, 3, 16, 16, 16, 1, 16, 8, 1, 1, 0, 8, 16, 8, 8, 16, 16, 3, 2, 4, 0, 0, 16, 0, 16, 16],
+    [8, 0, 8, 8, 16, 0, 8, 8, 8, 3, 2, 8, 8, 2, 16, 10, 0, 8, 8, 0, 1, 16, 2, 10, 8, 2, 2, 16, 2, 1, 10, 0, 2, 8, 0, 8, 1, 16, 0, 16, 16, 0, 3, 4, 0, 1, 16, 8, 16, 0],
+    [8, 0, 8, 2, 2, 10, 8, 16, 8, 3, 3, 11, 16, 11, 8, 0, 0, 8, 16, 0, 16, 16, 16, 8, 8, 4, 1, 0, 0, 10, 11, 16, 2, 2, 0, 8, 0, 8, 0, 16, 16, 8, 3, 8, 0, 2, 8, 16, 16, 0],
+    [16, 0, 8, 2, 1, 10, 8, 8, 8, 1, 2, 12, 10, 0, 16, 0, 16, 8, 16, 8, 1, 1, 8, 8, 0, 16, 1, 0, 0, 3, 16, 2, 1, 1, 1, 8, 0, 8, 0, 16, 8, 8, 1, 8, 16, 2, 0, 11, 16, 8],
+    [8, 2, 8, 10, 2, 19, 8, 0, 8, 1, 2, 0, 10, 1, 16, 10, 16, 0, 16, 0, 8, 1, 3, 8, 16, 17, 0, 16, 3, 2, 3, 16, 3, 1, 1, 8, 0, 0, 8, 18, 10, 16, 1, 16, 0, 3, 0, 16, 8, 8],
+];
+
+/// Trims per set in a [`PICKS`] code.
+pub const TRIMS: u8 = 8;
+
+/// `build` with its `trim` most valuable equipped relics unequipped, the rest
+/// in their slot order.
+#[must_use]
+pub fn trimmed(build: &Build, trim: u8) -> Build {
+    let deck = worth::Deck::of(&build.deck);
+    let mut ranked: Vec<(usize, f64)> = build
+        .active
+        .iter()
+        .enumerate()
+        .map(|(slot, item)| (slot, worth::of(*item, &deck)))
+        .collect();
+    ranked.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
+    let dropped: Vec<usize> = ranked
+        .iter()
+        .take(usize::from(trim))
+        .map(|(slot, _)| *slot)
+        .collect();
+    let mut next = build.clone();
+    next.active = build
+        .active
+        .iter()
+        .enumerate()
+        .filter(|(slot, _)| !dropped.contains(slot))
+        .map(|(_, item)| *item)
+        .collect();
+    next
+}
+
+/// The published ladder: each cell as [`PICKS`] names it, all under the
+/// names, all under the private `seed`.
+/// # Errors
+/// A run the real machine refuses, which is a defect here, never a balance result.
+pub fn ladder(content: &Content, seed: &[u8; 32]) -> Result<Ladder, Error> {
+    let sets = PICKS
+        .iter()
+        .flatten()
+        .map(|pick| pick / TRIMS)
+        .max()
+        .unwrap_or(0);
+    let candidates = candidates(content, seed, sets + 1)?;
+    if content.starters.len() != PICKS[0].len() {
+        return Err(Error::House("the pick table does not match the starters"));
+    }
+    let mut stages = Vec::with_capacity(usize::from(MAX_STAGES));
+    for (stage, picks) in PICKS.iter().enumerate() {
+        stages.push(
+            picks
+                .iter()
+                .enumerate()
+                .map(|(archetype, pick)| {
+                    trimmed(
+                        &candidates[usize::from(pick / TRIMS)].stages[stage][archetype],
+                        pick % TRIMS,
+                    )
+                })
+                .collect(),
+        );
+    }
+    Ok(Ladder { stages })
+}
+
+/// `count` independent sets of fifty scripted runs under the private `seed`;
+/// set 0 is the one [`PICKS`] calls 0.
+/// # Errors
+/// A run the real machine refuses.
+pub fn candidates(content: &Content, seed: &[u8; 32], count: u8) -> Result<Vec<Ladder>, Error> {
+    (0..count.max(1))
+        .map(|variant| scripted(content, seed, variant))
+        .collect()
+}
+
+fn scripted(content: &Content, seed: &[u8; 32], variant: u8) -> Result<Ladder, Error> {
+    let seed = &if variant == 0 {
+        *seed
+    } else {
+        Sha256::new()
+            .chain_update(b"baylee/tower/house-ladder/variant\0")
+            .chain_update(seed)
+            .chain_update([variant])
+            .finalize()
+            .into()
+    };
+    let catalog = &content.catalog;
+    let cohort = construction_cohort(catalog)?;
+    let pool = prepared_pool();
+    let mut recipes = recipes(&pool)?;
+    if recipes.len() != content.starters.len() {
+        return Err(Error::House("starters and recipes disagree"));
+    }
+    // A refit must keep the starter's own theme: only the core cards the
+    // frozen starter holds are required, whatever a later card wave adds to
+    // the registry the core is drawn from.
+    for (recipe, starter) in recipes.iter_mut().zip(&content.starters) {
+        recipe
+            .core
+            .retain(|card| starter.deck.iter().any(|stack| stack.card == *card));
+    }
+    let mut runs = Vec::with_capacity(content.starters.len());
+    for (index, starter) in content.starters.iter().enumerate() {
+        let run_seed = stream(seed, b"run", index, 0);
+        let run = Run::begin(catalog, starter.clone(), &run_seed).map_err(refused)?;
+        runs.push(Scripted {
+            run,
+            seed: run_seed,
+            recipe: &recipes[index],
+        });
+    }
+    let mut stages = Vec::with_capacity(usize::from(MAX_STAGES));
+    for stage in 1..=MAX_STAGES {
+        for scripted in &mut runs {
+            scripted.shop(catalog, &pool)?;
+        }
+        let builds = runs
+            .iter()
+            .map(|scripted| Build::freeze(&scripted.run, catalog).map_err(refused))
+            .collect::<Result<Vec<_>, _>>()?;
+        if stage < MAX_STAGES {
+            let outcome = PATH[usize::from(stage) - 1];
+            let count = runs.len();
+            for (index, scripted) in runs.iter_mut().enumerate() {
+                let pick = stream(seed, b"opponent", index, stage);
+                let offset = usize::from(pick[0]) | usize::from(pick[1]) << 8;
+                let opponent = (index + 1 + offset % (count - 1)) % count;
+                scripted.duel(
+                    catalog,
+                    &cohort,
+                    Opponent {
+                        stage,
+                        cohort: cohort.clone(),
+                        origin: Origin::House {
+                            archetype: u8::try_from(opponent + 1)
+                                .map_err(|_| Error::House("more starters than archetypes"))?,
+                        },
+                        build: builds[opponent].clone(),
+                    },
+                    outcome,
+                    &stream(seed, b"reward", index, stage),
+                )?;
+            }
+        }
+        stages.push(builds);
+    }
+    Ok(Ladder { stages })
+}
+
+/// A fixed executor for building the ladder only. Reward offers hash the
+/// package, so a real executor's identity would make the builds depend on
+/// which commit built the engine; this one never plays a duel.
+fn construction_cohort(catalog: &Catalog) -> Result<Cohort, Error> {
+    let identity = Identity::native(
+        Variant::Tower,
+        "house-ladder",
+        "0000000000000000000000000000000000000000",
+        u32::from(generation::CURRENT.ai_generation),
+    );
+    Cohort::for_generation(identity, catalog, GENERATOR).map_err(refused)
+}
+
+struct Scripted<'a> {
+    run: Run,
+    seed: [u8; 32],
+    recipe: &'a Recipe,
+}
+
+impl Scripted<'_> {
+    fn command(&mut self, catalog: &Catalog, command: &Command) -> Result<(), Error> {
+        self.run = self
+            .run
+            .command(self.run.revision, command, catalog, &self.seed)
+            .map_err(refused)?;
+        Ok(())
+    }
+
+    /// One shop visit: refit the deck, buy what improves the loadout most per
+    /// gold, refresh a little when nothing does, then equip the best six.
+    fn shop(&mut self, catalog: &Catalog, pool: &Pool) -> Result<(), Error> {
+        if self.run.phase != Phase::Shop {
+            return Err(Error::House("a scripted run left the shop"));
+        }
+        self.sell_unplayable(catalog)?;
+        self.refit(catalog, pool)?;
+        let deck = worth::Deck::of(&self.run.cards.deck);
+        loop {
+            if let Some(offer) = self.best_relic(&deck) {
+                self.command(
+                    catalog,
+                    &Command::Buy {
+                        offer,
+                        delivery: Delivery::Inventory,
+                    },
+                )?;
+                continue;
+            }
+            let gold = self.run.economy.gold;
+            match self.run.shop.reroll_price() {
+                Some(price) if self.run.shop.rerolls < REFRESHES && gold >= price + 4 => {
+                    self.command(catalog, &Command::Refresh {})?;
+                }
+                _ => break,
+            }
+        }
+        self.buy_potions(catalog)?;
+        self.equip(catalog, &deck)
+    }
+
+    /// The unsold, affordable relic whose purchase raises the best six's worth
+    /// most per gold, counting a second copy as progress towards its fusion.
+    fn best_relic(&self, deck: &worth::Deck) -> Option<u32> {
+        let economy = &self.run.economy;
+        let owned: Vec<Definition> = economy
+            .inventory
+            .relics
+            .iter()
+            .map(|relic| relic.definition)
+            .collect();
+        let before = worth::best_six(&owned, deck);
+        let mut best: Option<(f64, u32)> = None;
+        for offer in self.run.shop.offers.iter().filter(|offer| !offer.sold) {
+            let Goods::Relic(definition) = offer.goods else {
+                continue;
+            };
+            let Some(price) = definition.price().filter(|price| *price <= economy.gold) else {
+                continue;
+            };
+            let Ok(after) = economy.bought_automatic(definition) else {
+                continue;
+            };
+            let items: Vec<Definition> = after
+                .inventory
+                .relics
+                .iter()
+                .map(|relic| relic.definition)
+                .collect();
+            let copies = items.iter().filter(|item| **item == definition).count();
+            let progress = match worth::fused(definition.rarity) {
+                Some(rarity) if copies == 2 => {
+                    0.35 * (worth::of(
+                        Definition {
+                            family: definition.family,
+                            rarity,
+                        },
+                        deck,
+                    ) - worth::of(definition, deck))
+                    .max(0.0)
+                }
+                _ => 0.0,
+            };
+            let gain = worth::best_six(&items, deck) - before + progress;
+            let efficiency = gain / f64::from(price.max(1));
+            if gain > 0.25 && best.is_none_or(|(value, _)| efficiency > value) {
+                best = Some((efficiency, offer.id));
+            }
+        }
+        best.map(|(_, offer)| offer)
+    }
+
+    /// Spare gold buys table charges: healing first, it is the cheaper.
+    fn buy_potions(&mut self, catalog: &Catalog) -> Result<(), Error> {
+        loop {
+            let economy = &self.run.economy;
+            if economy.potions.iter().sum::<u8>() >= 2 {
+                return Ok(());
+            }
+            let offer = self
+                .run
+                .shop
+                .offers
+                .iter()
+                .filter(|offer| !offer.sold)
+                .filter_map(|offer| match offer.goods {
+                    Goods::Potion(potion) if potion.price() <= economy.gold => {
+                        Some((potion.price(), offer.id))
+                    }
+                    _ => None,
+                })
+                .min();
+            let Some((_, offer)) = offer else {
+                return Ok(());
+            };
+            self.command(
+                catalog,
+                &Command::Buy {
+                    offer,
+                    delivery: Delivery::Inventory,
+                },
+            )?;
+        }
+    }
+
+    /// Equip the six relics worth most to this deck, in that order.
+    fn equip(&mut self, catalog: &Catalog, deck: &worth::Deck) -> Result<(), Error> {
+        let mut ranked: Vec<(f64, u32)> = self
+            .run
+            .economy
+            .inventory
+            .relics
+            .iter()
+            .map(|relic| (worth::of(relic.definition, deck), relic.id))
+            .collect();
+        ranked.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
+        let wanted: Vec<u32> = ranked.iter().take(6).map(|(_, id)| *id).collect();
+        let equipped: Vec<u32> = self
+            .run
+            .economy
+            .inventory
+            .relics
+            .iter()
+            .filter(|relic| matches!(relic.slot, Slot::Active(_)))
+            .map(|relic| relic.id)
+            .collect();
+        for item in equipped {
+            self.command(
+                catalog,
+                &Command::Move {
+                    item,
+                    slot: Slot::Inventory,
+                },
+            )?;
+        }
+        for (slot, item) in wanted.into_iter().enumerate() {
+            self.command(
+                catalog,
+                &Command::Move {
+                    item,
+                    slot: Slot::Active(u8::try_from(slot).map_err(|_| Error::Formation)?),
+                },
+            )?;
+        }
+        Ok(())
+    }
+
+    /// Reward cards outside the commander's colours cannot be played: sell them.
+    fn sell_unplayable(&mut self, catalog: &Catalog) -> Result<(), Error> {
+        let identity = self.identity(catalog);
+        let unplayable: Vec<CardIndex> = self
+            .run
+            .cards
+            .owned
+            .iter()
+            .map(|stack| stack.card)
+            .filter(|card| {
+                Some(*card) != self.commander()
+                    && catalog
+                        .card(*card)
+                        .and_then(|entry| entry.run)
+                        .is_some_and(|rules| !rules.identity.difference(identity).is_empty())
+            })
+            .collect();
+        for card in unplayable {
+            self.command(catalog, &Command::SellCard { card })?;
+        }
+        Ok(())
+    }
+
+    /// Rebuild the library from every owned card with the starter's own builder.
+    fn refit(&mut self, catalog: &Catalog, pool: &Pool) -> Result<(), Error> {
+        let Some(commander) = self.commander() else {
+            return Err(Error::Formation);
+        };
+        let owned: BTreeSet<CardIndex> = self
+            .run
+            .cards
+            .owned
+            .iter()
+            .map(|stack| stack.card)
+            .collect();
+        let in_deck: BTreeSet<CardIndex> =
+            self.run.cards.deck.iter().map(|stack| stack.card).collect();
+        if owned
+            .iter()
+            .all(|card| *card == commander || in_deck.contains(card))
+        {
+            return Ok(());
+        }
+        let available = Pool {
+            entries: pool
+                .entries
+                .iter()
+                .filter(|entry| entry.basic || owned.contains(&entry.card))
+                .cloned()
+                .collect(),
+        };
+        // A pool the builder cannot fill keeps the deck the run already has.
+        let Ok(main) = self.recipe.build(&available) else {
+            return Ok(());
+        };
+        let mut counts = BTreeMap::<CardIndex, u8>::new();
+        for card in main {
+            *counts.entry(card).or_default() += 1;
+        }
+        let deck: Vec<Stack> = counts
+            .into_iter()
+            .map(|(card, copies)| Stack { card, copies })
+            .collect();
+        if deck == self.run.cards.deck {
+            return Ok(());
+        }
+        self.command(
+            catalog,
+            &Command::Refit {
+                deck,
+                formation: Formation {
+                    commander,
+                    sideboard: Vec::new(),
+                },
+            },
+        )
+    }
+
+    /// Reserve against `opponent`, settle with the scripted `outcome` and
+    /// claim the reward: the verifier's transitions without a played duel.
+    fn duel(
+        &mut self,
+        catalog: &Catalog,
+        cohort: &Cohort,
+        opponent: Opponent,
+        outcome: Outcome,
+        reward_seed: &[u8; 32],
+    ) -> Result<(), Error> {
+        let potions = self.run.economy.potions;
+        let reservation = Package::reserve(
+            &self.run,
+            self.run.revision,
+            catalog,
+            cohort,
+            opponent,
+            Seeds {
+                shuffle: 1,
+                policy: 2,
+            },
+            MAX_RECORD_BYTES,
+        )
+        .map_err(refused)?;
+        let package = reservation.package;
+        let digest = package.digest(catalog).map_err(refused)?;
+        self.run = reservation.run;
+        self.worker(catalog, 1, WorkerCommand::Claim { duration: 60_000 })?;
+        let fence = self.execution()?.fence;
+        self.worker(
+            catalog,
+            2,
+            WorkerCommand::Append {
+                fence,
+                expected: Prefix::default(),
+                chunk: b"scripted house-ladder duel",
+            },
+        )?;
+        let prefix = self.execution()?.prefix;
+        self.worker(
+            catalog,
+            3,
+            WorkerCommand::Seal {
+                fence,
+                expected: prefix,
+            },
+        )?;
+        self.run = self
+            .run
+            .settled_against(
+                self.run.revision,
+                Settlement {
+                    binding: Binding {
+                        package: digest,
+                        fence,
+                        prefix,
+                    },
+                    outcome,
+                    turns: 17,
+                    // A player buys charges to use them.
+                    used: potions,
+                },
+                catalog,
+                reward_seed,
+                &package,
+            )
+            .map_err(refused)?;
+        let reward = self
+            .run
+            .reward
+            .clone()
+            .ok_or(Error::House("a settled run has no reward"))?;
+        let cards = self.choose(catalog, &reward.cards, reward.take);
+        self.command(catalog, &Command::Claim { cards })
+    }
+
+    fn worker(
+        &mut self,
+        catalog: &Catalog,
+        now: u64,
+        command: WorkerCommand<'_>,
+    ) -> Result<(), Error> {
+        self.run = self
+            .run
+            .worker(self.run.revision, now, command, catalog)
+            .map_err(refused)?;
+        Ok(())
+    }
+
+    fn execution(&self) -> Result<&baylee_tower::v2::execution::Execution, Error> {
+        self.run
+            .execution
+            .as_ref()
+            .ok_or(Error::House("a reserved run has no execution"))
+    }
+
+    /// Playable new cards first, the rarer the better; then a duplicate,
+    /// which pays gold; off-colour cards last (they are sold).
+    fn choose(&self, catalog: &Catalog, offered: &[CardIndex], take: u8) -> Vec<CardIndex> {
+        let identity = self.identity(catalog);
+        let owned: BTreeSet<CardIndex> = self
+            .run
+            .cards
+            .owned
+            .iter()
+            .map(|stack| stack.card)
+            .collect();
+        let mut ranked: Vec<(u8, CardIndex)> = offered
+            .iter()
+            .map(|card| {
+                let rules = catalog.card(*card).and_then(|entry| entry.run);
+                let playable =
+                    rules.is_some_and(|rules| rules.identity.difference(identity).is_empty());
+                let rarity = match rules
+                    .and_then(|rules| rules.presentation)
+                    .map(|art| art.rarity)
+                {
+                    Some(CardRarity::Mythic) => 3,
+                    Some(CardRarity::Rare) => 2,
+                    Some(CardRarity::Uncommon) => 1,
+                    _ => 0,
+                };
+                let rank = if owned.contains(card) {
+                    4
+                } else if playable {
+                    10 + rarity
+                } else {
+                    rarity
+                };
+                (rank, *card)
+            })
+            .collect();
+        ranked.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
+        let mut cards: Vec<CardIndex> = ranked
+            .into_iter()
+            .take(usize::from(take))
+            .map(|(_, card)| card)
+            .collect();
+        cards.sort_unstable();
+        cards
+    }
+
+    fn commander(&self) -> Option<CardIndex> {
+        self.run
+            .cards
+            .formation
+            .as_ref()
+            .map(|formation| formation.commander)
+    }
+
+    fn identity(&self, catalog: &Catalog) -> ColorSet {
+        self.commander()
+            .and_then(|commander| catalog.card(commander))
+            .and_then(|card| card.run)
+            .map_or(ColorSet::EMPTY, |rules| rules.identity)
+    }
+}
+
+/// A private, independent 32-byte stream per purpose, starter and stage.
+fn stream(seed: &[u8; 32], purpose: &[u8], starter: usize, stage: u8) -> [u8; 32] {
+    Sha256::new()
+        .chain_update(b"baylee/tower/house-ladder/v1\0")
+        .chain_update(seed)
+        .chain_update(purpose)
+        .chain_update((starter as u64).to_le_bytes())
+        .chain_update([stage])
+        .finalize()
+        .into()
+}
+
+fn refused(refusal: baylee_tower::Refusal) -> Error {
+    Error::Refused(format!("{refusal:?}"))
+}
+
+/// The ladder's cohort-independent checks: every cell, a legal build, the
+/// starter's own commander.
+/// # Errors
+/// A missing cell or a build the catalog refuses.
+pub fn check(ladder: &Ladder, content: &Content) -> Result<(), Error> {
+    if ladder.stages.len() != usize::from(MAX_STAGES) {
+        return Err(Error::House("a stage is missing"));
+    }
+    for builds in &ladder.stages {
+        if builds.len() != content.starters.len() {
+            return Err(Error::House("a starter is missing at a stage"));
+        }
+        for (build, starter) in builds.iter().zip(&content.starters) {
+            build
+                .validate_for(&content.catalog, GENERATOR)
+                .map_err(refused)?;
+            if build.formation.as_ref().map(|f| f.commander)
+                != starter.formation.as_ref().map(|f| f.commander)
+            {
+                return Err(Error::House("a house build changed its commander"));
+            }
+        }
+    }
+    Ok(())
+}

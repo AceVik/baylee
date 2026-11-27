@@ -55,6 +55,10 @@ pub(super) enum Operation {
         revision: u64,
         recovery: Supervision,
     },
+    /// Renew the runtime role's reviewed grants after a migration.
+    GrantRuntime {
+        role: String,
+    },
 }
 
 /// The store's closed recovery, spelt so an extra field is refused: serde would
@@ -159,6 +163,11 @@ impl Operation {
                 .map_err(|_| Error::Contract)?;
             }
             Self::PauseEnrollment { cohort } => uuid7(*cohort)?,
+            Self::GrantRuntime { role } => {
+                if !baylee_tower_store::valid_schema(role) {
+                    return Err(Error::Contract);
+                }
+            }
             Self::Supervise { run, recovery, .. } => {
                 uuid7(*run)?;
                 if let Supervision::Resume { host: Some(host) } = recovery {
@@ -225,6 +234,10 @@ impl Operation {
                 Ok(Reply::Supervised {
                     revision: snapshot.state.revision,
                 })
+            }
+            Self::GrantRuntime { role } => {
+                store.grant_runtime(&role).await?;
+                Ok(Reply::Done)
             }
         }
     }
