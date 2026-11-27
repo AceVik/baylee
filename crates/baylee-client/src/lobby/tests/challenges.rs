@@ -598,3 +598,59 @@ fn tower_context_survives_seat_discovery_only_after_the_gateway_epoch_check() {
     assert_eq!(state.hub, Hub::Challenges);
     assert!(state.echoes.opened);
 }
+
+#[test]
+fn silent_refresh_keeps_loaded_tiles_and_back_alive() {
+    let (mut app, jobs) = screen(Lang::En);
+    stocked(&mut app);
+    while jobs.try_recv().is_ok() {}
+    let daily = {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        let task = state.challenges.model.detail.clone().unwrap();
+        let mut weekly = task.clone();
+        weekly.id = *uuid::Uuid::now_v7().as_bytes();
+        weekly.description.period =
+            api::Period::containing(api::Kind::Weekly, state.challenges.model.now).unwrap();
+        let id = task.id;
+        state.challenges.model.catalogue = vec![task, weekly];
+        state.gateway_selected = true;
+        state.lobby.apply(LobbyEvent::Games(GameListing::default()));
+        crate::lobby::challenges::ask(&mut state, Action::Refresh);
+        assert!(state.challenges.model.busy && !state.challenges.model.blocking());
+        id
+    };
+    settle(&mut app);
+    assert!(
+        presses(&mut app).contains(&Press::Challenges(Action::Back)),
+        "Back stays live during a background refresh of a loaded task"
+    );
+    press(
+        &mut app,
+        crate::lobby::header::nav_press(crate::lobby::header::NavTab::Play),
+    );
+    settle(&mut app);
+    let play_presses = presses(&mut app);
+    assert_eq!(
+        play_presses
+            .iter()
+            .filter(|p| matches!(p, Press::Challenges(Action::Select(_))))
+            .count(),
+        2,
+        "loaded Daily and Weekly tiles stay live during a silent refresh"
+    );
+    tap_control(&mut app, "daily during silent refresh", |p| {
+        *p == Press::Challenges(Action::Select(daily))
+    });
+    settle(&mut app);
+    let state = app.world().resource::<LobbyState>();
+    assert_eq!(state.hub, Hub::Challenges);
+    assert_eq!(state.challenges.model.selected, Some(daily));
+    assert!(
+        state.challenges.model.blocking(),
+        "opening a task supersedes the background refresh with a blocking load"
+    );
+    assert!(
+        !presses(&mut app).contains(&Press::Challenges(Action::Back)),
+        "blocking actions still disable controls until they settle"
+    );
+}

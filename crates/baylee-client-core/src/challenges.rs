@@ -109,6 +109,8 @@ pub struct State {
     pub listed: bool,
     /// Worker request in flight.
     pub busy: bool,
+    /// In-flight request is a background refresh of an already-loaded catalogue.
+    background: bool,
     /// Retry is offered without pretending the operation succeeded.
     pub failed: bool,
     /// Whether a first read has completed.
@@ -143,6 +145,7 @@ impl Default for State {
             confirmation: None,
             listed: false,
             busy: false,
+            background: false,
             failed: false,
             loaded: false,
             show_deck: false,
@@ -163,9 +166,18 @@ impl State {
             .find(|attempt| Some(attempt.challenge) == self.selected)
     }
 
+    /// Whether a blocking worker request is in flight.
+    ///
+    /// A refresh of an already-loaded catalogue runs in the background so
+    /// loaded tiles and navigation stay interactive.
+    #[must_use]
+    pub fn blocking(&self) -> bool {
+        self.busy && !self.background
+    }
+
     /// Prepare one action. The edge supplies a fresh `UUIDv7` only when Play needs one.
     pub fn act(&mut self, action: Action, request_id: [u8; 16]) -> Option<Work> {
-        if self.busy {
+        if self.blocking() || (self.busy && action == Action::Refresh) {
             return None;
         }
         if self.confirmation.is_some()
@@ -177,6 +189,7 @@ impl State {
         let mut resume = None;
         let mut play = false;
         let mut append = false;
+        let mut background = false;
         match action {
             Action::Restore(game) => {
                 return Some(self.restore(game));
@@ -247,6 +260,7 @@ impl State {
                 });
             }
             Action::Refresh => {
+                background = self.loaded;
                 requests.push(Request::Catalogue { before: None });
                 requests.push(Request::Tower {
                     request: self.tower.read(),
@@ -264,7 +278,9 @@ impl State {
                 requests.push(Request::Personal { challenge });
             }
         }
-        Some(self.job(requests, resume, play, append))
+        let work = self.job(requests, resume, play, append);
+        self.background = background;
+        Some(work)
     }
 
     fn tower_work(&mut self, action: crate::tower::Action, request_id: [u8; 16]) -> Option<Work> {
@@ -306,6 +322,7 @@ impl State {
         self.serial = self.serial.wrapping_add(1);
         self.failed = false;
         self.busy = true;
+        self.background = false;
         Work {
             restoring: false,
             serial: self.serial,
@@ -437,6 +454,7 @@ impl State {
             }
         }
         self.busy = false;
+        self.background = false;
         self.failed = failed;
     }
 }

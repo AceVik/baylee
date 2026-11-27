@@ -223,3 +223,56 @@ fn late_reply_cannot_overwrite_a_newer_board_and_withdrawal_disables_play() {
     state.detail.as_mut().unwrap().withdrawn = true;
     assert!(state.act(Action::Play, id(4)).is_none());
 }
+
+#[test]
+fn silent_refresh_does_not_block_loaded_navigation_or_superseding_actions() {
+    let mut state = State::default();
+    let initial = state.act(Action::Refresh, id(1)).unwrap();
+    assert!(state.busy && state.blocking());
+    assert!(state.act(Action::Back, id(2)).is_none());
+    state.receive(
+        &initial,
+        vec![Response::Catalogue {
+            now: 1_794_182_401,
+            challenges: vec![challenge(1)],
+            before: None,
+        }],
+        false,
+    );
+    assert!(state.loaded && !state.busy && !state.blocking());
+
+    let visit = state.act(Action::Select(id(1)), id(3)).unwrap();
+    assert!(state.blocking());
+    state.receive(
+        &visit,
+        vec![
+            Response::Detail {
+                now: 1_794_182_402,
+                challenge: challenge(1),
+                standings: Vec::new(),
+            },
+            Response::Personal {
+                progress: personal(1),
+            },
+        ],
+        false,
+    );
+
+    // Background refresh of an already-loaded catalogue stays non-blocking.
+    let silent = state.act(Action::Refresh, id(4)).unwrap();
+    assert!(state.busy && !state.blocking());
+    assert!(
+        state.act(Action::Refresh, id(5)).is_none(),
+        "never stack a second refresh while one is already in flight"
+    );
+    assert!(state.act(Action::Back, id(6)).is_none());
+    assert!(state.selected.is_none());
+
+    // A real navigation supersedes the background refresh and becomes blocking.
+    let open = state.act(Action::Select(id(1)), id(7)).unwrap();
+    assert!(state.busy && state.blocking());
+    state.receive(&silent, Vec::new(), true);
+    assert!(state.busy && state.blocking() && !state.failed);
+    state.receive(&open, Vec::new(), false);
+    assert!(!state.busy && !state.blocking());
+}
