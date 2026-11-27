@@ -10,9 +10,10 @@
 //! "AI opponents: house" and, after the fill-in wait, Central seats the AI
 //! from its offer. The person's seat is played by the house through the
 //! person's own queue entry, as the native client takes it; the AI's by its
-//! runner, whose first socket is cut mid-game: it must take its seat again
-//! with the game's id and play on. Both see the whole game, and Central's
-//! results agree with the table's.
+//! runner, with a pilot that cannot resume: its first socket is cut
+//! mid-game, it hands the seat over, and the runner's house fallback takes
+//! the seat again with the game's id and a fresh core and plays on. Both see
+//! the whole game, and Central's results agree with the table's.
 //!
 //! Run it from a clean commit: the host's engine advertises a ranked
 //! compatibility key only for a clean, stamped build, and without one
@@ -260,12 +261,56 @@ impl<L: Table> Table for Cutting<'_, L> {
     }
 }
 
-/// The house, flying the AI's seat through a link that cuts its first
-/// socket: the runner's own resume is what is tested, through the pilot
-/// seam any pilot uses.
+/// A pilot that cannot resume, as the trained net cannot rebuild its memory
+/// from a snapshot: it plays the AI's seat with the house through a link
+/// that cuts its first socket and lets it dial no other, then hands the
+/// seat over. The runner's house fallback must take the seat again, with a
+/// fresh core, mid-game, on the same link, and play it to the end.
 struct CuttingHouse {
     house: HousePilot,
     frames: Mutex<Option<usize>>,
+}
+
+/// [`Cutting`], dialling once only: the socket after the cut is never
+/// opened, so the seat's bridge sees the game gone.
+struct Once<'a, L> {
+    cutting: Cutting<'a, L>,
+    dialed: bool,
+}
+
+impl<L: Table> Table for Once<'_, L> {
+    fn hold_for(&mut self, window: Window) {
+        self.cutting.hold_for(window);
+    }
+
+    async fn connect(&mut self) -> anyhow::Result<Option<Socket>> {
+        if std::mem::replace(&mut self.dialed, true) {
+            return Ok(None);
+        }
+        self.cutting.connect().await
+    }
+
+    async fn room_closed(&mut self) -> bool {
+        self.cutting.room_closed().await
+    }
+
+    fn selected_deck(
+        &self,
+    ) -> impl Future<Output = anyhow::Result<Option<baylee_seat::mind::DeckList>>> + Send {
+        std::future::ready(Ok(None))
+    }
+
+    fn reporter(&self) -> Option<Reporter<'_>> {
+        None
+    }
+
+    fn seat_secret(&self) -> &str {
+        self.cutting.seat_secret()
+    }
+
+    fn dials(&self) -> u32 {
+        self.cutting.dials()
+    }
 }
 
 impl Pilot for CuttingHouse {
@@ -288,14 +333,24 @@ impl Pilot for CuttingHouse {
             .unwrap_or_else(PoisonError::into_inner)
             .take();
         Box::pin(async move {
-            let mut cutting = Cutting {
-                link: seat.link,
-                frames,
+            let mut once = Once {
+                cutting: Cutting {
+                    link: seat.link,
+                    frames,
+                },
+                dialed: false,
             };
-            self.house
-                .fly_through(&mut cutting, seat.deck, seat.transcript, seat.play)
-                .await
-                .map(|played| Piloted::Played(Box::new(played)))
+            let played = self
+                .house
+                .fly_through(&mut once, seat.deck, seat.transcript, seat.play)
+                .await?;
+            Ok(match played.result {
+                Some(_) => Piloted::Played(Box::new(played)),
+                None => Piloted::HandOver(format!(
+                    "the socket dropped in turn {} and this pilot cannot resume",
+                    played.stats.turns
+                )),
+            })
         })
     }
 }
@@ -684,5 +739,9 @@ fn agreed(ai: &MatchReport, (match_id, person, receipt): &(Id, Played, QueueStat
         ai.renewals > 0,
         "the AI's admission was renewed during the game"
     );
-    assert!(ai.handed_over.is_none());
+    let why = ai
+        .handed_over
+        .as_deref()
+        .expect("the pilot handed the seat to the house after the cut");
+    assert!(why.contains("cannot resume"), "{why}");
 }

@@ -96,6 +96,35 @@ struct Inner {
     token: RunnerToken,
     name: String,
     sessions: Mutex<Vec<Session>>,
+    /// The exchanges for a fresh session, one at a time and spaced
+    /// ([`Exchanges`]).
+    exchanges: tokio::sync::Mutex<Exchanges>,
+}
+
+/// When the next exchange may be made. Central takes twelve exchanges an
+/// hour for an account and stops asking its store for an address after
+/// thirty refused ones in an hour, which would stop every runner on the
+/// machine: so a fresh session is asked for at most every
+/// [`EXCHANGE_SPACING`], and after a refusal only once a wait that doubles
+/// with each one, up to an hour, has passed.
+#[derive(Debug, Default)]
+struct Exchanges {
+    next: Option<Instant>,
+    refused: u32,
+}
+
+/// The least time between two exchanges of one account: well under
+/// Central's twelve an hour.
+pub const EXCHANGE_SPACING: Duration = Duration::from_mins(6);
+
+impl Exchanges {
+    /// The wait after `refused` refusals in a row: a minute, doubled for
+    /// each one after the first, at most an hour.
+    fn backoff(refused: u32) -> Duration {
+        Duration::from_mins(1)
+            .saturating_mul(1 << refused.saturating_sub(1).min(6))
+            .min(Duration::from_hours(1))
+    }
 }
 
 impl std::fmt::Debug for Player {
@@ -172,6 +201,10 @@ impl Player {
             token,
             name,
             sessions: Mutex::new(vec![session]),
+            exchanges: tokio::sync::Mutex::new(Exchanges {
+                next: Some(Instant::now() + EXCHANGE_SPACING),
+                refused: 0,
+            }),
         }));
         player.accept_terms().await?;
         Ok(player)
@@ -247,15 +280,30 @@ impl Player {
     }
 
     /// Opens a fresh session and makes it the newest; the older ones keep
-    /// their matches.
+    /// their matches. One exchange at a time, and only once its wait has
+    /// passed ([`Exchanges`]): before then it does nothing and says `false`.
     ///
     /// # Errors
-    /// A refused exchange; the sessions are then as they were.
-    pub async fn roll_over(&self) -> anyhow::Result<()> {
-        let fresh = exchange(&self.0.endpoint, self.0.account, &self.0.token).await?;
-        self.sessions().push(fresh);
-        tracing::info!("rolled over to a fresh runner session");
-        Ok(())
+    /// A refused or failed exchange; the sessions are then as they were.
+    pub async fn roll_over(&self) -> anyhow::Result<bool> {
+        let mut exchanges = self.0.exchanges.lock().await;
+        if exchanges.next.is_some_and(|next| Instant::now() < next) {
+            return Ok(false);
+        }
+        match exchange(&self.0.endpoint, self.0.account, &self.0.token).await {
+            Ok(fresh) => {
+                exchanges.refused = 0;
+                exchanges.next = Some(Instant::now() + EXCHANGE_SPACING);
+                self.sessions().push(fresh);
+                tracing::info!("rolled over to a fresh runner session");
+                Ok(true)
+            }
+            Err(e) => {
+                exchanges.refused = exchanges.refused.saturating_add(1);
+                exchanges.next = Some(Instant::now() + Exchanges::backoff(exchanges.refused));
+                Err(e)
+            }
+        }
     }
 
     /// Every `every` (well inside a session's half hour): renews every

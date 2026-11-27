@@ -257,24 +257,35 @@ impl Rounds<'_> {
                 }
             }
             Ok(_) => tracing::warn!("Central answered the work with something else"),
-            Err(Error::Rejected) => {
-                tracing::warn!("Central refused the work: trading the token for a fresh session");
-                if let Err(e) = self.player.roll_over().await {
-                    tracing::warn!(error = %format!("{e:#}"), "no fresh runner session yet");
-                }
-            }
+            Err(Error::Rejected) => match self.player.roll_over().await {
+                Ok(true) => tracing::warn!(
+                    "Central refused the work on the newest session; it goes on with a fresh one"
+                ),
+                Ok(false) => tracing::debug!("Central refused the work; a fresh session waits"),
+                Err(e) => tracing::warn!(
+                    error = %format!("{e:#}"),
+                    "Central refused the work, and no fresh runner session yet"
+                ),
+            },
             Err(e) => tracing::info!(error = %e, "Central could not say the work"),
         }
     }
 
-    /// Plays `assignment` as a task of its own, unless it already runs or
-    /// the shelf never offered its deck.
+    /// Plays `assignment` as a task of its own, unless it already runs, or
+    /// neither the shelf nor any version in the deck directory has the deck
+    /// it was made with (a runner that restarted finds an older version
+    /// there).
     fn start(&mut self, assignment: baylee_account::ranked::Assignment) {
-        if !self.seen.insert(assignment.match_id) {
+        if self.seen.contains(&assignment.match_id) {
             return;
         }
         let id = Uuid::from_bytes(assignment.match_id);
-        let Some(deck) = self.shelf.by_digest(&assignment.deck) else {
+        let deck = self
+            .shelf
+            .by_digest(&assignment.deck)
+            .or_else(|| self.shelf.recall(assignment.format, &assignment.deck));
+        self.seen.insert(assignment.match_id);
+        let Some(deck) = deck else {
             tracing::warn!(r#match = %id, "a match with a deck this runner does not hold; it cannot be played here");
             return;
         };
