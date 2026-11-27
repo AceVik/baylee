@@ -1,10 +1,14 @@
-//! Owned throwaway processes and an owned PostgreSQL container.
+//! Owned throwaway processes and an owned PostgreSQL 18: a container where
+//! Docker runs, else a native cluster of this machine's.
 //!
 //! Ownership is checked, not assumed: the container gets a random name and a
 //! label, and cleanup removes only a container carrying both, then proves it
 //! gone and its published port refusing connections. A probe that times out
 //! is not proof of closure. The admin password reaches `docker create` in its
-//! environment, never in argv, and no secret is printed.
+//! environment, never in argv, and no secret is printed. A native cluster is
+//! the one `cargo dev stack gate` runs (`crate::stack::postgres`): a fresh
+//! private directory it claims, a loopback port, removed at the end.
+use crate::stack::postgres::LocalPostgres;
 use anyhow::{Context, Result, bail};
 use std::{
     io::{ErrorKind, Read},
@@ -21,15 +25,110 @@ pub const POSTGRES_IMAGE: &str =
     "postgres@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873";
 const LABEL: &str = "baylee.central.test";
 
+/// The variable that chooses the fixture's PostgreSQL: `docker`, `native`,
+/// or unset for Docker where it runs and native where it does not.
+pub const BACKEND_VAR: &str = "BAYLEE_FIXTURE_POSTGRES";
+
+/// The PostgreSQL 18 an integration run owns and will remove.
+pub enum Postgres {
+    /// The pinned image in a container ([`Container`]).
+    Container(Container),
+    /// A native cluster in a fresh temporary directory, for a machine
+    /// without Docker.
+    Native(LocalPostgres),
+}
+
+impl Postgres {
+    /// Starts the fixture: a container where Docker runs (`memory` is its
+    /// limit, `data_bytes` its data filesystem's size), else, or with
+    /// [`BACKEND_VAR`] `native`, a native cluster, which neither bounds.
+    pub fn start(prefix: &str, memory: &str, data_bytes: u64) -> Result<Self> {
+        let wanted = std::env::var(BACKEND_VAR).ok();
+        if native(wanted.as_deref(), docker_runs)? {
+            let dir = std::env::temp_dir().join(format!("{prefix}-{}", crate::secret::hex(6)?));
+            println!("Owned native PostgreSQL fixture: {}", dir.display());
+            return LocalPostgres::start(dir, None, true).map(Self::Native);
+        }
+        Container::start(prefix, memory, data_bytes).map(Self::Container)
+    }
+
+    pub fn port(&self) -> u16 {
+        match self {
+            Self::Container(c) => c.port(),
+            Self::Native(n) => n.port(),
+        }
+    }
+
+    /// The superuser's URL, for the suites that make their own schemas.
+    pub fn admin_url(&self) -> String {
+        match self {
+            Self::Container(c) => c.admin_url(),
+            Self::Native(n) => n.url("postgres"),
+        }
+    }
+
+    /// Runs SQL as the superuser; on failure its diagnostics are withheld,
+    /// since they can echo the statement and its generated secrets.
+    pub fn sql(&self, sql: &str) -> Result<()> {
+        match self {
+            Self::Container(c) => c.sql(sql),
+            Self::Native(n) => n
+                .sql("postgres", sql)
+                .map_err(|_| anyhow::anyhow!("fixture SQL failed (diagnostics withheld)")),
+        }
+    }
+
+    pub fn version(&self) -> Result<String> {
+        match self {
+            Self::Container(c) => c.version(),
+            Self::Native(n) => n.version(),
+        }
+    }
+
+    /// Reclaims generated WAL between suites, never while a child is active.
+    pub fn checkpoint(&self) -> Result<()> {
+        match self {
+            Self::Container(c) => c.checkpoint(),
+            Self::Native(n) => n
+                .sql("postgres", "CHECKPOINT")
+                .context("fixture checkpoint failed"),
+        }
+    }
+
+    /// Removes the fixture and proves its listener closed.
+    pub fn finish(self) -> Result<()> {
+        match self {
+            Self::Container(c) => c.finish(),
+            Self::Native(n) => n.finish(),
+        }
+    }
+}
+
+/// Whether the fixture is a native cluster: as [`BACKEND_VAR`] says, else
+/// when Docker does not answer (`docker_runs`).
+fn native(wanted: Option<&str>, docker_runs: impl FnOnce() -> bool) -> Result<bool> {
+    match wanted {
+        Some("native") => Ok(true),
+        Some("docker") => Ok(false),
+        None | Some("") => Ok(!docker_runs()),
+        Some(other) => bail!("{BACKEND_VAR} is `docker` or `native`, not «{other}»"),
+    }
+}
+
+/// Docker's daemon answers here.
+fn docker_runs() -> bool {
+    quiet(Command::new("docker").args(["version", "--format", "{{.Server.Version}}"]))
+}
+
 /// A PostgreSQL container this run created and will remove.
-pub struct Postgres {
+pub struct Container {
     name: String,
     id: Option<String>,
     port: Option<u16>,
     admin: String,
 }
 
-impl Postgres {
+impl Container {
     /// Creates and starts a read-only container with its data on a bounded
     /// tmpfs, published on IPv4 loopback only. `memory` is docker's limit,
     /// `data_bytes` the data filesystem's size.
@@ -296,8 +395,8 @@ impl Postgres {
     }
 }
 
-impl Drop for Postgres {
-    /// A panic between start and [`Postgres::finish`] still removes the container.
+impl Drop for Container {
+    /// A panic between start and [`Container::finish`] still removes the container.
     fn drop(&mut self) {
         if self.id.is_some() || self.port.is_some() {
             let _ = self.remove();
@@ -465,4 +564,24 @@ fn drain(stream: &mut impl Read) -> String {
     let mut bytes = Vec::new();
     let _ = stream.read_to_end(&mut bytes);
     String::from_utf8_lossy(&bytes).into_owned()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_variable_chooses_and_docker_decides_only_when_it_is_unset() {
+        let never = || -> bool { panic!("Docker must not be asked") };
+        assert!(native(Some("native"), never).unwrap());
+        assert!(!native(Some("docker"), never).unwrap());
+        assert!(native(None, || false).unwrap(), "no Docker: native");
+        assert!(!native(None, || true).unwrap(), "Docker runs: a container");
+        assert!(native(Some(""), || false).unwrap(), "empty is unset");
+        let refused = native(Some("podman"), never).unwrap_err().to_string();
+        assert!(
+            refused.contains(BACKEND_VAR) && refused.contains("podman"),
+            "{refused}"
+        );
+    }
 }

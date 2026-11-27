@@ -80,7 +80,7 @@ impl PgTools {
 }
 
 /// An owned loopback PostgreSQL instance backed by a private local directory.
-pub(super) struct LocalPostgres {
+pub(crate) struct LocalPostgres {
     tools: PgTools,
     data_dir: PathBuf,
     port: u16,
@@ -91,7 +91,7 @@ pub(super) struct LocalPostgres {
 
 impl LocalPostgres {
     /// Bootstraps and starts a fresh PostgreSQL cluster in `data_dir`.
-    pub(super) fn start(
+    pub(crate) fn start(
         data_dir: PathBuf,
         port: Option<u16>,
         remove_on_finish: bool,
@@ -120,12 +120,12 @@ impl LocalPostgres {
         Ok(instance)
     }
 
-    pub(super) const fn port(&self) -> u16 {
+    pub(crate) const fn port(&self) -> u16 {
         self.port
     }
 
     /// Connection URL for `database`, kept in memory for child environments.
-    pub(super) fn url(&self, database: &str) -> String {
+    pub(crate) fn url(&self, database: &str) -> String {
         format!(
             "postgres://postgres:{}@127.0.0.1:{}/{database}",
             self.admin_password, self.port
@@ -148,7 +148,7 @@ impl LocalPostgres {
     /// Runs `sql` in `database` as the cluster's superuser. The script goes
     /// over stdin and psql's output is discarded, so a password in it reaches
     /// no argument list and no log.
-    pub(super) fn sql(&self, database: &str, sql: &str) -> Result<()> {
+    pub(crate) fn sql(&self, database: &str, sql: &str) -> Result<()> {
         let mut child = Command::new(&self.tools.psql)
             .env("PGPASSWORD", &self.admin_password)
             .args([
@@ -180,8 +180,33 @@ impl LocalPostgres {
         Ok(())
     }
 
+    /// The server's version, as `SHOW server_version` says it.
+    pub(crate) fn version(&self) -> Result<String> {
+        let out = Command::new(&self.tools.psql)
+            .env("PGPASSWORD", &self.admin_password)
+            .args([
+                "-h",
+                "127.0.0.1",
+                "-p",
+                &self.port.to_string(),
+                "-X",
+                "-At",
+                "-U",
+                "postgres",
+                "-d",
+                "postgres",
+                "-c",
+                "SHOW server_version",
+            ])
+            .stderr(Stdio::null())
+            .output()
+            .context("spawning psql")?;
+        ensure!(out.status.success(), "psql could not read the version");
+        Ok(String::from_utf8(out.stdout)?.trim().to_owned())
+    }
+
     /// Stops the cluster cleanly and proves its loopback port closed.
-    pub(super) fn finish(mut self) -> Result<()> {
+    pub(crate) fn finish(mut self) -> Result<()> {
         self.stop_internal()
     }
 
