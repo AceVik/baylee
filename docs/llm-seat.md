@@ -1460,8 +1460,9 @@ the other.
   session of the account (`Account::ai_runner`): no master key, nothing
   restored (its library, document and chat refuse), and the terms,
   admission and the relay work as for any native session. The runner
-  accepts Central's terms in force for the account before it offers, and
-  again when an offer says they changed. An account may hold four runner
+  accepts Central's terms in force for the account before it offers, on
+  its first session and on each fresh one it rolls over to, and again when
+  an offer says they changed. An account may hold four runner
   sessions; the newest takes the offers and every new match, is renewed
   every five minutes, and is replaced by a fresh one every two hours
   (`ranked::ROLL_OVER`), well inside the ten hours of `drain_minutes`

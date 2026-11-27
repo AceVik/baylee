@@ -159,7 +159,7 @@ follows to `hyper` 1.13.0 and `sha2` 0.11.2; the native shipping gate checks
 the all-feature reverse dependency graph at this pin.
 
 The AI players' pin of 27.11.2026 moves Central to
-`eb6504e652b000f540f4f1fb85edefae6b2b63ea` (Central's branch
+`1c7c990ea80d8f154a3884406e1437f1d653bd1e` (Central's branch
 `claude/ai-players`, pull request 98, not merged yet; its migration 000055
 and grants come with it, the integration fixture's copy of `ops/grants.sql`
 following). The `central-crypto`
