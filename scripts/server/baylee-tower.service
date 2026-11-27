@@ -46,8 +46,8 @@ CapabilityBoundingSet=
 AmbientCapabilities=
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 SystemCallArchitectures=native
-SystemCallFilter=@system-service
-SystemCallFilter=~@privileged @resources
+# No system-call filter: the service starts the Tower engine to replay records,
+# and the engine runs unfiltered under the agent as well.
 # Verification replays one record per worker in the engine it starts.
 MemoryMax=4G
 TasksMax=512
