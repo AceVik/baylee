@@ -101,6 +101,13 @@ fn settings(dir: &std::path::Path) -> PathBuf {
                 "provider": "anthropic", "model": "claude-sonnet-4-5", "effort": "high",
                 "key_env": "TEST_RANKED_KEY"
             },
+            "no-model": {
+                "provider": "cli", "model": "claude", "effort": "high", "command": program
+            },
+            "no-effort": {
+                "provider": "anthropic", "model": "claude-haiku-4-5",
+                "key_env": "TEST_RANKED_KEY"
+            },
             "Upper": {
                 "provider": "cli", "model": "claude:haiku", "effort": "high",
                 "command": program
@@ -229,4 +236,58 @@ fn a_path_that_could_not_answer_is_held_back_as_the_next_takes_over() {
     assert_eq!(declared.kind, seat_mind::Kind::House as i32);
     assert_eq!(declared.level, "expert");
     assert!(held.lock().unwrap().contains_key("haiku-second"));
+}
+
+#[test]
+fn a_path_that_keeps_failing_before_its_games_is_held_back_ever_longer() {
+    let dir = Scratch::new("failing");
+    let pilot = LlmPilot::new(&setup(&dir, "haiku-high"), keys()).unwrap();
+    let left = |pilot: &LlmPilot| {
+        pilot.held.lock().unwrap()["haiku-api"].saturating_duration_since(Instant::now())
+    };
+    pilot.failed("haiku-api", "TEST: the model list did not answer");
+    let first = left(&pilot);
+    assert!(
+        first > Duration::from_mins(9) && first <= FAILED_HOLD,
+        "{first:?}"
+    );
+    pilot.failed("haiku-api", "TEST: still not");
+    let second = left(&pilot);
+    assert!(second > Duration::from_mins(19), "doubled: {second:?}");
+    for _ in 0..10 {
+        pilot.failed("haiku-api", "TEST: never");
+    }
+    assert!(left(&pilot) <= MOST_HOLD);
+}
+
+/// Most models have one access path: the profile alone, no fallback, the
+/// declared house behind it. It starts and is ready.
+#[test]
+fn a_model_with_one_access_path_starts_with_the_house_behind_it() {
+    let dir = Scratch::new("solo");
+    let pilot = LlmPilot::new(&setup(&dir, "haiku-api"), keys()).unwrap();
+    assert_eq!(pilot.paths.len(), 1);
+    assert_eq!(pilot.profile(), "model:haiku-api");
+    assert_eq!(pilot.declared().model, "claude-haiku-4-5");
+    assert_eq!(pilot.declared().effort, "high");
+    assert_eq!(pilot.ready(), Ok(()));
+    pilot.failed("haiku-api", "TEST: the only path is down");
+    assert!(pilot.ready().is_err(), "no path left: no offer");
+}
+
+/// The account's name and rating claim one model at one effort: a path
+/// that names no model (a CLI's own default) or no effort is refused, alone
+/// as in a chain, saying what to add.
+#[test]
+fn a_lone_path_that_names_no_model_or_no_effort_is_refused() {
+    let dir = Scratch::new("unnamed");
+    for (profile, missing) in [
+        ("no-model", "names no model"),
+        ("no-effort", "names no effort"),
+    ] {
+        let why = LlmPilot::new(&setup(&dir, profile), keys()).unwrap_err();
+        let why = format!("{why:#}");
+        assert!(why.contains(missing), "{why}");
+        assert!(why.contains("give the profile its"), "{why}");
+    }
 }
