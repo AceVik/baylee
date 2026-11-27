@@ -709,8 +709,6 @@ fn attachment_sbas(
         // attachment. And it has to be a permanent this attachment may hold
         // on to, which is the other half of "illegal".
         let controller = obj.controller;
-        let aura_lost_abilities =
-            obj.characteristics().abilities_lost.is_some() || obj.characteristics().rules_text_lost;
         let host_ok = obj.attached_to.is_some_and(|host| {
             state.object(host).is_some_and(|h| {
                 let aura_permits_host = match aura_restriction {
@@ -736,10 +734,12 @@ fn attachment_sbas(
                         crate::aura_bindings::EnchantRestriction::Player(_)
                         | crate::aura_bindings::EnchantRestriction::GraveyardCard(..),
                     )) => false,
-                    // CR 303.4c / CR 704.5m: an Aura whose enchant ability was
-                    // stripped (e.g. later-timestamp LoseAllAbilities removing
-                    // GrantEnchant) cannot legally enchant any permanent.
-                    Some(None) => !aura_lost_abilities,
+                    // CR 702.5a: an Aura can enchant only what matches all of
+                    // its enchant abilities, and CR 303.4c asks those. An Aura
+                    // that has none left (a later LoseAllAbilities stripped a
+                    // printed or a Layer 6 granted one) is not restricted, so
+                    // it stays where it is (Animate Artifact, Earthbind).
+                    Some(None) => true,
                 };
                 h.zone == crate::zone::Zone::Battlefield
                     && h.kind == ObjectKind::Permanent

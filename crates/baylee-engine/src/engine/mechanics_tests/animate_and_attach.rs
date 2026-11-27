@@ -374,8 +374,11 @@ fn lose_all_abilities_later_timestamp_wipes_grant_enchant() {
         "Later LoseAllAbilities removes earlier Layer 6 GrantEnchant"
     );
 
-    // Part B: CR 704.5m — a Licid transformed into an Aura via BecomeAura whose
-    // Layer 6 GrantEnchant is stripped by a later LoseAllAbilities is binned by SBAs.
+    // Part B: CR 702.5a / CR 303.4c — a Licid transformed into an Aura via
+    // BecomeAura whose Layer 6 GrantEnchant is stripped by a later
+    // LoseAllAbilities has no enchant ability left, so nothing makes its
+    // attachment illegal: it stays on its host, as a printed Aura that loses
+    // all abilities does (Animate Artifact, Earthbind).
     let licid = card(
         C1,
         creature_face("Stripped Licid", "{1}{W}", 1, 1),
@@ -412,15 +415,13 @@ fn lose_all_abilities_later_timestamp_wipes_grant_enchant() {
     });
     e2.state.refresh_characteristics();
     let _ = crate::sba::run(&mut e2.state, &e2.lookup);
+    let stripped = e2.state().object(l_id).unwrap();
     assert_eq!(
-        e2.state().object(l_id).unwrap().zone,
-        Zone::Graveyard,
-        "CR 704.5m: Licid-Aura whose GrantEnchant was stripped by later LoseAllAbilities goes to graveyard"
+        stripped.zone,
+        Zone::Battlefield,
+        "CR 702.5a: a Licid-Aura without an enchant ability is not illegally attached"
     );
-    assert!(
-        e2.state().endable_effect_groups.is_empty(),
-        "Endable effect group pruned when stripped Licid-Aura goes to graveyard"
-    );
+    assert_eq!(stripped.attached_to, Some(h_id));
 }
 
 // =========================================================================
