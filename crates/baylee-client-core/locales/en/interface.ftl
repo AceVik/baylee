@@ -8482,6 +8482,16 @@ SettingsNoMatch = Nothing matches
 # Puts the shown section's rows back.
 SettingsResetSection = Reset this section
 
+# Confirming Reset this section. `$name` is the section's name.
+# Arguments: name
+SettingsResetSectionQuestion = Reset { $name }?
+
+# Under it: what resetting a section does.
+SettingsResetSectionHint = This puts every setting in this section back to its default.
+
+# The confirmation button for Reset this section.
+SettingsResetSectionConfirm = Reset
+
 # Display & Interface, on a chip.
 SectionDisplayShort = Display
 

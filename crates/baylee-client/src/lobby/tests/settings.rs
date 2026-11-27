@@ -1229,3 +1229,106 @@ fn reduced_motion_can_be_changed_before_gateway_admission() {
     );
     assert!(!app.world().resource::<LobbyState>().gateway_selected);
 }
+
+/// Resetting a section asks for confirmation first, resets Gameplay's
+/// `trigger_order` when confirmed, and stays disabled on sections whose rows
+/// are all locked before sign-in (such as Controls).
+#[test]
+fn reset_section_confirms_resets_trigger_order_and_disables_locked_sections() {
+    use baylee_client_core::settings_map::Section;
+    use baylee_client_core::triggerorder::TriggerKey;
+    use baylee_core::ids::{AbilityRef, CardIndex};
+
+    let key = |card| Some(TriggerKey::Card(AbilityRef::new(CardIndex::new(card), 0)));
+    let mut app = settings_at(Section::Gameplay);
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::ToggleTriggerAccept),
+    );
+    app.world_mut()
+        .resource_mut::<crate::prefs::Prefs>()
+        .edit()
+        .trigger_order
+        .learn(&[key(1), key(2)], &[key(2), key(1)]);
+    app.update();
+    app.update();
+
+    let reset_gameplay = Press::Settings(SettingsPress::ResetSection(Section::Gameplay));
+    press(&mut app, reset_gameplay);
+    assert!(matches!(
+        app.world().resource::<LobbyState>().confirmation,
+        Some(super::super::confirm::Destructive::ResetSettingsSection(
+            Section::Gameplay
+        ))
+    ));
+    assert!(
+        app.world()
+            .resource::<crate::prefs::Prefs>()
+            .all()
+            .trigger_order
+            .accept_known,
+        "pressing Reset this section must wait for confirmation before resetting"
+    );
+
+    // Cancelling leaves the settings intact.
+    press(&mut app, Press::Shared(SharedPress::CancelDestructive));
+    assert!(app.world().resource::<LobbyState>().confirmation.is_none());
+    assert!(
+        app.world()
+            .resource::<crate::prefs::Prefs>()
+            .all()
+            .trigger_order
+            .accept_known
+    );
+    assert!(
+        !app.world()
+            .resource::<crate::prefs::Prefs>()
+            .all()
+            .trigger_order
+            .is_empty()
+    );
+
+    // Confirming resets Gameplay including `trigger_order`.
+    press(&mut app, reset_gameplay);
+    press(&mut app, Press::Shared(SharedPress::ConfirmDestructive));
+    assert!(app.world().resource::<LobbyState>().confirmation.is_none());
+    let memory = &app
+        .world()
+        .resource::<crate::prefs::Prefs>()
+        .all()
+        .trigger_order;
+    assert!(!memory.accept_known);
+    assert!(memory.is_empty());
+
+    // Before sign-in, Controls has no editable rows so Reset this section is disabled.
+    let mut offline = headless();
+    offline.insert_resource(crate::settings::ClientSettings::default());
+    sized(&mut offline, 1400.0);
+    {
+        let mut state = offline.world_mut().resource_mut::<LobbyState>();
+        state.settings = SettingsPane::Open;
+        state.set_settings_section(Section::Controls);
+    }
+    offline.update();
+    offline.update();
+    let reset_controls = Press::Settings(SettingsPress::ResetSection(Section::Controls));
+    let disabled = offline
+        .world_mut()
+        .query::<(&Press, Has<crate::shellkit::controls::Disabled>)>()
+        .iter(offline.world())
+        .find_map(|(p, dis)| (*p == reset_controls).then_some(dis))
+        .expect("Reset this section button drawn on Controls");
+    assert!(
+        disabled,
+        "Reset this section must be disabled when every row in the section is locked"
+    );
+    press(&mut offline, reset_controls);
+    assert!(
+        offline
+            .world()
+            .resource::<LobbyState>()
+            .confirmation
+            .is_none(),
+        "disabled Reset this section opens no confirmation"
+    );
+}

@@ -9873,7 +9873,7 @@ there is no Interface slider, because no lobby cue exists.
 The screen is a sidebar (Wide, Vast; 180 px on a phone, which keeps the
 list and three rows in view at 844 × 390) or a chip row (Narrow, Compact)
 of sections with the search at its top, and a panel: title, scope badge,
-**Reset this section** (Graphics, Audio, Display, Controls, Gameplay),
+**Reset this section** (Graphics, Audio, Display, Controls, Gameplay; asks in the confirmation modal first, and stays disabled when no row in the section is editable),
 the rows in a scroll, and the save line. It is readable before sign-in;
 the account's rows then say "sign in to change". The nav is one stop
 walked with the arrows, letters typed there are type-ahead; focus

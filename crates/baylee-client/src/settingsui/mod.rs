@@ -400,6 +400,20 @@ const fn resettable(section: Section) -> bool {
     )
 }
 
+/// Whether `section` currently has at least one offered row the player may
+/// change (for example, Controls holds only account rows and stays disabled
+/// while signed out).
+#[must_use]
+pub(crate) fn section_has_editable_rows(
+    section: Section,
+    signed_in: bool,
+    builds: Builds,
+    monitors: usize,
+) -> bool {
+    settings_map::rows_of(section, builds, monitors)
+        .any(|def| rows::row_answers(def.row, signed_in))
+}
+
 /// The panel: the section's head and rows, or the search's results.
 fn section_panel(
     commands: &mut Commands,
@@ -548,12 +562,20 @@ fn panel_head(commands: &mut Commands, view: &View, kit: Kit, lang: Lang) -> Ent
             .id();
         commands.entity(head).add_child(gap);
         if resettable(section) {
+            let signed_in = view.state.lobby.token().is_some();
+            let editable =
+                section_has_editable_rows(section, signed_in, view.builds, view.monitors);
+            let live = if editable {
+                controls::Live::Yes
+            } else {
+                controls::Live::No(Phrase::SettingsSignInToChange.text(lang))
+            };
             let reset = controls::button(
                 commands,
                 kit,
                 Phrase::SettingsResetSection.text(lang),
                 controls::Weight::Ghost,
-                controls::Live::Yes,
+                live,
                 None,
                 (
                     Press::Settings(SettingsPress::ResetSection(section)),
@@ -688,6 +710,7 @@ pub(crate) fn reset_section(
             edit.auto = defaults.auto;
             edit.orders = defaults.orders;
             edit.ability_orders.clear();
+            edit.trigger_order = defaults.trigger_order;
         }
         Section::Account
         | Section::Network

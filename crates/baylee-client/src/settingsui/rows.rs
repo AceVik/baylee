@@ -46,6 +46,17 @@ pub(crate) fn item(id: &'static str, i: usize) -> Stop {
     Stop::item(SETTINGS.name, id, u8::try_from(i).unwrap_or(u8::MAX))
 }
 
+/// Whether `row`'s controls answer here. What the account keeps waits for a
+/// sign-in, but the sorted triggers are learned offline too, and what is
+/// learned must be something a player can empty. Motion reduction is
+/// accessibility and cannot require network admission.
+#[must_use]
+pub(crate) fn row_answers(row: Row, signed_in: bool) -> bool {
+    settings_map::of(row).scope != Scope::Account
+        || signed_in
+        || matches!(row, Row::TriggerOrder | Row::HoldStill)
+}
+
 impl Out<'_, '_, '_> {
     /// A row from the map: its label, help and tag, and `control` — or,
     /// for the account's row before sign-in, "Sign in to change".
@@ -87,14 +98,9 @@ impl Out<'_, '_, '_> {
         line
     }
 
-    /// Whether a row's controls answer here. What the account keeps waits for
-    /// a sign-in, but the sorted triggers are learned offline too, and what is
-    /// learned must be something a player can empty. Motion reduction is
-    /// accessibility and cannot require network admission.
+    /// Whether a row's controls answer here.
     fn answers(&self, row: Row) -> bool {
-        settings_map::of(row).scope != Scope::Account
-            || self.signed_in
-            || matches!(row, Row::TriggerOrder | Row::HoldStill)
+        row_answers(row, self.signed_in)
     }
 
     /// A row whose control is a column of things (a list of keys, the

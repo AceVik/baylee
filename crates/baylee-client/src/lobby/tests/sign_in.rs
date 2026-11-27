@@ -2175,7 +2175,7 @@ fn login_cards_mist_plates_and_confirm_modals_use_single_quad_cut_glass() {
         })
         .map(|(entity, ..)| entity)
         .expect("a confirmation in its scrim");
-    check_single_quad_glass(app.world(), confirm_modal, 0.54, 0.70, "confirm modal");
+    check_single_quad_glass(app.world(), confirm_modal, 0.88, 0.95, "confirm modal");
 }
 
 #[test]

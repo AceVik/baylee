@@ -325,8 +325,16 @@ impl SettingsPress {
                 scrolled.set(List::Settings, 0.0);
             }
             SettingsPress::ResetSection(section) => {
-                crate::settingsui::reset_section(section, prefs, settings.as_deref_mut());
-                state.set_changed();
+                let signed_in = state.lobby.token().is_some();
+                if crate::settingsui::section_has_editable_rows(
+                    section,
+                    signed_in,
+                    crate::settingsui::builds(),
+                    1,
+                ) {
+                    state.confirmation =
+                        Some(super::confirm::Destructive::ResetSettingsSection(section));
+                }
             }
             SettingsPress::KeepDisplay(keep) => {
                 state.settings_view.display_answer = Some(keep);
@@ -423,6 +431,12 @@ impl SettingsPress {
                 state.settings = SettingsPane::Open;
             }
             SettingsPress::CloseSettings if state.settings.is_open() => {
+                if matches!(
+                    state.confirmation,
+                    Some(super::confirm::Destructive::ResetSettingsSection(_))
+                ) {
+                    state.confirmation = None;
+                }
                 state.settings = SettingsPane::Closed;
             }
             SettingsPress::ClearSearch => {
