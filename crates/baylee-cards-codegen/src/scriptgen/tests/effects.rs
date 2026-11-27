@@ -7292,7 +7292,7 @@ fn gain_control_each_opponent_self_targeted_controller_and_fickle_efreet() {
     );
     assert!(
         starke.abilities[0]
-            .contains("Effect::ChangeController { new_controller: PlayerRel::ControllerOfTarget }"),
+            .contains("Effect::GainControlEx { target: TargetSpec::ThisObject, to: PlayerRel::ControllerOfTarget, duration: Duration::Indefinitely, untap: false, haste_until_eot: false }"),
         "{:?}",
         starke.abilities
     );

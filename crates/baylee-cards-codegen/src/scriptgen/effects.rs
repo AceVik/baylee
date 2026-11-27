@@ -4700,7 +4700,7 @@ impl Tx<'_> {
             p.take("Defined");
             p.take("NewController");
             return Some(vec![
-                "Effect::ChangeController { new_controller: PlayerRel::ControllerOfTarget }"
+                "Effect::GainControlEx { target: TargetSpec::ThisObject, to: PlayerRel::ControllerOfTarget, duration: Duration::Indefinitely, untap: false, haste_until_eot: false }"
                     .to_string(),
             ]);
         }
