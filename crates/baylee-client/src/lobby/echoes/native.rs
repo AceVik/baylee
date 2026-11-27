@@ -806,13 +806,18 @@ fn enter(state: &mut LobbyState, mut play: TowerPlay) {
         });
 }
 
-pub(in crate::lobby) fn returned(mut state: ResMut<LobbyState>) {
+pub(in crate::lobby) fn returned(mut state: ResMut<LobbyState>, duel: Option<Res<crate::Duel>>) {
     if matches!(state.lobby.screen(), Screen::Replay(_)) {
         return;
     }
     let Some((run, _)) = state.echoes.playing.take() else {
         return;
     };
+    // A duel with a verdict is sealed and verified next: its run waits for
+    // that result and has no table left to resume (F-TOWER-03).
+    if crate::lobby::systems::ended_as(duel.as_deref()).is_some() {
+        state.echoes.settling = Some(run);
+    }
     state.echoes.opened = true;
     state.echoes.returning = Some(run);
     state.echoes.collection.refresh();

@@ -24,6 +24,17 @@ fn main() {
             assert_eq!(&arguments[1..], ["+%H"]);
             println!("{:02}", state()["hour"].as_u64().unwrap());
         }
+        "curl"
+            if arguments
+                .last()
+                .is_some_and(|url| url.ends_with("/tower-health")) =>
+        {
+            // The Tower authority (`deploy/tower.rs`): what the test says it answers.
+            match std::env::var("OPS_FAKE_TOWER") {
+                Ok(body) => println!("{body}"),
+                Err(_) => std::process::exit(7),
+            }
+        }
         "curl" => health(),
         "systemctl" | "logger" => {}
         _ => unreachable!(),

@@ -69,7 +69,7 @@ install -o root -g root -m 0755 ./10-example /etc/baylee/deploy-hooks.d/10-examp
 | --- | --- | --- |
 | `prepare` | the target is resolved to its full commit and built; nothing has been staged, stopped or installed | the old system runs untouched and keeps admitting games |
 | `before-switch` | admission is held, the agent is stopped, and **no game is running on any agent** (unless the deploy was forced); a deploy that keeps games (§"Keeping games across a deploy") has stopped the gateway too, with every running game stored | the old gateway still runs (keeping games: is stopped, and starts again if the hook stops the deploy); the new seat bridge, gateway and browser client are not installed yet |
-| `after-switch` | the new gateway answers `/info` with the target commit and `dirty: false` | admission is still held; the agent and the seat agents have not started; nothing is recorded as deployed |
+| `after-switch` | the new gateway answers `/info` with the target commit and `dirty: false`; where `baylee-tower.service` is installed, the Tower has been switched to the target too, or said why not (`docs/tower-operations.md` §"Production on one server", step 9) | admission is still held; the agent and the seat agents have not started; nothing is recorded as deployed |
 
 After `after-switch` passes, the hold comes down, the agent starts, every
 `baylee-seathost@*` instance is restarted, and the target is recorded as

@@ -439,3 +439,61 @@ fn enrolling_shows_the_echo_explanation_and_sends_consent_only_once_confirmed() 
     assert!(state.echoes.model.uncertain(), "the start request is out");
     assert!(jobs.try_recv().is_ok());
 }
+
+/// The duel the shell holds when it ended with a verdict (seat 0 lost):
+/// what `ended_as` reads, as `lobby::tests::end_screen` builds it.
+fn duel_with_a_verdict() -> crate::Duel {
+    use baylee_core::ids::PlayerId;
+    let result = baylee_engine::win::GameResult {
+        winner: Some(baylee_engine::win::Victor::Player(PlayerId::new(1))),
+        reason: baylee_engine::win::EndReason::LastPlayerStanding,
+    };
+    crate::Duel {
+        statics: Some(baylee_view::GameStatic {
+            decision_secs: None,
+            reconnect_secs: None,
+            table_seed: 0,
+            view_version: baylee_view::VIEW_VERSION,
+            game_id: "g".into(),
+            your_seat: PlayerId::new(0),
+            seats: vec![baylee_view::SeatIdentity {
+                player: PlayerId::new(0),
+                display_name: "me".into(),
+                is_ai: false,
+                away: false,
+                team: None,
+                guest: false,
+            }],
+            prints: vec![],
+        }),
+        interaction: Some(baylee_client_core::Interaction::new(
+            baylee_engine::choice::Pending::GameOver(result),
+            PlayerId::new(0),
+        )),
+        ..crate::Duel::default()
+    }
+}
+
+#[test]
+fn a_duel_with_a_verdict_leaves_its_run_settling_and_one_left_unfinished_does_not() {
+    // F-TOWER-03 through the real way back: only a duel that ended waits for
+    // its verified result; one left running is still the player's to resume.
+    use bevy::ecs::system::RunSystemOnce;
+    for (duel, settles) in [(Some(duel_with_a_verdict()), true), (None, false)] {
+        let run = Uuid::now_v7();
+        let mut state = LobbyState::default();
+        state.echoes.playing = Some((run, Uuid::now_v7()));
+        let mut app = App::new();
+        app.insert_resource(state);
+        app.insert_resource(Time::<()>::default());
+        app.init_resource::<super::super::Scrolled>();
+        if let Some(duel) = duel {
+            app.insert_resource(duel);
+        }
+        app.world_mut().run_system_once(returned).unwrap();
+        assert_eq!(
+            app.world().resource::<LobbyState>().echoes.settling,
+            settles.then_some(run)
+        );
+    }
+}

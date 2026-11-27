@@ -75,7 +75,7 @@ pub(super) const fn failure(error: baylee_client_core::echoes::Error) -> Phrase 
     use baylee_client_core::echoes::Error;
     match error {
         Error::Rejected => Phrase::EchoesRejected,
-        Error::Unavailable | Error::Busy => Phrase::ChallengeFailed,
+        Error::Unavailable | Error::Busy => Phrase::EchoesUnreachable,
         Error::Conflict => Phrase::EchoesConflict,
         Error::TermsRequired => Phrase::EchoesTerms,
         Error::UpdateRequired => Phrase::EchoesUpdate,

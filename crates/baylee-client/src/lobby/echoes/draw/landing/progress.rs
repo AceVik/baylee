@@ -175,6 +175,15 @@ fn play(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api::Run
                 );
             }
         }
+        api::Phase::Reserved | api::Phase::Playing if ui.settling(run) => {
+            label(
+                commands,
+                root,
+                kit,
+                Phrase::EchoesVerifying.text(lang),
+                tokens::ACCENT,
+            );
+        }
         api::Phase::Reserved | api::Phase::Playing => {
             control(
                 commands,

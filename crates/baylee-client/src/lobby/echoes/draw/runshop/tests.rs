@@ -585,3 +585,78 @@ fn a_checked_or_held_duel_says_so_and_a_held_one_offers_its_way_out() {
         assert_eq!(retires, usize::from(retire), "{phase:?}");
     }
 }
+
+#[test]
+fn a_run_back_from_its_finished_duel_waits_for_the_result_and_is_never_resumed() {
+    // F-TOWER-03: until the verifier's result is read, the run still says
+    // it is playing; the duel at this table has ended, so the shelf says the
+    // result is on its way and offers no duel to resume.
+    let mut ui = opened();
+    let mut run = ui.model.run().unwrap().clone();
+    run.phase = api::Phase::Playing;
+    let resumes = |ui: &Ui| {
+        let mut world = World::new();
+        let fonts = crate::hud::UiFonts::default();
+        let kit = test_kit(&fonts, false);
+        let mut commands = world.commands();
+        let root = commands.spawn(Node::default()).id();
+        shelf::draw(
+            &mut commands,
+            root,
+            kit,
+            ui,
+            &run,
+            ui.model.publication().unwrap(),
+        );
+        world.flush();
+        let verifying = world
+            .query::<&Text>()
+            .iter(&world)
+            .any(|text| text.0.contains(Phrase::EchoesVerifying.text(Lang::En)));
+        let resume = world
+            .query::<&Press>()
+            .iter(&world)
+            .any(|press| matches!(press, Press::Echoes(Action::Resume)));
+        (verifying, resume)
+    };
+    assert_eq!(
+        resumes(&ui),
+        (false, true),
+        "a duel left running is resumed"
+    );
+    ui.settling = Some(run.id);
+    assert_eq!(
+        resumes(&ui),
+        (true, false),
+        "a finished duel is being verified"
+    );
+}
+
+#[test]
+fn following_a_run_back_from_its_finished_duel_never_locates_a_table() {
+    // A located table for a duel that has ended is a refused request, and the
+    // refusal was the red error the player saw (F-TOWER-03).
+    let playing = |ui: &mut Ui, phase| {
+        let mut run = ui.model.run().unwrap().clone();
+        run.phase = phase;
+        let work = ui.model.read(Uuid::now_v7(), Read::Run(run.id)).unwrap();
+        ui.model
+            .receive(&work, Some(api::Response::Run { run: Box::new(run) }), None);
+        ui.reads.clear();
+        ui.follow_run();
+        ui.reads.iter().any(|read| matches!(read, Read::Locate))
+    };
+    let mut ui = opened();
+    assert!(
+        playing(&mut ui, api::Phase::Playing),
+        "a duel left running is found"
+    );
+    let id = ui.model.run().unwrap().id;
+    ui.settling = Some(id);
+    assert!(!playing(&mut ui, api::Phase::Playing));
+    assert!(!playing(&mut ui, api::Phase::Verifying));
+    assert_eq!(ui.settling, Some(id), "still waiting for the result");
+    // Verified and back at the shop: the result is read.
+    playing(&mut ui, api::Phase::Shop);
+    assert_eq!(ui.settling, None, "the result is read");
+}

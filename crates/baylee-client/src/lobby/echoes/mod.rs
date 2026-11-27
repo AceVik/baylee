@@ -120,6 +120,14 @@ struct Bag {
     grouped: bool,
 }
 
+/// A duel's phases before its verified result: reserved, played, replayed.
+const fn awaiting_result(phase: api::Phase) -> bool {
+    matches!(
+        phase,
+        api::Phase::Reserved | api::Phase::Playing | api::Phase::Verifying
+    )
+}
+
 #[derive(Default)]
 #[allow(clippy::struct_excessive_bools)] // Independent panel expansion toggles across shop & reward views.
 pub(crate) struct Ui {
@@ -149,6 +157,10 @@ pub(crate) struct Ui {
     pub(super) playing: Option<(Uuid, Uuid)>,
     /// An authenticated gateway seat may arrive before the first Central worker.
     returning: Option<Uuid>,
+    /// The run whose duel just ended at this table. Until its result is read
+    /// the gateway seals and the verifier replays it: it shows as being
+    /// verified, never as a duel to resume or to locate.
+    settling: Option<Uuid>,
     #[cfg(not(target_arch = "wasm32"))]
     sounds: Vec<crate::sound::tower::TowerSound>,
     #[cfg(not(target_arch = "wasm32"))]
@@ -389,16 +401,29 @@ impl Ui {
         if self.model.publication().is_none() {
             self.reads.push_back(Read::Cohort(run.cohort));
         }
+        let settling = self.settling == Some(run.id);
         match run.phase {
             api::Phase::Shop if self.model.hosts().is_empty() => {
                 self.reads.push_back(Read::Hosts(None));
             }
-            api::Phase::Reserved | api::Phase::Playing if self.model.location().is_none() => {
+            // A duel that ended here has no table left to find.
+            api::Phase::Reserved | api::Phase::Playing
+                if self.model.location().is_none() && !settling =>
+            {
                 self.reads.push_back(Read::Locate);
             }
             _ => {}
         }
+        if settling && !awaiting_result(run.phase) {
+            self.settling = None;
+        }
         self.choices.bind(run);
+    }
+
+    /// Whether `run` is the one whose duel just ended at this table and whose
+    /// result has not been read yet: shown as being verified.
+    pub(super) fn settling(&self, run: &api::Run) -> bool {
+        self.settling == Some(run.id) && awaiting_result(run.phase)
     }
 
     /// A mutation is out, or a press already waits for a read to end: further

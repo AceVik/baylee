@@ -428,17 +428,27 @@ pub(super) fn tile(commands: &mut Commands, root: Entity, kit: Kit) -> Entity {
     tile
 }
 
-/// The deck's number as the player saw it: its place among the account's
-/// offered starters (a drafted cohort offers three of a larger pool).
-fn shown_starter(ui: &Ui, cohort: Uuid, starter: u8) -> String {
-    ui.model
+/// The starter as the player saw it: its commander's name, as its tile and
+/// preview name it; the deck's place among the account's offered starters (a
+/// drafted cohort offers three of a larger pool) only where the publication
+/// names no commander.
+fn shown_starter(ui: &Ui, cohort: Uuid, starter: u8, lang: Lang) -> String {
+    let published = ui
+        .model
         .cohorts()
         .iter()
-        .find(|published| published.id == cohort)
+        .find(|published| published.id == cohort);
+    if let Some(formation) = published
+        .and_then(|published| published.starters.get(usize::from(starter)))
+        .and_then(|deck| deck.formation.as_ref())
+    {
+        return words::card(formation.commander, lang);
+    }
+    let place = published
         .and_then(|published| published.offered.iter().position(|&s| s == starter))
         .unwrap_or(usize::from(starter))
-        .saturating_add(1)
-        .to_string()
+        .saturating_add(1);
+    Phrase::EchoesStarter.fill(lang, &[&place.to_string()])
 }
 
 /// What a confirmation says, whether it may still be accepted, and whether it
@@ -464,10 +474,7 @@ fn confirming(ui: &Ui, lang: Lang) -> (String, bool, bool) {
             starter,
             consent,
         } => (
-            Phrase::EchoesConsent.fill(
-                lang,
-                &[&shown_starter(ui, *cohort, *starter), &consent.to_string()],
-            ),
+            Phrase::EchoesConsent.fill(lang, &[&shown_starter(ui, *cohort, *starter, lang)]),
             !ui.model.uncertain() && *consent != 0 && *consent == ui.model.consent(),
             false,
         ),

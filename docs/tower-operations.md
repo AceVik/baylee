@@ -380,8 +380,9 @@ only into root-owned 0600 files that a process reads on stdin.
    agent reads it at its next start; restart it once, while no game runs,
    rather than let the next deploy find out. A keeping deploy writes
    `/etc/baylee/agent-engines.env`, which as the unit's `EnvironmentFile`
-   overrides the drop-in and names the deployed Tower engine: whoever turns
-   keeping on carries the pin into it. An agent keeps an engine of an older
+   overrides the drop-in: name the copy as `BAYLEE_DEPLOY_TOWER_ENGINE` in
+   `/etc/baylee/deploy.env`, and it lists the copy in the deployed Tower
+   engine's place (`docs/deploy-hooks.md`). An agent keeps an engine of an older
    protocol installed, but the gateway starts a Tower duel only on one of
    its own protocol, so a protocol bump strands the cohort in any case.
    Where the server's configuration is managed as code, that is where the
@@ -435,6 +436,27 @@ only into root-owned 0600 files that a process reads on stdin.
    recorded in Central. Until then the switch can be taken back: remove
    `tower_origin`, restart Central, and pause enrollment
    (`--admin pause_enrollment`).
+9. **Updates.** From here on the release deploy (`baylee-deploy`, its
+   timer included) updates the Tower wherever `baylee-tower.service` is
+   installed (`crates/baylee-ops/src/deploy/tower.rs`): it builds the
+   service and the provisioning tool with the release and switches them
+   right after the gateway, while no game starts. The new service checks
+   `service.json`, the service stops, two more root-only documents in
+   `/etc/baylee-tower/` (0600) migrate the schema and renew the runtime
+   grants, read by `systemd-run` as the service's user: `migrate.json`, the
+   owner's configuration (`{"database_url": <owner URL>, "schema": "tower",
+   "development": false}`), and `grants.json`, the `--admin` input
+   `{"configuration": <the same>, "operation": {"action": "grant_runtime",
+   "role": "tower_runtime"}}`. The new binaries then take the names, the
+   previous ones kept as `.prev`, and the service must answer `ready`. A
+   failure puts the previous build back and says whether it answers (a
+   migrated schema may refuse it: then the Tower stays down until it is put
+   right by hand); a missing document skips the switch. Either way the
+   deploy goes on, since the gateway and the games do not wait for the
+   Tower. The engine the cohort is bound to is never touched by a deploy.
+   A deploy runs the deploy tool of the release before it, so the first
+   release with this step switches the Tower only at the deploy after it,
+   unless its deploy tool is installed by hand first.
 
 ## Reproducible focused checks
 

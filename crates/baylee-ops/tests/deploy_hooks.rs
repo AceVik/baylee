@@ -645,3 +645,53 @@ fn catalog_upgrade_uses_gateway_settings_after_secrets_and_fails_without_a_url()
     assert!(ran.said.contains("catalog upgrade failed"), "{}", ran.said);
     changed_nothing(&ran, &server);
 }
+
+/// Under deploy hooks too, the Tower serves the gateway it is switched with:
+/// right after the new gateway answers and before after-switch, while no
+/// game starts (`deploy/tower.rs`).
+#[test]
+fn a_tower_here_switches_with_the_gateway_before_after_switch() {
+    let server = Server::with_hooks();
+    server.with_tower();
+    let ran = server.run(&["stage", A]);
+    assert!(ran.ok, "{}", ran.said);
+    let gateway = ran.at("sudo systemctl restart baylee-gateway");
+    let stopped = ran.at("sudo systemctl stop baylee-tower");
+    let migrated = ran
+        .lines()
+        .iter()
+        .position(|l| l.ends_with("baylee-tower-service.next --migrate"))
+        .expect("migrated with the new build");
+    let started = ran.at("sudo systemctl start baylee-tower");
+    let after = ran.at(&format!("hooks after-switch {A} (held, staged)"));
+    let agent = ran.at("sudo systemctl start baylee-agent");
+    assert!(
+        gateway < stopped
+            && stopped < migrated
+            && migrated < started
+            && started < after
+            && after < agent,
+        "{}",
+        ran.calls
+    );
+    assert!(
+        ran.said.contains("Tower service") && ran.said.contains("installed"),
+        "{}",
+        ran.said
+    );
+}
+
+/// A server without the Tower's unit builds and touches none of it.
+#[test]
+fn without_a_tower_unit_a_hooks_deploy_leaves_it_alone() {
+    let server = Server::with_hooks();
+    let ran = server.run(&["stage", A]);
+    assert!(ran.ok, "{}", ran.said);
+    for touched in [
+        "-p baylee-tower",
+        "baylee-tower-service.next",
+        "stop baylee-tower",
+    ] {
+        assert!(!ran.calls.contains(touched), "{touched}: {}", ran.calls);
+    }
+}

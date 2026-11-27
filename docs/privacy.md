@@ -727,17 +727,20 @@ full account). Nothing in this repository writes a backup; `baylee-reboot`
 only waits while one runs (`/run/baylee-backup/run.lock`).
 
 - **What:** every hour (`voll`) and every night (`archiv`), a dump of the
-  gateway's, Central's and the feedback service's databases, the deck
-  images, the challenge and seat-agent state directories, and copies of the
-  host's configuration. The secrets (the services' settings files and keys,
-  the database's TLS key and superuser password, the roles' password hashes)
-  go into a bundle encrypted separately to the owner's recovery key, which
-  the server does not hold.
+  gateway's, Central's, the Tower's (`baylee_tower`, once it runs) and the
+  feedback service's databases, the deck images, the challenge and
+  seat-agent state directories, and copies of the host's configuration. The
+  secrets (the services' settings files and keys, among them all of
+  `/etc/baylee-tower/` with the Tower's house seed and operator tokens, the
+  database's TLS key and superuser password, the roles' password hashes) go
+  into a bundle encrypted separately to the owner's recovery key, which the
+  server does not hold.
 - **Never saved:** the rows of sessions, confirmation links and running
   games (`session_token`, `confirmation`, `running_game`; Central's
   `sessions`, pairings, pending
-  e-mail codes, push subscriptions and the like), the feedback service's
-  admin sessions, the card catalogs, and any log.
+  e-mail codes, push subscriptions and the like), the Tower's live host
+  offers (`tower.host_availability`), the feedback service's admin
+  sessions, the card catalogs, and any log.
 - **Encrypted before upload:** restic encrypts everything on the server;
   only ciphertext leaves it, for the owner's Google Drive (Google Ireland
   Limited), which holds no key. The app may touch only files it created
@@ -756,14 +759,21 @@ only waits while one runs (`/run/baylee-backup/run.lock`).
   removes its data. The worked example is in that repository's
   `src/set.rs`.
 - **Deleted accounts:** each run records the ids (UUIDs only) of gateway
-  and Central accounts deleted since the run before, in a list that is part
+  and Central accounts deleted, and of accounts whose Tower data was erased
+  (gone from `tower.players`), since the run before, in a list that is part
   of every snapshot. After a restore of an older snapshot those accounts are
   deleted again: on the gateway through its own deletion
   (`DELETE /admin/accounts/{id}`); on Central through its own operator
-  erasure (`central-service --erase-accounts-stdin`) where the installed
-  Central has it, else the program names the ids and the step for a
-  person. Until a restore, a deleted account stays in older backups as
-  long as they are kept (above).
+  erasure (`central-service --erase-accounts-stdin`) and on the Tower
+  through its admin action `erase_accounts`, each where the installed
+  service has it, else the program names the step for a person and the ids
+  stay in the deletion list on the server until it is done. Tower erasures
+  are kept apart in that list, because the Tower uses Central's account
+  ids: a Central deletion never erases Tower data, and a Tower erasure never
+  deletes a Central account. When a deleted account's Tower data is erased
+  at all is in
+  §"Tower authority personal bests". Until a restore, a deleted account
+  stays in older backups as long as they are kept (above).
 - **A replaced database on the server:** a restore of a snapshot older
   than the live database's schema (after a deploy whose migration went
   wrong) keeps the live database it replaces, renamed
