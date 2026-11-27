@@ -3,8 +3,10 @@
 The current **Echoes of the Tower** run is the gateway Lobby's Tower tile. Its
 authority belongs to Baylee; gateways host the duels, and Central retains scoped
 permanent accomplishments. Each new run starts with a chosen 39+1 Commander deck,
-18 gold and no equipment, consumables or previously earned cards. The five
-starters have distinct commanders and game plans. Run rewards do not grant power
+18 gold and no equipment, consumables or previously earned cards. The fifty
+starters (three are offered to each new run) have distinct commanders and
+game plans, calibrated against each other in native duels
+([operations](tower-operations.md) §"Calibration"). Run rewards do not grant power
 to a subsequent run.
 
 The loop is **choose a deck → shop → duel → choose opponent cards → shop**.

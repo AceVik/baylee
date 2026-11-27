@@ -14,7 +14,7 @@ mod theme;
 // chosen with the `tower_lab` example's `variants` (docs/tower-operations.md §"Calibration").
 const LEADERS: [(&str, Archetype, u16); 50] = [
     ("Emmara, Soul of the Accord", Archetype::Midrange, 2),
-    ("Elas il-Kor, Sadistic Pilgrim", Archetype::Control, 0),
+    ("Neva, Stalked by Nightmares", Archetype::Midrange, 0),
     ("Talrand, Sky Summoner", Archetype::Midrange, 2),
     ("Slimefoot, the Stowaway", Archetype::Midrange, 0),
     ("Pia and Kiran Nalaar", Archetype::Aggro, 1),
@@ -39,7 +39,7 @@ const LEADERS: [(&str, Archetype, u16); 50] = [
     ("Samut, Voice of Dissent", Archetype::Aggro, 0),
     ("Kess, Dissident Mage", Archetype::Midrange, 0),
     ("Vona, Butcher of Magan", Archetype::Midrange, 0),
-    ("Arvad the Cursed", Archetype::Aggro, 1),
+    ("Selenia, Dark Angel", Archetype::Midrange, 0),
     ("Garna, the Bloodflame", Archetype::Midrange, 0),
     ("Soraya the Falconer", Archetype::Midrange, 0),
     ("Muldrotha, the Gravetide", Archetype::Ramp, 1),
