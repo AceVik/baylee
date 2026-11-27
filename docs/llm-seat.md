@@ -368,7 +368,8 @@ carry. Models are listed only where no key leaves the machine:
 
 Efforts are offered only where the build knows which ones the model takes
 (Claude's current models `low` to `max`, `xhigh` from Opus 4.7 on;
-DeepSeek's models none it can name). Elsewhere the chair plays the model's
+DeepSeek's models none it can name; agy's orchestrators none, since agy
+refuses `--effort` for them). Elsewhere the chair plays the model's
 own default and says so, and the bridge is started with
 `--default-effort`, so an effort the profile names cannot reach a model
 that may refuse it.
@@ -513,6 +514,19 @@ before playing.
   that is no breach, but counted (`tools the model asked for and was
   refused: 2` in the summary) and written to the transcript
   (`cli_refused`), and the model goes on (`dialect::Event::Refused`).
+  **What the lockdown leaves** (27.11.2026, [The tools](#the-tools)), for
+  the operator to know: agy offers every agent `manage_task` beside our
+  `finish`, whatever the agent's `tools` say; Codex keeps code mode's
+  `exec` and `wait` for every gpt-6.x (a JavaScript isolate with no file
+  system, no network and no nested tool left), and GPT-6.2 Astra and Sol
+  also keep `send_message_to_user_async`, which their catalog entry adds
+  and no setting removes. A step or an item that uses any of them is a
+  breach like any other tool: the answer is not taken, the mind is taken
+  off the table, the profile's fallbacks (else the house) play on, and
+  the bridge says which tool it was. Whether Codex reports code
+  mode's or the async message's use as an item at all is unproven: its
+  `--json` items are the answer, reasoning, commands, file changes, MCP
+  and web calls, plans and errors.
 - **Spend.** A subscription has no price: a game's limits are its tokens,
   as the tool counts them, and its calls. Cache reads count, and the tool
   reads the whole conversation again at every decision (up to its size of
@@ -556,9 +570,13 @@ before playing.
   and the tool's login check (which calls no model) passes: `claude auth
   status --json` says `"loggedIn": true`; `codex login status` says
   `Logged in using …` on stderr, not with an API key; `opencode auth list`
-  names an `oauth` credential, not a stored key. Output it cannot read
-  counts as signed out. `agy` and Junie have no such check: their
-  `--version` shows only that the program runs. Junie's spent balance
+  names an `oauth` credential, not a stored key; `agy -p /quota
+  --output-format json` (agy's read-only `/quota` in print mode, about five
+  seconds) says `SUCCESS` and names at least one group of models with its
+  quota. Output it cannot read counts as signed out, and so does a check
+  past its ten seconds (agy's `--version`, the check before 27.11.2026,
+  never failed, and showed only that the program runs). Junie has no
+  such check: its `--version` shows only that the program runs. Junie's spent balance
   ("Insufficient account balance. All tokens in your account have been
   spent.") and its provider's rate limiting are limits; a session it
   cannot open because it is not signed in is unavailable for that
@@ -618,6 +636,71 @@ ordinary decisions, attacks and concessions. With this correction, Codex
 with `gpt-6-luna` and low effort played to game end at turn 15: 442 actions,
 54 model calls, 112 mind answers, no failure, fallback or restart. Its
 conversation resumed across all 54 CLI processes without a disconnect.
+
+The CLI check of 27.11.2026 read Claude Code 2.1.325, Codex 0.166.0 and
+agy 1.5.18 on the owner's Mac, and the help of Claude Code 2.1.332, Codex
+0.172.0 and agy 1.5.18 on the machine that plays the AI accounts (there
+also one `codex debug prompt-input` with an empty `CODEX_HOME`, which
+calls no model and reads no login). Six short agy turns were played;
+Claude Code and Codex called no model.
+
+- **Claude Code.** No flag the seat passes changed; 2.1.332's help only
+  rewords. `--bare` still never reads a subscription's login;
+  `--agents`/`--agent` need the Agent tool, which `--tools ""` removes;
+  `--fallback-model` would play another model under the profile's name,
+  which a ranked chain forbids; `--prompt-suggestions` stays off unless
+  asked, and no settings file is read. Its own model table: `fable` now
+  plays Fable 5.2 (`claude-fable-5-2`, default `medium`), `haiku` plays
+  Haiku 5.5, and every current model takes `low` to `max`.
+- **Codex.** Every gpt-6.x of its catalog is `code_mode_only` with
+  multi-agent `v2`, which neither `--disable multi_agent` nor
+  `features.multi_agent_v2=false` turns off. With the flags of before,
+  `codex debug prompt-input` showed the model `spawn_agent`,
+  `send_message`, `followup_task`, `wait_agent`, `interrupt_agent`,
+  `list_agents`, `request_user_input`, a collaboration-mode text, two
+  multi-agent texts and the list of the user's own skills
+  (`~/.agents/skills`, with their paths). The `-c` keys of the table take
+  all of them out; 0.166 and 0.172 accept every one. What stays is named
+  under the lockdown above. `--disable <name>` refuses a name it does not
+  know ("Unknown feature flag"), where `-c features.<name>=false` ignores
+  it, so the features go as `-c` and a name a later version drops fails
+  no game. GPT-6.2 Astra's default effort is now `low`.
+- **agy.** Gemini 4 Neon goes up to `xhigh` as Hydrogen does; the dialect
+  had played `gemini-4-neon-xhigh` as `gemini-4-neon-high` and no longer
+  does. `excludeDefaultComponents: true` in our agent drops agy's own
+  prompt sections and built-in tools: a first turn read 470 input tokens
+  where it read 14,849 without. A control pair shows that the agent's
+  `tools` list is what holds, not the model's obedience: an agent with
+  `tools: [finish, view_file]` read a file in a Git repository outside
+  its workspace without asking (Auto mode, agy's default, reads anywhere
+  since 1.5.14 and writes outside the workspace inside a repository
+  since 1.5.16); ours, `tools: [finish]`, was told `view_file` is not
+  available, and no tool step came. agy still offers every agent
+  `manage_task`. `--mode plan` has no effect beside
+  `--disable-slash-commands` (agy says so), `--sandbox` restricts only a
+  terminal the agent does not have, and permission rules in `--settings`
+  are not documented; none of them is passed. The login check is
+  `/quota` ([above](#a-cli-as-the-model)). A result now says why a turn
+  ended early (`finished_reason`); such a result is no answer.
+- **agy's orchestrators** (`gemini-pro-orchestrator-neon`,
+  `gemini-pro-orchestrator` for Carbon, `gemini-pro-orchestrator-argon`)
+  plan with one model and execute with another, each at the effort agy's
+  own `orchestrator` setting names (`high` by default since 1.5.15; the
+  same model and effort for both run one agent on that model since
+  1.5.17). agy refuses `--effort` for them, so the seat passes none
+  whatever the profile names, and the settings panel offers none; a
+  ranked account on one claims the orchestrator's id at its Standard,
+  never the model it plans with. Under the seat's agent, whose only tool
+  is `finish`, the Neon orchestrator answered a one-line question in one
+  model step and no tool in 73 seconds, where `gemini-4-neon-xhigh` took
+  82: with nothing to execute it buys little, and a game decision's
+  prompt can take it near Central's 180 seconds a decision. It is a model
+  a profile may name, off unless named. `/swarm` (a slash command) and
+  `run_workflow` (a tool) are agy's other multi-agent modes: both lie
+  outside the lockdown, spend quota fast and outlast a decision's clock,
+  and are not offered. An "orchestra of Neons at xhigh" is, by agy
+  1.5.17's rule, one agent on `gemini-4-neon-xhigh`, which the seat now
+  plays as named.
 
 opencode 1.19.4 with `deepseek/deepseek-flash` played a complete game
 through turn 14 (508 actions, 73 calls) in the live check. One call exceeded
@@ -682,7 +765,8 @@ CLI stays in that group and ends with it however the bridge ends.
 
 What each dialect passes to take the tool's own agent away, how it holds
 a conversation, and how its usage is booked. **Docs** marks what the
-tool's help (`--help` of the installed version, 06.10.2026), documentation
+tool's help (`--help` of the installed version, 06.10.2026; Claude Code,
+agy and Codex again 27.11.2026), documentation
 or source says; **assumed** what no source confirmed and a first live game
 must show (a tool that refuses a flag fails its game with a sentence; it
 never plays unlocked). The models and effort levels the settings panel
@@ -691,9 +775,9 @@ table (no program is asked).
 
 | CLI | Flags and files that strip its overhead | Conversation | Usage | Lockdown check | Confirmed |
 |---|---|---|---|---|---|
-| Claude Code `claude` (2.1.290) | `-p`, stream-json both ways, `--restricted --safe-mode --tools "" --strict-mcp-config --disable-slash-commands --setting-sources "" --permission-prompts none --permission-mode manual --no-session-persistence --system-prompt <ours> --json-schema <answer>`, `--model`, `--effort`; `DISABLE_AUTOUPDATER=1` | one process across turns, stdin lines (not `--resume`: transcripts and the login share `CLAUDE_CONFIG_DIR`) | per turn (`result.usage`) | `init`: tools only `StructuredOutput`, no MCP server, no slash command, key source named and not a variable | docs (help, Agent SDK) |
-| Antigravity `agy` (1.4.7) | stream-json both ways, `--disable-slash-commands`, `--agent baylee-seat`, `--json-schema`, `--model`, `--effort`; private `.agents/agents/baylee-seat.md` carries ours and `tools: [finish]`, `subagent: false`, `commandExecutionPolicy: off`, empty MCP/skills/plugins lists. User rules under `~/.gemini` remain the CLI's | one process across turns, stdin lines (its sessions under `~/.gemini/antigravity-cli` cannot be moved) | running count per process, booked as differences | `init` must confirm `agent: baylee-seat`, name its tool inventory and connect no MCP server; every tool event except the output-only `finish` is a breach | flags and agent format: docs; capability filtering and multiple turns: live 1.4.7 check, 24.10.2026 |
-| Codex `codex` (0.160.0) | `exec --json --ignore-user-config --ignore-rules --skip-git-repo-check --sandbox read-only --output-schema <file>`; `-c model_instructions_file=<ours> project_doc_max_bytes=0 mcp_servers={} notify=[] web_search="disabled" tools.view_image=false history.persistence="none" analytics.enabled=false feedback.enabled=false otel.exporter="none" check_for_update_on_startup=false include_*_instructions/context=false model_reasoning_summary="none" [model_reasoning_effort]`; `--disable` each tool feature (shell, exec, image, plugins, apps, hooks, skills, sub-agents, memories, browser, computer use, …); `--model`; prompt on stdin (`-`); going on: the same, then `resume <thread uuid> -`. `$CODEX_HOME/AGENTS.md` is still read (the bridge warns where one is) | one process a question, going on by `exec … resume <id>`; sessions in `$CODEX_HOME/sessions` beside the login, the seat's own removed | thread total, read back on resume: booked as differences across the conversation | none at start (`thread.started`); any item but the answer, reasoning or a warning is a breach | flags: docs and source (main, 06.10.); features list and AGENTS.md: source, not the 0.160 tag; **assumed**: `-c` keys 0.160 does not know are ignored; that `exec`'s `--sandbox` and `--color` ahead of `resume` hold for it (source: global flags) |
+| Claude Code `claude` (2.1.325; acenb 2.1.332) | `-p`, stream-json both ways, `--restricted --safe-mode --tools "" --strict-mcp-config --disable-slash-commands --setting-sources "" --permission-prompts none --permission-mode manual --no-session-persistence --system-prompt <ours> --json-schema <answer>`, `--model`, `--effort`; `DISABLE_AUTOUPDATER=1` | one process across turns, stdin lines (not `--resume`: transcripts and the login share `CLAUDE_CONFIG_DIR`) | per turn (`result.usage`) | `init`: tools only `StructuredOutput`, no MCP server, no slash command, key source named and not a variable | docs (help, Agent SDK); help of 2.1.325 and 2.1.332 checked 27.11.2026 |
+| Antigravity `agy` (1.5.18) | stream-json both ways, `--disable-slash-commands`, `--agent baylee-seat`, `--json-schema`, `--model`, `--effort` (never for an orchestrator); private `.agents/agents/baylee-seat.md` carries ours and `tools: [finish]`, `subagent: false`, `commandExecutionPolicy: off`, empty MCP/skills/plugins lists, `excludeDefaultComponents: true`. User rules under `~/.gemini` remain the CLI's | one process across turns, stdin lines (its sessions under `~/.gemini/antigravity-cli` cannot be moved) | running count per process, booked as differences (1.5.18: a second turn's result counted both) | `init` must confirm `agent: baylee-seat`, name its tool inventory and connect no MCP server; every tool event except the output-only `finish` is a breach (`manage_task`, which 1.5.18 offers every agent, included); a result cut short (`finished_reason`) is no answer | flags and agent format: docs and 1.5.18's changelog; capability filtering, `excludeDefaultComponents`, orchestrators, `/quota` and multiple turns: live 1.5.18 checks, 27.11.2026 |
+| Codex `codex` (0.166.0; acenb 0.172.0) | `exec --json --ignore-user-config --ignore-rules --skip-git-repo-check --sandbox read-only --output-schema <file>`; `-c model_instructions_file=<ours> project_doc_max_bytes=0 mcp_servers={} notify=[] web_search="disabled" tools.view_image=false history.persistence="none" analytics.enabled=false feedback.enabled=false otel.exporter="none" check_for_update_on_startup=false include_*_instructions/context=false model_reasoning_summary="none" include_collaboration_mode_instructions=false skills.include_instructions=false tools.experimental_request_user_input.enabled=false features.multi_agent_v2.disable_native_tools=true features.multi_agent_v2.root_agent_usage_hint_text="" features.multi_agent_v2.multi_agent_mode_hint_text="" [model_reasoning_effort]`; `-c features.<name>=false` for each tool feature (shell, exec, image, plugins, apps, hooks, skills, sub-agents, memories, browser, computer use, web, permissions, async messages, …); `--model`; prompt on stdin (`-`); going on: the same, then `resume <thread uuid> -`. `$CODEX_HOME/AGENTS.md` is still read (the bridge warns where one is) | one process a question, going on by `exec … resume <id>`; sessions in `$CODEX_HOME/sessions` beside the login, the seat's own removed | thread total, read back on resume: booked as differences across the conversation | none at start (`thread.started`); any item but the answer, reasoning or a warning is a breach | flags: docs and source (main, 06.10.); the model's prompt and tools: `codex debug prompt-input` (no model call) on 0.166 and on acenb's 0.172, 27.11.2026; **assumed**: that `exec`'s `--sandbox` and `--color` ahead of `resume` hold for it (source: global flags) |
 | opencode `opencode` (1.18.34) | `run --pure --format json --agent seat --title seat [--model p/m] [--variant v]`, message on stdin; `OPENCODE_CONFIG` = a file denying every tool (`permission {"*":"deny"}`, also on the agent), `mcp {}`, no instructions, share/snapshot/formatter/compaction/autoupdate off, agent `seat` whose prompt is ours; `XDG_CONFIG_HOME` = an empty directory; `OPENCODE_DB` = a file in the seat's store; `OPENCODE_DISABLE_PROJECT_CONFIG`, `_CLAUDE_CODE`, `_EXTERNAL_SKILLS`, `_AUTOUPDATE`, `_AUTOCOMPACT`, `_LSP_DOWNLOAD`. opencode still adds its environment block (model, directory, date) | one process a question, going on by `--session <id>` from the seat's store: only what is new is sent | per step (`step_finish.tokens`) | none at start (its first line is the start); a `tool_use` line is a breach | source (v1.18.34 tag, `dev` for the schema); **assumed**: built-in plugins left on (they carry the logins); that a resumed `run` reads its history whole (source: `dev`) |
 | Junie `junie` (26.10.27) | `--acp=true --skip-update-check --share-anonymous-statistics=false --config-default-locations=false --mcp-default-locations=false --skill-default-locations=false --command-default-location=false --agent-default-location=false --model-default-locations=false --extensions-default-location=<empty> --guidelines-filename=<empty file> --cache-dir=<session's> --system-prompt=<ours>` (added to Junie's, not replacing it), `--model`, `--effort`; ACP: `initialize` with no file system and no terminal, `session/new` in the empty working directory with no MCP server, `session/set_config_option` `brave_mode` `off` (and `model`/`effort` where the flags left another value Junie offers), each message a `session/prompt`. Never `--brave`, `--auth` or a key | one process across turns, one ACP session; sessions in `~/.junie/sessions` beside its settings, the seat's own removed | per turn (the prompt result's `usage`), booked to its `totalTokens`; the session's running cost to the transcript | none at start (its first message); no prompt before `brave_mode` `off` is confirmed, else a breach, as is a later change; every permission request refused (counted, transcript, no breach); a tool call that completed, failed unrefused or is still open at its turn's end is a breach | flags: help; protocol, permission requests, brave mode, `--system-prompt`, `--model`, `--effort`, per-turn usage and the refusal: live 26.10.27 checks, 31.10.2026; **assumed**: how a spent balance and a missing sign-in look on the wire (the strings are from its jar; the fake replays them) |
 
