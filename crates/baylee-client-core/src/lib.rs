@@ -40,6 +40,7 @@
 use baylee_cards_pool as _;
 
 pub mod abilitysheet;
+pub mod aiplayers;
 pub mod airborne;
 pub mod aisaid;
 pub mod annotations;

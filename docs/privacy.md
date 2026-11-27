@@ -25,6 +25,21 @@ account connection. Changing accounts clears these in-memory collections.
 
 Competitive Ranked games publish the participating account's public handle, league, division and seasonal results. Deck leaderboard rows use an opaque ID. Central stores the match and seat identities, confirmed result, rating changes, timestamps and card-identity digests with copy counts for version restoration and edit calculation. Those digests can be compared with the known card catalogue. The assigned host receives the selected playable deck. The private deck library uses Central's client-encrypted account objects. Personal chat keys and account vault keys stay on the client. A ranked account's private queue and rating rows are removed by account-deletion foreign-key cascades.
 
+**AI opponents** (`docs/proposals/ai-players.md`, protocol 3). A ranked search
+says whom it accepts: people only, the local AIs (the house levels and Baylee
+AI) or all AIs (also language models). The client asks before an account's
+first search, with nothing preselected, sends the answer only as the replica
+join's `ai` field, which Central keeps beside the ticket, and keeps it on the
+device per Central account (`client-settings.json`, `ranked_opponents`, keyed
+by the account's public id). Against a house level or Baylee AI the game stays
+on the operator's machines. **Only when the person chose "All AIs"** can a
+language model take the other seat, and its seat bridge then sends the model's
+provider what its own seat sees, as for every language-model seat
+([below](#language-model-seats)): the board, the person's moves and the cards
+they show, under the pseudonyms `P1…Pn`, never a name, handle, tag, account or
+game id. The desk says this in one line beside the choice, and the choice can
+be changed at any time, also while searching.
+
 ## Tower authority personal bests
 
 Tower Echoes runs in a separate Baylee service/database. Migration 014 adds one
@@ -108,6 +123,8 @@ old gateway data is preserved during the transition. See
 | A reported chat message (its text, whether its signature checked and, when it checked, the sender's public tag) | leaves the device for the gateway (`POST /social/reports`), then the feedback service | as other reports | as other reports |
 | Game state | engine process memory | the game | the process exits |
 | A language-model seat's game data (its seat's view: board, its own hand, log lines, card text, seat numbers; no display name, handle, tag, account, game id or deck name) | leaves the machine its bridge runs on (the seat agent's, or the player's own) for the profile's provider | the provider's own terms | — |
+| A ranked game against a language-model AI player, only when the person's search accepts "All AIs": the AI seat's view of it (the board, the person's moves and the cards they show, as `P1…Pn`; no name, handle, tag, account or game id) | leaves the operator's seat agent for that model's provider | the provider's own terms | choosing "People only" or "Local AIs" beside the ranked search, at any time |
+| Whom an account's ranked searches accept (people only, local AIs, all AIs) | the device's `client-settings.json` (`ranked_opponents`, by Central public id), and Central beside each ticket | until changed; on Central, with the ticket | the player, at the ranked desk |
 | A language-model seat's reports file, `reports.jsonl` (31.10.2026): per report the game's id, the seat's number, the question and turn, the model's id and profile name, the model's words (`kind`, `severity`, `confidence`, the cards it names with the words it quotes, the rule numbers it cites, `observed`, `expected`, `references`), the seat's checks of them and its dedupe key, the question as the seat showed it and the answer (`decision`: the options' words, seats as `P1…Pn`), how many lookups it made, when; nothing else (no name, no game log) | the machine the bridge runs on, readable by the account it runs under alone (since 01.11.2026 the file is made `0600` and a directory made for it `0700`, whatever the umask; a file an older build left readable by others is narrowed at the next report): `--reports-dir` or `--transcripts` where given, else `llm-reports/` beside the bridge's settings file (a player's config directory, `~/.config/baylee/llm-reports/` on Linux); a seat agent's bridges in its state directory, `reports/` | until the player or the operator removes it: one line a report as it is filed, at most 25 a game, never read back, sent or cut short by the bridge | the player; the operator |
 | A language-model seat's reports of rules or engine errors (the model's words, its id and profile, where in the log each was made, and the seat's own game log: the lines its seat was told, seats as "You" and `P1…Pn`, no name) | the bridge's `reports.jsonl` (the words, not the log; the row above); at the game's end leaves for the gateway (`POST /reports`, the seat's session; a chair on its host's ticket on its seat token, `POST …/chair/report`, filed under the host's pseudonym), then the feedback service, or Central where `BAYLEE_REPORTS_TO=central`, with the game's record ([below](#language-model-seats)) | as other reports | as other reports |
 | Hosted profiles' states, games and spend as their seat agents report them | gateway memory | while the seat agent is connected | its leaving, a restart |
@@ -823,8 +840,13 @@ hashes, which stay in the file only.
   client keeps:
   - `client-settings.json`: the language, the last username (for an older
     file, possibly an e-mail), the gateway list and how often each was used,
-    per gateway a kept guest's token and handle, and what reports may carry
-    (#309);
+    per gateway a kept guest's token and handle, what reports may carry
+    (#309), and per Central account (its public id, at most 32) whom its
+    ranked searches accept (`ranked_opponents`; [above](#global-ranked-games-and-private-decks))
+    and its record against AI players from the games played here
+    (`ranked_against_ai`: wins, losses and draws by kind, the labels of at
+    most 64 AIs it beat with the game id each was first beaten in, and the
+    ids of the last 64 games counted; never sent anywhere);
   - `crash-report.json`, after a crash, until the next start deals with it
     (#310);
   - `records/game-<start>-<seed>.jsonl.gz`: the record of each game this

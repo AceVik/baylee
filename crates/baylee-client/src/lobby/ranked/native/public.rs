@@ -6,11 +6,24 @@ use std::sync::{Arc, Mutex};
 pub(super) type Inbox = Arc<Mutex<Option<Result<Response, Error>>>>;
 
 pub(super) fn request(worker: &mut Worker, request: Request) {
+    read(worker, request, false);
+}
+
+/// The same read, but the board on screen stays until the new one arrives:
+/// a change of whom the ladder lists swaps one full list for another
+/// instead of passing through the skeleton.
+pub(super) fn request_keeping(worker: &mut Worker, request: Request) {
+    read(worker, request, true);
+}
+
+fn read(worker: &mut Worker, request: Request, keep: bool) {
     if !matches!(request, Request::Board { .. } | Request::Seasons { .. }) {
         return;
     }
     if worker.read_shown.as_ref() != Some(&request) {
-        worker.board = None;
+        if !keep {
+            worker.board = None;
+        }
         worker.read_shown = Some(request.clone());
     }
     worker.read_wanted = Some(request);

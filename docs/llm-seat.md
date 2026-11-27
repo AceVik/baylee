@@ -322,7 +322,10 @@ order. The house plays only where the whole chain cannot.
   the transcript's `fallback_refused`). The model's own reservation settles
   at the game's end as always, and each fallback's beside it.
 - **Only an API takes over.** The model may play behind an API or an agent
-  CLI; each fallback plays behind an API: a CLI is none.
+  CLI; each fallback plays behind an API: a CLI is none. A ranked AI
+  account's chain is the exception: one model on several access paths, a
+  CLI among them ([below](#the-ranked-runner)).
+
 - **Said.** At sit-down `the fallback backup stands by: …`, or `the
   fallbacks opus-api, deepseek stand by, in this order: …`; at a limit
   `the fallback opus-api answers from turn 3: the primary is rate limited
@@ -1418,10 +1421,17 @@ baylee-seat ranked --account <id | Name#tag>
     (--token-file <path> | --token-key <name>)
     [--central live|http://127.0.0.1:<port>]
     [--state <dir>] [--decks <dir>] [--transcripts <dir>]
-    [--level expert] [--fallback-level expert]
-    [--accept-host <origin>]… [--facts-from <origin>]
+    (--level expert | --profile <name> [--config <file>] [--ledger <file>])
+    [--fallback-level expert]
+    [--accept-host <origin>]… [--facts-from <origin>] [--facts-file <file>]
     [--games <n>] [--min-think-ms 1500]
 ```
+
+Everything but the pilot's own flags is `ranked::cli::RankedArgs`, and
+`ranked::cli::run(args, pilot)` is the whole process (its stop signals,
+logging, TLS, the credential store, the runner): another program that
+flies its own pilot (the trained net's `seat4`) flattens the one and calls
+the other.
 
 - **The account.** An administrator creates it on Central's website:
   a display name starting `KI-` (`KI-Haus-Expert`), its kind, its profile
@@ -1465,14 +1475,35 @@ baylee-seat ranked --account <id | Name#tag>
   freezes and that the host would seat: checked against the host's
   legality facts (`ranked::admit` and its blocked cards), which the runner
   fetches as a guest from `--facts-from` (default the first
-  `--accept-host`) at start and every 30 minutes and keeps as
-  `<decks>/facts.json` (`deckbuild::facts`); a fetch that fails keeps the
-  facts saved and says why. A newer version that fails is passed over for
-  the one before it, told once. Each deck is frozen as the native client
-  freezes one, and its commitment is computed as a person's search
-  computes it (`baylee_cards::ranked::registration`); every deck the
-  runner offered stays with it, so a match made with it is played with it
-  however the directory changed.
+  `--accept-host`, unless `--facts-file`) at start and every 30 minutes and
+  keeps as `<decks>/facts.json` (`deckbuild::facts`), or reads from the
+  operator's `--facts-file` (never written), the fresher of the two
+  counting. Facts are best effort: a fetch that fails keeps the facts
+  saved and says why, and with no facts at all every deck that freezes is
+  offered, the host's own check at seating standing behind it (a host
+  that takes no guests, as the live gateway in its closed beta, gives
+  none). A newer version that fails is passed over for the one before it,
+  told once. Each deck is frozen as the native client freezes one, and its
+  commitment is computed as a person's search computes it
+  (`baylee_cards::ranked::registration`); every deck the runner offered
+  stays with it, so a match made with it is played with it however the
+  directory changed, and a runner that restarted finds an older version a
+  match was made with in the directory.
+- **A deck the host refuses.** The host checks the deck again when the
+  seat registers it (`POST /ranked/{match}/play`: its catalog's verdicts
+  and its blocked cards) and answers `400` for one it will not seat; the
+  seat is then never claimed, Central voids the match once its two-minute
+  reservation lapses (no score for either side, no change to either
+  rating), and the person's search is over without a game. The runner
+  takes two such refusals on a live session before the first seat as the
+  host refusing the deck (`ranked::DeckRefused`), offers that deck no
+  more, and offers the version before it at once, so the next lonely
+  search does not meet the same refusal.
+- **The chronicle.** After every match its game goes to the deck's
+  chronicle (`deckbuild::history::record_game`,
+  `<decks>/<format>/games.jsonl`: the version, the result, the turns, the
+  Elo and its change, the opponent's AI label, never a person's name),
+  which the deck builder reads.
 - **Offers and work.** While the account is switched on, its pilot fits
   and is ready, it plays fewer matches than its `max_games` and has a deck,
   it offers one deck per format (`Ai::Offer`), renewed every 15 s (Central
@@ -1493,7 +1524,9 @@ baylee-seat ranked --account <id | Name#tag>
   the host gave. After the game the runner reads the account's standing
   in the format (its public profile) until it counts the game: the
   outcome, the Elo and its change (`ranked::Receipt`; none when another of
-  its matches in the format settled meanwhile).
+  its matches in the format settled meanwhile). Central says no result
+  per match to an AI account yet, so this one is inferred, and the
+  transcript's `receipt` and the chronicle say so.
 - **Host terms.** Central asks every participant to approve the hosts of a
   match and their terms. The runner approves only a match whose hosts are
   all on the operator's list (`--accept-host <origin>`, repeatable) and
@@ -1513,6 +1546,43 @@ baylee-seat ranked --account <id | Name#tag>
   (`--fallback-level`) on the same link, which declares the house to the
   table before its first answer, so the record names the house from there
   on, and the transcript says `handed_over` and why.
+- **A language model** (`--profile <name>`, `ranked_llm` in the binary)
+  is one model at one effort on a chain of access paths (the owner,
+  26.11.2026: "primär A, dann B, dann C"): the settings file's profile
+  (`--config`, default `<state>/llm-seat.json`) and the profiles its
+  `fallback` names, in order, such as the model on a subscription's CLI,
+  on another subscription, and behind the provider's API. Unlike a
+  `join`'s chain, a CLI may be one of the fallbacks, and every path must
+  play the same model at the same effort (`ranked::chain::same_model`):
+  each names its effort and its model (a CLI's own default can change
+  under it), two paths of one kind name the same model, and a CLI's name
+  for it is the API's id or a word of it (`claude:haiku` and
+  `claude-haiku-4-5`). A chain that crosses models is refused before any
+  offer: the account's name and rating are the model's. Central's profile
+  for the account is `model:<profile>`.
+  - Before a game the pilot is ready while a path is not held back; with
+    every path held back the account makes no offer. A path that was rate
+    limited sits out new games until its limit lifts (as the provider
+    said, else 30 minutes), one that failed for 10 minutes, one that
+    cannot be reached (its key or program gone) likewise. A game starts
+    on the first path not held back, the others standing by in order.
+  - Mid-game the bridge hands the question down the chain at once on a
+    limit or a failure (§"A fallback profile"), each path declaring its
+    model to the table before its first answer, and past the last path
+    the declared house (`--fallback-level`) plays the rest of the game
+    (`ranked::chain::house_at_the_end`), so a ranked seat never leaves its
+    table because its model is gone, and the record says what played.
+  - Each path's game is reserved in the spend book (`--ledger`, default
+    `<state>/llm-spend.json`) as `join` reserves one, and settles at the
+    game's end. By the owner's decision of 27.11.2026 nothing is capped:
+    the file's day and month caps stay the mechanism and are absent unless
+    written, and a profile that names no `game_usd`, `game_tokens` or
+    `game_calls` plays without one (`ranked_llm::UNLIMITED_*`), not with
+    the bridge's defaults of $5 and 500 CLI calls.
+  - A second subscription of the same CLI needs that path to sign in as
+    another account; a profile has no field for a CLI's own config
+    directory yet, so today the second path is another program (its
+    `command`) or the API.
 - **Stopping.** A first ctrl-c or SIGTERM withdraws the offers and plays
   the running matches to their end (an AI does not leave a game; give the
   unit a `TimeoutStopSec` as long as a game); a second leaves them, and
@@ -1535,8 +1605,9 @@ opponents allowed, and after the fill-in wait Central seats the AI; the
 person's seat is played by the house through their own queue entry, the
 AI's by its runner with a pilot that cannot resume: its first socket is cut
 mid-game, it hands the seat over, and the house fallback takes the seat
-again with a fresh core and plays on. Both see the whole game, the person's assignment and receipt carry the AI's badge, and
-Central's results agree with the table's
+again with a fresh core and plays on. Both see the whole game, the
+person's assignment and receipt carry the AI's badge, and Central's
+results agree with the table's
 (`crates/baylee-gateway/tests/e2e_central/ranked/runners.rs`). An AI
 against an AI waits for Central's carousel.
 
@@ -1596,6 +1667,11 @@ baylee-seat deck improve (the options of build) [--most 6] [--recent 20] [--game
   do for anybody. The file holds the gateway's origin, when it was read, the
   table and the blocked cards. An empty table (a gateway without a catalog)
   is refused, since no deck could pass against it.
+  A host that lets no guest in writes the same file on itself:
+  `baylee-gateway pool-facts --out <file>` reads its own database
+  (`DATABASE_URL`, as it stands) with the route's own code, names itself by
+  `BAYLEE_PUBLIC_URL`, opens no port and writes the file atomically, mode
+  0644; its operator copies it to the runner.
 - **The check** (`deckbuild::check::Checker`) is the host's own code, in the
   order `crates/baylee-gateway/src/ranked/deck.rs` runs it:
   1. every row names a card this build plays;

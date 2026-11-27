@@ -7,7 +7,7 @@ use crate::{
 };
 use baylee_account::{
     Account, Error, RankedConsent, RankedHost, RankedPlay,
-    ranked::{Format, Id, QueueState, Request, Response},
+    ranked::{Format, Id, QueueState, Request, Response, ai::AiOpponents},
 };
 use baylee_client_core::lobby::Screen;
 use baylee_core::ids::PlayerId;
@@ -53,6 +53,11 @@ pub(crate) struct RankedSocket {
     pub(crate) match_id: Id,
     pub(crate) game_id: Id,
     pub(crate) protected: bool,
+    /// This player's seat and, when the opponent is an AI, its badge, as
+    /// the assignment said: the table wears it from its first frame, before
+    /// Central's list of participants confirms it.
+    pub(crate) seat: u8,
+    pub(crate) opponent_ai: Option<baylee_account::ranked::ai::AiBadge>,
 }
 
 pub(crate) fn close_game_transport(mut commands: Commands, live: Option<Res<RankedSocket>>) {
@@ -108,6 +113,33 @@ pub(crate) struct Worker {
     read_shown: Option<Request>,
     reading: Option<public::Inbox>,
     discard_read: bool,
+    /// Whom the next ticket this worker mints accepts, as the person chose.
+    pub(crate) ai: AiOpponents,
+    /// Whom the ticket this worker minted accepts, by its key: a retry sends
+    /// the same, since Central refuses a key whose choice moved (Central
+    /// `docs/ai-players.md` §3). A ticket found at launch has none, and
+    /// nothing says its kind.
+    ticket_ai: Option<(Id, AiOpponents)>,
+    /// A search moving to another choice: Central has no way to change a
+    /// ticket's, so it is cancelled and joined again under a new key while
+    /// the desk keeps showing the search it was.
+    switch: Option<Switch>,
+    /// This clock minus Central's, in seconds, learnt from the join that
+    /// minted the live ticket (its `queued_at` is Central's now then).
+    skew: i64,
+    /// When the person began this search, on Central's clock; kept across a
+    /// switch, so the clock beside the search does not start again.
+    since: Option<i64>,
+}
+
+/// A search being moved to another choice ([`Worker::switch`]).
+#[derive(Clone, Debug)]
+struct Switch {
+    /// The waiting search the desk shows meanwhile.
+    shown: QueueState,
+    /// The format and deck to search again with.
+    format: Format,
+    deck: String,
 }
 
 impl Default for Worker {
@@ -147,8 +179,28 @@ impl Default for Worker {
             read_shown: None,
             reading: None,
             discard_read: false,
+            ai: AiOpponents::None,
+            ticket_ai: None,
+            switch: None,
+            skew: 0,
+            since: None,
         }
     }
+}
+
+/// The most this clock may stand off Central's before the difference is
+/// taken for a slow reply rather than a clock, in seconds.
+const MAX_SKEW: i64 = 6 * 3600;
+
+/// Whether a search accepting `ai` takes the opponent a match found: a
+/// person always, an AI as the choice allows (the local AIs are the free
+/// kinds, house and net).
+fn takes(ai: AiOpponents, opponent: Option<&baylee_account::ranked::ai::AiBadge>) -> bool {
+    opponent.is_none_or(|badge| match ai {
+        AiOpponents::None => false,
+        AiOpponents::Local => badge.kind.free(),
+        AiOpponents::Any => true,
+    })
 }
 
 const POLL: Duration = Duration::from_secs(3);
@@ -161,6 +213,87 @@ impl Worker {
 
     pub(super) fn waiting_consent(&self) -> bool {
         self.table.waiting_consent()
+    }
+
+    /// The queue as the desk shows it: while a search moves to another
+    /// choice, the search it was, so nothing on the desk blinks through Idle.
+    pub(super) fn shown_queue(&self) -> &QueueState {
+        self.switch.as_ref().map_or(&self.queue, |s| &s.shown)
+    }
+
+    /// Whether a search is moving to another choice.
+    pub(super) fn switching(&self) -> bool {
+        self.switch.is_some()
+    }
+
+    /// Central's clock now, in Unix seconds, as near as this one knows it.
+    pub(super) fn central_now(&self) -> i64 {
+        self.central_now_ms() / 1000
+    }
+
+    /// Central's clock now, in Unix milliseconds.
+    pub(super) fn central_now_ms(&self) -> i64 {
+        let local = web_time::SystemTime::now()
+            .duration_since(web_time::UNIX_EPOCH)
+            .map_or(0, |since| {
+                i64::try_from(since.as_millis()).unwrap_or(i64::MAX)
+            });
+        local.saturating_sub(self.skew.saturating_mul(1000))
+    }
+
+    /// When Central may seat an AI in the live search; none while it moves
+    /// to another choice, or when the search takes none.
+    pub(super) fn fill_in_at(&self) -> Option<i64> {
+        match (&self.switch, &self.queue) {
+            (None, QueueState::Waiting { ai_fill_in_at, .. }) => *ai_fill_in_at,
+            _ => None,
+        }
+    }
+
+    /// Whom the live search accepts, when this worker sent it.
+    pub(super) fn ticket_choice(&self) -> Option<AiOpponents> {
+        match &self.queue {
+            QueueState::Waiting { key, .. } | QueueState::Assigned { key, .. } => self
+                .ticket_ai
+                .filter(|(minted, _)| minted == key)
+                .map(|(_, ai)| ai),
+            QueueState::Idle | QueueState::Finished { .. } => None,
+        }
+    }
+
+    /// When the person began searching, on Central's clock.
+    pub(super) fn searching_since(&self) -> Option<i64> {
+        self.since
+    }
+
+    /// The rendering fixture's reply, as if Central had answered a join this
+    /// worker minted to accept `ai` (`visual_fixture`).
+    #[cfg(feature = "dev-control")]
+    pub(super) fn show_for_fixture(&mut self, queue: QueueState, ai: AiOpponents) {
+        if let QueueState::Waiting { key, queued_at, .. } = &queue {
+            self.ticket_ai = Some((*key, ai));
+            self.since.get_or_insert(*queued_at);
+        } else {
+            self.since = None;
+        }
+        self.queue = queue;
+        self.changed();
+    }
+
+    /// Learns Central's clock from the answer to a join this worker minted:
+    /// a new ticket's `queued_at` is Central's now as it answered.
+    fn learn_clock(&mut self, request: &Request, queue: &QueueState) {
+        let (Request::Join { key: sent, .. }, QueueState::Waiting { key, queued_at, .. }) =
+            (request, queue)
+        else {
+            return;
+        };
+        if sent != key {
+            return;
+        }
+        let local = i64::try_from(crate::lobby::parts::now_secs()).unwrap_or(i64::MAX);
+        let skew = local.saturating_sub(*queued_at);
+        self.skew = if skew.abs() <= MAX_SKEW { skew } else { 0 };
     }
 
     fn failed(&mut self, error: Error) {
@@ -206,6 +339,7 @@ impl Worker {
                     format: frozen.deck.format,
                     deck: frozen.digest,
                 });
+                self.ticket_ai = Some((key, self.ai));
                 key
             }
         };
@@ -214,6 +348,40 @@ impl Worker {
     }
 
     fn observe(&mut self, queue: QueueState) {
+        // A switch ends where the new search stands; Idle is the way between
+        // the two searches. A match that came first ends it too when the new
+        // choice takes that opponent (a person always): the cancel still
+        // waiting to go is dropped and the match is played. Against an AI
+        // the person has just turned away the cancel goes on, voiding the
+        // match, and the search joins again as they asked.
+        if let Some(switch) = &self.switch {
+            let done = match (&switch.shown, &queue) {
+                (QueueState::Waiting { key: old, .. }, QueueState::Waiting { key, .. }) => {
+                    old != key
+                }
+                (_, QueueState::Idle | QueueState::Finished { .. }) => false,
+                // A move only ever starts from a waiting search.
+                (_, QueueState::Waiting { .. }) => true,
+                (_, QueueState::Assigned { assignment, .. }) => {
+                    let taken = takes(self.ai, assignment.opponent_ai.as_ref());
+                    if taken && matches!(self.intent, Some(Request::Cancel { .. })) {
+                        self.intent = None;
+                    }
+                    taken
+                }
+            };
+            if done {
+                self.switch = None;
+                self.changed();
+            }
+        }
+        match &queue {
+            QueueState::Waiting { queued_at, .. } => {
+                self.since.get_or_insert(*queued_at);
+            }
+            _ if self.switch.is_some() => {}
+            _ => self.since = None,
+        }
         if self.consent.as_ref().is_some_and(|c| !c.matches(&queue)) {
             self.consent = None;
             self.accepting = false;
@@ -291,6 +459,10 @@ impl Worker {
             self.preview_busy = false;
             self.preview_error = None;
             self.preview_jobs = preview::Jobs::default();
+            self.ticket_ai = None;
+            self.switch = None;
+            self.skew = 0;
+            self.since = None;
             self.delay = POLL;
             self.next = self.session.is_some().then(Instant::now);
             self.changed();
@@ -300,6 +472,11 @@ impl Worker {
 
 pub(crate) fn board(state: &mut LobbyState, request: Request) {
     public::request(&mut state.ranked_net, request);
+}
+
+/// [`board`], keeping the rows on screen until the new ones arrive.
+pub(crate) fn board_keeping(state: &mut LobbyState, request: Request) {
+    public::request_keeping(&mut state.ranked_net, request);
 }
 
 pub(crate) fn refresh(state: &mut LobbyState) {
@@ -320,11 +497,18 @@ pub(crate) fn resume(state: &mut LobbyState) {
     }
 }
 
-pub(crate) fn join(state: &mut LobbyState, format: Format, id: &str) {
+/// Searches with the deck `id` in `format`, accepting the AI opponents `ai`
+/// if the search mints a new ticket (a deck restored to a waiting one keeps
+/// what that ticket accepts).
+pub(crate) fn join(state: &mut LobbyState, format: Format, id: &str, ai: AiOpponents) {
     let handle = state.central_handle();
     state.ranked_net.session(handle);
     if state.ranked_net.busy || state.ranked_net.intent.is_some() || !ready(state) {
         return;
+    }
+    state.ranked_net.ai = ai;
+    if state.ranked_net.switch.is_none() {
+        state.ranked_net.since = None;
     }
     let source = match deck::Source::selected(state, id, format) {
         Ok(source) => source,
@@ -346,6 +530,17 @@ pub(crate) fn cancel(state: &mut LobbyState) {
     let handle = state.central_handle();
     let worker = &mut state.ranked_net;
     worker.session(handle);
+    // Leaving the queue while a search moves to another choice leaves it
+    // altogether: the join that would follow is dropped.
+    if worker.switch.take().is_some() {
+        if matches!(worker.intent, Some(Request::Join { .. })) {
+            worker.intent = None;
+        }
+        worker.selecting = None;
+        worker.busy = false;
+        worker.since = None;
+        worker.changed();
+    }
     if let QueueState::Waiting { key, .. } | QueueState::Assigned { key, .. } = worker.queue {
         worker.intent = Some(Request::Cancel { key });
         worker.consent = None;
@@ -354,6 +549,77 @@ pub(crate) fn cancel(state: &mut LobbyState) {
         worker.next = Some(Instant::now());
         worker.busy = true;
         worker.changed();
+    }
+}
+
+/// Moves a waiting search to accept `ai` instead. Central keeps a ticket's
+/// choice for its key, so the ticket is cancelled and the same deck joins
+/// again under a new key; the desk shows the search throughout. `false`
+/// when there is no waiting search this worker can move now.
+pub(crate) fn switch(state: &mut LobbyState, ai: AiOpponents, deck: &str) -> bool {
+    let handle = state.central_handle();
+    let worker = &mut state.ranked_net;
+    worker.session(handle);
+    if worker.switch.is_some() {
+        // Already on its way: the join that follows takes the latest choice.
+        worker.ai = ai;
+        return true;
+    }
+    let QueueState::Waiting { key, format, .. } = worker.queue.clone() else {
+        return false;
+    };
+    if worker.busy || worker.intent.is_some() || worker.needs_deck {
+        return false;
+    }
+    if worker.ticket_choice() == Some(ai) {
+        return true;
+    }
+    worker.ai = ai;
+    worker.switch = Some(Switch {
+        shown: worker.queue.clone(),
+        format,
+        deck: deck.to_owned(),
+    });
+    worker.intent = Some(Request::Cancel { key });
+    worker.next = Some(Instant::now());
+    worker.changed();
+    true
+}
+
+/// The join that finishes a switch, once its cancel has left the queue Idle.
+fn rejoin(state: &mut LobbyState) {
+    let worker = &state.ranked_net;
+    let Some(switch) = worker.switch.as_ref() else {
+        // A choice changed while the last move was already joining: the
+        // search it found accepts the earlier one, so it moves once more.
+        if !worker.busy
+            && worker.intent.is_none()
+            && !worker.needs_deck
+            && matches!(worker.queue, QueueState::Waiting { .. })
+            && worker.ticket_choice().is_some_and(|sent| sent != worker.ai)
+            && let Some((deck, _)) = super::queue::selected(state)
+        {
+            let ai = worker.ai;
+            switch(state, ai, &deck.to_string());
+        }
+        return;
+    };
+    if worker.busy
+        || worker.inbox.is_some()
+        || worker.intent.is_some()
+        || worker.selecting.is_some()
+        || !matches!(worker.queue, QueueState::Idle | QueueState::Finished { .. })
+    {
+        return;
+    }
+    let (format, deck, ai) = (switch.format, switch.deck.clone(), worker.ai);
+    join(state, format, &deck, ai);
+    // A join refused before it began (the lobby took a table meanwhile)
+    // ends the switch, and the desk shows where the queue really stands.
+    if !state.ranked_net.busy {
+        state.ranked_net.switch = None;
+        state.ranked_net.since = None;
+        state.ranked_net.changed();
     }
 }
 
@@ -459,6 +725,10 @@ pub(crate) fn poll(
             return;
         }
     }
+    if can_play {
+        rejoin(state);
+    }
+    let worker = &mut state.ranked_net;
     if worker.session.is_none()
         || worker.inbox.is_some()
         || (worker.next.is_none_or(|at| at > Instant::now())
@@ -486,7 +756,13 @@ fn dispatch(worker: &mut Worker, can_play: bool, playing: bool) {
         worker.submit(move |account| {
             Reply::Authority(
                 Request::Status,
-                replication::read(account, Request::Status, Some(presence), documents),
+                replication::read(
+                    account,
+                    Request::Status,
+                    AiOpponents::None,
+                    Some(presence),
+                    documents,
+                ),
             )
         });
         return;
@@ -552,10 +828,18 @@ fn dispatch(worker: &mut Worker, can_play: bool, playing: bool) {
     }
     let request = worker.intent.clone().unwrap_or(Request::Status);
     let documents = worker.documents.clone();
+    // A join sends what its key was minted with, retry after retry.
+    let ai = match &request {
+        Request::Join { key, .. } => worker
+            .ticket_ai
+            .filter(|(minted, _)| minted == key)
+            .map_or(AiOpponents::None, |(_, ai)| ai),
+        _ => AiOpponents::None,
+    };
     worker.submit(move |account| {
         Reply::Authority(
             request.clone(),
-            replication::read(account, request, None, documents),
+            replication::read(account, request, ai, None, documents),
         )
     });
 }
@@ -579,15 +863,18 @@ fn finish(worker: &mut Worker, epoch: u64, reply: Reply) -> Option<RankedPlay> {
             let frozen = match result {
                 Ok(frozen) if epoch == source_epoch => frozen,
                 Ok(_) => {
+                    worker.switch = None;
                     worker.failed(Error::Conflict);
                     return None;
                 }
                 Err(error) => {
+                    worker.switch = None;
                     worker.failed(error);
                     return None;
                 }
             };
             if let Err(error) = worker.keep_deck(frozen) {
+                worker.switch = None;
                 worker.failed(error);
                 return None;
             }
@@ -607,12 +894,22 @@ fn finish(worker: &mut Worker, epoch: u64, reply: Reply) -> Option<RankedPlay> {
                     queue,
                     QueueState::Waiting { .. } | QueueState::Assigned { .. }
                 );
+                worker.learn_clock(&request, &queue);
                 worker.observe(queue);
                 worker.delay = POLL;
                 if worker.intent.is_some() || worker.selecting.is_some() {
                     worker.next = Some(now);
                 } else if !active {
+                    // Idle; while a search moves, `rejoin` joins again from
+                    // the next frame's poll, with no read in between.
                     worker.next = None;
+                } else if let Some(at) = worker.fill_in_at() {
+                    // Fill-in happens inside this account's own poll, so
+                    // near the time it asks on the second (Central
+                    // `docs/ai-players.md` §3: every 2 to 3 seconds).
+                    let left = at.saturating_sub(worker.central_now());
+                    let wait = if left > 0 { left.min(3) } else { 2 };
+                    worker.next = Some(now + Duration::from_secs(wait.unsigned_abs()));
                 }
             }
             Err(error) => {
@@ -620,6 +917,9 @@ fn finish(worker: &mut Worker, epoch: u64, reply: Reply) -> Option<RankedPlay> {
                     && worker.intent.as_ref() == Some(&request)
                 {
                     worker.intent = None;
+                    // A refusal ends a move between choices: the desk shows
+                    // where the queue really stands, with the refusal.
+                    worker.switch = None;
                 }
                 worker.failed(error);
             }

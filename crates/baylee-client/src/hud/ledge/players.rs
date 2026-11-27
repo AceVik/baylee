@@ -343,6 +343,9 @@ pub(in crate::hud) struct SeatFacts {
     plate: SeatPlate,
     /// Who answers for the chair.
     role: SeatRole,
+    /// The AI player's kind, where Central said the seat is one: its
+    /// mark stands where a house chair's robot does.
+    ai: Option<baylee_client_core::aiplayers::AiBadge>,
     /// The reader's own seat.
     own: bool,
     /// Whose turn it is. The line on top is the glow's; this is the name's
@@ -353,6 +356,18 @@ pub(in crate::hud) struct SeatFacts {
 impl SeatFacts {
     fn lost(&self) -> bool {
         self.plate.lost
+    }
+
+    /// The chip's hint: the plate's words, and an AI player's badge read out.
+    fn describe(&self, lang: Lang) -> String {
+        let plate = self.plate.describe(lang, &self.name);
+        match &self.ai {
+            Some(badge) => format!(
+                "{plate}\n{}",
+                baylee_client_core::aiplayers::spoken(badge, lang)
+            ),
+            None => plate,
+        }
     }
 }
 
@@ -581,7 +596,9 @@ pub(in crate::hud) fn roster(duel: &Duel, lang: Lang) -> Vec<SeatFacts> {
         .filter_map(|player| {
             let seat = view.seats.iter().find(|s| s.player == player)?;
             let role = crate::hud::seatbar::role_of(duel, player);
-            facts(duel.reader(), view, statics, seat, role, team(player), lang)
+            let mut facts = facts(duel.reader(), view, statics, seat, role, team(player), lang)?;
+            facts.ai = duel.ai_badge(player).cloned();
+            Some(facts)
         })
         .collect()
 }
@@ -603,6 +620,7 @@ fn facts(
         team,
         plate: SeatPlate::of(view, seat.player)?,
         role,
+        ai: None,
         own: seat.player == view.seat,
         turn: seat.player == view.active,
     })
@@ -720,7 +738,7 @@ pub fn sync_players(
             glow.life = Some(facts.plate.life);
             glow.colour = facts.colour;
             glow.ground = ground_of(facts);
-            let said = Hint(facts.plate.describe(lang, &facts.name));
+            let said = Hint(facts.describe(lang));
             if *hint != said {
                 *hint = said;
             }
@@ -1031,7 +1049,7 @@ fn spawn_button(
             PlayerTab {
                 player: facts.player,
             },
-            Hint(facts.plate.describe(lang, &facts.name)),
+            Hint(facts.describe(lang)),
             HintSeat(facts.player),
             SeatGlow {
                 colour: facts.colour,
@@ -1237,6 +1255,8 @@ fn write(
         Some(glyph::SKULL)
     } else if away {
         Some(glyph::AWAY)
+    } else if let Some(badge) = &facts.ai {
+        Some(crate::aibadge::glyph(badge.kind))
     } else if facts.role == SeatRole::House {
         Some(glyph::HOUSE)
     } else {
@@ -1897,6 +1917,7 @@ mod tests {
             } else {
                 SeatRole::House
             },
+            ai: None,
             own: at == 0,
             turn: at == 0,
         }

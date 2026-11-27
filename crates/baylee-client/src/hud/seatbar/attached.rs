@@ -763,17 +763,35 @@ pub(super) fn spawn(
     statics: Option<&GameStatic>,
     seat: &SeatView,
     role: baylee_client_core::board::SeatRole,
+    ai: Option<&baylee_client_core::aiplayers::AiBadge>,
     orders: &PhaseOrders,
     fonts: &UiFonts,
 ) {
     spawn_identity(
-        commands, root, lang, reader, view, statics, seat, role, fonts,
+        commands, root, lang, reader, view, statics, seat, role, ai, fonts,
     );
     spawn_phases(commands, root, lang, view, seat, orders, fonts);
 }
 
+/// The plate's hint: what it says, and an AI player's badge read out.
+fn plate_hint(
+    plate: &SeatPlate,
+    lang: Lang,
+    called: &str,
+    ai: Option<&baylee_client_core::aiplayers::AiBadge>,
+) -> String {
+    let words = plate.describe(lang, called);
+    match ai {
+        Some(badge) => format!(
+            "{words}\n{}",
+            baylee_client_core::aiplayers::spoken(badge, lang)
+        ),
+        None => words,
+    }
+}
+
 /// The plate: spine, then three lines (`client_core::seatplate`).
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // one plate, one flat build
 fn spawn_identity(
     commands: &mut Commands,
     root: Entity,
@@ -783,6 +801,7 @@ fn spawn_identity(
     statics: Option<&GameStatic>,
     seat: &SeatView,
     role: baylee_client_core::board::SeatRole,
+    ai: Option<&baylee_client_core::aiplayers::AiBadge>,
     fonts: &UiFonts,
 ) {
     let Some(plate) = SeatPlate::of(view, seat.player) else {
@@ -795,7 +814,7 @@ fn spawn_identity(
         PlateTab {
             player: seat.player,
         },
-        crate::hud::Hint(plate.describe(lang, &called)),
+        crate::hud::Hint(plate_hint(&plate, lang, &called, ai)),
         crate::hud::HintSeat(seat.player),
         // The plate is the one thing here the pointer may land on.
         Pickable::default(),
@@ -860,7 +879,10 @@ fn spawn_identity(
             Pickable::IGNORE,
         ))
         .id();
-    let first = plate_first_line(commands, fonts, &plate, seat, view, &called, role, ink);
+    let kind = ai.map(|badge| badge.kind);
+    let first = plate_first_line(
+        commands, fonts, &plate, seat, view, &called, role, kind, ink,
+    );
     #[cfg(not(target_arch = "wasm32"))]
     super::portrait(
         commands,
@@ -907,6 +929,7 @@ fn plate_first_line(
     view: &PlayerView,
     called: &str,
     role: baylee_client_core::board::SeatRole,
+    ai: Option<baylee_client_core::aiplayers::AiKind>,
     ink: Color,
 ) -> Entity {
     let line = commands
@@ -953,6 +976,10 @@ fn plate_first_line(
         Some(glyph::SKULL)
     } else if role == baylee_client_core::board::SeatRole::Away {
         Some(glyph::AWAY)
+    } else if let Some(kind) = ai {
+        // An AI player wears its kind's mark where a house chair wears
+        // the robot (`aibadge`), its badge read out in the plate's hint.
+        Some(crate::aibadge::glyph(kind))
     } else if role == baylee_client_core::board::SeatRole::House {
         Some(glyph::HOUSE)
     } else {

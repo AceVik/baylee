@@ -3,7 +3,9 @@
 //! queue replies below are supplied locally, without credentials or a host.
 use super::{Action, Format, League, LobbyState, api, queue};
 use crate::lobby::{Hub, central};
+use api::ai::AiOpponents;
 use api::{QueueState, Rank};
+use baylee_client_core::aiplayers::Opponents;
 use baylee_client_core::{
     challenges::api as tasks,
     lobby::{DeckSummary, GameListing, GameSeat, GameSummary, LobbyEvent},
@@ -156,18 +158,56 @@ pub(super) fn reply(state: &mut LobbyState, action: Action) -> bool {
                 state.ranked_net.played = Some(match_id);
                 settled(format, match_id)
             } else {
-                QueueState::Waiting {
-                    key: *Uuid::now_v7().as_bytes(),
-                    format,
-                    queued_at: time::OffsetDateTime::now_utc().unix_timestamp(),
-                }
+                let ai = state
+                    .ranked
+                    .opponents
+                    .map_or(AiOpponents::None, Opponents::wire);
+                searching(format, ai)
             }
         }
         _ => return false,
     };
-    state.ranked_net.queue = result;
-    state.ranked_net.revision = state.ranked_net.revision.wrapping_add(1);
+    let ai = state
+        .ranked
+        .opponents
+        .map_or(AiOpponents::None, Opponents::wire);
+    state.ranked_net.show_for_fixture(result, ai);
     true
+}
+
+/// A waiting search, as Central would answer it: an AI may be seated in
+/// twelve seconds when the search accepts one, so the countdown runs at once.
+fn searching(format: Format, ai: AiOpponents) -> QueueState {
+    let now = time::OffsetDateTime::now_utc().unix_timestamp();
+    QueueState::Waiting {
+        key: *Uuid::now_v7().as_bytes(),
+        format,
+        queued_at: now,
+        ai_fill_in_at: (!ai.is_none()).then_some(now + 12),
+    }
+}
+
+/// The desk's choice moved while the fixture's search waits: the search
+/// moves with it at once, as Central's cancel and join would.
+pub(super) fn moved(state: &mut LobbyState, choice: Opponents) -> bool {
+    if !enabled() || !fixture_session(state) {
+        return false;
+    }
+    let QueueState::Waiting { format, .. } = state.ranked_net.queue else {
+        return false;
+    };
+    state
+        .ranked_net
+        .show_for_fixture(searching(format, choice.wire()), choice.wire());
+    true
+}
+
+/// The house AI the fixture's settled game was played against.
+fn house() -> api::ai::AiBadge {
+    api::ai::AiBadge {
+        kind: api::ai::AiKind::House,
+        label: "Haus-KI · Expert".into(),
+    }
 }
 
 fn settled(format: Format, match_id: api::Id) -> QueueState {
@@ -193,5 +233,6 @@ fn settled(format: Format, match_id: api::Id) -> QueueState {
             delta: 11,
             placement_games: 10,
         },
+        opponent_ai: Some(house()),
     }
 }

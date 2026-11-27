@@ -195,7 +195,21 @@ pub struct Shelf {
     /// Whether it was read once: a format with no deck is told the first
     /// time, and again only when it loses the deck it offered.
     refreshed: bool,
+    /// Each deck version read from the directory, by its commitment: what
+    /// a match's record names.
+    versions: HashMap<[u8; 32], u32>,
+    /// The decks a host would not seat at a match, by commitment, with when
+    /// and under which facts: offered no more for [`REFUSAL_LAPSE`], or
+    /// until the facts change.
+    refused: HashMap<[u8; 32], (std::time::Instant, Option<String>)>,
+    /// The facts' version the last refresh read.
+    stamp: Option<String>,
 }
+
+/// How long a deck a host refused stays out of the offers: the host's
+/// verdicts or blocks may change, and a refusal read wrongly must not keep a
+/// format empty for good.
+pub const REFUSAL_LAPSE: std::time::Duration = std::time::Duration::from_hours(1);
 
 impl Shelf {
     /// A shelf of these decks, one per format, that never changes (a
@@ -247,6 +261,10 @@ impl Shelf {
             return;
         };
         let stamp = facts.map(|f| f.version().to_owned());
+        self.stamp.clone_from(&stamp);
+        // A refusal lapses after a while, or when the host's facts change.
+        self.refused
+            .retain(|_, (at, then)| at.elapsed() < REFUSAL_LAPSE && *then == stamp);
         for format in self.formats.clone() {
             let mut chosen = None;
             for version in history::versions(&dir, format).into_iter().rev() {
@@ -270,6 +288,10 @@ impl Shelf {
                         }
                     },
                 };
+                if self.refused.contains_key(&deck.digest) {
+                    // Said once, when the host refused it.
+                    continue;
+                }
                 if let Some(Err(why)) = facts.map(|f| deck.admitted(f)) {
                     told(format!(
                         "passing over {}: the host would not seat it: {why}",
@@ -278,6 +300,7 @@ impl Shelf {
                     self.passed_over.insert(key);
                     continue;
                 }
+                self.versions.insert(deck.digest, version.number);
                 chosen = Some((version.deck, deck));
                 break;
             }
@@ -330,13 +353,39 @@ impl Shelf {
     /// where no version has it (or the shelf has no directory).
     pub fn recall(&mut self, format: Format, digest: &[u8; 32]) -> Option<Arc<Frozen>> {
         let dir = self.dir.clone()?;
-        let found = history::versions(&dir, format)
-            .into_iter()
-            .rev()
-            .filter_map(|version| Frozen::from_file(&version.deck, format).ok())
-            .find(|frozen| frozen.digest == *digest)
-            .map(Arc::new)?;
+        let (number, found) =
+            history::versions(&dir, format)
+                .into_iter()
+                .rev()
+                .find_map(|version| {
+                    let frozen = Frozen::from_file(&version.deck, format).ok()?;
+                    (frozen.digest == *digest).then_some((version.number, frozen))
+                })?;
+        let found = Arc::new(found);
+        self.versions.insert(found.digest, number);
         self.kept.insert(found.digest, Arc::clone(&found));
         Some(found)
+    }
+
+    /// The directory's version number of the deck under `digest`, where it
+    /// was read from there.
+    #[must_use]
+    pub fn version_of(&self, digest: &[u8; 32]) -> Option<u32> {
+        self.versions.get(digest).copied()
+    }
+
+    /// A host would not seat the deck under `digest` at a match: it is
+    /// offered no more for [`REFUSAL_LAPSE`] or until the facts change (the
+    /// version before it is, at the next [`Shelf::refresh`]). The decks of a
+    /// shelf with no directory stay.
+    pub fn refuse(&mut self, digest: [u8; 32]) {
+        if self.dir.is_none() {
+            return;
+        }
+        self.refused
+            .insert(digest, (std::time::Instant::now(), self.stamp.clone()));
+        self.offered.retain(|_, deck| deck.digest != digest);
+        self.read
+            .retain(|format, _| self.offered.contains_key(format));
     }
 }

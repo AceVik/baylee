@@ -40,6 +40,7 @@
 use baylee_cards_pool as _;
 
 pub mod abilities;
+mod aibadge;
 pub mod ambience;
 #[cfg(target_os = "macos")]
 mod app_icon;

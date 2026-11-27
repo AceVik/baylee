@@ -38,9 +38,12 @@ pub(super) fn answered(
     }
 }
 
+/// One account read. A join carries `ai`, whom its key was minted to accept
+/// (the person's explicit choice, people only when they made none).
 pub(super) fn read(
     account: &mut Account,
     request: Request,
+    ai: baylee_account::ranked::ai::AiOpponents,
     presence: Option<(Fence, bool)>,
     cached: Option<Arc<RankedHostDocuments>>,
 ) -> Result<Route, Error> {
@@ -50,9 +53,7 @@ pub(super) fn read(
                 key,
                 format,
                 deck,
-                // TODO(ai-players client): the search card's "Nur Menschen" switch;
-                // until it is shown, a person's search meets people only.
-                ai: baylee_account::ranked::ai::AiOpponents::None,
+                ai,
             })? {
                 SeatResponse::Queue { state } => state,
                 _ => return Err(Error::Rejected),
@@ -147,6 +148,8 @@ pub(super) fn connect(
         match_id: authority.fence.match_id,
         game_id: *play.seat.game_id.as_bytes(),
         protected: authority.phase != Phase::Single,
+        seat: play.assignment.seat,
+        opponent_ai: play.assignment.opponent_ai.clone(),
     };
     if previous_protection.is_some_and(|was| was != marker.protected) {
         return Err(Error::Conflict);
