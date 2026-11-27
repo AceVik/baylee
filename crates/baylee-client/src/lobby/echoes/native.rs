@@ -445,7 +445,11 @@ fn reach(state: &mut ResMut<LobbyState>) {
         state.echoes.reach.known = Some(live);
         return;
     }
-    if state.echoes.reach.asked || !ready(state) {
+    // Asked where the answer is drawn, the lobby's play screen with its
+    // tiles, and nowhere else: the account worker has other work on the
+    // Tower's own pages, and a lobby never shown needs no answer.
+    let tiles = matches!(state.lobby.screen(), Screen::Table) && state.showing_play();
+    if state.echoes.reach.asked || !tiles || !ready(state) {
         return;
     }
     let Some(handle) = state.echoes.session.clone() else {
