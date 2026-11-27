@@ -17,7 +17,7 @@ pub const CLAUDE_EFFORTS: &[&str] = &["low", "medium", "high", "xhigh", "max"];
 /// The efforts `agy` accepts on `--effort`.
 pub const AGY_EFFORTS: &[&str] = &["low", "medium", "high", "xhigh", "max"];
 
-/// The efforts `agy`'s Gemini 4 Hydrogen tier family accepts.
+/// The efforts `agy`'s Gemini 4 Hydrogen and Neon tier families accept.
 const AGY_HYDROGEN_EFFORTS: &[&str] = &["low", "medium", "high", "xhigh"];
 
 /// The efforts `agy`'s standard three-tier families (Argon, Carbon, Flash, Claude) accept.
@@ -26,7 +26,8 @@ const AGY_TIER_EFFORTS: &[&str] = &["low", "medium", "high"];
 /// The single effort `agy`'s `gpt-oss-120b-medium` accepts.
 const AGY_MEDIUM_EFFORTS: &[&str] = &["medium"];
 
-/// The efforts Codex models up to `ultra` accept (`gpt-6-astra`, `gpt-6.1-sol`, `gpt-6.1-terra`, `gpt-6-sol`).
+/// The efforts Codex models up to `ultra` accept (`gpt-6.2-astra`, `gpt-6.2-sol`, `gpt-6-astra`,
+/// `gpt-6.1-sol`, `gpt-6.1-terra`, `gpt-6-sol`).
 pub const CODEX_ULTRA_EFFORTS: &[&str] = &["low", "medium", "high", "xhigh", "max", "ultra"];
 
 /// The efforts Codex models up to `max` accept (`gpt-6-luna`, `gpt-reserve`, `gpt-5.6-luna`).
@@ -157,6 +158,10 @@ const AGY_MODELS: &[&str] = &[
     "gemini-4-hydrogen-high",
     "gemini-4-hydrogen-medium",
     "gemini-4-hydrogen-low",
+    "gemini-4-neon-xhigh",
+    "gemini-4-neon-high",
+    "gemini-4-neon-medium",
+    "gemini-4-neon-low",
     "gemini-4-argon-high",
     "gemini-4-argon-medium",
     "gemini-4-argon-low",
@@ -212,6 +217,30 @@ const AGY_SPECS: &[CliModelSpec] = &[
     spec(
         "gemini-4-hydrogen-low",
         "Gemini 4 Hydrogen (Low)",
+        AGY_HYDROGEN_EFFORTS,
+        Some("low"),
+    ),
+    spec(
+        "gemini-4-neon-xhigh",
+        "Gemini 4 Neon (XHigh)",
+        AGY_HYDROGEN_EFFORTS,
+        Some("xhigh"),
+    ),
+    spec(
+        "gemini-4-neon-high",
+        "Gemini 4 Neon (High)",
+        AGY_HYDROGEN_EFFORTS,
+        Some("high"),
+    ),
+    spec(
+        "gemini-4-neon-medium",
+        "Gemini 4 Neon (Medium)",
+        AGY_HYDROGEN_EFFORTS,
+        Some("medium"),
+    ),
+    spec(
+        "gemini-4-neon-low",
+        "Gemini 4 Neon (Low)",
         AGY_HYDROGEN_EFFORTS,
         Some("low"),
     ),
@@ -296,6 +325,8 @@ const AGY_SPECS: &[CliModelSpec] = &[
 ];
 
 const CODEX_MODELS: &[&str] = &[
+    "gpt-6.2-astra",
+    "gpt-6.2-sol",
     "gpt-6-astra",
     "gpt-6.1-sol",
     "gpt-6.1-terra",
@@ -308,6 +339,18 @@ const CODEX_MODELS: &[&str] = &[
 ];
 
 const CODEX_SPECS: &[CliModelSpec] = &[
+    spec(
+        "gpt-6.2-astra",
+        "GPT-6.2 Astra",
+        CODEX_ULTRA_EFFORTS,
+        Some("medium"),
+    ),
+    spec(
+        "gpt-6.2-sol",
+        "GPT-6.2 Sol",
+        CODEX_ULTRA_EFFORTS,
+        Some("low"),
+    ),
     spec(
         "gpt-6-astra",
         "GPT-6 Astra",

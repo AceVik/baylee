@@ -661,6 +661,14 @@ mod tests {
         assert!(resolve(codex, "codex:gpt-6.1-sol", &[]).takes("ultra"));
         assert!(resolve(codex, "codex:gpt-6-luna", &[]).takes("max"));
         assert!(!resolve(codex, "codex:gpt-6-luna", &[]).takes("ultra"));
+        // GPT-6.2 Astra and Sol take Codex's levels up to `ultra`, and agy's
+        // Gemini 4 Neon its four tiers up to `xhigh`, so a ranked AI on
+        // them names an effort rather than playing at its Standard.
+        assert!(resolve(codex, "codex:gpt-6.2-astra", &[]).takes("ultra"));
+        assert!(resolve(codex, "codex:gpt-6.2-sol", &[]).takes("ultra"));
+        let neon = resolve(agy, "agy:gemini-4-neon-medium", &[]);
+        assert_eq!(neon.label, "Gemini 4 Neon (Medium)");
+        assert!(neon.takes("xhigh") && !neon.takes("max"));
         let opencode = offered(Endpoint::cli("opencode"), &[]);
         assert_eq!(
             opencode.iter().map(|m| m.id.as_str()).collect::<Vec<_>>(),
