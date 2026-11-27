@@ -145,11 +145,11 @@ reaches Central, so nobody's load can cost another account its session.
 
 ## Bigint advisory scope
 
-The AI players' pin of 27.11.2026 moves Central to
-`1c7c990ea80d8f154a3884406e1437f1d653bd1e` (Central's branch
-`claude/ai-players`, pull request 98, not merged yet), which contains the
-open-beta pin below; its migration 000055 and grants come with it, the
-integration fixture's copy of `ops/grants.sql` following. The
+The AI players' pin of 27.11.2026 moves Central to its `main` at
+`d93c46daff0a0b13581be076b3f3a9e3dc88d81c`: pull request 98 (AI players in
+Ranked), squashed on top of 104 (the privacy policy of 27.11.2026, Tower
+Echoes), on top of the open-beta pin below. Its migration 000055 and grants
+come with it, the integration fixture's copy of `ops/grants.sql` following. The
 `central-crypto` Git tree is unchanged
 (`fecfee3b4b4433a4bfd5a57ae9b1fb4154c141f8`), and so is Central's own lock
 file, so this review stands; only the `central-*` entries of Baylee's lock
