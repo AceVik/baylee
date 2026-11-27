@@ -4820,7 +4820,7 @@ live is down (`feed::follow_the_feed`), with Retry now. The bell rings for
 somebody sitting down at or leaving the player's waiting table and for the
 table filling (`strips::table_news`); each ring is a toast for fifteen
 seconds, beside the lobby's own notices (`Lobby::status`), at most four,
-in the bottom-right corner, under the header on a Phone
+in the bottom-right corner one gap above the `About` footer pill (`door::FOOTER_BOTTOM + door::FOOTER_PILL_H`), under the header on a Phone
 (`header::toast_lane`), in a lane of its own outside the lobby's tree. The
 update card holds the same corner, so the lane stands on top of it, right
 edge on right edge and one gap above, and follows it as it comes, grows and

@@ -37,7 +37,7 @@ pub(in crate::lobby) const FULL_COLOPHON_HEIGHT: f32 = 900.0;
 pub(crate) const FOOTER_BOTTOM: f32 = 10.0;
 
 /// Fixed height of the bottom-left version pill and bottom-right info pill.
-const FOOTER_PILL_H: f32 = 28.0;
+pub(crate) const FOOTER_PILL_H: f32 = 28.0;
 
 /// Leading release-tag glyph (`fa-tag`, `U+F02B`) inside the bottom-left version badge.
 pub(crate) const VERSION_TAG_GLYPH: char = '\u{f02b}';

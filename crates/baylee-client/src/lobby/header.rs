@@ -2004,7 +2004,8 @@ pub(super) fn toast_lane(
 pub(crate) struct ToastLane;
 
 /// Where a desktop lane rests in the bottom-right corner with nothing under
-/// it: `edge` from the window's right and bottom, its toasts `gap` apart.
+/// it: `edge` from the window's right, clear of the bottom-right `About` pill
+/// (one `gap` above it), its toasts `gap` apart.
 #[derive(Component, Clone, Copy, PartialEq, Debug)]
 pub(super) struct LaneRest {
     pub(super) edge: f32,
@@ -2012,24 +2013,28 @@ pub(super) struct LaneRest {
 }
 
 impl LaneRest {
-    /// The lane's `right` and `bottom` clear of an update card alone.
+    /// The lane's `right` and `bottom` clear of the footer pill and an update
+    /// card alone.
     #[cfg_attr(not(test), allow(dead_code))]
     pub(super) fn place(self, card: Option<(f32, f32)>) -> (Val, Val) {
         self.place_above(card, None)
     }
 
-    /// The lane's `right` and `bottom`. The update card holds the same
-    /// corner (`update::card`), and a modal dialog's footer (`ModalFoot`,
-    /// such as the terms sheet's Accept button) spans the lower band: with
-    /// either standing, the lane rests one gap above its top edge.
+    /// The lane's `right` and `bottom`. The bottom-right `About` pill sits at
+    /// `FOOTER_BOTTOM` with height `FOOTER_PILL_H`, the update card holds the
+    /// same corner (`update::card`), and a modal dialog's footer (`ModalFoot`,
+    /// such as the terms sheet's Accept button) spans the lower band: the lane
+    /// rests one gap above whichever of them stands highest.
     pub(super) fn place_above(
         self,
         card: Option<(f32, f32)>,
         modal_foot: Option<f32>,
     ) -> (Val, Val) {
+        let footer_clear =
+            super::front::door::FOOTER_BOTTOM + super::front::door::FOOTER_PILL_H + self.gap;
         let (right, mut bottom) = match card {
-            Some((right, top)) => (right, top + self.gap),
-            None => (self.edge, self.edge),
+            Some((right, top)) => (right, (top + self.gap).max(footer_clear)),
+            None => (self.edge, self.edge.max(footer_clear)),
         };
         if let Some(foot_top) = modal_foot {
             bottom = bottom.max(foot_top + self.gap);
