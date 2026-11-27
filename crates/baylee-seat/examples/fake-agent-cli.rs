@@ -59,7 +59,8 @@
 //!
 //! Each tool's login check answers as its tool's does (`login status` on
 //! stderr, `auth list`, `--version`, agy's `-p /quota`), signed in unless
-//! `logged_in` is false.
+//! `logged_in` is false. agy's waits `probe_delay_ms` first where given, and
+//! `probe_error` makes it fail with a network error that names no login.
 //!
 //! It appends to `fake-cli.log`, one JSON object a line, what it was
 //! started with (its arguments, its whole environment, its working
@@ -158,7 +159,7 @@ fn main() {
         .and_then(Value::as_bool)
         .unwrap_or(true);
     if let Some(tool) = probe {
-        answer_probe(tool, logged_in);
+        answer_probe(tool, logged_in, &config);
         return;
     }
     if let Some(tool) = one_shot {
@@ -305,7 +306,21 @@ impl Usage {
 }
 
 /// A login check, as each one-shot tool answers it.
-fn answer_probe(tool: Probe, logged_in: bool) {
+fn answer_probe(tool: Probe, logged_in: bool, config: &Value) {
+    // agy's `/quota` asks the account over the network: `probe_delay_ms`
+    // makes it slow, `probe_error` makes it fail without naming the login.
+    if tool == Probe::Agy {
+        if let Some(ms) = config.get("probe_delay_ms").and_then(Value::as_u64) {
+            std::thread::sleep(std::time::Duration::from_millis(ms));
+        }
+        if config.get("probe_error").and_then(Value::as_bool) == Some(true) {
+            println!(
+                "{}",
+                json!({"status": "ERROR", "error": "dial tcp: i/o timeout", "command": null})
+            );
+            std::process::exit(1);
+        }
+    }
     match (tool, logged_in) {
         (Probe::Codex, true) => eprintln!("Logged in using ChatGPT"),
         (Probe::Codex, false) => {

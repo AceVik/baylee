@@ -33,6 +33,17 @@ fn mind(kind: seat_mind::Kind, provider: &str, model: &str, effort: &str) -> Sea
     }
 }
 
+/// `profile`'s free check passed just now.
+fn pass(pilot: &LlmPilot, profile: &str) {
+    pilot.checks.lock().unwrap().insert(
+        profile.to_owned(),
+        Check {
+            running: false,
+            passed: Some(Instant::now()),
+        },
+    );
+}
+
 /// What a mind claims, where the build knows its efforts.
 fn claim(kind: seat_mind::Kind, tool: &str, model: &str, named: Option<&str>) -> Claimed {
     claimed(&mind(kind, tool, model, ""), named, true).unwrap()
@@ -242,6 +253,7 @@ fn a_model_account_flies_its_chain_and_refuses_one_that_crosses_models() {
         .map(|p| p.profile.as_str())
         .collect();
     assert_eq!(live, ["sonnet-low", "sonnet-agy"]);
+    pass(&pilot, "sonnet-low");
     assert_eq!(pilot.ready(), Ok(()));
     assert!(pilot.held.lock().unwrap().contains_key("sonnet-api"));
     // With no path reachable at all, it starts and offers nothing.
@@ -270,6 +282,7 @@ fn a_held_back_path_sits_out_new_games_and_all_held_makes_no_offer() {
     let dir = Scratch::new("held");
     let pilot = LlmPilot::new(&setup(&dir, "sonnet-low"), keys()).unwrap();
     let now = Instant::now();
+    pass(&pilot, "sonnet-low");
     assert_eq!(pilot.ready(), Ok(()));
     assert_eq!(pilot.live(now).len(), 3);
     // The first subscription is rate limited: the next game starts on the
@@ -370,6 +383,7 @@ fn a_model_with_one_access_path_starts_with_the_house_behind_it() {
     assert_eq!(pilot.profile(), "model:sonnet-api");
     assert_eq!(pilot.declared().model, "claude-sonnet-5-5");
     assert_eq!(pilot.declared().effort, "low");
+    pass(&pilot, "sonnet-api");
     assert_eq!(pilot.ready(), Ok(()));
     pilot.failed("sonnet-api", "TEST: the only path is down");
     assert!(pilot.ready().is_err(), "no path left: no offer");
@@ -390,4 +404,122 @@ fn a_lone_path_that_names_no_model_or_no_effort_is_refused() {
         assert!(why.contains(missing), "{why}");
         assert!(why.contains("in the settings file"), "{why}");
     }
+}
+
+/// A stand-in for the free check: counts its runs per path, takes `wait`,
+/// and fails for the paths in `failing` as an unanswered check does.
+fn stand_in(
+    runs: &Arc<Mutex<BTreeMap<String, u32>>>,
+    wait: Duration,
+    failing: &'static [&'static str],
+) -> Checker {
+    let runs = Arc::clone(runs);
+    Arc::new(move |join: Join, _keys: Arc<dyn KeyStore>| {
+        let profile = join.profile.clone().unwrap_or_default();
+        *runs.lock().unwrap().entry(profile.clone()).or_insert(0) += 1;
+        Box::pin(async move {
+            tokio::time::sleep(wait).await;
+            if failing.contains(&profile.as_str()) {
+                Err(format!(
+                    "agy gave its account check no answer within 150s; whether it can play is \
+                     unknown, and it is asked again later ({profile})"
+                ))
+            } else {
+                Ok(())
+            }
+        })
+    })
+}
+
+/// Waits until the pilot is ready, at most two seconds.
+async fn until_ready(pilot: &LlmPilot) -> Result<(), String> {
+    let mut last = pilot.ready();
+    for _ in 0..40 {
+        if last.is_ok() {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        last = pilot.ready();
+    }
+    last
+}
+
+/// The runner checks its paths before it offers, in the background, and
+/// never while a match waits: no offer before a check passed, one check a
+/// path at a time, a pass that stands for 30 minutes (no check before each
+/// game), then checked again; a game takes a checked path without a check.
+#[tokio::test]
+async fn a_path_is_checked_before_offering_and_its_pass_stands_half_an_hour() {
+    let dir = Scratch::new("checked");
+    let mut pilot = LlmPilot::new(&setup(&dir, "sonnet-low"), keys()).unwrap();
+    let runs = Arc::default();
+    pilot.checker = stand_in(&runs, Duration::from_millis(150), &[]);
+    let total =
+        |runs: &Arc<Mutex<BTreeMap<String, u32>>>| runs.lock().unwrap().values().sum::<u32>();
+    // Not checked yet: no offer, and one check a path starts.
+    let why = pilot.ready().unwrap_err();
+    assert!(why.contains("free check"), "{why}");
+    assert_eq!(total(&runs), 3);
+    // Asked again while they run: none starts twice.
+    assert!(pilot.ready().is_err());
+    assert_eq!(total(&runs), 3);
+    assert_eq!(until_ready(&pilot).await, Ok(()));
+    // The pass stands: asked again and again, nothing is checked.
+    for _ in 0..5 {
+        assert_eq!(pilot.ready(), Ok(()));
+    }
+    assert_eq!(total(&runs), 3);
+    // A game takes the first checked path, and checks nothing.
+    let live = pilot.live(Instant::now());
+    let (started, rest) = pilot.first(&live).expect("a checked path");
+    assert_eq!(started.profile, "sonnet-low");
+    assert_eq!(rest.len(), 2);
+    drop(started);
+    assert_eq!(total(&runs), 3);
+    // Half an hour on, every pass is stale: no offer until checked again,
+    // while a game would still take a path that passed before.
+    let old = Instant::now()
+        .checked_sub(CHECK_STANDS + Duration::from_secs(1))
+        .unwrap();
+    for check in pilot.checks.lock().unwrap().values_mut() {
+        check.passed = Some(old);
+    }
+    assert!(pilot.ready().is_err());
+    assert_eq!(total(&runs), 6);
+    let live = pilot.live(Instant::now());
+    assert!(pilot.first(&live).is_some(), "a stale pass still plays");
+    assert_eq!(until_ready(&pilot).await, Ok(()));
+    assert_eq!(total(&runs), 6);
+}
+
+/// A check that gives no answer in time is unknown: the path is held back
+/// on the backoff of a failed check and asked again once the hold lifts,
+/// while a path whose check passed is offered.
+#[tokio::test]
+async fn an_unanswered_check_holds_the_path_back_and_the_next_one_plays() {
+    let dir = Scratch::new("unanswered");
+    let mut pilot = LlmPilot::new(&setup(&dir, "sonnet-low"), keys()).unwrap();
+    let runs = Arc::default();
+    pilot.checker = stand_in(&runs, Duration::from_millis(50), &["sonnet-low"]);
+    assert_eq!(until_ready(&pilot).await, Ok(()));
+    for _ in 0..40 {
+        if pilot.held.lock().unwrap().contains_key("sonnet-low") {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    let left = pilot.held.lock().unwrap()["sonnet-low"].saturating_duration_since(Instant::now());
+    assert!(
+        left > Duration::from_mins(9) && left <= FAILED_HOLD,
+        "{left:?}"
+    );
+    assert_eq!(pilot.failures.lock().unwrap()["sonnet-low"], 1);
+    let live = pilot.live(Instant::now());
+    let (started, _) = pilot.first(&live).expect("the next path");
+    assert_eq!(started.profile, "sonnet-agy");
+    // Held back, it is not asked again meanwhile.
+    for _ in 0..3 {
+        assert_eq!(pilot.ready(), Ok(()));
+    }
+    assert_eq!(runs.lock().unwrap()["sonnet-low"], 1);
 }

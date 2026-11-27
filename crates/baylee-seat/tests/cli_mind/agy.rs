@@ -183,3 +183,47 @@ async fn agy_manage_task_takes_the_mind_off_the_table() {
     );
     assert!(!mind.ready().await);
 }
+
+/// agy's `/quota` can be slow (62 s on the machine that plays the AI
+/// accounts): one that gives no answer within its wait, or fails with an
+/// answer that names no login (a network error), is unknown and asked again
+/// later, never a sign-out; only an answer that names the login is one.
+#[tokio::test]
+async fn agy_an_unanswered_or_unreadable_quota_check_is_unknown_not_signed_out() {
+    let rig = Rig::new(
+        "agy-quota-slow",
+        json!({"provider": "cli", "model": "agy", "command": fake()}),
+        &json!({"probe_delay_ms": 3000}),
+    );
+    let limits = Limits {
+        probe: Some(Duration::from_millis(300)),
+        ..Limits::default()
+    };
+    let mind = rig.mind(limits);
+    let started = std::time::Instant::now();
+    let why = mind.check().await.unwrap_err();
+    assert!(started.elapsed() < Duration::from_secs(2), "the wait holds");
+    assert!(
+        why.contains("no answer within") && why.contains("unknown"),
+        "{why}"
+    );
+    for sign in ["signed", "sign in", "login", "log in"] {
+        assert!(!why.contains(sign), "{why}");
+    }
+    assert!(!mind.ready().await, "not ready while unknown");
+    // A network error that names no login: unknown too.
+    rig.script(&json!({"probe_error": true}));
+    let why = mind.check().await.unwrap_err();
+    assert!(
+        why.contains("cannot read") && why.contains("unknown"),
+        "{why}"
+    );
+    assert!(!why.contains("signed"), "{why}");
+    // An answer that names the login is a sign-out.
+    rig.script(&json!({"logged_in": false}));
+    let why = mind.check().await.unwrap_err();
+    assert!(why.contains("is not signed in"), "{why}");
+    // In time, it passes.
+    rig.script(&json!({"probe_delay_ms": 100}));
+    assert_eq!(mind.check().await, Ok(()));
+}

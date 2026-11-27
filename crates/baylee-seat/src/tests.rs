@@ -1507,3 +1507,24 @@ fn a_model_s_reports_are_kept_beside_its_settings_without_transcripts() {
     assert_eq!(reports(&standing), Some(mine.join("llm-reports")));
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// A CLI's account check that gave no answer in time, or one it cannot
+/// read, is unknown, never signed out: a seat agent asks again later. Only
+/// an answer that says signed out is.
+#[test]
+fn an_account_check_without_an_answer_is_failing_not_signed_out() {
+    for unknown in [
+        "agy gave its account check no answer within 150s; whether it can play is unknown, and \
+         it is asked again later",
+        "agy's account check gave an answer it cannot read (exit status: 1); whether it can \
+         play is unknown, and it is asked again later",
+        "the check did not answer within 160 s",
+        "agy did not start for its account check: No such file or directory",
+    ] {
+        assert_eq!(cause_of(unknown), "failing", "{unknown}");
+    }
+    assert_eq!(
+        cause_of("agy is not signed in: sign in to it on this machine first"),
+        "signed_out"
+    );
+}

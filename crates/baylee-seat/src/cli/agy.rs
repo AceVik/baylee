@@ -25,6 +25,7 @@ use baylee_client_core::llmseat::{CliTool, DEFAULT_AGY_MODEL};
 use serde_json::{Value, json};
 use std::ffi::OsString;
 use std::path::Path;
+use std::time::Duration;
 
 /// Gemini CLI (Antigravity).
 pub(crate) struct Agy;
@@ -206,7 +207,41 @@ impl Dialect for Agy {
                 .and_then(Value::as_array)
                 .is_some_and(|groups| !groups.is_empty())
     }
+
+    fn probe_wait(&self) -> Option<Duration> {
+        // `/quota` asks the account over the network: five seconds on the
+        // owner's Mac, 62 on the machine that plays the AI accounts
+        // (27.11.2026).
+        Some(QUOTA_WAIT)
+    }
+
+    fn probe_signed_out(&self, stdout: &[u8], stderr: &[u8]) -> bool {
+        // Only an answer that names the login: a network error or a slow
+        // server is no sign-out.
+        let said = format!(
+            "{} {}",
+            String::from_utf8_lossy(stdout),
+            String::from_utf8_lossy(stderr)
+        )
+        .to_lowercase();
+        [
+            "not signed in",
+            "signed out",
+            "sign in",
+            "not logged in",
+            "logged out",
+            "log in",
+            "login",
+            "unauthenticated",
+            "authentication",
+        ]
+        .iter()
+        .any(|sign| said.contains(sign))
+    }
 }
+
+/// How long agy's `/quota` login check may take.
+pub(crate) const QUOTA_WAIT: Duration = Duration::from_secs(150);
 
 /// What the `init` line names: the tools, the MCP servers, the slash
 /// commands and the key's source.

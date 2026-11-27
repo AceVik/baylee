@@ -1334,8 +1334,10 @@ fn room_takes_us(room: &Room, join: &Join, has_password: bool) -> anyhow::Result
 const TICKET_WAIT: Duration = Duration::from_secs(30);
 
 /// How long the mind's check before ready may take ([`Mind::check`]): its
-/// own calls give up after ten seconds; this bounds the whole.
-const CHECK_WAIT: Duration = Duration::from_secs(30);
+/// own calls give up after ten seconds, agy's account check after 150
+/// (`/quota` took 62 s on the machine that plays the AI accounts); this
+/// bounds the whole.
+const CHECK_WAIT: Duration = Duration::from_secs(160);
 
 /// Chooses the mind (a language model's game reserved in the spend book
 /// first), then takes the chair: on the host's chair ticket when one comes

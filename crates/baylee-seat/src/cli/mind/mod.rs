@@ -640,25 +640,35 @@ impl CliMind {
     }
 
     /// Whether the tool is signed in, by its login check, which calls no
-    /// model: run as a session's process is, and given ten seconds.
+    /// model: run as a session's process is, and given ten seconds (agy's
+    /// `/quota` 150, [`super::dialect::Dialect::probe_wait`]).
     pub(super) async fn probe(&self) -> bool {
         self.check_login().await.is_ok()
     }
 
     /// [`Self::probe`], saying why not, in a sentence for the chair's card.
+    /// Only an answer that says the tool is signed out says so
+    /// ([`super::dialect::Dialect::probe_signed_out`]); a check that gives
+    /// no answer in time, or one that cannot be read, says it is unknown,
+    /// in words that name no sign-in, so a seat agent asks again later.
     pub(super) async fn check_login(&self) -> Result<(), String> {
         let tool = self.launch.dialect.tool().name();
         let Some(args) = self.launch.dialect.probe_args() else {
             return Ok(());
         };
+        let wait = self
+            .limits
+            .probe
+            .or_else(|| self.launch.dialect.probe_wait())
+            .unwrap_or(PROBE);
         let dir = SessionDir::new(0)
-            .map_err(|_| format!("{tool}'s login check found no place to run"))?;
+            .map_err(|_| format!("{tool}'s account check found no place to run"))?;
         // A tool that keeps conversations keeps the check's in its own
         // directory too, never in the user's.
         let env = self
             .launch
             .env(&dir.tmp(), &dir.support(), Some(&dir.tmp()))
-            .map_err(|_| format!("{tool}'s login check could not be given its variables"))?;
+            .map_err(|_| format!("{tool}'s account check could not be given its variables"))?;
         let mut command = Command::new(&self.launch.program);
         command
             .args(args)
@@ -674,21 +684,33 @@ impl CliMind {
         }
         let child = command
             .spawn()
-            .map_err(|e| format!("{tool} did not start for its login check: {e}"))?;
-        match tokio::time::timeout(PROBE, child.wait_with_output()).await {
+            .map_err(|e| format!("{tool} did not start for its account check: {e}"))?;
+        match tokio::time::timeout(wait, child.wait_with_output()).await {
             Ok(Ok(output))
                 if output.status.success()
                     && self.launch.dialect.probe_ok(&output.stdout, &output.stderr) =>
             {
                 Ok(())
             }
-            Ok(Ok(_)) => Err(format!(
-                "{tool} is not signed in: sign in to it on this machine first"
+            Ok(Ok(output))
+                if self
+                    .launch
+                    .dialect
+                    .probe_signed_out(&output.stdout, &output.stderr) =>
+            {
+                Err(format!(
+                    "{tool} is not signed in: sign in to it on this machine first"
+                ))
+            }
+            Ok(Ok(output)) => Err(format!(
+                "{tool}'s account check gave an answer it cannot read ({}); whether it can \
+                 play is unknown, and it is asked again later",
+                output.status
             )),
-            Ok(Err(e)) => Err(format!("{tool}'s login check failed: {e}")),
+            Ok(Err(e)) => Err(format!("{tool}'s account check failed: {e}")),
             Err(_) => Err(format!(
-                "{tool} did not answer its login check within {} s",
-                PROBE.as_secs()
+                "{tool} gave its account check no answer within {wait:?}; whether it can play \
+                 is unknown, and it is asked again later"
             )),
         }
     }
