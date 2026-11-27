@@ -657,7 +657,11 @@ fn a_tower_here_switches_with_the_gateway_before_after_switch() {
     assert!(ran.ok, "{}", ran.said);
     let gateway = ran.at("sudo systemctl restart baylee-gateway");
     let stopped = ran.at("sudo systemctl stop baylee-tower");
-    let migrated = ran.at("baylee-tower-service.next --migrate");
+    let migrated = ran
+        .lines()
+        .iter()
+        .position(|l| l.ends_with("baylee-tower-service.next --migrate"))
+        .expect("migrated with the new build");
     let started = ran.at("sudo systemctl start baylee-tower");
     let after = ran.at(&format!("hooks after-switch {A} (held, staged)"));
     let agent = ran.at("sudo systemctl start baylee-agent");
