@@ -249,6 +249,7 @@ pub const CALIBRATED: &str = "e73066537b36170fda824321f69938fd8b495af58ecfeb6408
 /// Content that does not serialize.
 pub fn fingerprint(content: &Content) -> Result<String, Error> {
     use sha2::{Digest as _, Sha256};
+    const HEX: &[u8; 16] = b"0123456789abcdef";
     let mut rules = content.clone();
     for card in &mut rules.catalog.cards {
         if let Some(art) = card.run.as_mut().and_then(|run| run.presentation.as_mut()) {
@@ -260,7 +261,6 @@ pub fn fingerprint(content: &Content) -> Result<String, Error> {
         .chain_update(b"baylee/tower/calibrated-content/v2\0")
         .chain_update(bytes)
         .finalize();
-    const HEX: &[u8; 16] = b"0123456789abcdef";
     Ok(digest
         .iter()
         .flat_map(|byte| [HEX[usize::from(byte >> 4)], HEX[usize::from(byte & 15)]])
