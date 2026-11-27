@@ -2501,7 +2501,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-tower-provision"
-version = "0.2.0-beta.o1"
+version = "0.2.1-beta.o1"
 dependencies = [
  "anyhow",
  "baylee-cards-pool",
