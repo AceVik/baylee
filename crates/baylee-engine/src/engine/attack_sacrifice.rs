@@ -156,7 +156,7 @@ pub(crate) struct AttackSacrificeWork {
     payments: Vec<AttackSacrificePayment>,
     reserved: BTreeSet<ObjectId>,
     mana: ManaCost,
-    life: i32,
+    life_tax: i32,
     mana_reach: u64,
 }
 
@@ -338,7 +338,7 @@ impl AttackSacrificeWork {
         let tail = if self.mana == pure_generic {
             crate::state::structural_fingerprint(&(
                 self.mana.generic_total(),
-                self.life,
+                self.life_tax,
                 self.mana_reach,
             ))
         } else {
@@ -347,7 +347,7 @@ impl AttackSacrificeWork {
                 554_u16,
                 4_u8,
                 crate::state::mana_cost_fingerprint(&self.mana),
-                self.life,
+                self.life_tax,
                 self.mana_reach,
             ))
         };
@@ -472,7 +472,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             payments: Vec::new(),
             reserved: BTreeSet::new(),
             mana,
-            life,
+            life_tax: life,
             mana_reach,
         };
         self.advance_attack_costs(work)
@@ -500,7 +500,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 &self.state,
                 work.player,
                 work.mana,
-                work.life,
+                work.life_tax,
                 &phyrexian,
                 work.mana_reach,
             )
@@ -537,7 +537,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     &self.state,
                     work.player,
                     work.mana,
-                    work.life.saturating_add(2),
+                    work.life_tax.saturating_add(2),
                     &tail_phyrexian,
                     work.mana_reach,
                 );
@@ -546,7 +546,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     &self.state,
                     work.player,
                     mana_with,
-                    work.life,
+                    work.life_tax,
                     &tail_phyrexian,
                     work.mana_reach,
                 );
@@ -557,7 +557,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         ));
                     }
                     (true, false) => {
-                        work.life = work.life.saturating_add(2);
+                        work.life_tax = work.life_tax.saturating_add(2);
                         work.remaining.pop_front();
                         continue;
                     }
@@ -590,7 +590,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 work.attackers,
                 work.payments,
                 work.mana,
-                work.life,
+                work.life_tax,
                 work.mana_reach,
             );
         }
@@ -642,7 +642,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             ));
         };
         if pay_life {
-            work.life = work.life.saturating_add(2);
+            work.life_tax = work.life_tax.saturating_add(2);
         } else {
             work.mana = work.mana.with_symbol(mana_symbol_of(color), 1);
         }
