@@ -9,58 +9,60 @@ mod lands;
 mod theme;
 
 // Lower commander costs and several distinct plans per colour pair avoid a pool
-// made solely of expensive finishers. Seeds are explicit and append-only.
-const LEADERS: [(&str, Archetype); 50] = [
-    ("Emmara, Soul of the Accord", Archetype::Aggro),
-    ("Elas il-Kor, Sadistic Pilgrim", Archetype::Midrange),
-    ("Talrand, Sky Summoner", Archetype::Control),
-    ("Slimefoot, the Stowaway", Archetype::Midrange),
-    ("Pia and Kiran Nalaar", Archetype::Midrange),
-    ("Radha, Heir to Keld", Archetype::Aggro),
-    ("Rishkar, Peema Renegade", Archetype::Ramp),
-    ("Sram, Senior Edificer", Archetype::Aggro),
-    ("Hapatra, Vizier of Poisons", Archetype::Midrange),
-    ("Tatyova, Benthic Druid", Archetype::Ramp),
-    ("Judith, the Scourge Diva", Archetype::Aggro),
-    ("Kykar, Wind's Fury", Archetype::Control),
-    ("Alela, Artful Provocateur", Archetype::Midrange),
-    ("Rin and Seri, Inseparable", Archetype::Midrange),
-    ("Giada, Font of Hope", Archetype::Ramp),
-    ("Glissa, the Traitor", Archetype::Midrange),
-    ("Thrun, the Last Troll", Archetype::Aggro),
-    ("Derevi, Empyrial Tactician", Archetype::Aggro),
-    ("Titania, Protector of Argoth", Archetype::Ramp),
-    ("Dwynen, Gilt-Leaf Daen", Archetype::Aggro),
-    ("Kambal, Consul of Allocation", Archetype::Control),
-    ("Padeem, Consul of Innovation", Archetype::Control),
-    ("Yahenni, Undying Partisan", Archetype::Aggro),
-    ("Samut, Voice of Dissent", Archetype::Aggro),
-    ("Kess, Dissident Mage", Archetype::Control),
-    ("Vona, Butcher of Magan", Archetype::Midrange),
-    ("Arvad the Cursed", Archetype::Midrange),
-    ("Garna, the Bloodflame", Archetype::Midrange),
-    ("Lyra Dawnbringer", Archetype::Midrange),
-    ("Muldrotha, the Gravetide", Archetype::Ramp),
-    ("Pashalik Mons", Archetype::Aggro),
-    ("Ayara, First of Locthwain", Archetype::Midrange),
-    ("Emry, Lurker of the Loch", Archetype::Midrange),
-    ("Linden, the Steadfast Queen", Archetype::Aggro),
-    ("Arasta of the Endless Web", Archetype::Midrange),
-    ("Eutropia the Twice-Favored", Archetype::Midrange),
-    ("Chevill, Bane of Monsters", Archetype::Control),
-    ("Kaervek, the Spiteful", Archetype::Control),
-    ("Emiel the Blessed", Archetype::Midrange),
-    ("Ashaya, Soul of the Wild", Archetype::Ramp),
-    ("Ghen, Arcanum Weaver", Archetype::Midrange),
-    ("Birgi, God of Storytelling", Archetype::Aggro),
-    ("Maja, Bretagard Protector", Archetype::Midrange),
-    ("Galazeth Prismari", Archetype::Control),
-    ("Grist, the Hunger Tide", Archetype::Midrange),
-    ("Sythis, Harvest's Hand", Archetype::Midrange),
-    ("Saryth, the Viper's Fang", Archetype::Midrange),
-    ("Mahadi, Emporium Master", Archetype::Midrange),
-    ("Ertai Resurrected", Archetype::Control),
-    ("Tura Kennerüd, Skyknight", Archetype::Control),
+// made solely of expensive finishers. Seeds are explicit and append-only; the
+// third value is a measured calibration variant of the builder seed (0: none),
+// chosen with `baylee-tower-lab starters` (docs/tower-operations.md §"Calibration").
+const LEADERS: [(&str, Archetype, u16); 50] = [
+    ("Emmara, Soul of the Accord", Archetype::Aggro, 0),
+    ("Elas il-Kor, Sadistic Pilgrim", Archetype::Midrange, 0),
+    ("Talrand, Sky Summoner", Archetype::Control, 0),
+    ("Slimefoot, the Stowaway", Archetype::Midrange, 0),
+    ("Pia and Kiran Nalaar", Archetype::Midrange, 0),
+    ("Radha, Heir to Keld", Archetype::Aggro, 0),
+    ("Rishkar, Peema Renegade", Archetype::Ramp, 0),
+    ("Sram, Senior Edificer", Archetype::Aggro, 0),
+    ("Hapatra, Vizier of Poisons", Archetype::Midrange, 0),
+    ("Tatyova, Benthic Druid", Archetype::Ramp, 0),
+    ("Judith, the Scourge Diva", Archetype::Aggro, 0),
+    ("Kykar, Wind's Fury", Archetype::Control, 0),
+    ("Alela, Artful Provocateur", Archetype::Midrange, 0),
+    ("Rin and Seri, Inseparable", Archetype::Midrange, 0),
+    ("Giada, Font of Hope", Archetype::Ramp, 0),
+    ("Glissa, the Traitor", Archetype::Midrange, 0),
+    ("Thrun, the Last Troll", Archetype::Aggro, 0),
+    ("Derevi, Empyrial Tactician", Archetype::Aggro, 0),
+    ("Titania, Protector of Argoth", Archetype::Ramp, 0),
+    ("Dwynen, Gilt-Leaf Daen", Archetype::Aggro, 0),
+    ("Kambal, Consul of Allocation", Archetype::Control, 0),
+    ("Padeem, Consul of Innovation", Archetype::Control, 0),
+    ("Yahenni, Undying Partisan", Archetype::Aggro, 0),
+    ("Samut, Voice of Dissent", Archetype::Aggro, 0),
+    ("Kess, Dissident Mage", Archetype::Control, 0),
+    ("Vona, Butcher of Magan", Archetype::Midrange, 0),
+    ("Arvad the Cursed", Archetype::Midrange, 0),
+    ("Garna, the Bloodflame", Archetype::Midrange, 0),
+    ("Lyra Dawnbringer", Archetype::Midrange, 0),
+    ("Muldrotha, the Gravetide", Archetype::Ramp, 0),
+    ("Pashalik Mons", Archetype::Aggro, 0),
+    ("Ayara, First of Locthwain", Archetype::Midrange, 0),
+    ("Emry, Lurker of the Loch", Archetype::Midrange, 0),
+    ("Linden, the Steadfast Queen", Archetype::Aggro, 0),
+    ("Arasta of the Endless Web", Archetype::Midrange, 0),
+    ("Eutropia the Twice-Favored", Archetype::Midrange, 0),
+    ("Chevill, Bane of Monsters", Archetype::Control, 0),
+    ("Kaervek, the Spiteful", Archetype::Control, 0),
+    ("Emiel the Blessed", Archetype::Midrange, 0),
+    ("Ashaya, Soul of the Wild", Archetype::Ramp, 0),
+    ("Ghen, Arcanum Weaver", Archetype::Midrange, 0),
+    ("Birgi, God of Storytelling", Archetype::Aggro, 0),
+    ("Maja, Bretagard Protector", Archetype::Midrange, 0),
+    ("Galazeth Prismari", Archetype::Control, 0),
+    ("Grist, the Hunger Tide", Archetype::Midrange, 0),
+    ("Sythis, Harvest's Hand", Archetype::Midrange, 0),
+    ("Saryth, the Viper's Fang", Archetype::Midrange, 0),
+    ("Mahadi, Emporium Master", Archetype::Midrange, 0),
+    ("Ertai Resurrected", Archetype::Control, 0),
+    ("Tura Kennerüd, Skyknight", Archetype::Control, 0),
 ];
 
 // Keep unusually explosive openings out of a short starter deck. These are
@@ -141,19 +143,65 @@ pub(crate) fn recipes(pool: &Pool) -> Result<Vec<Recipe>, Error> {
     LEADERS
         .iter()
         .enumerate()
-        .map(|(index, &(name, archetype))| {
-            let commander = named(name)?.card;
-            let seed =
-                0x746f_7765_7200_0000 | u64::try_from(index).map_err(|_| Error::Formation)?;
-            let core = theme::core(pool, commander, name, seed)?;
-            Ok(Recipe {
-                commander,
-                archetype,
-                seed,
-                core,
-            })
-        })
+        .map(|(index, &(name, archetype, salt))| recipe(pool, index, name, archetype, salt))
         .collect()
+}
+
+fn recipe(
+    pool: &Pool,
+    index: usize,
+    name: &str,
+    archetype: Archetype,
+    salt: u16,
+) -> Result<Recipe, Error> {
+    let commander = baylee_cards::decks::by_name(name).ok_or(Error::Metadata)?;
+    metadata(commander).ok_or(Error::Metadata)?;
+    let seed = 0x746f_7765_7200_0000
+        | u64::try_from(index).map_err(|_| Error::Formation)?
+        | u64::from(salt) << 16;
+    let core = theme::core(pool, commander, name, seed)?;
+    Ok(Recipe {
+        commander,
+        archetype,
+        seed,
+        core,
+    })
+}
+
+/// One starter's collection, and the catalog entries it needs.
+fn collection(commander: CardIndex, main: Vec<CardIndex>) -> Result<(Collection, Vec<Card>), Error> {
+    let mut counts = BTreeMap::<CardIndex, u8>::new();
+    let mut owned = Vec::new();
+    let mut cards = Vec::new();
+    for index in std::iter::once(commander).chain(main.iter().copied()) {
+        let card = metadata(index).ok_or(Error::Metadata)?;
+        cards.push(card);
+        if !card.basic_land {
+            owned.push(Stack {
+                card: index,
+                copies: 1,
+            });
+        }
+    }
+    for index in main {
+        *counts.entry(index).or_default() += 1;
+    }
+    owned.sort_by_key(|row| row.card);
+    owned.dedup_by_key(|row| row.card);
+    Ok((
+        Collection {
+            formation: Some(Formation {
+                commander,
+                sideboard: Vec::new(),
+            }),
+            owned,
+            deck: counts
+                .into_iter()
+                .map(|(card, copies)| Stack { card, copies })
+                .collect(),
+        },
+        cards,
+    ))
 }
 
 /// Prepare fifty 40-card build-arounds with singleton spells, reviewed utility
@@ -170,35 +218,11 @@ pub fn expeditions() -> Result<Content, Error> {
     }
     let mut starters = Vec::with_capacity(LEADERS.len());
     for recipe in recipes(&pool)? {
-        let commander = recipe.commander;
-        let main = recipe.build(&pool)?;
-        let mut counts = BTreeMap::<CardIndex, u8>::new();
-        let mut owned = Vec::new();
-        for index in std::iter::once(commander).chain(main.iter().copied()) {
-            let card = metadata(index).ok_or(Error::Metadata)?;
-            cards.insert(index, card);
-            if !card.basic_land {
-                owned.push(Stack {
-                    card: index,
-                    copies: 1,
-                });
-            }
+        let (starter, needed) = collection(recipe.commander, recipe.build(&pool)?)?;
+        for card in needed {
+            cards.insert(card.card, card);
         }
-        for index in main {
-            *counts.entry(index).or_default() += 1;
-        }
-        owned.sort_by_key(|row| row.card);
-        starters.push(Collection {
-            formation: Some(Formation {
-                commander,
-                sideboard: Vec::new(),
-            }),
-            owned,
-            deck: counts
-                .into_iter()
-                .map(|(card, copies)| Stack { card, copies })
-                .collect(),
-        });
+        starters.push(starter);
     }
     let catalog = Catalog {
         cards: cards.into_values().collect(),
@@ -207,4 +231,48 @@ pub fn expeditions() -> Result<Content, Error> {
         .validate_starter_pool(&starters)
         .map_err(|_| Error::Formation)?;
     Ok(Content { catalog, starters })
+}
+
+/// Calibration candidates: a starter rebuilt with another archetype or seed
+/// variant, or another commander in its place. Offline only; what is chosen
+/// is written into `LEADERS` and published from there.
+pub struct Workshop {
+    pool: Pool,
+}
+
+impl Default for Workshop {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Workshop {
+    /// The admitted pool, prepared once.
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            pool: prepared_pool(),
+        }
+    }
+
+    /// The `LEADERS` entry at zero-based `index`: its commander's name.
+    #[must_use]
+    pub fn leader(index: usize) -> Option<(&'static str, Archetype, u16)> {
+        LEADERS.get(index).copied()
+    }
+
+    /// Starter `index` built under `name`, `archetype` and seed variant `salt`,
+    /// with the catalog entries it needs beyond the basics.
+    /// # Errors
+    /// An unknown or ineligible commander, or a deck the builder cannot make.
+    pub fn variant(
+        &self,
+        index: usize,
+        name: &str,
+        archetype: Archetype,
+        salt: u16,
+    ) -> Result<(Collection, Vec<Card>), Error> {
+        let recipe = recipe(&self.pool, index, name, archetype, salt)?;
+        collection(recipe.commander, recipe.build(&self.pool)?)
+    }
 }

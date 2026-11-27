@@ -13,6 +13,7 @@ mod jobs;
 mod ladder;
 mod starters;
 mod tally;
+mod variants;
 
 #[derive(Parser)]
 #[command(about = "Measure Tower Echoes starters and house opponents in native duels")]
@@ -53,6 +54,21 @@ enum Command {
         /// Name every build's equipment on stderr: private diagnosis only.
         #[arg(long)]
         detail: bool,
+    },
+    /// Calibration candidates for one starter against the current field.
+    Variants {
+        /// One-based starter.
+        #[arg(long)]
+        starter: usize,
+        /// Seed variants per archetype of its own commander.
+        #[arg(long, default_value_t = 4)]
+        salts: u16,
+        /// Replacement commanders to try under every archetype (repeatable).
+        #[arg(long)]
+        commander: Vec<String>,
+        /// Independent deals per opponent and chair.
+        #[arg(long, default_value_t = 2)]
+        seeds: u32,
     },
 }
 
@@ -100,6 +116,20 @@ fn main() -> Result<()> {
                 detail,
             )
         }
+        Command::Variants {
+            starter,
+            salts,
+            commander,
+            seeds,
+        } => variants::measure(
+            &content,
+            starter.checked_sub(1).context("starters are one-based")?,
+            salts,
+            &commander,
+            seeds,
+            cli.seed,
+            cli.threads,
+        )?,
     };
     println!("{}", serde_json::to_string_pretty(&report)?);
     Ok(())

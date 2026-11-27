@@ -11,7 +11,7 @@ mod expeditions;
 mod house;
 mod presentation;
 mod starters;
-pub use expeditions::expeditions;
+pub use expeditions::{Workshop, expeditions};
 pub use house::{Ladder, PATH as HOUSE_PATH, check as check_ladder, development_house, ladder};
 pub use presentation::runic;
 
@@ -217,4 +217,15 @@ pub fn validate_seat(seat: &SeatSpec) -> Result<(), Error> {
     }
     .validate(&catalog)
     .map_err(|_| Error::Formation)
+}
+
+/// A card's reviewed catalog entry for the current generation: native
+/// metadata and its frozen presentation. For calibration candidates only;
+/// a publication takes its catalog from [`runic`].
+/// # Errors
+/// An unsupported card or one without a reviewed printing.
+pub fn run_card(index: CardIndex) -> Result<Card, Error> {
+    let mut card = metadata(index).ok_or(Error::Metadata)?;
+    card.run.as_mut().ok_or(Error::Metadata)?.presentation = Some(presentation::of(index)?);
+    Ok(card)
 }
