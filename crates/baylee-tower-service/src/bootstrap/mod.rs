@@ -8,8 +8,25 @@ mod admin;
 mod config;
 mod serve;
 
-pub(super) fn run() -> Result<(), Error> {
+/// How a run ended that did not fail: everything asked was done, or an
+/// operation left something for a later run of the same input.
+#[derive(Debug, PartialEq, Eq)]
+pub(super) enum Ended {
+    Done,
+    Again,
+}
+
+pub(super) fn run() -> Result<Ended, Error> {
     let mode = mode(std::env::args().skip(1))?;
+    if mode == Mode::Modes {
+        // Reads no input and connects to nothing: an older build ends this
+        // argument with a failure.
+        println!(
+            "{}",
+            serde_json::json!({ "modes": MODES, "admin": admin::ACTIONS })
+        );
+        return Ok(Ended::Done);
+    }
     let bound = if matches!(mode, Mode::Admin | Mode::CheckAdmin) {
         admin::MAX_INPUT
     } else {
@@ -29,7 +46,7 @@ pub(super) fn run() -> Result<(), Error> {
     };
     drop(bytes);
     if matches!(mode, Mode::Check | Mode::CheckAdmin) {
-        return Ok(());
+        return Ok(Ended::Done);
     }
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -45,7 +62,17 @@ enum Mode {
     Migrate,
     Admin,
     CheckAdmin,
+    Modes,
 }
+
+/// Every argument this build takes (none serves), as `--modes` prints them.
+const MODES: [&str; 5] = [
+    "--check",
+    "--migrate",
+    "--admin",
+    "--check-admin",
+    "--modes",
+];
 
 fn mode(mut args: impl Iterator<Item = String>) -> Result<Mode, Error> {
     let selected = match args.next().as_deref() {
@@ -54,6 +81,7 @@ fn mode(mut args: impl Iterator<Item = String>) -> Result<Mode, Error> {
         Some("--migrate") => Mode::Migrate,
         Some("--admin") => Mode::Admin,
         Some("--check-admin") => Mode::CheckAdmin,
+        Some("--modes") => Mode::Modes,
         _ => return Err(Error::Contract),
     };
     if args.next().is_some() {
@@ -66,7 +94,7 @@ async fn start(
     mut config: config::Config,
     mode: Mode,
     operation: Option<admin::Operation>,
-) -> Result<(), Error> {
+) -> Result<Ended, Error> {
     let mut options = ConnectOptions::new(config.database_url.as_str());
     options
         .max_connections(8)
@@ -81,7 +109,11 @@ async fn start(
     let result = async {
         let store = Store::new(db.clone(), &config.schema)?;
         if mode == Mode::Migrate {
-            return store.migrate().await.map_err(Error::from);
+            return store
+                .migrate()
+                .await
+                .map(|()| Ended::Done)
+                .map_err(Error::from);
         }
         if let Some(operation) = operation {
             let reply = operation.execute(&store, config.development).await?;
@@ -91,13 +123,19 @@ async fn start(
                 "{}",
                 serde_json::to_string(&reply).map_err(|_| Error::Contract)?
             );
-            return Ok(());
+            return Ok(if reply.complete() {
+                Ended::Done
+            } else {
+                Ended::Again
+            });
         }
         store.ready().await?;
         let service = config.service.take().ok_or(Error::Contract)?;
-        serve::run(store, service, config.development).await
+        serve::run(store, service, config.development)
+            .await
+            .map(|()| Ended::Done)
     }
     .await;
     let closed = db.close().await.map_err(|_| Error::Process);
-    result.and(closed)
+    closed.and(result)
 }

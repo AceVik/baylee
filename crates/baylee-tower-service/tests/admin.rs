@@ -143,14 +143,14 @@ async fn enrollment(
     );
     // An individual erasure request, through the real command: the account's
     // run goes with it, and a repeat says that nothing is held.
-    let erase = json!({"action": "erase_account", "account": account});
+    let erase = json!({"action": "erase_accounts", "accounts": [account, Uuid::now_v7()]});
     assert_eq!(
         client.ok(erase.clone()).await,
-        json!({"result": "erased", "erasure": "removed"})
+        json!({"result": "erased", "removed": 1, "absent": 1, "busy": 0})
     );
     assert_eq!(
         client.ok(erase).await,
-        json!({"result": "erased", "erasure": "absent"})
+        json!({"result": "erased", "removed": 0, "absent": 2, "busy": 0})
     );
     assert!(store.runs(account, None, 8).await.unwrap().is_empty());
 }
@@ -277,6 +277,20 @@ async fn a_supervisor_credential_quarantines_and_retires_a_stuck_run_offline() {
     let client = Client::new(&sandbox.schema);
     let observed = tokio::spawn(async move {
         let (account, run, reserved) = stuck_run(&store).await;
+        // A reserved duel holds the account back from erasure: nothing changes,
+        // and the status asks for the same input again later.
+        let busy = client
+            .call(
+                "--admin",
+                json!({"action": "erase_accounts", "accounts": [account]}),
+            )
+            .await;
+        assert_eq!(busy.status.code(), Some(75));
+        assert_eq!(
+            serde_json::from_slice::<Value>(&busy.stdout).unwrap(),
+            json!({"result": "erased", "removed": 0, "absent": 0, "busy": 1})
+        );
+        assert_eq!(store.get(account, run.id).await.unwrap(), reserved);
         let supervisor = Token::generate().unwrap();
         client
             .ok(
@@ -324,6 +338,13 @@ async fn a_supervisor_credential_quarantines_and_retires_a_stuck_run_offline() {
         let retired = store.get(account, run.id).await.unwrap();
         assert_eq!(retired.state.phase, Phase::Interrupted);
         assert_eq!(retired.state.economy, run.state.economy);
+        // Once retired, the run no longer holds the account back from erasure.
+        assert_eq!(
+            client
+                .ok(json!({"action": "erase_accounts", "accounts": [account]}))
+                .await,
+            json!({"result": "erased", "removed": 1, "absent": 0, "busy": 0})
+        );
     })
     .await;
     sandbox.close().await;
@@ -345,4 +366,21 @@ async fn check_admin_is_offline_and_diagnostics_never_echo_input() {
     unknown["unknown"] = json!("PRIVATE_INPUT_CANARY");
     let output = client.call("--check-admin", unknown).await;
     process::refused(&output);
+    // A tool asks which actions this build has before it relies on one; an
+    // older build fails this argument.
+    let output = client.call("--modes", json!(null)).await;
+    succeeds(&output);
+    let modes: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert!(
+        modes["modes"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("--admin"))
+    );
+    assert!(
+        modes["admin"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("erase_accounts"))
+    );
 }

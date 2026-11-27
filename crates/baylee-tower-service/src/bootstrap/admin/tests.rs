@@ -189,13 +189,47 @@ fn modes_never_accept_credentials_or_extra_arguments() {
 }
 
 #[test]
-fn erase_account_names_one_v7_account_and_nothing_else() {
-    let erase = input(json!({ "action": "erase_account", "account": Uuid::now_v7() }));
+fn erase_accounts_takes_a_bounded_list_of_v7_accounts_and_nothing_else() {
+    let erase =
+        input(json!({ "action": "erase_accounts", "accounts": [Uuid::now_v7(), Uuid::now_v7()] }));
     assert!(parses(&erase));
     let mut extra = erase.clone();
     extra["operation"]["cohort"] = json!(Uuid::now_v7());
     assert!(!parses(&extra));
     let mut v4 = erase.clone();
-    v4["operation"]["account"] = json!("2f1a6e3c-8b1d-4c7e-9a2b-3c4d5e6f7a8b");
+    v4["operation"]["accounts"][1] = json!("2f1a6e3c-8b1d-4c7e-9a2b-3c4d5e6f7a8b");
     assert!(!parses(&v4));
+    let mut empty = erase.clone();
+    empty["operation"]["accounts"] = json!([]);
+    assert!(!parses(&empty));
+    let mut most = erase.clone();
+    most["operation"]["accounts"] = json!(vec![Uuid::now_v7(); MAX_ERASED]);
+    assert!(parses(&most));
+    most["operation"]["accounts"] = json!(vec![Uuid::now_v7(); MAX_ERASED + 1]);
+    assert!(!parses(&most));
+}
+
+#[test]
+fn an_erasure_that_met_a_duel_under_way_is_not_complete() {
+    let erased = |busy| Reply::Erased {
+        removed: 1,
+        absent: 1,
+        busy,
+    };
+    assert!(erased(0).complete());
+    assert!(!erased(1).complete());
+    assert!(Reply::Done.complete());
+}
+
+#[test]
+fn every_listed_action_is_one_this_build_parses() {
+    for action in ACTIONS {
+        let error = serde_json::from_value::<Operation>(json!({ "action": action }))
+            .err()
+            .map(|error| error.to_string())
+            .unwrap_or_default();
+        assert!(!error.contains("unknown variant"), "{action}: {error}");
+    }
+    let unknown = serde_json::from_value::<Operation>(json!({ "action": "erase_everything" }));
+    assert!(unknown.is_err_and(|error| error.to_string().contains("unknown variant")));
 }

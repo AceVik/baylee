@@ -5,10 +5,28 @@ use baylee_tower_service::Error;
 use baylee_tower_store::{Erasure, Publication, Recovery, Role, Store};
 use central_api::Token;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
 use uuid::Uuid;
 
 pub(super) const MAX_INPUT: usize =
     baylee_tower_store::MAX_PUBLICATION_BYTES + config::MAX_CONFIG + 4096;
+
+/// Accounts one `erase_accounts` takes; a longer list goes in several calls.
+pub(super) const MAX_ERASED: usize = 1024;
+
+/// Every `--admin` action this build knows, as `--modes` names them, so that a
+/// tool can ask before it relies on one.
+pub(super) const ACTIONS: [&str; 9] = [
+    "provision",
+    "revoke",
+    "approve_host",
+    "publish",
+    "publish_house",
+    "pause_enrollment",
+    "supervise",
+    "grant_runtime",
+    "erase_accounts",
+];
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -59,9 +77,10 @@ pub(super) enum Operation {
     GrantRuntime {
         role: String,
     },
-    /// Erase one account's Tower data on an individual request.
-    EraseAccount {
-        account: Uuid,
+    /// Erase accounts' Tower data, each in its own transaction: on individual
+    /// requests, and again after a restore from an older backup.
+    EraseAccounts {
+        accounts: Vec<Uuid>,
     },
 }
 
@@ -88,11 +107,30 @@ impl From<Supervision> for Recovery {
 #[derive(Serialize)]
 #[serde(tag = "result", rename_all = "snake_case")]
 pub(super) enum Reply {
-    Operator { id: Uuid },
-    Published { cohort: Uuid },
-    Supervised { revision: u64 },
-    Erased { erasure: Erasure },
+    Operator {
+        id: Uuid,
+    },
+    Published {
+        cohort: Uuid,
+    },
+    Supervised {
+        revision: u64,
+    },
+    /// Counts only: the reply names no account.
+    Erased {
+        removed: u64,
+        absent: u64,
+        busy: u64,
+    },
     Done,
+}
+
+impl Reply {
+    /// Whether the action did all it was asked: an erasure that met a duel
+    /// under way did not, and the same list runs again later.
+    pub(super) fn complete(&self) -> bool {
+        !matches!(self, Self::Erased { busy, .. } if *busy > 0)
+    }
 }
 
 impl Input {
@@ -170,7 +208,14 @@ impl Operation {
                 .map_err(|_| Error::Contract)?;
             }
             Self::PauseEnrollment { cohort } => uuid7(*cohort)?,
-            Self::EraseAccount { account } => uuid7(*account)?,
+            Self::EraseAccounts { accounts } => {
+                if accounts.is_empty() || accounts.len() > MAX_ERASED {
+                    return Err(Error::Contract);
+                }
+                for account in accounts {
+                    uuid7(*account)?;
+                }
+            }
             Self::GrantRuntime { role } => {
                 if !baylee_tower_store::valid_schema(role) {
                     return Err(Error::Contract);
@@ -247,9 +292,23 @@ impl Operation {
                 store.grant_runtime(&role).await?;
                 Ok(Reply::Done)
             }
-            Self::EraseAccount { account } => Ok(Reply::Erased {
-                erasure: store.erase_account(account).await?,
-            }),
+            Self::EraseAccounts { accounts } => {
+                let (mut removed, mut absent, mut busy) = (0, 0, 0);
+                // Stopped by a failure, what was erased stays erased; the same
+                // list runs again.
+                for account in accounts.into_iter().collect::<BTreeSet<_>>() {
+                    match store.erase_account(account).await? {
+                        Erasure::Removed => removed += 1,
+                        Erasure::Absent => absent += 1,
+                        Erasure::Busy => busy += 1,
+                    }
+                }
+                Ok(Reply::Erased {
+                    removed,
+                    absent,
+                    busy,
+                })
+            }
         }
     }
 }
