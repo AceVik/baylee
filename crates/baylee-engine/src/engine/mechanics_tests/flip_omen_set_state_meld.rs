@@ -28,6 +28,7 @@ const OMEN_TARGET_DRAGON: u32 = 9806;
 const COUNTERSPELL: u32 = 9807;
 const COPY_SPELL_INSTANT: u32 = 9808;
 const RIP_ENCHANTMENT: u32 = 9809;
+const PLAIN_BEAR: u32 = 9810;
 const DFC_WEREWOLF: u32 = 9811;
 const MDFC_CARD: u32 = 9812;
 const TRANSFORM_PROBE: u32 = 9813;
@@ -1289,6 +1290,12 @@ fn set_state_transform_targets_filter_tokens_and_rejects_non_transforming_or_fac
             ..land_face("Modal Back")
         },
     );
+    let bear = card(
+        PLAIN_BEAR,
+        creature_face("Plain Bear", "{1}{G}", 2, 2),
+        KeywordSet::EMPTY,
+        &[],
+    );
     let incubator_maker = card(
         INCUBATOR_MAKER,
         face("Incubator Maker", "{0}", TypeSet::ARTIFACT),
@@ -1304,9 +1311,15 @@ fn set_state_transform_targets_filter_tokens_and_rejects_non_transforming_or_fac
 
     let mut engine = bench(
         10,
-        vec![werewolf, mdfc, incubator_maker, probe],
+        vec![werewolf, mdfc, bear, incubator_maker, probe],
         [
-            Seat::with(&[DFC_WEREWOLF, MDFC_CARD, INCUBATOR_MAKER, TRANSFORM_PROBE]),
+            Seat::with(&[
+                DFC_WEREWOLF,
+                MDFC_CARD,
+                PLAIN_BEAR,
+                INCUBATOR_MAKER,
+                TRANSFORM_PROBE,
+            ]),
             Seat::default(),
         ],
     );
@@ -1320,6 +1333,7 @@ fn set_state_transform_targets_filter_tokens_and_rejects_non_transforming_or_fac
     };
     let ww = find(&engine, DFC_WEREWOLF);
     let md = find(&engine, MDFC_CARD);
+    let bear = find(&engine, PLAIN_BEAR);
     let im = find(&engine, INCUBATOR_MAKER);
     let pr = find(&engine, TRANSFORM_PROBE);
 
@@ -1344,10 +1358,19 @@ fn set_state_transform_targets_filter_tokens_and_rejects_non_transforming_or_fac
         me(),
         pr
     ));
-    assert!(!crate::eval::matches(
+    // A modal double-faced card transforms too (Eddie Brock, Tony Stark and
+    // the other heroes say so of themselves); a single-faced creature cannot.
+    assert!(crate::eval::matches(
         &Filter::CanTransform,
         engine.state(),
         engine.state().object(md).unwrap(),
+        me(),
+        pr
+    ));
+    assert!(!crate::eval::matches(
+        &Filter::CanTransform,
+        engine.state(),
+        engine.state().object(bear).unwrap(),
         me(),
         pr
     ));
@@ -1376,7 +1399,24 @@ fn set_state_transform_targets_filter_tokens_and_rejects_non_transforming_or_fac
         .apply(me(), PlayerAction::ChooseObjects { objects: vec![md] })
         .unwrap();
     settle(&mut engine, me());
-    assert_eq!(engine.state().object(md).unwrap().face_index, 0);
+    assert_eq!(engine.state().object(md).unwrap().face_index, 1);
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(me())).len(),
+        hand_before,
+        "the modal card transformed, so nothing is drawn"
+    );
+
+    activate(&mut engine, me(), pr, 0);
+    engine
+        .apply(
+            me(),
+            PlayerAction::ChooseObjects {
+                objects: vec![bear],
+            },
+        )
+        .unwrap();
+    settle(&mut engine, me());
+    assert_eq!(engine.state().object(bear).unwrap().face_index, 0);
     assert_eq!(
         engine.state().zones.list(ZoneLocation::Hand(me())).len(),
         hand_before + 1
