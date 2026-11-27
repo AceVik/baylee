@@ -712,7 +712,6 @@ fn attachment_sbas(
         let host_ok = obj.attached_to.is_some_and(|host| {
             state.object(host).is_some_and(|h| {
                 let aura_permits_host = match aura_restriction {
-                    None => true,
                     Some(Some(
                         crate::aura_bindings::EnchantRestriction::Permanent(filter, context)
                         | crate::aura_bindings::EnchantRestriction::PlayerOrPermanent {
@@ -738,8 +737,9 @@ fn attachment_sbas(
                     // its enchant abilities, and CR 303.4c asks those. An Aura
                     // that has none left (a later LoseAllAbilities stripped a
                     // printed or a Layer 6 granted one) is not restricted, so
-                    // it stays where it is (Animate Artifact, Earthbind).
-                    Some(None) => true,
+                    // it stays where it is (Animate Artifact, Earthbind). Not
+                    // an Aura at all: nothing of the Aura's to ask.
+                    None | Some(None) => true,
                 };
                 h.zone == crate::zone::Zone::Battlefield
                     && h.kind == ObjectKind::Permanent

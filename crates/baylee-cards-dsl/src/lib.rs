@@ -386,13 +386,15 @@ impl CardDef {
                 && !self.is_prepare_card())
     }
 
-    /// Whether this card is a transforming double-faced card (CR 701.27d, CR 712.10).
+    /// Whether this card can transform (CR 701.27d, CR 712.10): a double-faced
+    /// card that is not a meld card. Modal double-faced cards transform too:
+    /// Eddie Brock, Tony Stark, Monica Rambeau, King T'Challa and Bruce
+    /// Banner are printed as modal double-faced cards whose own abilities say
+    /// "Transform", and Scryfall and `xtask validate` keep their backs
+    /// castable from hand.
     #[must_use]
     pub fn can_transform(&self) -> bool {
-        self.faces.len() >= 2
-            && self.is_double_faced()
-            && !self.is_meld_card()
-            && !self.faces[1].castable_from_hand
+        self.faces.len() >= 2 && self.is_double_faced() && !self.is_meld_card()
     }
 
     /// Whether this is a split card with one shared type line (CR 709.5), a

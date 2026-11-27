@@ -63,9 +63,9 @@ impl GameState {
     /// The other face coming up without the game action is
     /// [`Self::turn_over`], which this is built on.
     pub fn transform(&mut self, id: ObjectId, def: &CardDef, face: usize) -> bool {
-        // CR 701.27d / CR 712.16: only transforming double-faced cards (not
-        // MDFCs, flip cards, omens, adventures, meld cards, melded permanents,
-        // or face-down/phased-out permanents) can transform.
+        // CR 701.27d / CR 712.16: only double-faced cards transform (not flip
+        // cards, omens, adventures, meld cards, melded permanents, or
+        // face-down or phased-out permanents); see `CardDef::can_transform`.
         if !def.can_transform() {
             return false;
         }
