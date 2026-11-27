@@ -701,14 +701,19 @@ fn standby(
             "profile «{profile}» plays an agent CLI, and a fallback is a model behind an API"
         ));
     }
-    Ok(standing_by(profile, reachable, fallen))
+    Ok(standing_by(profile, reachable, fallen, false))
 }
 
 /// The fallback `profile`, reached as `reachable`, ready to take over: its
 /// game reserved in its own book only when it takes over. Behind an API
 /// or an agent CLI alike: a ranked account's chain is one model on several
 /// access paths, a subscription's CLI among them (`ranked_llm`).
-fn standing_by(profile: &str, reachable: Reachable, fallen: &Fallen) -> bridge::Standby {
+fn standing_by(
+    profile: &str,
+    reachable: Reachable,
+    fallen: &Fallen,
+    unbudgeted: bool,
+) -> bridge::Standby {
     let Reachable {
         mut plan,
         access,
@@ -725,12 +730,13 @@ fn standing_by(profile: &str, reachable: Reachable, fallen: &Fallen) -> bridge::
         let cause = scrub(&limit.said(), None);
         let mut booked = match book
             .map(|book| {
-                spend::reserve(
+                spend::reserve_or_count(
                     &book,
                     &caps,
                     &mut plan.settings,
                     plan.profile.as_deref(),
                     spend::now(),
+                    unbudgeted,
                 )
             })
             .transpose()

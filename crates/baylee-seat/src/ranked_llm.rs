@@ -32,13 +32,15 @@ use super::{Fallen, Join, Reachable, fallback_join, reach, standing_by};
 use anyhow::{Context as _, anyhow, bail};
 use baylee_account::ranked::ai::AiKind;
 use baylee_ai::AIProfile;
+use baylee_client_core::llmseat::Provider;
 use baylee_client_core::llmseat::keys::KeyStore;
+use baylee_client_core::llmseat::models::{self, Endpoint};
 use baylee_client_core::say;
 use baylee_protocol::v1::SeatMind;
 use baylee_seat::bridge;
 use baylee_seat::config::Paths;
 use baylee_seat::ranked::chain::{
-    FAILED_HOLD, Held, hold_back, holding, house_at_the_end, same_model,
+    Claimed, FAILED_HOLD, Held, claimed, hold_back, holding, house_at_the_end, same_model,
 };
 use baylee_seat::ranked::{Flight, Pilot, Piloted, Seat};
 use baylee_seat::seat::{BridgeConfig, Labelled};
@@ -80,6 +82,10 @@ struct Path {
     profile: String,
     join: Join,
     declared: SeatMind,
+    /// What it claims to play, for the chain's check.
+    claim: Claimed,
+    /// Whether its profile names no per-game budget ([`unbudgeted`]).
+    unbudgeted: bool,
 }
 
 /// A language model flying an AI account's seats.
@@ -170,6 +176,7 @@ impl LlmPilot {
             .chain(profile.fallback.iter().cloned())
             .collect();
         let mut paths: Vec<Path> = Vec::with_capacity(names.len());
+        let mut unreachable = Vec::new();
         for (at, name) in names.iter().enumerate() {
             let own = file
                 .profiles
@@ -183,30 +190,21 @@ impl LlmPilot {
                     ..fallback_join(&base, at - 1, name)
                 }
             };
-            let join = unlimited(plain, own, &*keys);
-            let reached = reach(&join, None, &[], &env, &*keys)
+            let join = unlimited(plain, own);
+            // What the path plays is read from the file alone; whether it can
+            // be reached now (its key, its program) is asked apart, and a path
+            // that cannot is held back, not refused.
+            let plan = plan_of(&join)
                 .with_context(|| format!("the access path «{name}»"))?
                 .with_context(|| format!("the settings file names no profile «{name}»"))?;
-            let declared = declare::llm(&reached.plan.settings);
-            // The account's name and rating claim one model at one effort:
-            // every path names both, a lone one too, and each after the
-            // first names the first's (`same_model`). The effort is the
-            // profile's own: a provider's default is no named effort.
-            if own.effort.is_none() {
-                bail!(
-                    "the access path «{name}» names no effort; give the profile its `effort` in \
-                     the settings file (and its `model`, for a CLI `<tool>:<model>`): the \
-                     account's name and rating claim one model at one effort"
-                );
+            let declared = declare::llm(&plan.settings);
+            if let Err(e) = reach(&join, None, &[], &env, &*keys) {
+                unreachable.push((name.clone(), format!("{e:#}")));
             }
-            same_model(&declared, &declared).map_err(|why| {
-                anyhow!(
-                    "the access path «{name}»: {why}; give the profile its `model` (for a CLI \
-                     `<tool>:<model>`) and its `effort` in the settings file"
-                )
-            })?;
+            // Each after the first claims the first's (`same_model`).
+            let claim = claim_of(name, own, &declared)?;
             if let Some(first) = paths.first() {
-                same_model(&first.declared, &declared).map_err(|why| {
+                same_model(&first.claim, &claim).map_err(|why| {
                     anyhow!(
                         "the access path «{name}» plays another model than «{}»: {why}; an AI \
                          account's chain reaches one model at one effort",
@@ -221,17 +219,23 @@ impl LlmPilot {
                 profile: name.clone(),
                 join,
                 declared,
+                claim,
+                unbudgeted: unbudgeted(own),
             });
         }
         say!("the model's access paths, in order: {}", names.join(" → "));
-        Ok(Self {
+        let pilot = Self {
             paths,
             house_level: setup.house_level.clone(),
             house,
             keys,
             held: Held::default(),
             failures: Arc::default(),
-        })
+        };
+        for (name, why) in unreachable {
+            pilot.failed(&name, &format!("it cannot be reached yet: {why}"));
+        }
+        Ok(pilot)
     }
 
     /// The paths not held back at `now`, in the chain's order; the holds
@@ -297,10 +301,52 @@ impl LlmPilot {
 /// The longest a path that keeps failing before its games is held back.
 pub const MOST_HOLD: Duration = Duration::from_hours(4);
 
+/// What the path `name` (its profile `own`, declaring `declared`) claims to
+/// play. The account's name and rating claim one model at one effort:
+/// every path names both, a lone one too, as the profile itself writes them
+/// (a provider's default is no named effort).
+fn claim_of(
+    name: &str,
+    own: &baylee_client_core::llmseat::Profile,
+    declared: &SeatMind,
+) -> anyhow::Result<Claimed> {
+    let endpoint = if own.provider == Provider::Cli {
+        Endpoint::cli(&own.model)
+    } else {
+        Endpoint::new(own.provider, own.base_url.as_deref())
+    };
+    let known = !models::resolve(endpoint, &own.model, &[])
+        .efforts
+        .is_empty();
+    claimed(declared, own.effort.as_deref(), known).map_err(|why| {
+        anyhow!(
+            "the access path «{name}»: {why} in the settings file: the account's name and rating \
+             claim one model at one effort"
+        )
+    })
+}
+
+/// `join`'s plan from the settings file alone: what it plays, its key and
+/// program not looked for.
+fn plan_of(join: &Join) -> anyhow::Result<Option<baylee_seat::config::Plan>> {
+    let paths = Paths::resolve(join.config.as_deref(), join.ledger.as_deref(), &env);
+    let file = paths.load().map_err(anyhow::Error::msg)?;
+    baylee_seat::config::plan(
+        None,
+        file.as_ref(),
+        &paths,
+        join.profile.as_deref(),
+        &join.overrides(),
+    )
+    .map_err(anyhow::Error::msg)
+}
+
 /// `join` under the owner's no-caps decision: each per-game budget the
-/// profile `own` does not name is lifted. A model without a price takes
-/// no dollar budget, so that one is tried, and dropped where it is refused.
-fn unlimited(join: Join, own: &baylee_client_core::llmseat::Profile, keys: &dyn KeyStore) -> Join {
+/// profile `own` does not name is lifted, so the bridge's defaults stop no
+/// game. That budget is never reserved ([`unbudgeted`]). A model without a
+/// price takes no dollar budget, so that one is tried, and dropped where
+/// the plan refuses it.
+fn unlimited(join: Join, own: &baylee_client_core::llmseat::Profile) -> Join {
     let open = Join {
         spend_tokens: join
             .spend_tokens
@@ -316,10 +362,18 @@ fn unlimited(join: Join, own: &baylee_client_core::llmseat::Profile, keys: &dyn 
             .or(own.game_usd.is_none().then_some(UNLIMITED_USD)),
         ..open.clone()
     };
-    match reach(&dollars, None, &[], &env, keys) {
+    match plan_of(&dollars) {
         Ok(_) => dollars,
         Err(_) => open,
     }
+}
+
+/// Whether the profile `own` names no per-game budget: its game is then
+/// counted in the spend book and never reserved against a budget it does
+/// not have (a reservation counts in full until it settles, so a lifted
+/// budget would sit in the book as spent after a kill).
+fn unbudgeted(own: &baylee_client_core::llmseat::Profile) -> bool {
+    own.game_usd.is_none() && own.game_tokens.is_none()
 }
 
 /// A path's game, started: its mind, reservation and declaration.
@@ -343,12 +397,13 @@ fn start(path: &Path, keys: &dyn KeyStore) -> Result<Started, String> {
         .ok_or_else(|| format!("the settings file names no profile «{}»", path.profile))?;
     let mut booked = book
         .map(|book| {
-            spend::reserve(
+            spend::reserve_or_count(
                 &book,
                 &caps,
                 &mut plan.settings,
                 plan.profile.as_deref(),
                 spend::now(),
+                path.unbudgeted,
             )
         })
         .transpose()?;
@@ -423,7 +478,7 @@ impl Pilot for LlmPilot {
             for path in rest {
                 match reach(&path.join, None, &[], &env, &*self.keys) {
                     Ok(Some(reached)) => chain.push(holding(
-                        standing_by(&path.profile, reached, &fallen),
+                        standing_by(&path.profile, reached, &fallen, path.unbudgeted),
                         first.clone(),
                         Arc::clone(&self.held),
                     )),

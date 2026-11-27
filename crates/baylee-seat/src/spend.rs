@@ -50,6 +50,56 @@ pub struct Booked {
     at: Moment,
 }
 
+/// [`reserve`], for a game that has no budget of its own (`unbudgeted`, a
+/// ranked account under the owner's no-caps decision): where `caps` hold no
+/// cap in the game's unit, nothing is reserved (a reservation counts in
+/// full until it settles, so a budget the game does not have would sit in
+/// the book as spent after a kill). The game is still counted: its entry
+/// settles with what it spent. Under a cap it is reserved as [`reserve`]
+/// does, the cap's remainder being what it may spend.
+///
+/// # Errors
+/// As [`reserve`].
+pub fn reserve_or_count(
+    book: &Book,
+    caps: &Caps,
+    settings: &mut Settings,
+    profile: Option<&str>,
+    now: Moment,
+    unbudgeted: bool,
+) -> Result<Booked, String> {
+    let first = settings.worst(FIRST_CALL_BYTES as usize);
+    let priced = settings.price.is_some() && settings.spend_usd.is_some() && first.usd.is_some();
+    let capped = if priced {
+        caps.day_usd.is_some() || caps.month_usd.is_some()
+    } else {
+        caps.day_tokens.is_some() || caps.month_tokens.is_some()
+    };
+    if !unbudgeted || capped {
+        return reserve(book, caps, settings, profile, now);
+    }
+    let (game, floor) = if priced {
+        (Budget::Usd(0.0), Budget::Usd(0.0))
+    } else {
+        (Budget::Tokens(0), Budget::Tokens(0))
+    };
+    let ask = Ask {
+        profile,
+        model: &settings.model,
+        game,
+        floor,
+    };
+    let grant = book.update(|ledger| ledger.reserve(caps, &ask, now))?;
+    Ok(Booked {
+        book: book.clone(),
+        grant,
+        priced,
+        tally: None,
+        settled: false,
+        at: now,
+    })
+}
+
 /// Reserves in `book` what the game `settings` plays may spend under
 /// `caps` at `now`, and makes `settings` a hard limit at what was granted:
 /// the game's own budget, or less where less is left of the day or the
@@ -121,8 +171,19 @@ impl Booked {
     #[must_use]
     pub fn sat_down(&self) -> String {
         let budget = match self.grant.budget {
-            Budget::Usd(usd) => format!("${usd:.2}"),
-            Budget::Tokens(tokens) => format!("{tokens} tokens"),
+            Budget::Usd(usd) if usd <= 0.0 => None,
+            Budget::Tokens(0) => None,
+            Budget::Usd(usd) => Some(format!("${usd:.2}")),
+            Budget::Tokens(tokens) => Some(format!("{tokens} tokens")),
+        };
+        let Some(budget) = budget else {
+            return format!(
+                "nothing reserved for this game, which has no budget of its own; the spend book \
+                 {} counts what it spends, in {} ({})",
+                self.book.path().display(),
+                self.at.day(),
+                self.at.zone()
+            );
         };
         format!(
             "reserved {budget} for this game in the spend book {}, counted in {} ({})",

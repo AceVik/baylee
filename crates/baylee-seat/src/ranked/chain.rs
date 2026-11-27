@@ -25,53 +25,140 @@ pub const FAILED_HOLD: Duration = Duration::from_mins(10);
 /// The paths held back from new games, and until when.
 pub type Held = Arc<Mutex<BTreeMap<String, Instant>>>;
 
-/// Whether `path` plays the model `first` plays at its effort, in a
-/// sentence where it does not. The same model is reached on different
-/// paths under different names: an API's model id (`claude-haiku-4-5`),
-/// a CLI's own name for it (`claude:haiku`). So the efforts must be equal
-/// and named, every path must name its model (a CLI's own default may
-/// change under it), two paths of one kind must name the same model, and
-/// a CLI's name must be the API's id or one of its words.
+/// What an access path claims to play, as the account's name and rating
+/// read it: the model's family (`claude`, `gemini`, `gpt`, `deepseek`,
+/// where it can be told), the model, and its effort.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Claimed {
+    /// The model's family, where it can be told from its id or its tool.
+    pub family: Option<String>,
+    /// The model, as its path names it, without an effort tier in its id.
+    pub model: String,
+    /// The effort it plays at: named, written in its id (`agy`), or
+    /// [`STANDARD`] for a model this build knows no efforts for.
+    pub effort: String,
+}
+
+/// The effort of a model this build knows no efforts for: its own default,
+/// which an account's label calls "Standard" (`KI-DeepSeek-Flash ·
+/// Standard`).
+pub const STANDARD: &str = "standard";
+
+/// The effort tiers `agy` writes into a model id
+/// (`claude-sonnet-5-5-low`, `gemini-4-hydrogen-xhigh`), the longest first.
+const AGY_TIERS: [&str; 4] = ["xhigh", "medium", "high", "low"];
+
+/// What `mind` (as `declare::llm` says it) claims to play, its profile
+/// naming the effort `named`, where this build knows the model's efforts
+/// (`known`) or not. A model whose efforts the build knows must name one
+/// (in `agy`'s id, its tier is one); one whose efforts it does not know
+/// must name none, and plays at its [`STANDARD`].
+///
+/// # Errors
+/// No language model, no model named (a CLI's own default can change under
+/// it), no effort where one must be named, or one where none may be.
+pub fn claimed(mind: &SeatMind, named: Option<&str>, known: bool) -> Result<Claimed, String> {
+    let cli = mind.kind == seat_mind::Kind::LlmCli as i32;
+    if !cli && mind.kind != seat_mind::Kind::LlmApi as i32 {
+        return Err("an access path is a language model behind a CLI or an API".into());
+    }
+    if mind.model.is_empty() {
+        return Err(format!(
+            "the {} path names no model: a CLI's own default can change under it; name it as \
+             `{}:<model>`",
+            mind.provider, mind.provider
+        ));
+    }
+    let mut model = mind.model.clone();
+    let mut effort = named.unwrap_or_default().to_owned();
+    if cli
+        && mind.provider == "agy"
+        && let Some((stem, tier)) = AGY_TIERS.iter().find_map(|tier| {
+            model
+                .strip_suffix(&format!("-{tier}"))
+                .map(|stem| (stem.to_owned(), *tier))
+        })
+    {
+        // `agy` plays `<stem>-<effort>` where an effort is named, else the
+        // tier its id names (`cli::agy`).
+        if effort.is_empty() {
+            tier.clone_into(&mut effort);
+        }
+        model = stem;
+    }
+    if known {
+        if effort.is_empty() {
+            return Err(format!(
+                "«{model}» names no effort; give the profile its `effort`, one of the model's"
+            ));
+        }
+    } else {
+        if named.is_some() {
+            return Err(format!(
+                "this build knows no efforts for «{model}»; leave `effort` out, and it plays at \
+                 its Standard"
+            ));
+        }
+        STANDARD.clone_into(&mut effort);
+    }
+    let family = family_of(&model, cli.then_some(mind.provider.as_str()));
+    Ok(Claimed {
+        family,
+        model,
+        effort,
+    })
+}
+
+/// The family a model id's first word names, else its CLI tool's own.
+fn family_of(model: &str, tool: Option<&str>) -> Option<String> {
+    let first = model.split(['-', '.', '_', '/', ':']).next()?;
+    let family = match first {
+        "claude" => "claude",
+        // Claude Code's own aliases, on Claude Code or an API only.
+        "opus" | "sonnet" | "haiku" | "fable" if matches!(tool, None | Some("claude")) => "claude",
+        "gemini" => "gemini",
+        "gpt" => "gpt",
+        "deepseek" => "deepseek",
+        _ => match tool {
+            Some("claude") => "claude",
+            Some("codex") => "gpt",
+            _ => return None,
+        },
+    };
+    Some(family.to_owned())
+}
+
+/// Whether `path` plays what `first` plays ([`claimed`]), in a sentence
+/// where it does not. The same model is reached on different paths under
+/// different names: an API's id (`claude-sonnet-5-5`), a CLI's own alias
+/// for it (`claude:sonnet`), `agy`'s id with its tier (`agy`'s
+/// `claude-sonnet-5-5-low`). So the efforts must be equal, the families
+/// too where both can be told, and the models equal or one the other's
+/// word.
 ///
 /// # Errors
 /// Why they differ.
-pub fn same_model(first: &SeatMind, path: &SeatMind) -> Result<(), String> {
-    let cli = seat_mind::Kind::LlmCli as i32;
-    let api = seat_mind::Kind::LlmApi as i32;
-    for mind in [first, path] {
-        if mind.kind != cli && mind.kind != api {
-            return Err("an access path is a language model behind a CLI or an API".into());
-        }
-        if mind.model.is_empty() {
-            return Err(format!(
-                "the {} path names no model: a CLI's own default can change under it",
-                mind.provider
-            ));
-        }
-        if mind.effort.is_empty() {
-            return Err(format!(
-                "«{}» names no effort: the chain plays one effort, named on every path",
-                mind.model
-            ));
-        }
-    }
+pub fn same_model(first: &Claimed, path: &Claimed) -> Result<(), String> {
     if first.effort != path.effort {
         return Err(format!(
             "effort «{}» is not «{}»",
             path.effort, first.effort
         ));
     }
-    let alias = |cli: &str, id: &str| cli == id || id.split(['-', '.', '_', '/']).any(|w| w == cli);
-    let same = match (first.kind == cli, path.kind == cli) {
-        (true, true) => first.provider == path.provider && first.model == path.model,
-        (false, false) => first.model == path.model,
-        (true, false) => alias(&first.model, &path.model),
-        (false, true) => alias(&path.model, &first.model),
-    };
-    if !same {
-        return Err(format!("«{}» is not «{}»", path.model, first.model));
+    if let (Some(a), Some(b)) = (&first.family, &path.family)
+        && a != b
+    {
+        return Err(format!("a {b} model is not a {a} model"));
     }
-    Ok(())
+    let word = |short: &str, id: &str| id.split(['-', '.', '_', '/']).any(|w| w == short);
+    if first.model == path.model
+        || word(&first.model, &path.model)
+        || word(&path.model, &first.model)
+    {
+        Ok(())
+    } else {
+        Err(format!("«{}» is not «{}»", path.model, first.model))
+    }
 }
 
 /// Holds `profile` back from new games for `hold`, saying why.

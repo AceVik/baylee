@@ -1551,34 +1551,52 @@ the other.
   26.11.2026: "primär A, dann B, dann C"): the settings file's profile
   (`--config`, default `<state>/llm-seat.json`) and the profiles its
   `fallback` names, in order, such as the model on a subscription's CLI,
-  on another subscription, and behind the provider's API. Unlike a
-  `join`'s chain, a CLI may be one of the fallbacks, and every path must
-  play the same model at the same effort (`ranked::chain::same_model`):
-  each names its effort and its model (a CLI's own default can change
-  under it), two paths of one kind name the same model, and a CLI's name
-  for it is the API's id or a word of it (`claude:haiku` and
-  `claude-haiku-4-5`). A chain that crosses models is refused before any
-  offer: the account's name and rating are the model's. Central's profile
-  for the account is `model:<profile>`.
+  on another subscription, and behind the provider's API; most models have
+  the one path alone, the house behind it. Unlike a `join`'s chain, a CLI
+  may be one of the fallbacks, and every path must play the same model at
+  the same effort. Each path is read as what it claims
+  (`ranked::chain::claimed`: the model's family, the model, the effort):
+  it names its model (a CLI's own default can change under it, so
+  `<tool>:<model>`); `agy`'s tier in its id is its effort
+  (`agy:claude-sonnet-5-5-low` is Sonnet 5.5 at low, unless `effort` names
+  another); a model whose efforts this build knows names one in its
+  profile, and one whose efforts it does not know (DeepSeek) names none
+  and plays at its Standard (an account labelled `KI-DeepSeek-Flash ·
+  Standard`). Two paths are one model (`ranked::chain::same_model`) where
+  their efforts are equal, their families too where both are known, and
+  their models equal or one a word of the other: Claude Code's `sonnet`,
+  `agy`'s `claude-sonnet-5-5-low` and the API's `claude-sonnet-5-5`, each
+  at low. A chain that crosses models or efforts is refused before any
+  offer, saying what to change: the account's name and rating are the
+  model's. Central's profile for the account is `model:<profile>`.
   - Before a game the pilot is ready while a path is not held back; with
     every path held back the account makes no offer. A path that was rate
     limited sits out new games until its limit lifts (as the provider
-    said, else 30 minutes), one that failed for 10 minutes, one that
-    cannot be reached (its key or program gone) likewise. A game starts
-    on the first path not held back, the others standing by in order.
+    said, else 30 minutes); one that failed, or whose free check (a
+    model's entry, a CLI's login) fails before a game, for 10 minutes,
+    doubled with each failure in a row up to 4 hours; one that cannot be
+    reached (its key not kept yet, its program gone) likewise, from the
+    start: the account starts whatever paths it can reach, and refuses to
+    start only for a chain that is wrong (crossing models or efforts, a
+    model or effort not named). A game starts on the first path not held
+    back, the others standing by in order.
   - Mid-game the bridge hands the question down the chain at once on a
     limit or a failure (§"A fallback profile"), each path declaring its
     model to the table before its first answer, and past the last path
     the declared house (`--fallback-level`) plays the rest of the game
     (`ranked::chain::house_at_the_end`), so a ranked seat never leaves its
     table because its model is gone, and the record says what played.
-  - Each path's game is reserved in the spend book (`--ledger`, default
-    `<state>/llm-spend.json`) as `join` reserves one, and settles at the
-    game's end. By the owner's decision of 27.11.2026 nothing is capped:
-    the file's day and month caps stay the mechanism and are absent unless
+  - Each path's game is in the spend book (`--ledger`, default
+    `<state>/llm-spend.json`) and settles at the game's end with what it
+    spent. By the owner's decision of 27.11.2026 nothing is capped: the
+    file's day and month caps stay the mechanism and are absent unless
     written, and a profile that names no `game_usd`, `game_tokens` or
-    `game_calls` plays without one (`ranked_llm::UNLIMITED_*`), not with
-    the bridge's defaults of $5 and 500 CLI calls.
+    `game_calls` plays without one, not with the bridge's defaults of $5
+    and 500 CLI calls. Such a game is counted and never reserved where no
+    cap holds its unit (`spend::reserve_or_count`: its entry reserves
+    nothing, so a game killed outright leaves no budget it never had in
+    the book); under a cap it reserves what is left of the cap, as any
+    game does.
   - A second subscription of the same CLI needs that path to sign in as
     another account; a profile has no field for a CLI's own config
     directory yet, so today the second path is another program (its
@@ -1610,6 +1628,32 @@ person's assignment and receipt carry the AI's badge, and Central's
 results agree with the table's
 (`crates/baylee-gateway/tests/e2e_central/ranked/runners.rs`). An AI
 against an AI waits for Central's carousel.
+
+The same test plays a proof game of a real pilot on the machine whose CLIs
+are signed in, when `BAYLEE_E2E_AI_RUNNER` names a runner binary: the
+administrator creates the account of `BAYLEE_E2E_AI_KIND` and
+`BAYLEE_E2E_AI_PROFILE` (default `house`, `house:expert`; a model gets a
+day's cap of ten games), the harness writes the token to a `0600` file and
+starts `$BAYLEE_E2E_AI_RUNNER ranked --central <served> --account <id>
+--token-file <file> --state <dir> --accept-host <host> --games 1
+$BAYLEE_E2E_AI_ARGS`, with `BAYLEE_E2E_AI_DECKS` copied into its state as
+its deck directory (the person plays its newest Standard deck too; default
+sixty Forests). The person searches accepting any AI for a model and the
+local ones otherwise, and plays the house. The test checks the person's
+receipt against the table, reads the AI seat's transcript, and prints one
+line: turns, how the game ended, questions that expired, and the model's
+think time per answer (median and most). A failing runner, or one that
+does not stop after its game, fails the test, and the process is killed
+either way.
+
+```text
+cargo build -p baylee-seat        # or the trained net's seat4
+BAYLEE_E2E_AI_RUNNER=$PWD/target/debug/baylee-seat \
+BAYLEE_E2E_AI_KIND=model BAYLEE_E2E_AI_PROFILE=model:haiku-high \
+BAYLEE_E2E_AI_ARGS="--profile haiku-high --config /path/llm-seat.json" \
+BAYLEE_E2E_AI_DECKS=/var/lib/baylee-ai/<account>/decks \
+  cargo dev central integration --ai-players-only
+```
 
 ## A dev table
 
