@@ -1,5 +1,5 @@
 use super::{
-    Account, Assignment, Error, Fence, Id, RankedDeck, RankedHost, RankedPlay, RankedSeat,
+    Account, Assignment, Claim, Error, Fence, Id, RankedDeck, RankedHost, RankedPlay, RankedSeat,
     SeatRequest, SeatResponse, confirmed, same_match,
 };
 use crate::ranked::replica::{
@@ -97,6 +97,17 @@ impl Account {
         snapshot: Option<([u8; 32], &RankedDeck)>,
         pending: &mut Option<RankedHost>,
     ) -> Result<Option<RankedPlay>, Error> {
+        self.play_claimed(Claim::Ticket(key), expected, snapshot, pending)
+    }
+
+    /// [`Account::play_ranked_replica`] for the seat `claim` names.
+    pub(super) fn play_claimed(
+        &self,
+        claim: Claim,
+        expected: &SeatStatus,
+        snapshot: Option<([u8; 32], &RankedDeck)>,
+        pending: &mut Option<RankedHost>,
+    ) -> Result<Option<RankedPlay>, Error> {
         let status = self.replica_status(expected.fence.match_id)?;
         if !same_route(expected, &status) {
             *pending = None;
@@ -106,12 +117,12 @@ impl Account {
             return Ok(None);
         }
         let owner = self.session.identity().account;
-        let a = self.ranked_assignment(key)?;
+        let a = self.claimed(claim)?;
         check_assignment(&a, &status, owner)?;
         let reused = pending.as_ref().is_some_and(|p| {
             p.fence == status.fence
                 && p.endpoint == *self.http.endpoint()
-                && p.key == key
+                && p.claim == claim
                 && same_match(&a, &p.assignment)
                 && Instant::now() < p.renew_at
         });
@@ -121,7 +132,7 @@ impl Account {
             *pending = Some(RankedHost {
                 fence: status.fence,
                 endpoint: self.http.endpoint().clone(),
-                key,
+                claim,
                 assignment: a.clone(),
                 bearer,
                 consent: None,
@@ -155,7 +166,7 @@ impl Account {
         };
         let mut seat: RankedSeat = central_api::decode(bytes.as_slice())?;
         seat.validate()?;
-        let after = self.ranked_assignment(key)?;
+        let after = self.claimed(claim)?;
         let final_status = self.replica_status(status.fence.match_id)?;
         check_assignment(&after, &final_status, owner)?;
         if !same_route(&status, &final_status)
@@ -198,8 +209,18 @@ impl Account {
         game: &Assignment,
         fence: Fence,
     ) -> Result<Instant, Error> {
+        self.renew_claimed(Claim::Ticket(key), game, fence)
+    }
+
+    /// [`Account::renew_ranked_replica`] for the seat `claim` names.
+    pub(super) fn renew_claimed(
+        &self,
+        claim: Claim,
+        game: &Assignment,
+        fence: Fence,
+    ) -> Result<Instant, Error> {
         let status = self.replica_status(fence.match_id)?;
-        let actual = self.ranked_assignment(key)?;
+        let actual = self.claimed(claim)?;
         check_assignment(&actual, &status, self.session.identity().account)?;
         if &actual != game || game.game.is_none() || status.fence != fence || !allowed(&status)? {
             return Err(Error::Conflict);

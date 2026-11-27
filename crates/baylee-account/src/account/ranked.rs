@@ -6,7 +6,7 @@ mod documents;
 mod relay;
 use crate::{
     CentralHttp, Endpoint, RankedDeck, RankedSeat,
-    ranked::{Assignment, Id, QueueState, Request, Response},
+    ranked::{Assignment, Id, QueueState, Request, Response, ai},
 };
 pub use documents::{RankedHostDocument, RankedHostDocuments};
 
@@ -22,12 +22,24 @@ pub fn ranked_read(endpoint: &Endpoint, request: Request) -> Result<Response, Er
 /// forwarded to a caller-supplied destination.
 pub struct RankedHost {
     endpoint: Endpoint,
-    key: Id,
+    claim: Claim,
     assignment: Assignment,
     fence: Fence,
     bearer: replica::relay::Secret,
     consent: Option<RankedConsent>,
     renew_at: std::time::Instant,
+}
+
+/// Whose seat a relay call is for, and so where Central's assignment for it
+/// is read: a person's queue entry (`Status`), or an AI account's match
+/// among its live ones (`Ai::Work`, baylee-central `docs/ai-players.md` §4),
+/// which no ticket holds.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Claim {
+    /// The account's queue entry.
+    Ticket(Id),
+    /// An AI account's match, by its id.
+    Match(Id),
 }
 
 /// A specific unclaimed ranked seat's published gateway terms. The document
@@ -169,12 +181,74 @@ impl Account {
         )
     }
 
+    /// An AI runner's operation on this account (baylee-central
+    /// `docs/ai-players.md` §4): its standing offers, or its settings and
+    /// live matches.
+    ///
+    /// # Errors
+    /// A person's account, offers while switched off or beyond one per
+    /// format, and mismatched replies.
+    pub fn ai(&self, request: ai::Request) -> Result<ai::Response, Error> {
+        self.session.ai(&self.http, request)
+    }
+
+    /// The AI account's live match `match_id`, as Central's `Work` lists it.
+    ///
+    /// # Errors
+    /// `Conflict` when the match is no longer live for the account.
+    pub fn ai_assignment(&self, match_id: Id) -> Result<Assignment, Error> {
+        let ai::Response::Work { assignments, .. } = self.ai(ai::Request::Work)? else {
+            return Err(Error::Rejected);
+        };
+        assignments
+            .into_iter()
+            .find(|a| a.match_id == match_id)
+            .ok_or(Error::Conflict)
+    }
+
+    /// [`Account::play_ranked`] for an AI account's match `match_id`, which
+    /// Central made from its standing offer and holds no queue entry for.
+    ///
+    /// # Errors
+    /// As [`Account::play_ranked`]: a match no longer live for the account
+    /// is `Conflict`.
+    pub fn play_ai_seat(
+        &self,
+        match_id: Id,
+        snapshot: Option<([u8; 32], &RankedDeck)>,
+        pending: &mut Option<RankedHost>,
+    ) -> Result<Option<RankedPlay>, Error> {
+        let status = self.replica_status(match_id)?;
+        self.play_claimed(Claim::Match(match_id), &status, snapshot, pending)
+    }
+
+    /// [`Account::renew_ranked_replica`] for an AI account's match.
+    ///
+    /// # Errors
+    /// As [`Account::renew_ranked_replica`].
+    pub fn renew_ai_seat(
+        &self,
+        game: &Assignment,
+        fence: Fence,
+    ) -> Result<std::time::Instant, Error> {
+        self.renew_claimed(Claim::Match(game.match_id), game, fence)
+    }
+
     fn replica_status(&self, match_id: Id) -> Result<replica::SeatStatus, Error> {
         let SeatResponse::Status { status } = self.replica(SeatRequest::Status { match_id })?
         else {
             return Err(Error::Rejected);
         };
         Ok(status)
+    }
+
+    /// The seat's assignment as Central says it now: the queue entry's, or
+    /// an AI account's match among its live ones.
+    fn claimed(&self, claim: Claim) -> Result<Assignment, Error> {
+        match claim {
+            Claim::Ticket(key) => self.ranked_assignment(key),
+            Claim::Match(match_id) => self.ai_assignment(match_id),
+        }
     }
 
     fn ranked_assignment(&self, key: Id) -> Result<Assignment, Error> {
