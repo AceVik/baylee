@@ -222,7 +222,12 @@ impl Plugin for LobbyPlugin {
             // After layout, which is what says whether a page runs over.
             .add_systems(
                 PostUpdate,
-                scrollbars::show_when_needed.after(bevy::ui::UiSystems::Layout),
+                (
+                    scrollbars::show_when_needed.after(bevy::ui::UiSystems::Layout),
+                    field::keep_caret_in_view
+                        .after(bevy::ui::UiSystems::Layout)
+                        .before(bevy::ui::UiSystems::PostLayout),
+                ),
             )
             .add_systems(
                 Update,
