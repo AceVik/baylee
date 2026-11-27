@@ -236,20 +236,28 @@ pub fn run_card(index: CardIndex) -> Result<Card, Error> {
 
 /// The content the calibration measured (`docs/tower-operations.md`
 /// §"Calibration"): the hex [`fingerprint`] of the catalog and the fifty
-/// starters it played. The starters come from the shared builder over the
-/// whole card registry, so a registry change can change them; the house's
-/// `PICKS` and the measured balance hold only for this exact content, and the
-/// production publication refuses any other.
-pub const CALIBRATED: &str = "6f8b0c7a6cc0babb94a7c6ae3c277b73161e35627086ada97c1b16db57098364";
+/// starters it played. The starters are frozen data, but every catalog entry
+/// is read from the card registry; the house's `PICKS` and the measured
+/// balance hold only for this content, and the production publication
+/// refuses any other.
+pub const CALIBRATED: &str = "";
 
-/// SHA-256 over the canonical JSON of `content`'s catalog and starters.
+/// SHA-256 over the canonical JSON of `content`'s catalog and starters, each
+/// card's printing left out: that is the image a client shows (a card wave
+/// may name another reference printing), never a rule, price or weight.
 /// # Errors
 /// Content that does not serialize.
 pub fn fingerprint(content: &Content) -> Result<String, Error> {
     use sha2::{Digest as _, Sha256};
-    let bytes = serde_json::to_vec(content).map_err(|_| Error::Metadata)?;
+    let mut rules = content.clone();
+    for card in &mut rules.catalog.cards {
+        if let Some(art) = card.run.as_mut().and_then(|run| run.presentation.as_mut()) {
+            art.printing = uuid::Uuid::nil();
+        }
+    }
+    let bytes = serde_json::to_vec(&rules).map_err(|_| Error::Metadata)?;
     let digest = Sha256::new()
-        .chain_update(b"baylee/tower/calibrated-content/v1\0")
+        .chain_update(b"baylee/tower/calibrated-content/v2\0")
         .chain_update(bytes)
         .finalize();
     Ok(digest.iter().map(|byte| format!("{byte:02x}")).collect())
