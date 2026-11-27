@@ -248,13 +248,25 @@ pub(crate) async fn blocked_cards(
     headers: HeaderMap,
 ) -> Result<Json<BlockedCards>, (StatusCode, Json<ErrorBody>)> {
     let _ = authed(&state, &headers).await?;
-    let blocked: Vec<_> = state
-        .blocks
-        .now_in_force(time::OffsetDateTime::now_utc())
-        .iter()
-        .map(BlockedCard::from)
-        .collect();
-    Ok(Json(BlockedCards { blocked }))
+    Ok(Json(blocked_now(
+        &state.blocks,
+        time::OffsetDateTime::now_utc(),
+    )))
+}
+
+/// Every card `blocks` holds blocked at `now`, as `GET /cards/blocked`
+/// answers it: the route's and `baylee-gateway pool-facts`' one reading.
+pub(crate) fn blocked_now(
+    blocks: &crate::blocks::Blocks,
+    now: time::OffsetDateTime,
+) -> BlockedCards {
+    BlockedCards {
+        blocked: blocks
+            .now_in_force(now)
+            .iter()
+            .map(BlockedCard::from)
+            .collect(),
+    }
 }
 
 /// `GET /cards/blocked`.
@@ -262,7 +274,7 @@ pub(crate) async fn blocked_cards(
 #[derive(Serialize)]
 pub(crate) struct BlockedCards {
     /// @description Every card blocked now.
-    blocked: Vec<BlockedCard>,
+    pub(crate) blocked: Vec<BlockedCard>,
 }
 
 /// Fills in who painted every picture these digests name, from the

@@ -154,6 +154,7 @@ BAYLEE_AGENT_TOKEN=$(openssl rand -hex 32) BAYLEE_AUTH_MODE=guests ./target/debu
 BAYLEE_AGENT_TOKEN=<same> ./target/debug/baylee-agent
 ./target/debug/baylee-engine-server       # dev harness, loopback
 DATABASE_URL=… ./target/debug/baylee-gateway records export --out <new dir>   # anonymised complete game records (no game id, time or account) for training/balancing; the only input they may use (docs/privacy.md)
+BAYLEE_PUBLIC_URL=https://<host> DATABASE_URL=… ./target/debug/baylee-gateway pool-facts --out <file>   # the legality facts (the /pool/facts table and the blocked cards) an AI runner's --facts file holds, written on a host that takes no guests; reads the database as it stands, opens no port, mode 0644 (docs/llm-seat.md §"Deck building")
 trunk build index.html --release --locked --public-url /play/   # in crates/baylee-client/: the web build baylee-deploy stages and finish installs to /opt/baylee/web/play (trunk 0.21.14; Caddy: scripts/server/play.caddy; docs/client.md §"Serving it at /play/")
 adb forward tcp:28773 tcp:28770           # Android dev-control
 cp .env.example .env                      # the client's BAYLEE_GATEWAY and DATABASE_URL
