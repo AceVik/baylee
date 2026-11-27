@@ -17,7 +17,7 @@ use baylee_client_core::say;
 use baylee_seat::cli::{Brief, CliMind, Limits};
 use baylee_seat::config::{self, Overrides, Paths, Plan};
 use baylee_seat::deckbuild::brief::{self, Job};
-use baylee_seat::deckbuild::check::{Checker, Rows};
+use baylee_seat::deckbuild::check::{self, Checker, Rows};
 use baylee_seat::deckbuild::facts::{self, Facts};
 use baylee_seat::deckbuild::file;
 use baylee_seat::deckbuild::history::{self, Record, Spend};
@@ -213,6 +213,9 @@ fn check_file(args: &CheckArgs) -> anyhow::Result<()> {
             rows.name,
             format.as_str()
         );
+        if let Some(frozen) = &verdict.frozen {
+            say!("  {}", check::summary(&frozen.loaded));
+        }
         return Ok(());
     }
     for complaint in &verdict.complaints {
@@ -251,12 +254,19 @@ fn lend_deck(args: &LendArgs) -> anyhow::Result<()> {
         &mut record,
     )?;
     say!(
-        "lent «{}» as version {} ({} tries passed over): {}",
+        "lent «{}» as version {} from the {} pool of {} cards (of {} the engine plays \
+         completely; {} tries passed over): {}",
         lent.rows.name,
         saved.number,
+        format.as_str(),
+        pool.len(),
+        baylee_cards::all()
+            .filter(|def| check::complete(def.index))
+            .count(),
         lent.passed_over.len(),
         saved.deck.display()
     );
+    say!("  {}", check::summary(&lent.frozen.loaded));
     Ok(())
 }
 
