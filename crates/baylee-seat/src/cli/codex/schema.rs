@@ -3,15 +3,21 @@
 //! Unused decision fields are represented by null, which the reader treats
 //! as absent. See `OpenAI`'s structured-outputs guide and `docs/llm-seat.md`.
 
-use crate::llm::prompt;
 use serde_json::{Value, json};
+
+/// An answer schema (a seat's, [`crate::llm::prompt::answer_schema`], or another
+/// brief's), adapted to Codex's strict response format.
+pub(super) fn closed(schema: &Value) -> Value {
+    let mut schema = schema.clone();
+    close(&mut schema);
+    schema
+}
 
 /// The answer schema of a seat with `extras`, adapted to Codex's strict
 /// response format.
-pub(super) fn answer(extras: prompt::Extras) -> Value {
-    let mut schema = prompt::answer_schema(extras);
-    close(&mut schema);
-    schema
+#[cfg(test)]
+fn answer(extras: crate::llm::prompt::Extras) -> Value {
+    closed(&crate::llm::prompt::answer_schema(extras))
 }
 
 /// Closes each object in our schema, including objects inside arrays.
@@ -36,6 +42,7 @@ fn close(schema: &mut Value) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::llm::prompt;
     use crate::narrator::Decision;
 
     #[test]

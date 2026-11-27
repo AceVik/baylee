@@ -31,7 +31,12 @@ fn args_of(dialect: &dyn Dialect, model: Option<&str>, effort: Option<&str>) -> 
         effort,
     );
     dialect
-        .args(&settings, model, "SYSTEM", Path::new("/s"))
+        .args(
+            &settings,
+            model,
+            &crate::cli::Brief::told(&settings, "SYSTEM"),
+            Path::new("/s"),
+        )
         .into_iter()
         .map(|arg| arg.into_string().unwrap())
         .collect()
@@ -312,7 +317,10 @@ fn opencode_runs_its_seat_agent_with_a_title_and_no_message_in_argv() {
 /// snapshots nothing, and makes our instructions the agent's prompt.
 #[test]
 fn opencodes_configuration_denies_every_tool_and_carries_ours() {
-    let files = Opencode.files(&settings_for("opencode", None), "SYSTEM \"quoted\"");
+    let files = Opencode.files(
+        &settings_for("opencode", None),
+        &crate::cli::Brief::told(&settings_for("opencode", None), "SYSTEM \"quoted\""),
+    );
     assert_eq!(files.len(), 1);
     assert_eq!(files[0].0, "opencode.json");
     let config: Value = serde_json::from_str(&files[0].1).unwrap();

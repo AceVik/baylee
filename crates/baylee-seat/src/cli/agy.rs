@@ -13,8 +13,9 @@
 //! User rules under `~/.gemini` and the tool's own session storage remain
 //! the CLI's (`docs/llm-seat.md` §"A CLI as the model").
 
+use super::Brief;
 use super::dialect::{Dialect, Event, Outcome, Started, Wire, clipped, listed, names};
-use crate::llm::{Settings, Usage, json_object, prompt};
+use crate::llm::{Settings, Usage, json_object};
 use baylee_client_core::llmseat::{CliTool, DEFAULT_AGY_MODEL};
 use serde_json::{Value, json};
 use std::ffi::OsString;
@@ -32,16 +33,19 @@ impl Dialect for Agy {
         CliTool::Agy
     }
 
-    fn workspace_files(&self, system: &str) -> Vec<(&'static str, String)> {
+    fn workspace_files(&self, brief: &Brief) -> Vec<(&'static str, String)> {
         vec![(
             AGENT_FILE,
             format!(
-                "---\nname: {AGENT}\ndescription: Answer Baylee game decisions in JSON.\n\
+                "---\nname: {AGENT}\ndescription: Answer {task} in JSON.\n\
              tools: [finish]\nmainAgent: true\nsubagent: false\n\
              commandExecutionPolicy: off\nmcpServers: []\nskills: []\nplugins: []\n---\n\
              {system}\n\n\
-             Answer directly with the decision JSON. No commands, files, browser, MCP, \
-             skills or other agents are needed or permitted.\n"
+             Answer directly with {answer}. No commands, files, browser, MCP, \
+             skills or other agents are needed or permitted.\n",
+                task = brief.task,
+                system = brief.system,
+                answer = brief.answer,
             ),
         )]
     }
@@ -50,7 +54,7 @@ impl Dialect for Agy {
         &self,
         settings: &Settings,
         model: Option<&str>,
-        _system: &str,
+        brief: &Brief,
         _support: &Path,
     ) -> Vec<OsString> {
         let mut args: Vec<OsString> = [
@@ -66,7 +70,7 @@ impl Dialect for Agy {
         .map(OsString::from)
         .collect();
         args.push("--json-schema".into());
-        args.push(prompt::answer_schema(settings.extras()).to_string().into());
+        args.push(brief.schema.to_string().into());
         let raw_model = model.unwrap_or(DEFAULT_AGY_MODEL);
         let (resolved_model, resolved_effort) =
             reconcile_agy_model_and_effort(raw_model, settings.effort.as_deref());

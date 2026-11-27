@@ -20,8 +20,9 @@
 //! which must be named and must not be a variable (`ANTHROPIC_API_KEY`); a
 //! subscription's is `none`.
 
+use super::Brief;
 use super::dialect::{Dialect, Event, Outcome, Started, Wire, listed, names};
-use crate::llm::{Settings, Usage, json_object, prompt};
+use crate::llm::{Settings, Usage, json_object};
 use baylee_client_core::llmseat::CliTool;
 use serde_json::{Value, json};
 use std::ffi::OsString;
@@ -44,7 +45,7 @@ impl Dialect for Claude {
         &self,
         settings: &Settings,
         model: Option<&str>,
-        system: &str,
+        brief: &Brief,
         _support: &Path,
     ) -> Vec<OsString> {
         let mut args: Vec<OsString> = [
@@ -72,9 +73,9 @@ impl Dialect for Claude {
         .into_iter()
         .map(OsString::from)
         .collect();
-        args.push(system.into());
+        args.push(brief.system.as_str().into());
         args.push("--json-schema".into());
-        args.push(prompt::answer_schema(settings.extras()).to_string().into());
+        args.push(brief.schema.to_string().into());
         if let Some(model) = model {
             args.push("--model".into());
             args.push(model.into());

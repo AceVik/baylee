@@ -1546,6 +1546,126 @@ against an AI waits for Central's carousel.
 with `--profile <name>` instead of `--mind`, from the same file and under
 the same caps (`BAYLEE_SEAT_CONFIG` passes through).
 
+## Deck building
+
+An AI account keeps its own decks (`baylee_seat::deckbuild`,
+`docs/proposals/ai-players.md` §"Decks"). Central gives a runner session no
+library of the account's, so each AI's decks are files on the runner's
+machine, in a directory of the AI's own. The ranked runner offers the newest
+deck of each format there (`deckbuild::history::newest`).
+
+```text
+baylee-seat deck facts   --gateway https://<host> [--out <dir>/facts.json]
+baylee-seat deck check   --format <f> --facts <file> <deck file>
+baylee-seat deck lend    --format <f> --dir <dir> [--seed 1] [--facts <file>]
+baylee-seat deck build   --format <f> --dir <dir> (--profile <p> | --mind <m>)
+    [--config <file>] [--ledger <file>] [--effort <e>] [--fallback-profile <p>]…
+    [--no-fallback] [--rounds 40] [--reply-secs 300] [--facts <file>]
+baylee-seat deck improve (the options of build) [--most 6] [--recent 20] [--games <file>]…
+```
+
+`<f>` is `standard`, `highlander` or `commander`. `--facts` defaults to
+`<dir>/facts.json`.
+
+- **The directory.** Each format has its own subdirectory,
+  `<dir>/<format>/v0007-20261127T031500Z.txt` (the deck) and `.json` (its
+  record: how it was made (`build`, `improve` or `lend`), the model, profile
+  and effort or the lend's seed, the parent version, the cards swapped, the
+  model's note, the facts version it passed against, and what the work
+  spent). A version is never rewritten. Each version number is taken under a
+  lock on `<dir>/<format>/.lock`. Both files are written through a temporary
+  file, the record first, so a deck never stands without its record.
+  `<dir>/<format>/games.jsonl` is the format's games, one line each
+  (`history::record_game`: when, the version that played, `won`, `lost`,
+  `draw` or `unrated`, turns, Elo and its change, the opponent's public
+  label, a note). `deck improve` reads it.
+- **The deck file** is Baylee text (`docs/deck-format.md`): `# name:`,
+  `# format: <f>`, plain `N Name` rows, `CMD:` for a commander, no sideboard.
+  It is one of the four formats `deck.rs` reads. Before a version is kept,
+  its file is read back and checked again.
+- **The facts** (`deckbuild::facts`). A ranked host admits a deck only when
+  its catalog has a verdict for every card, so a deck is checked against that
+  host's own table. `facts::fetch` signs in as the guest `KI-Decks`, reads
+  `GET /pool/facts` (`?have=` keeps an unchanged table on `304`) and
+  `GET /cards/blocked`, and signs out; the guest is deleted with its session.
+  It never uses the AI account's own session, because a second sign-in ends
+  that account's seats. A host that takes no guests is said in those words.
+  So is one that asks a guest to accept its terms first, which this does not
+  do for anybody. The file holds the gateway's origin, when it was read, the
+  table and the blocked cards. An empty table (a gateway without a catalog)
+  is refused, since no deck could pass against it.
+- **The check** (`deckbuild::check::Checker`) is the host's own code, in the
+  order `crates/baylee-gateway/src/ranked/deck.rs` runs it:
+  1. every row names a card this build plays;
+  2. `baylee_cards::ranked::registration` (counts, sizes, commanders);
+  3. the facts' blocked cards in force now;
+  4. `baylee_cards::ranked::admit` against the table (the format's shape,
+     every card's verdict under its catalog key `standard`, `vintage` or
+     `commander`, rules-complete coverage, Highlander's singleton over deck
+     and sideboard, circled colours inside the commanders' identity);
+  5. `ranked::Frozen::from_rows`, which is how the runner freezes what it
+     offers.
+
+  `admit` answers one sentence for every fault. The model is told each fault
+  on its own instead, by card (`«Counterspell» is banned in standard`,
+  `«Made Up Card» is no card this build knows`,
+  `«X» is a real card, but not one this build plays`), worded from the same
+  checks. A deck passes only when every step does, and the tests hold the
+  two to the same answer over a table of accepted and refused decks. What
+  this check cannot see is a block or a catalog change after the facts were
+  read. The host checks again at seating, so read the facts again before
+  relying on an old deck.
+- **The pool** (`deckbuild::pool`) is the cards a deck of the format may
+  hold: rules-complete here, playable in the format by the table, not
+  blocked. Cryptic Spires is left out, because it needs two circled colours
+  chosen. The model never gets the pool pasted. It searches it (words of the
+  name, type line or rules text, type words, a colour identity, mana values,
+  commanders only, pages of 25) and reads cards whole (this build's card
+  text, `lookup::compiled`). A name outside the pool is refused by the check
+  with its reason.
+- **The conversation** (`deckbuild::work`). Every reply is one JSON object
+  with one action: `search`, `read` (at most 10), `propose` (the whole deck:
+  `name`, `commanders`, `cards` as `{count, name}`, and `note`, its plan in
+  two to six sentences) or, for `improve`, `change` (`out`, `in`, `note`),
+  plus an optional `say`. A proposal is checked at once. A refusal lists its
+  faults, at most 40, and the model answers again, until a deck passes or
+  `--rounds` replies are spent. A conversation that begins again (a CLI
+  process lost, a fallback taking over) is first told the task and the last
+  proposal with its faults.
+- **The model** is chosen as a seat's mind is (§"Which model plays, with
+  what"): the profile or `--mind`, its key from the environment or this
+  machine's credential store, never an argument. An agent CLI plays through
+  `CliMind::converse` under the seat's lockdown. Its brief (`cli::Brief`)
+  carries the builder's instructions and answer schema in place of the
+  game's, and a seat's brief is unchanged byte for byte. An API plays
+  through `llm::deckchat`: one tool, `act`, whose input is the answer object,
+  or that object as JSON where the profile answers `json` or `json_schema`.
+  The profile's fallbacks, or `--fallback-profile`, take over in order when
+  a model is limited, failing or out of budget.
+- **Spend.** Under a settings file each model of the chain reserves its
+  profile's budget in the spend book before the work begins, as a game does.
+  It settles with what it spent when the work ends however it ends (Ctrl-C
+  and errors included); a fallback that never answered settles at nothing.
+  The record keeps the replies, calls, tokens and, where the price is known,
+  the dollars.
+- **Lent decks** (`deckbuild::lend`), for the pilots that cannot build (the
+  fair house levels, the trained net). The deck generator
+  (`baylee_cards::deckgen::build_synergistic`) builds from the format's pool
+  in its shape, and the deck is held to the same check. A refused seed is
+  passed over for the next, up to 64, and the archetype goes round with the
+  seed. The same seed and the same facts lend the same deck. The precons are
+  not drawn on: of the 89 this build plays, none is a hundred-card singleton
+  or Commander deck, and the sixty-card ones are lists of the 1990s.
+- **Improving** reads the newest version, its note, the format's last
+  `--recent` games and any `--games` files (each held to 6,000 characters,
+  24,000 in all). It lets the model move at most `--most` cards, each copy
+  in or out counting once. The result is held to the check, and the change
+  is kept as a new version with `parent`, `removed` and `added`.
+- **Tests** reach no model: a scripted chat answers fixed objects
+  (`deckbuild/tests.rs`), and the fake agent CLI plays `deck build` end to
+  end (`tests/cli_mind/deck.rs`). The facts are read from a stand-in
+  gateway.
+
 ## What the game's record says played
 
 A game with a bridge at it is recorded like any other (`docs/protocol.md`

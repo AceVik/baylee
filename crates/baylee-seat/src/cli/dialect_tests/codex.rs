@@ -70,7 +70,10 @@ fn codex_runs_exec_with_our_instructions_and_no_tools() {
     assert!(!bare.iter().any(|a| a == "--model" || a.contains("effort")));
     assert_eq!(bare.last().map(String::as_str), Some("-"));
     // The files the flags name: ours, whole.
-    let files = Codex.files(&settings_for("codex", None), "SYSTEM");
+    let files = Codex.files(
+        &settings_for("codex", None),
+        &crate::cli::Brief::told(&settings_for("codex", None), "SYSTEM"),
+    );
     assert_eq!(files[0], ("instructions.md", "SYSTEM".to_string()));
     assert_eq!(files[1].0, "schema.json");
     let schema: Value = serde_json::from_str(&files[1].1).unwrap();
@@ -85,7 +88,7 @@ fn codex_runs_exec_with_our_instructions_and_no_tools() {
     let odd = Codex.args(
         &settings_for("codex", None),
         None,
-        "S",
+        &crate::cli::Brief::told(&settings_for("codex", None), "S"),
         Path::new("/a\"b\\c"),
     );
     let odd: Vec<String> = odd.into_iter().map(|a| a.into_string().unwrap()).collect();

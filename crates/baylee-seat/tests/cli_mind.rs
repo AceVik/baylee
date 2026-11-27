@@ -13,6 +13,9 @@ use crate::common;
 #[path = "cli_mind/agy.rs"]
 mod agy;
 
+#[path = "cli_mind/deck.rs"]
+mod deck;
+
 #[path = "cli_mind/draw.rs"]
 mod draw;
 

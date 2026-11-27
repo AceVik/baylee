@@ -203,7 +203,10 @@ fn junie_runs_acp_with_every_default_location_off() {
     );
     assert!(!bare.iter().any(|a| a.starts_with("--agent-mode")));
     assert_eq!(
-        Junie.files(&settings_for("junie", None), "S"),
+        Junie.files(
+            &settings_for("junie", None),
+            &crate::cli::Brief::told(&settings_for("junie", None), "S")
+        ),
         [("guidelines.md", String::new())]
     );
     assert!(!Junie.one_shot() && !Junie.resumes() && !Junie.usage_is_cumulative());

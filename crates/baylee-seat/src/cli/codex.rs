@@ -42,6 +42,7 @@
 //! `$CODEX_HOME/AGENTS.md` is still read: Codex has no switch for it, and
 //! the bridge warns where one is there ([`Dialect::home_warning`]).
 
+use super::Brief;
 use super::dialect::{
     Dialect, Event, Outcome, Started, Wire, clipped, conversation_id, entries, first_line_starts,
     sounds_limited, tool_home,
@@ -101,10 +102,10 @@ impl Dialect for Codex {
         CliTool::Codex
     }
 
-    fn files(&self, settings: &Settings, system: &str) -> Vec<(&'static str, String)> {
+    fn files(&self, _settings: &Settings, brief: &Brief) -> Vec<(&'static str, String)> {
         vec![
-            (INSTRUCTIONS, system.to_string()),
-            (SCHEMA, schema::answer(settings.extras()).to_string()),
+            (INSTRUCTIONS, brief.system.clone()),
+            (SCHEMA, schema::closed(&brief.schema).to_string()),
         ]
     }
 
@@ -112,7 +113,7 @@ impl Dialect for Codex {
         &self,
         settings: &Settings,
         model: Option<&str>,
-        _system: &str,
+        _brief: &Brief,
         support: &Path,
     ) -> Vec<OsString> {
         let mut args: Vec<OsString> = [

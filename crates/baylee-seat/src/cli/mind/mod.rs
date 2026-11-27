@@ -1,12 +1,12 @@
 //! The CLI as a seat's mind: asking it, reading its answer, cooling down.
 
 use super::{
-    Answer, Arc, BTreeMap, CliMind, CliSeat, Command, Conversation, Cooldown, Disclosure, Duration,
-    GAME_DATA, GameContext, Gone, Instant, LOST, Launch, Limits, MAX_COOLDOWN, Mind, MindError,
+    Answer, Arc, BTreeMap, Brief, CliMind, CliSeat, Command, Conversation, Cooldown, Disclosure,
+    Duration, GameContext, Gone, Instant, LOST, Launch, Limits, MAX_COOLDOWN, Mind, MindError,
     Mutex, Outcome, PROBE, PlayerAction, Prepared, Queue, RETRY_FLOOR, Reader, Readiness, Reply,
     Request, STALE_STORE, Seat, Seats, Session, SessionDir, Settings, Stdio, Store, Tally,
     Thinking, Usage, Value, Waiter, Weak, Wire, collect, decision, detach, json, lock, mpsc,
-    narrator, oneshot, prompt, read, scrub, sweep_stores, write,
+    narrator, oneshot, read, scrub, sweep_stores, write,
 };
 use crate::llm::seatstate::{Holds, Looked, Making, report_and_look_up};
 use crate::llm::time_left;
@@ -19,13 +19,25 @@ impl Holds for CliSeat {
     }
 }
 
+mod converse;
 mod process;
+
+pub use converse::Said;
 
 impl CliMind {
     /// A mind that plays with `settings` through `launch`'s tool, its
-    /// processes living by `limits`.
+    /// processes living by `limits`, told what a seat is told
+    /// ([`Brief::game`]).
     #[must_use]
     pub fn new(settings: Settings, launch: Launch, limits: Limits) -> Self {
+        let brief = Brief::game(settings.extras());
+        Self::with_brief(settings, launch, limits, brief)
+    }
+
+    /// The same, its processes started with `brief` instead: their
+    /// instructions and their answer's schema, under the same lockdown.
+    #[must_use]
+    pub fn with_brief(settings: Settings, launch: Launch, limits: Limits, brief: Brief) -> Self {
         let tally = Tally {
             calls_cap: settings.spend_calls,
             ..Tally::default()
@@ -37,11 +49,7 @@ impl CliMind {
             }
         }
         Self {
-            system: format!(
-                "{}{}{GAME_DATA}",
-                prompt::system(settings.extras()),
-                prompt::JSON_MODE
-            ),
+            brief,
             settings,
             launch,
             seats: Arc::new(Mutex::new(BTreeMap::new())),

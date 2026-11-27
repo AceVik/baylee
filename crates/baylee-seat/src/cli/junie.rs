@@ -52,6 +52,7 @@
 //! conversation is over ([`Dialect::session_files`]), and the line its
 //! index (`sessions/index.jsonl`) holds for it stays.
 
+use super::Brief;
 use super::acp::{self, Agent, Want};
 use super::dialect::{
     Dialect, Event, Started, Wire, conversation_id, entries, sounds_limited, tool_home,
@@ -89,7 +90,7 @@ impl Dialect for Junie {
         true
     }
 
-    fn files(&self, _settings: &Settings, _system: &str) -> Vec<(&'static str, String)> {
+    fn files(&self, _settings: &Settings, _brief: &Brief) -> Vec<(&'static str, String)> {
         vec![(GUIDELINES, String::new())]
     }
 
@@ -97,7 +98,7 @@ impl Dialect for Junie {
         &self,
         settings: &Settings,
         model: Option<&str>,
-        system: &str,
+        brief: &Brief,
         support: &Path,
     ) -> Vec<OsString> {
         let path = |name: &str| support.join(name).to_string_lossy().into_owned();
@@ -121,7 +122,7 @@ impl Dialect for Junie {
         ));
         args.push(format!("--guidelines-filename={}", path(GUIDELINES)));
         args.push(format!("--cache-dir={}", path("cache")));
-        args.push(format!("--system-prompt={system}"));
+        args.push(format!("--system-prompt={}", brief.system));
         if let Some(model) = model {
             args.push(format!("--model={model}"));
         }
