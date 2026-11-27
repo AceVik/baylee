@@ -147,6 +147,7 @@ fn stage_reveals(mut control: ResMut<DevControl>, duel: Option<ResMut<Duel>>) {
 fn seed_the_scenario(
     mut control: ResMut<DevControl>,
     host: Option<ResMut<crate::social::SocialHost>>,
+    lobby: Option<ResMut<crate::lobby::LobbyState>>,
     duel: Option<ResMut<Duel>>,
     images: Res<Assets<Image>>,
     mut pictures: Option<ResMut<seed::Pictures>>,
@@ -154,7 +155,7 @@ fn seed_the_scenario(
     if control.seed_jobs.is_empty() {
         return;
     }
-    let (mut host, mut duel) = (host, duel);
+    let (mut host, mut lobby, mut duel) = (host, lobby, duel);
     for job in std::mem::take(&mut control.seed_jobs) {
         let answer = if job.path == "/images" {
             images::answer(&images)
@@ -162,6 +163,7 @@ fn seed_the_scenario(
             seed::answer(
                 &job.body,
                 host.as_deref_mut(),
+                lobby.as_deref_mut(),
                 duel.as_deref_mut(),
                 pictures.as_deref_mut(),
             )

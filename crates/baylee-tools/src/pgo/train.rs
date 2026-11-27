@@ -135,8 +135,24 @@ fn lobby_and_settings(client: &Client, _root: &Path) -> Result<()> {
     linger(1.5);
     client.click(press("Decks(Tab(Mine))"))?;
     linger(1.0);
-    client.click(press("Header(Nav(3))"))?;
-    linger(2.0);
+    // The pills after Play and Decks: as many as this build's header has (the
+    // replays on a desktop), not a count that a header's polish can outdate.
+    let mut further: Vec<String> = client
+        .screen()?
+        .controls()
+        .iter()
+        .map(|control| control.press.clone())
+        .filter(|press| {
+            press.starts_with("Header(Nav(")
+                && !["Header(Nav(0))", "Header(Nav(1))"].contains(&press.as_str())
+        })
+        .collect();
+    further.sort_unstable();
+    further.dedup();
+    for pill in further {
+        client.click(press(pill))?;
+        linger(2.0);
+    }
     client.click(press("Header(Nav(0))"))?;
     linger(1.5);
     client.click(press("Front(FrontMenu)"))?;
@@ -274,7 +290,11 @@ fn add_and_take_away(client: &Client) -> Result<()> {
 
 fn long_lists(client: &Client, _root: &Path) -> Result<()> {
     client.play_offline()?;
+    // Offline, the seed stands up the harness's own social session first.
     seed(client, &json!({"friends": 500, "lines": 450}))?;
+    client.wait_until("the contacts in the header", |s| {
+        s.control("Header(Friends)").is_some()
+    })?;
     client.click(press("Header(Friends)"))?;
     linger(1.5);
     if client.screen()?.control("GotIt").is_some() {

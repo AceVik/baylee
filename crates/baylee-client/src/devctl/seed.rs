@@ -11,6 +11,7 @@
 //! nobody.
 
 use crate::Duel;
+use crate::lobby::LobbyState;
 use crate::social::SocialHost;
 use baylee_client_core::social::{Body, Social};
 use baylee_core::ids::ObjectId;
@@ -40,9 +41,15 @@ struct Seed {
 }
 
 /// Answers one `/seed`.
+///
+/// Friends and chat lines go into the social machine there is. Where the
+/// shipped client has none, offline (contacts are for accounts since
+/// 15.11.2026), the seed first stands up the harness's memory-only session
+/// (`SocialHost::start_seeded`), which talks to nobody.
 pub(super) fn answer(
     body: &str,
     host: Option<&mut SocialHost>,
+    lobby: Option<&mut LobbyState>,
     duel: Option<&mut Duel>,
     pictures: Option<&mut Pictures>,
 ) -> String {
@@ -51,6 +58,14 @@ pub(super) fn answer(
     };
     let mut social = 0;
     if seed.friends + seed.lines > 0 {
+        let mut host = host;
+        if let (Some(host), Some(lobby)) = (host.as_deref_mut(), lobby)
+            && host.machine.is_none()
+            && !lobby.can_use_contacts()
+        {
+            lobby.seeded_social = true;
+            host.start_seeded();
+        }
         let Some(machine) = host.and_then(|host| host.machine.as_mut()) else {
             return "{\"error\":\"no social session\"}".to_string();
         };

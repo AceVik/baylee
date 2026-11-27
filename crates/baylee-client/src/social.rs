@@ -89,6 +89,21 @@ struct Session {
     guest: bool,
 }
 
+/// The harness's seeded session (`LobbyState::seeded_social`): no gateway and
+/// no token, so nothing is asked of a network. It starts as a guest's, the one
+/// a native client keeps in memory; the seed's welcome then makes it an
+/// account's, which is what opens the friends.
+#[cfg(feature = "dev-control")]
+fn seeded_session() -> Session {
+    Session {
+        gateway: String::new(),
+        token: String::new(),
+        handle: "Seeded#0001".to_owned(),
+        tag: "0001".to_owned(),
+        guest: true,
+    }
+}
+
 /// Whether the gateway has chat.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 enum InfoState {
@@ -255,6 +270,16 @@ impl SocialHost {
         {
             warn!("the chat's state could not be written: {why}");
         }
+    }
+
+    /// Stands up the harness's memory-only session for a `/seed`, at once, so
+    /// that the seed lands in this same frame (`devctl::seed`). The driver
+    /// keeps it, since the lobby now wants [`seeded_session`].
+    #[cfg(feature = "dev-control")]
+    pub(crate) fn start_seeded(&mut self) {
+        self.session = Some(seeded_session());
+        self.info = InfoState::Known(Some((baylee_protocol::social::SOCIAL_VERSION, 30)));
+        self.start(30, social::ChatPrefs::default());
     }
 
     /// Starts only the memory-only guest/browser session here. Native account

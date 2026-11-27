@@ -243,6 +243,11 @@ pub struct LobbyState {
     /// session; `Some(friends)` with one, `friends` for a registered
     /// account. Written by `social` only when it changes.
     pub(crate) chat_header: Option<bool>,
+    /// The harness's memory-only social session, which a `/seed` of friends
+    /// or chat lines stands up where the shipped client has none, offline
+    /// (`devctl::seed`): contacts are then open, as for a signed-in account.
+    #[cfg(feature = "dev-control")]
+    pub(crate) seeded_social: bool,
     /// One successful sign-in password, consumed by the local vault worker.
     pub(crate) vault_login: Option<crate::social::vault_access::Login>,
     /// The terms sheet (WG-1, `DESIGN-v5` §11): up after a sign-in the
@@ -630,6 +635,8 @@ impl LobbyState {
             social_notices: Vec::new(),
             shell_asks: Vec::new(),
             chat_header: None,
+            #[cfg(feature = "dev-control")]
+            seeded_social: false,
             vault_login: None,
             terms: client_core::terms::Terms::default(),
             terms_stale: None,
@@ -877,6 +884,10 @@ impl LobbyState {
     /// Whether Contacts, Friends, and Social chat are available in this session.
     #[must_use]
     pub(crate) fn can_use_contacts(&self) -> bool {
+        #[cfg(feature = "dev-control")]
+        if self.seeded_social {
+            return true;
+        }
         self.lobby.can_use_contacts(self.central_ready())
     }
 

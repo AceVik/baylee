@@ -5,6 +5,10 @@ use super::*;
 
 /// The session the lobby is signed in to, if any.
 fn wanted_session(lobby: &LobbyState) -> Option<Session> {
+    #[cfg(feature = "dev-control")]
+    if lobby.seeded_social {
+        return Some(seeded_session());
+    }
     if !lobby.can_use_contacts() {
         return None;
     }

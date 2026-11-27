@@ -12139,7 +12139,11 @@ backstop, not the rule: close the client when the test is done.
 rows a measurement of a long list or a scene of `cargo tools pgo client` stands on,
 without a gateway: friends and lobby chat lines go into the social machine as frames,
 and copies of a permanent onto the stack of the view the table holds. Every field is
-optional. The engine knows nothing of that stack, and its next view takes it away.
+optional. Offline the shipped client has no social machine (contacts are for
+accounts), so a seed of friends or lines first stands up the harness's own
+memory-only session (`LobbyState::seeded_social`, `SocialHost::start_seeded`): no
+gateway, no token, nothing sent, and the contacts open as for an account. It exists
+in `dev-control` builds alone. The engine knows nothing of that stack, and its next view takes it away.
 `/images` lists what the image assets hold, largest first, for telling a texture
 budget from a render target.
 
