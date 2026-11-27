@@ -14,7 +14,7 @@ workspace = true
 # The standard shipping artifact trains/proves its detector-free session.
 without-loop-detection = []
 # Match the native shipping registry as well as its detector policy.
-tower = ["without-loop-detection", "dep:engine-server", "dep:baylee-tower"]
+tower = ["without-loop-detection", "dep:engine-server", "dep:baylee-tower", "dep:baylee-tower-content"]
 # `engine_perf search`, through `Engine::fork_for`. Off in every build that
 # trains or proves a shipped binary: that build shares a `cargo` run with the
 # binary, and `cargo dev gate shipped-features` keeps this out of a hosting
@@ -35,6 +35,9 @@ baylee-gamehost.workspace = true
 # (crates/baylee-pgo/tests/variant_features.rs).
 engine-server = { package = "baylee-engine-server", path = "../baylee-engine-server", optional = true, default-features = false, features = ["tower"] }
 baylee-tower = { workspace = true, optional = true }
+# The frozen starters the Tower workload seats: the content the shipping
+# executor admits.
+baylee-tower-content = { workspace = true, optional = true }
 baylee-protocol.workspace = true
 baylee-view.workspace = true
 prost.workspace = true
