@@ -72,11 +72,16 @@ means, none picked; Search stays grey until one is, and only Search keeps it
 and searches (`ranked::choice`). The choice is kept per Central account in the
 device's settings (`ranked_opponents`) and sent in the replica `Join` as
 `ai`; without one the join says people only. After that the desk shows it as
-a segmented control under the search, with its meaning in a line that keeps
-two lines' room. Changing it while a search waits moves the search: Central
+a segmented control under the search, with its meaning under it; every
+meaning stands in the same grid cell, the others hidden, so the room is as
+tall as the longest in that language and text step and nothing moves when the
+choice does. Changing it while a search waits moves the search: Central
 keeps a ticket's choice for its key, so the worker cancels it and joins again
 with the same deck under a new key (`native::switch`), while the desk keeps
-showing the search and its clock from the original start.
+showing the search and its clock from the original start. A match that comes
+in the poll already under way is played when the new choice takes that
+opponent (a person always); an AI the person has just turned away is
+cancelled with the ticket, and the search joins again.
 
 While a search waits and accepts an AI, Central names the earliest second an AI
 may be seated (`ai_fill_in_at`). The search card reserves the countdown's room

@@ -112,6 +112,9 @@ pub(crate) enum Action {
     Opponents(Opponents),
     /// An option picked on the first search's sheet, not yet confirmed.
     PickOpponents(Opponents),
+    /// The countdown's one click to people only: [`Self::Opponents`] with
+    /// people, a control of its own beside the segment that says the same.
+    PeopleOnly,
     /// Whom the ladder lists.
     Players(api::ai::BoardPlayers),
 }

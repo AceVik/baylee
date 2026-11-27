@@ -77,7 +77,11 @@ fn drawn_queue(state: &LobbyState) -> QueueState {
     queue
 }
 
-pub(super) fn look(state: &LobbyState, own: Option<OwnRank>) -> Look {
+pub(super) fn look(
+    state: &LobbyState,
+    own: Option<OwnRank>,
+    settings: Option<&crate::settings::ClientSettings>,
+) -> Look {
     Look {
         waiting_consent: state.ranked_net.waiting_consent(),
         format: effective_format(state),
@@ -88,7 +92,7 @@ pub(super) fn look(state: &LobbyState, own: Option<OwnRank>) -> Look {
         recover: state.ranked_net.needs_deck,
         played: state.ranked_net.played,
         error: state.ranked_net.error,
-        opponents: super::choice::current(state),
+        opponents: super::choice::shown(state, settings),
         first_win: matches!(
             state.ranked_net.shown_queue(),
             QueueState::Finished { match_id, .. } if state.ranked.first_win == Some(*match_id)

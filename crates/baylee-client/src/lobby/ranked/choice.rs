@@ -69,6 +69,17 @@ pub(super) fn current(state: &LobbyState) -> Option<Opponents> {
         .filter(|_| state.ranked.opponents_of == account(state))
 }
 
+/// The choice the desk shows: the page's own for the signed-in account, or,
+/// while the page still holds another account's, what this one chose on this
+/// device, so the control says what its next search would send.
+pub(super) fn shown(state: &LobbyState, settings: Option<&ClientSettings>) -> Option<Opponents> {
+    let who = account(state);
+    if state.ranked.opponents_of == who {
+        return state.ranked.opponents;
+    }
+    settings?.ranked_opponents.of(who.as_deref()?)
+}
+
 /// Whether a search may start now: the account has chosen, or the search
 /// is the restore of a waiting one, which keeps what its ticket accepts.
 pub(super) fn chosen(state: &LobbyState) -> bool {
