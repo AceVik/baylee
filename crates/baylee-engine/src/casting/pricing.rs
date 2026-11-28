@@ -3807,6 +3807,7 @@ mod tests {
     /// trigger a reduction on a spell that can only target creatures or
     /// Vehicles.
     #[test]
+    #[allow(clippy::too_many_lines)] // one board, the preview read before and after a tapped target
     fn preview_reduce_cost_if_targets_only_counts_legal_targets_matching_filter() {
         use crate::object::ObjectKind;
         use baylee_cards_dsl::{
@@ -3815,7 +3816,7 @@ mod tests {
         };
         use baylee_core::color::{Color, ColorSet};
         use baylee_core::generated::subtypes;
-        use baylee_core::ids::{CardIndex, SubtypeId};
+        use baylee_core::ids::CardIndex;
         use baylee_core::preset::{FormatId, GamePreset, HouseRules, SeatController, SeatSpec};
         use baylee_core::types::TypeSet;
 
@@ -3967,8 +3968,7 @@ mod tests {
         {
             let base = state.object_mut(vehicle).unwrap().base_mut();
             base.types = TypeSet::ARTIFACT;
-            base.subtypes
-                .insert(SubtypeId::from(subtypes::artifact::VEHICLE));
+            base.subtypes.insert(subtypes::artifact::VEHICLE);
         }
         state.set_tapped(vehicle, true);
         let preview_tapped_vehicle = preview_cast_metric_bounds_for(

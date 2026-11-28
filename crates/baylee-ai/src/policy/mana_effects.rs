@@ -498,10 +498,19 @@ impl TargetMatchCtx<'_> {
     // CR 702.18a (shroud), CR 702.11b (opponent's hexproof).
     fn targetable(&self, o: &PublicObject) -> bool {
         !o.status.is_phased_out()
-            && !(self.exclude_self && o.id == self.caster_source)
+            && !self.is_the_spell_itself(o)
             && (o.keywords & KeywordSet::SHROUD.bits() == 0)
-            && !(self.agent.hostile(o.controller, self.you)
-                && o.keywords & KeywordSet::HEXPROOF.bits() != 0)
+            && !self.hexproof_against_you(o)
+    }
+
+    /// The spell being priced, which cannot target itself (CR 115.5).
+    fn is_the_spell_itself(&self, o: &PublicObject) -> bool {
+        self.exclude_self && o.id == self.caster_source
+    }
+
+    /// An opponent's object with hexproof (CR 702.11b).
+    fn hexproof_against_you(&self, o: &PublicObject) -> bool {
+        self.agent.hostile(o.controller, self.you) && o.keywords & KeywordSet::HEXPROOF.bits() != 0
     }
 
     fn bf_matches(&self, spec_filter: &Filter, extra: impl Fn(&PublicObject) -> bool) -> bool {
@@ -537,7 +546,7 @@ impl TargetMatchCtx<'_> {
 
     fn stack_spell_matches(&self, spec_filter: &Filter) -> bool {
         self.view.stack.iter().any(|o| {
-            !(self.exclude_self && o.id == self.caster_source)
+            !self.is_the_spell_itself(o)
                 && !matches!(o.stack_item, Some(StackItem::Ability { .. }))
                 && self.filter_ok(spec_filter, o, ZoneRef::Stack, Some(self.caster_source))
                 && self.filter_ok(self.target_filter, o, ZoneRef::Stack, self.rule_source)
@@ -1096,9 +1105,9 @@ fn spell_mana_reduction(
         } else if mode == baylee_engine::choice::CastModeKind::Bestow {
             apply_bestow_projection(&mut obj);
         }
-        let target_clauses = baylee_cards::by_index(card.index)
-            .map(|def| spell_target_clauses(def, usize::from(card.face), mode))
-            .unwrap_or_default();
+        let target_clauses = baylee_cards::by_index(card.index).map_or_else(Vec::new, |def| {
+            spell_target_clauses(def, usize::from(card.face), mode)
+        });
         let agent = HeuristicAgent::new(crate::AIProfile::default());
         let allow_unknown_target = total > 0 || offered;
         collect_board_spell_reductions(
