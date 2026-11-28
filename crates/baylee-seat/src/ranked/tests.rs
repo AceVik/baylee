@@ -339,6 +339,13 @@ fn the_carousel_waits_are_jittered_and_tomorrow_is_past_midnight() {
     }
     let tomorrow = until_midnight_utc();
     assert!(tomorrow > Duration::ZERO && tomorrow <= Duration::from_secs(86_405));
+    // A cap raised during the day is seen within the hour, not at midnight.
+    let wait = tomorrow_wait();
+    assert!(
+        wait > Duration::ZERO && wait <= Duration::from_hours(1),
+        "{wait:?}"
+    );
+    assert_eq!(wait, tomorrow.min(Duration::from_hours(1)));
     assert!(
         Settings::default().carousel,
         "the carousel is asked by default"
