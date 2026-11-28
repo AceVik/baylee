@@ -454,7 +454,7 @@ impl Rounds<'_> {
             }
             ai::Unseated::Tomorrow => {
                 self.carousel_later.remove(&format);
-                until_midnight_utc()
+                tomorrow_wait()
             }
             ai::Unseated::Later => {
                 let times = self.carousel_later.entry(format).or_insert(0);
@@ -595,6 +595,17 @@ fn fetch_facts(origin: String, path: std::path::PathBuf, every: Duration) -> Abo
             tokio::time::sleep(every).await;
         }
     }))
+}
+
+/// The longest the carousel waits after a day's cap is reached: an
+/// operator may raise `carousel_daily` or `daily_games` during the day, and
+/// the runner learns it within this, not only after midnight.
+const TOMORROW_RECHECK: Duration = Duration::from_hours(1);
+
+/// How long to wait after Central says a day's cap is reached: until
+/// midnight UTC, when the day turns, but at most [`TOMORROW_RECHECK`].
+fn tomorrow_wait() -> Duration {
+    until_midnight_utc().min(TOMORROW_RECHECK)
 }
 
 /// From now until a moment past the next midnight UTC.

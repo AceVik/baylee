@@ -1644,7 +1644,9 @@ the other.
   any match. Central decides everything else (no person waiting, its caps,
   fill-in off while calibrating), and a refusal says when to ask again:
   `off` (the carousel is off for the account) in ten minutes, `offer` once
-  the offers are renewed, `tomorrow` after the next midnight UTC, `later`
+  the offers are renewed, `tomorrow` (a day's cap reached) after the next
+  midnight UTC but at most an hour, so a cap raised during the day counts
+  within the hour, `later`
   after a wait from 30 s that doubles with each one in a row, jittered, at
   most ten minutes. On by default; `--no-carousel` asks for none.
 - **A match.** The relay takes the match-bound admission for the account
