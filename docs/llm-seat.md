@@ -354,7 +354,8 @@ carry. Models are listed only where no key leaves the machine:
 
 - **Known**: this build's tables. Hosted APIs whose listing would need
   the key are keyed by host, whichever protocol reaches it
-  (`models::HOSTED`: `api.anthropic.com`, `api.deepseek.com`); Anthropic's
+  (`models::HOSTED`: `api.anthropic.com`, `api.deepseek.com`,
+  `api.openai.com`); Anthropic's
   table also serves an Anthropic-protocol address the build does not know
   (a proxy). An agent CLI's models and efforts are its dialect's table
   (`llmseat::clis::choices`, [below](#a-cli-as-the-model)), offered as
@@ -367,12 +368,19 @@ carry. Models are listed only where no key leaves the machine:
 - **Typed**: any other id is played as written, labelled with itself.
 
 Efforts are offered only where the build knows which ones the model takes
-(Claude's current models `low` to `max`, `xhigh` from Opus 4.7 on;
-DeepSeek's models none it can name; agy's orchestrators none, since agy
+(Claude's current models `low` to `max`, `xhigh` from Opus 4.7 on,
+Haiku 5.5 included; OpenAI's GPT-6 models `low` to `max`, and `none`
+beside them on GPT-6.1 Terra, GPT-6 Sol and GPT-6 Luna, from their model
+pages of 28.11.2026; DeepSeek's models none it can name; agy's orchestrators none, since agy
 refuses `--effort` for them). Elsewhere the chair plays the model's
 own default and says so, and the bridge is started with
 `--default-effort`, so an effort the profile names cannot reach a model
 that may refuse it.
+
+On `OpenAI`'s Chat Completions some GPT-6 models call functions only at
+effort `none` (their model pages, 28.11.2026), so a GPT-6 profile on
+`api.openai.com` answers `json_schema`: with `tools` and any other effort
+its first call can be refused, and the seat then plays the house.
 
 ## A CLI as the model
 

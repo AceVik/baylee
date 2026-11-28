@@ -712,7 +712,12 @@ fn a_suggestion_puts_a_priced_model_in_the_box() {
     let mut panel = panel();
     let offered = panel.suggestions(1);
     assert_eq!(offered.len(), 4, "{offered:?}");
-    assert!(panel.suggestions(2).is_empty(), "none priced for openai");
+    // OpenAI's own GPT-6 models are priced for an OpenAI-compatible profile.
+    let openai: Vec<&str> = panel.suggestions(2).iter().map(|(_, m, _)| *m).collect();
+    assert!(
+        openai.contains(&"gpt-6.2-astra") && openai.contains(&"gpt-6-luna"),
+        "{openai:?}"
+    );
     let (index, model, price) = offered[2];
     panel.act(Act::Suggest(1, index));
     assert_eq!(panel.to_save().unwrap().profiles["b"].model, model);
