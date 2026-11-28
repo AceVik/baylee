@@ -101,19 +101,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         if crate::casting::spell_mana_spending(&self.state, player, card) != ManaSpending::EXACT {
             return true;
         }
-        let has_triggered_mana = self.state.delayed.iter().any(|d| {
-            matches!(
-                d.when,
-                crate::state::DelayedWhen::TappedForManaThisTurn { .. }
-            )
-        }) || self.state.battlefield_seen().any(|id| {
-            self.state.object(id).is_some_and(|o| {
-                o.abilities(&self.lookup)
-                    .iter()
-                    .any(baylee_cards_dsl::AbilityDef::is_triggered_mana_ability)
-            })
-        });
-        if has_triggered_mana {
+        if self.taps_trigger_more_mana() {
             return true;
         }
         let mut reach = Reach::default();
@@ -197,6 +185,24 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             }
         }
         reach.pays(cost)
+    }
+
+    /// Whether tapping a source for mana may trigger more mana (CR 605.1b:
+    /// Wild Growth, High Tide), which [`Self::reaches_cast_mana`] does not
+    /// count and so must not refuse a cost on.
+    fn taps_trigger_more_mana(&self) -> bool {
+        self.state.delayed.iter().any(|d| {
+            matches!(
+                d.when,
+                crate::state::DelayedWhen::TappedForManaThisTurn { .. }
+            )
+        }) || self.state.battlefield_seen().any(|id| {
+            self.state.object(id).is_some_and(|o| {
+                o.abilities(&self.lookup)
+                    .iter()
+                    .any(baylee_cards_dsl::AbilityDef::is_triggered_mana_ability)
+            })
+        })
     }
 
     /// What mana ability `index` of `id` adds to `reach`: the colours its
