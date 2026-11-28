@@ -587,6 +587,14 @@ pub(crate) fn amount_with_event_amount(
         // the creating resolution's count so both the arm-time check and the
         // resolution-time CR 603.4 recheck read the arming resolution's action,
         // never 0 and never the reflexive ability's own resolution.
+        //
+        // The captured count is the one the reflexive ability's own `when`
+        // counted (`reflexive::arm_general`), so every `ThisWay` here reads
+        // that one: a condition that named a different "this way" (milled
+        // creature cards under a `when` of any milled card) would read the
+        // wrong number. No card does (Kraven's Last Hunt and The Last Ronin
+        // name their `when`'s own count, 28.11.2026); one that does needs the
+        // resolution's journal kept for its condition instead.
         Amount::EventAmount | Amount::ThisWay(_) | Amount::ThisWayBy { .. } => {
             event_amount.unwrap_or(0)
         }
