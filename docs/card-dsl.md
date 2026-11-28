@@ -731,7 +731,9 @@ express at all yet.
   additional cost to cast this spell, [cost A] or [cost B]" or an activated
   ability's "[cost A] or [cost B]: …"; prompts `YesNoPrompt::ChooseFirstCostBranch`
   when both branches are payable and auto-selects the sole payable branch when
-  only one can be paid),
+  only one can be paid; a cast off the pool counts a mana branch payable when
+  the pool and the mana abilities still on offer reach it, since its payment
+  window follows, CR 601.2g),
   `RemoveAnyCounter { count, kind, filter }` (remove `count` counters of `kind`
   or of any kind when `kind == None` from among permanents you control matching
   `filter`, including `Filter::This`; prompts `ChoicePrompt::CostRemoveCounter`

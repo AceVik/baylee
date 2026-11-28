@@ -440,7 +440,11 @@ and to the player it was written for: the seat's own, or the player
 whose turn it controls (§"A decision for a controlled player"); so are an
 option's taps and the targets named ahead.
 
-A `cast` step names a card and takes its printed price. A card may stand on
+A `cast` step names a card and takes its printed price, with the mana a
+mandatory additional cost owes when its other branch cannot be paid
+(`baylee_ai::spell_mandatory_mana_floor`: Redirect Lightning's "pay 5 life or
+pay {2}" costs {2}{R} below 5 life, CR 119.4; until 28 Nov 2026 the seat
+tapped the {R} alone and the cast was refused). A card may stand on
 several options at several prices (above), and the dearer ones are the menu's.
 
 It stops, and the question is the model's, at anything it does not answer
