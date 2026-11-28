@@ -28,13 +28,24 @@
 //!   Forests and the Island, keeping two Forests (Carbon b4, attempt 4,
 //!   q247);
 //! - the cost paid without one nonbasic land the first plan taps.
+//!
+//! [`hybrid_others`] does the same for a cast option whose spell reads the
+//! colours of mana spent to cast it (`Amount::ManaColorSpentToCast`,
+//! `Amount::ColorsOfManaSpentToCast`) and whose cost has hybrid symbols
+//! (CR 107.4e, 601.2g, 601.2h: Catharsis, Deceit, Firespout): beside the
+//! planner's first plan it lists up to [`OTHERS`] concrete hybrid colour
+//! assignments, distinct by the coloured mana counts they produce and
+//! spending exactly what they tap.
 
+use crate::wake::{Reach, ReachFrom, Way};
+use baylee_cards_dsl::{AbilityDef, Amount, Condition, Effect, EnterModifier};
 use baylee_client_core::manaplan::{self, Plan, Source};
-use baylee_core::color::Color;
+use baylee_core::color::{Color, ColorPair};
 use baylee_core::ids::ObjectId;
 use baylee_core::mana::{ManaColor, ManaCost, ManaSymbol};
 use baylee_core::types::SupertypeSet;
-use baylee_view::{ManaPoolView, PlayerView};
+use baylee_engine::choice::{CastModeKind, LegalActions, Spend};
+use baylee_view::{CardIdentity, ManaPoolView, PlayerView};
 
 /// The most plans listed beside the first.
 pub(super) const OTHERS: usize = 3;
@@ -200,10 +211,25 @@ fn leaving_other_mana(
     out
 }
 
-/// Whether `plan`'s taps and the pool make exactly the mana `owed` costs:
-/// then the payment spends every unit, and the colours they are is what it
-/// spends (CR 601.2h).
-fn spends_exactly(plan: &Plan, owed: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> bool {
+/// Walks `plan`'s steps over `pool` and `sources` (a paid mana ability spends
+/// as it makes) and returns the pool they leave.
+fn pool_after(plan: &Plan, pool: &ManaPoolView, sources: &[Source]) -> Option<ManaPoolView> {
+    let mut floating = *pool;
+    for step in &plan.steps {
+        floating = manaplan::after_step(&floating, step, sources)?;
+    }
+    Some(floating)
+}
+
+/// The pool `plan` leaves when `plan`'s taps and `pool` make exactly the mana
+/// `owed` costs: then the payment spends every unit, and the colours floating
+/// are the colours spent (CR 601.2h).
+fn exact_pool(
+    plan: &Plan,
+    owed: &ManaCost,
+    pool: &ManaPoolView,
+    sources: &[Source],
+) -> Option<ManaPoolView> {
     let needed: u64 = owed
         .symbols()
         .map(|symbol| match symbol {
@@ -211,15 +237,407 @@ fn spends_exactly(plan: &Plan, owed: &ManaCost, pool: &ManaPoolView, sources: &[
             _ => 1,
         })
         .sum();
-    // Walked step by step, because a paid mana ability spends as it makes.
-    let mut floating = *pool;
-    for step in &plan.steps {
-        let Some(after) = manaplan::after_step(&floating, step, sources) else {
-            return false;
-        };
-        floating = after;
+    let floating = pool_after(plan, pool, sources)?;
+    (floating.total() - floating.restricted_total() == needed).then_some(floating)
+}
+
+/// Whether `plan`'s taps and the pool make exactly the mana `owed` costs:
+/// then the payment spends every unit, and the colours they are is what it
+/// spends (CR 601.2h).
+fn spends_exactly(plan: &Plan, owed: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> bool {
+    exact_pool(plan, owed, pool, sources).is_some()
+}
+
+/// The five coloured mana counts floating in `pool`.
+const fn colour_counts(pool: &ManaPoolView) -> [u32; 5] {
+    [pool.white, pool.blue, pool.black, pool.red, pool.green]
+}
+
+/// Up to [`OTHERS`] alternative plans for casting a hybrid spell whose own
+/// abilities read the colours of mana spent to cast it (CR 107.4e, 601.2g,
+/// 601.2h: Catharsis, Deceit, Firespout).
+///
+/// Each plan resolves every hybrid symbol in `reach.plan.cost` to one of its
+/// colours, spends exactly what it taps (so the colours tapped are the colours
+/// spent), and differs from `reach.plan` and earlier alternatives in the
+/// coloured mana counts it produces. Ordinary hybrid spells without such a
+/// reader keep a single option per cast way.
+pub(super) fn hybrid_others(view: &PlayerView, legal: &LegalActions, reach: &Reach) -> Vec<Plan> {
+    if reach.face_down || reach.plan.steps.is_empty() {
+        return Vec::new();
     }
-    floating.total() - floating.restricted_total() == needed
+    if !reads_mana_spent(reach.card, reach_face(reach)) {
+        return Vec::new();
+    }
+    let readings = hybrid_readings(&reach.plan.cost);
+    if readings.is_empty() {
+        return Vec::new();
+    }
+    let me = baylee_client_core::decision::resource_player(view);
+    let Some(raw_pool) = view.seat(me).map(|seat| seat.mana_pool) else {
+        return Vec::new();
+    };
+    let mode = reach_mode(view, reach);
+    let spend = Spend::cast(reach.object, mode);
+    let pool = baylee_ai::spend::pool_for(&raw_pool, legal, spend);
+    let mut plain = baylee_ai::seat_mana_sources(view, legal);
+    baylee_ai::spend::repeat_counter_sources(view, &mut plain);
+    let restricted = baylee_ai::spend::restricted_sources(view, legal);
+    let sources = baylee_ai::spend::sources_for(
+        legal,
+        spend,
+        baylee_ai::spend::Mana {
+            pool: &raw_pool,
+            plain: &plain,
+            restricted: &restricted,
+        },
+        None,
+    );
+    let mut seen_taps = vec![taps(&reach.plan)];
+    let mut seen_colours: Vec<[u32; 5]> = pool_after(&reach.plan, &pool, &sources)
+        .map(|p| colour_counts(&p))
+        .into_iter()
+        .collect();
+    let mut out = Vec::new();
+    for concrete in readings {
+        let Some(mut plan) =
+            baylee_ai::plan_for_spell(&concrete, &raw_pool, view, legal, reach.object, mode)
+        else {
+            continue;
+        };
+        if plan.steps.is_empty() {
+            continue;
+        }
+        let Some(floating) = exact_pool(&plan, &reach.plan.cost, &pool, &sources) else {
+            continue;
+        };
+        let counts = colour_counts(&floating);
+        let key = taps(&plan);
+        if seen_colours.contains(&counts) || seen_taps.contains(&key) {
+            continue;
+        }
+        seen_colours.push(counts);
+        seen_taps.push(key);
+        plan.cost = reach.plan.cost;
+        out.push(plan);
+        if out.len() >= OTHERS {
+            break;
+        }
+    }
+    out
+}
+
+/// The face index a [`Reach`] casts.
+fn reach_face(reach: &Reach) -> usize {
+    match reach.way {
+        Some(Way::Mode(
+            CastModeKind::Face(face)
+            | CastModeKind::EscapeGranted { face, .. }
+            | CastModeKind::LibraryTopLife { face, .. },
+        )) => face,
+        _ => usize::from(reach.card.face),
+    }
+}
+
+/// The [`CastModeKind`] a [`Reach`] plans with.
+fn reach_mode(view: &PlayerView, reach: &Reach) -> CastModeKind {
+    match reach.way {
+        Some(Way::Mode(kind)) => kind,
+        None if reach.face_down => CastModeKind::Disguise,
+        None if reach.from == ReachFrom::Graveyard
+            && view
+                .graveyards
+                .iter()
+                .flatten()
+                .find(|o| o.id == reach.object)
+                .is_some_and(|o| o.flashback.is_some()) =>
+        {
+            CastModeKind::Flashback
+        }
+        _ => CastModeKind::Normal,
+    }
+}
+
+/// Every concrete colour assignment for the hybrid symbols in `cost` (CR
+/// 107.4e), with all-one-colour assignments first so colour-threshold spells
+/// (`{R}{R}` / `{W}{W}`) are always offered before mixed splits. Empty when
+/// `cost` has no hybrid symbols.
+fn hybrid_readings(cost: &ManaCost) -> Vec<ManaCost> {
+    const MAX_READINGS: usize = 32;
+    let mut base = ManaCost::ZERO;
+    let mut hybrids: Vec<(ColorPair, u32)> = Vec::new();
+    for (symbol, count) in cost.runs() {
+        let count = u32::from(count);
+        match symbol {
+            ManaSymbol::Hybrid(pair) | ManaSymbol::HybridPhyrexian(pair) => {
+                if let Some((_, existing)) = hybrids.iter_mut().find(|(p, _)| *p == pair) {
+                    *existing = existing.saturating_add(count);
+                } else {
+                    hybrids.push((pair, count));
+                }
+            }
+            other => base = base.with_symbol(other, count),
+        }
+    }
+    if hybrids.is_empty() {
+        return Vec::new();
+    }
+    let mut out = vec![base];
+    for (pair, n) in hybrids {
+        let mut splits = Vec::with_capacity(usize::try_from(n).unwrap_or(0) + 1);
+        splits.push(n);
+        splits.push(0);
+        for k in 1..n {
+            splits.push(k);
+        }
+        let mut next = Vec::new();
+        for partial in &out {
+            for &first_n in &splits {
+                let candidate = partial
+                    .with_symbol(ManaSymbol::of_color(pair.first()), first_n)
+                    .with_symbol(ManaSymbol::of_color(pair.second()), n - first_n);
+                if !next.contains(&candidate) {
+                    next.push(candidate);
+                    if next.len() >= MAX_READINGS {
+                        break;
+                    }
+                }
+            }
+            if next.len() >= MAX_READINGS {
+                break;
+            }
+        }
+        out = next;
+    }
+    out
+}
+
+/// Whether `card`'s face `face_idx` has any ability or enter modifier that
+/// reads the colours of mana spent to cast it (`Amount::ManaColorSpentToCast`
+/// or `Amount::ColorsOfManaSpentToCast`).
+fn reads_mana_spent(card: CardIdentity, face_idx: usize) -> bool {
+    let Some(def) = baylee_cards::by_index(card.index) else {
+        return false;
+    };
+    let enter_reads = def.faces.get(face_idx).is_some_and(|face| {
+        face.enter_modifiers.iter().any(|modifier| match modifier {
+            EnterModifier::TappedUnlessCondition(c) => cond_reads_mana_spent(c, 0),
+            EnterModifier::WithCounters { amount, .. }
+            | EnterModifier::PayLifeUpTo(amount)
+            | EnterModifier::Bloodthirst(amount) => amount_reads_mana_spent(amount, 0),
+            EnterModifier::WithCountersIf {
+                count, condition, ..
+            } => amount_reads_mana_spent(count, 0) || cond_reads_mana_spent(condition, 0),
+            _ => false,
+        })
+    });
+    enter_reads
+        || def
+            .abilities_for_face(face_idx)
+            .iter()
+            .any(ability_reads_mana_spent)
+}
+
+fn ability_reads_mana_spent(ability: &AbilityDef) -> bool {
+    match ability {
+        AbilityDef::Triggered {
+            condition, effects, ..
+        }
+        | AbilityDef::Spell {
+            condition, effects, ..
+        } => {
+            condition
+                .as_ref()
+                .is_some_and(|c| cond_reads_mana_spent(c, 0))
+                || effects_read_mana_spent(effects)
+        }
+        AbilityDef::ModalTriggered {
+            condition, modes, ..
+        }
+        | AbilityDef::ModalActivated {
+            condition, modes, ..
+        } => {
+            condition
+                .as_ref()
+                .is_some_and(|c| cond_reads_mana_spent(c, 0))
+                || modes.iter().any(|m| effects_read_mana_spent(m.effects))
+        }
+        AbilityDef::ModalSpell { modes, .. } | AbilityDef::Modal { modes, .. } => {
+            modes.iter().any(|m| effects_read_mana_spent(m.effects))
+        }
+        AbilityDef::Activated { effects, .. }
+        | AbilityDef::SagaChapter { effects, .. }
+        | AbilityDef::Loyalty { effects, .. } => effects_read_mana_spent(effects),
+        AbilityDef::ActivatedConditional {
+            condition, effects, ..
+        } => cond_reads_mana_spent(condition, 0) || effects_read_mana_spent(effects),
+        AbilityDef::Static(sa) => sa
+            .condition
+            .as_ref()
+            .is_some_and(|c| cond_reads_mana_spent(c, 0)),
+        _ => false,
+    }
+}
+
+fn cond_reads_mana_spent(cond: &Condition, depth: u8) -> bool {
+    if depth >= 8 {
+        return false;
+    }
+    match cond {
+        Condition::AmountAtLeast(amount, _) | Condition::AmountIsEven(amount) => {
+            amount_reads_mana_spent(amount, depth + 1)
+        }
+        Condition::AmountCompare { left, right, .. } => {
+            amount_reads_mana_spent(left, depth + 1) || amount_reads_mana_spent(right, depth + 1)
+        }
+        Condition::Not(inner) | Condition::TriggerOnly(inner) => {
+            cond_reads_mana_spent(inner, depth + 1)
+        }
+        Condition::All(parts) | Condition::Any(parts) => parts
+            .iter()
+            .any(|part| cond_reads_mana_spent(part, depth + 1)),
+        _ => false,
+    }
+}
+
+fn amount_reads_mana_spent(amount: &Amount, depth: u8) -> bool {
+    if depth >= 8 {
+        return false;
+    }
+    match amount {
+        Amount::ManaColorSpentToCast(_) | Amount::ColorsOfManaSpentToCast => true,
+        Amount::IfCondition {
+            condition,
+            then,
+            otherwise,
+        } => {
+            cond_reads_mana_spent(condition, depth + 1)
+                || amount_reads_mana_spent(then, depth + 1)
+                || amount_reads_mana_spent(otherwise, depth + 1)
+        }
+        Amount::Negated(a)
+        | Amount::Plus { base: a, .. }
+        | Amount::SaturatingSub { base: a, .. }
+        | Amount::ConstantMinus { subtract: a, .. }
+        | Amount::Half { base: a, .. }
+        | Amount::Divided { base: a, .. }
+        | Amount::Times { base: a, .. } => amount_reads_mana_spent(a, depth + 1),
+        Amount::Sum { left, right } | Amount::Difference { left, right } => {
+            amount_reads_mana_spent(left, depth + 1) || amount_reads_mana_spent(right, depth + 1)
+        }
+        _ => false,
+    }
+}
+
+#[allow(clippy::too_many_lines)] // One arm per Effect variant carrying an Amount or Condition.
+fn effects_read_mana_spent(effects: &'static [Effect]) -> bool {
+    let mut found = false;
+    Effect::walk(effects, &mut 0, &mut |effect| {
+        if found {
+            return;
+        }
+        found = match effect {
+            Effect::IfCondition { condition, .. } | Effect::RepeatWhile { condition, .. } => {
+                cond_reads_mana_spent(condition, 0)
+            }
+            Effect::RepeatProcess {
+                max_times,
+                pre_condition,
+                post_condition,
+                ..
+            } => {
+                max_times
+                    .as_ref()
+                    .is_some_and(|a| amount_reads_mana_spent(a, 0))
+                    || pre_condition
+                        .as_ref()
+                        .is_some_and(|c| cond_reads_mana_spent(c, 0))
+                    || post_condition
+                        .as_ref()
+                        .is_some_and(|c| cond_reads_mana_spent(c, 0))
+            }
+            Effect::ReflexiveTrigger { condition, .. }
+            | Effect::RegisterDelayedTrigger { condition, .. } => {
+                condition.is_some_and(|c| cond_reads_mana_spent(c, 0))
+            }
+            Effect::DrawCards { amount }
+            | Effect::DrawCardsFor { amount, .. }
+            | Effect::DiscardAmountForPlayers { amount, .. }
+            | Effect::GainLife { amount }
+            | Effect::GainLifeFor { amount, .. }
+            | Effect::LoseLife { amount, .. }
+            | Effect::DealDamage { amount, .. }
+            | Effect::DealDamageEach { amount, .. }
+            | Effect::DealDamageEvenly { amount, .. }
+            | Effect::AddCounter { amount, .. }
+            | Effect::AddCounterFilter { amount, .. }
+            | Effect::AddCounterSource { amount, .. }
+            | Effect::PutCountersDivided { amount, .. }
+            | Effect::PutCounterChoice { amount, .. }
+            | Effect::CreateTokenN { amount, .. }
+            | Effect::CreateTokensFor { amount, .. }
+            | Effect::CreateTokenAttached { amount, .. }
+            | Effect::Mill { amount, .. }
+            | Effect::Scry { amount, .. }
+            | Effect::Surveil { amount, .. }
+            | Effect::AddMana { amount, .. }
+            | Effect::Bolster(amount)
+            | Effect::Monstrosity(amount)
+            | Effect::Firebend(amount)
+            | Effect::Mobilize(amount)
+            | Effect::Endure(amount)
+            | Effect::Repeat { times: amount, .. }
+            | Effect::ChooseCard { max: amount, .. }
+            | Effect::ChooseCardConstrained { max: amount, .. } => {
+                amount_reads_mana_spent(amount, 0)
+            }
+            Effect::PumpTarget {
+                power, toughness, ..
+            }
+            | Effect::PumpFilter {
+                power, toughness, ..
+            }
+            | Effect::PumpEventObject {
+                power, toughness, ..
+            } => amount_reads_mana_spent(power, 0) || amount_reads_mana_spent(toughness, 0),
+            Effect::CreateTokenSized {
+                amount,
+                power,
+                toughness,
+                ..
+            } => {
+                amount_reads_mana_spent(amount, 0)
+                    || amount_reads_mana_spent(power, 0)
+                    || amount_reads_mana_spent(toughness, 0)
+            }
+            Effect::DamagePermanentAndController {
+                permanent_amount,
+                controller_amount,
+                ..
+            } => {
+                amount_reads_mana_spent(permanent_amount, 0)
+                    || amount_reads_mana_spent(controller_amount, 0)
+            }
+            Effect::ChooseNumberEx { min, max, .. } => {
+                amount_reads_mana_spent(min, 0) || amount_reads_mana_spent(max, 0)
+            }
+            Effect::MoveAndModify { counters, .. } => counters
+                .iter()
+                .any(|(_, amt)| amount_reads_mana_spent(amt, 0)),
+            Effect::SetDynamicPT {
+                power, toughness, ..
+            } => {
+                power
+                    .as_ref()
+                    .is_some_and(|a| amount_reads_mana_spent(a, 0))
+                    || toughness
+                        .as_ref()
+                        .is_some_and(|a| amount_reads_mana_spent(a, 0))
+            }
+            _ => false,
+        };
+    });
+    found
 }
 
 /// The colours (of the five) in the pool and made by `plan`'s taps.

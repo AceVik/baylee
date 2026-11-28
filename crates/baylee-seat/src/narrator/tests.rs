@@ -2375,6 +2375,7 @@ pub(crate) mod controlled;
 mod either_cost;
 mod event_object;
 mod foretell;
+mod hybrid_colors;
 mod land_triggers;
 mod log_cap;
 mod naming;

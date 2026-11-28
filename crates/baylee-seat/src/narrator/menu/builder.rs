@@ -604,19 +604,29 @@ impl Builder<'_, '_> {
             self.offer(label, Act::Now(PlayerAction::CastSpell { card }), index);
         }
         for reach in reached {
-            let label = self.reach_label(&reach);
-            let action = PlayerAction::CastSpell { card: reach.object };
-            let act = if reach.from == ReachFrom::LibraryTop && reach.plan.steps.is_empty() {
-                Act::Now(action)
-            } else {
-                Act::Taps {
-                    steps: reach.plan.steps.clone(),
-                    then: action,
-                }
-            };
-            self.offer(label, act, Some(reach.card.index));
-            self.options.last_mut().expect("just pushed").way =
-                reach.way.map(|way| (reach.object, way));
+            let others = payment::hybrid_others(view, legal, &reach);
+            let way = reach.way.map(|way| (reach.object, way));
+            let card_index = reach.card.index;
+            let object = reach.object;
+            let from = reach.from;
+            for plan in std::iter::once(reach.plan.clone()).chain(others) {
+                let candidate = Reach {
+                    plan,
+                    ..reach.clone()
+                };
+                let label = self.reach_label(&candidate);
+                let action = PlayerAction::CastSpell { card: object };
+                let act = if from == ReachFrom::LibraryTop && candidate.plan.steps.is_empty() {
+                    Act::Now(action)
+                } else {
+                    Act::Taps {
+                        steps: candidate.plan.steps,
+                        then: action,
+                    }
+                };
+                self.offer(label, act, Some(card_index));
+                self.options.last_mut().expect("just pushed").way = way;
+            }
         }
         self.suspends_and_foretells(legal);
         self.non_mana_abilities(legal);

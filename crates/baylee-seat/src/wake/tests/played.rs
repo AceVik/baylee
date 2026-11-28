@@ -72,6 +72,10 @@ pub(super) fn position_with(
         let action = match pending {
             Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
             Pending::Priority { .. } => PlayerAction::PassPriority,
+            Pending::YesNo {
+                prompt: baylee_engine::choice::YesNoPrompt::PayLifeOrEnterTapped { .. },
+                ..
+            } => PlayerAction::YesNo(true),
             other => panic!("unexpected setup question: {other:?}"),
         };
         session.act_slice(player, action, 0).unwrap();
