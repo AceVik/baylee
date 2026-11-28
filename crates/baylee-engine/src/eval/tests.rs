@@ -1497,6 +1497,7 @@ fn life_below_starting_reads_each_players_own_starting_total() {
 /// has left the battlefield, and never reads a later incarnation that reuses
 /// the same engine handle.
 #[test]
+#[allow(clippy::too_many_lines)] // one object through three incarnations, five amounts read at each
 fn intervening_if_spent_to_cast_amounts_read_source_incarnation_lki() {
     use baylee_core::color::{Color, ColorSet};
     use baylee_core::mana::ManaColor;
@@ -1512,11 +1513,13 @@ fn intervening_if_spent_to_cast_amounts_read_source_incarnation_lki() {
         let obj = state.object_mut(source).expect("spell");
         obj.base_mut().types = TypeSet::CREATURE;
         obj.cast_history.set_caster(Some(P0));
-        let mut paid = crate::object::PaidRecord::default();
-        paid.mana_spent = 4;
+        let mut paid = crate::object::PaidRecord {
+            mana_spent: 4,
+            colors_spent: ColorSet::from_slice(&[Color::White]),
+            ..Default::default()
+        };
         paid.mana_types_spent[ManaColor::White.index()] = 2;
         paid.mana_types_spent[ManaColor::Colorless.index()] = 2;
-        paid.colors_spent = ColorSet::from_slice(&[Color::White]);
         paid.mana_paid.add_snow(ManaColor::Colorless, 2);
         obj.paid = Some(Box::new(paid));
         obj.riders.push(crate::object::Rider::ConvokedCount(2));
