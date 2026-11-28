@@ -14,7 +14,7 @@ card!(
     oracle_id = "9e3303aa-2484-4832-86ac-f5ae290d02f1",
     scryfall_id = "affb4500-2704-49fc-bbb4-02ed4bfb3b76",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Catharsis",
         mana_cost = mana!("{4}{R/W}{R/W}"),

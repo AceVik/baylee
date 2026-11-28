@@ -14,7 +14,7 @@ card!(
     oracle_id = "e74efcf2-d77f-4fb5-9027-77e462ec829e",
     scryfall_id = "d0c18ffe-a2b9-40df-a6b4-a9381e6dc467",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Kraven's Last Hunt",
         mana_cost = mana!("{3}{G}"),
