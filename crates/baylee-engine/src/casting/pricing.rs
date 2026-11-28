@@ -3800,4 +3800,188 @@ mod tests {
             }
         }
     }
+
+    /// CR 601.2c, CR 601.2f: `PreviewDynamicDelta::max_mana_reduction` for
+    /// `Modifier::ReduceCostIfTargets` must intersect `target_filter` with the
+    /// spell's own legal targets (`TargetReq`), so a tapped land does not
+    /// trigger a reduction on a spell that can only target creatures or
+    /// Vehicles.
+    #[test]
+    fn preview_reduce_cost_if_targets_only_counts_legal_targets_matching_filter() {
+        use crate::object::ObjectKind;
+        use baylee_cards_dsl::{
+            AbilityDef, CardDef, Coverage, Effect, FaceDef, Filter, KeywordSet, Modifier,
+            PlayerRel, TargetReq, TargetSpec, ZoneRef, face, mana, spell, static_ability,
+        };
+        use baylee_core::color::{Color, ColorSet};
+        use baylee_core::generated::subtypes;
+        use baylee_core::ids::{CardIndex, SubtypeId};
+        use baylee_core::preset::{FormatId, GamePreset, HouseRules, SeatController, SeatSpec};
+        use baylee_core::types::TypeSet;
+
+        struct EmptyLookup;
+        impl CardLookup for EmptyLookup {
+            fn card(&self, _: CardIndex) -> Option<&'static CardDef> {
+                None
+            }
+        }
+
+        static TAPPED_PERMANENT: Filter =
+            Filter::And(&[Filter::Tapped, Filter::InZone(ZoneRef::Battlefield)]);
+        static CREATURE_OR_VEHICLE: Filter = Filter::Or(&[
+            Filter::CREATURE,
+            Filter::HasSubtype(subtypes::artifact::VEHICLE),
+        ]);
+        static FACES: &[FaceDef] = &[face!(
+            name = "Ride's End Probe",
+            mana_cost = mana!("{4}{W}"),
+            types = TypeSet::INSTANT,
+        )];
+        static ABILITIES: &[AbilityDef] = &[
+            static_ability!(
+                Filter::This,
+                Modifier::ReduceCostIfTargets {
+                    who: PlayerRel::You,
+                    spell_filter: &Filter::This,
+                    target_filter: &TAPPED_PERMANENT,
+                    reduction: mana!("{3}"),
+                    abilities: false,
+                },
+                zone = ZoneRef::Stack
+            ),
+            spell!(
+                &[Effect::exile(TargetSpec::Object(&CREATURE_OR_VEHICLE))],
+                targets = Some(TargetReq::one(TargetSpec::Object(&CREATURE_OR_VEHICLE)))
+            ),
+        ];
+        static DEF: CardDef = CardDef {
+            index: CardIndex::new(99_991),
+            oracle_id: "00000000-0000-0000-0000-000000099991",
+            scryfall_id: "00000000-0000-0000-0000-000000099991",
+            faces: FACES,
+            color_identity: ColorSet::from_slice(&[Color::White]),
+            keywords: KeywordSet::EMPTY,
+            commander: baylee_cards_dsl::CommanderRule::NotEligible,
+            partner: baylee_cards_dsl::PartnerKind::None,
+            coverage: Coverage::Implemented,
+            abilities: ABILITIES,
+            fuse: false,
+        };
+
+        let seat = || SeatSpec {
+            controller: SeatController::Open,
+            capabilities: baylee_core::preset::SeatCapabilities::default(),
+            deck: vec![],
+            sideboard: vec![],
+            commanders: vec![],
+            starting_life: Some(20),
+            starting_hand: None,
+            starting_battlefield: vec![],
+            emblems: vec![],
+            team: None,
+        };
+        let mut state = GameState::from_preset(
+            &GamePreset {
+                rules: baylee_core::card_metadata::RulesMetadata::default(),
+                format: FormatId::Freeform,
+                seed: 1,
+                house_rules: HouseRules::default(),
+                modifiers: vec![],
+                prints: vec![],
+                seats: vec![seat(), seat()],
+            },
+            &EmptyLookup,
+        )
+        .expect("empty two-seat state");
+
+        let p0 = PlayerId::new(0);
+        let p1 = PlayerId::new(1);
+
+        let spell_name = state.names.intern("Ride's End Probe");
+        let spell_id = state.create_bare(p0, ObjectKind::Card, spell_name, ZoneLocation::Hand(p0));
+        state.object_mut(spell_id).unwrap().base_mut().types = TypeSet::INSTANT;
+
+        let land_name = state.names.intern("Plains");
+        let tapped_land = state.create_bare(
+            p0,
+            ObjectKind::Permanent,
+            land_name,
+            ZoneLocation::Battlefield,
+        );
+        state.object_mut(tapped_land).unwrap().base_mut().types = TypeSet::LAND;
+        state.set_tapped(tapped_land, true);
+
+        let bear_name = state.names.intern("Bear");
+        let bear = state.create_bare(
+            p1,
+            ObjectKind::Permanent,
+            bear_name,
+            ZoneLocation::Battlefield,
+        );
+        state.object_mut(bear).unwrap().base_mut().types = TypeSet::CREATURE;
+
+        let adj = face_adjustment(&state, p0, spell_id, &DEF, 0, None);
+        assert!(adj.has_target_conditional_reduction);
+        let preview_untapped = preview_cast_metric_bounds_for(
+            &state,
+            p0,
+            spell_id,
+            &DEF,
+            0,
+            None,
+            PreviewCastKind::Face,
+            &adj,
+        );
+        assert_eq!(
+            preview_untapped.max_mana_reduction,
+            ManaCost::ZERO,
+            "a tapped land is not a legal target of Ride's End and must not unlock {{3}} reduction"
+        );
+        assert_eq!(preview_untapped.min_mana_reduction, ManaCost::ZERO);
+
+        // Tap the creature -> now a legal target matches target_filter.
+        state.set_tapped(bear, true);
+        let preview_tapped_creature = preview_cast_metric_bounds_for(
+            &state,
+            p0,
+            spell_id,
+            &DEF,
+            0,
+            None,
+            PreviewCastKind::Face,
+            &adj,
+        );
+        assert_eq!(preview_tapped_creature.max_mana_reduction, mana!("{3}"));
+        assert_eq!(preview_tapped_creature.min_mana_reduction, mana!("{3}"));
+
+        // Untap the creature and add a tapped Vehicle (artifact, not creature) ->
+        // legal target matching target_filter, but not guaranteed since Bear is untapped.
+        state.set_tapped(bear, false);
+        let vehicle_name = state.names.intern("Vehicle");
+        let vehicle = state.create_bare(
+            p1,
+            ObjectKind::Permanent,
+            vehicle_name,
+            ZoneLocation::Battlefield,
+        );
+        {
+            let base = state.object_mut(vehicle).unwrap().base_mut();
+            base.types = TypeSet::ARTIFACT;
+            base.subtypes
+                .insert(SubtypeId::from(subtypes::artifact::VEHICLE));
+        }
+        state.set_tapped(vehicle, true);
+        let preview_tapped_vehicle = preview_cast_metric_bounds_for(
+            &state,
+            p0,
+            spell_id,
+            &DEF,
+            0,
+            None,
+            PreviewCastKind::Face,
+            &adj,
+        );
+        assert_eq!(preview_tapped_vehicle.max_mana_reduction, mana!("{3}"));
+        assert_eq!(preview_tapped_vehicle.min_mana_reduction, ManaCost::ZERO);
+    }
 }
