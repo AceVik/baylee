@@ -331,7 +331,6 @@ pub fn amount_with_context(
 /// incarnation (CR 400.7 / CR 608.2h for intervening-`if` resolution checks
 /// after the source has departed).
 #[must_use]
-#[allow(clippy::too_many_lines)] // One arm per `Amount` variant; splitting it hides the match.
 pub(crate) fn amount_with_version(
     amount: &Amount,
     state: &GameState,
@@ -340,12 +339,30 @@ pub(crate) fn amount_with_version(
     x: Option<u32>,
     source_version: Option<u32>,
 ) -> u32 {
+    amount_with_event_amount(amount, state, you, context, x, source_version, None)
+}
+
+/// Evaluate an amount using captured semantic text, an optional exact source
+/// incarnation (CR 400.7 / CR 608.2h), and an optional captured trigger event
+/// amount (CR 603.4 / CR 603.12).
+#[must_use]
+#[allow(clippy::too_many_lines)] // One arm per `Amount` variant; splitting it hides the match.
+pub(crate) fn amount_with_event_amount(
+    amount: &Amount,
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+    x: Option<u32>,
+    source_version: Option<u32>,
+    event_amount: Option<u32>,
+) -> u32 {
     let Some(_guard) = AmountEvalDepthGuard::enter() else {
         return 0;
     };
     let this = context.source;
-    let eval_nested =
-        |inner: &Amount| amount_with_version(inner, state, you, context, x, source_version);
+    let eval_nested = |inner: &Amount| {
+        amount_with_event_amount(inner, state, you, context, x, source_version, event_amount)
+    };
     match amount {
         Amount::Fixed(n) | Amount::NegXFixed(n) => *n,
         Amount::CreaturesEnteredUnderYourControlThisTurn => state.per_turn.creatures_entered
@@ -518,6 +535,14 @@ pub(crate) fn amount_with_version(
         Amount::DistinctNames { zone, filter } => {
             distinct_names_in_zone(filter, *zone, state, you, context)
         }
+        // Captured trigger event amount (CR 603.4 / CR 603.12): on a reflexive
+        // triggered ability armed from a `ThisWay` event, `event_amount` holds
+        // the creating resolution's count so both the arm-time check and the
+        // resolution-time CR 603.4 recheck read the arming resolution's action,
+        // never 0 and never the reflexive ability's own resolution.
+        Amount::EventAmount | Amount::ThisWay(_) | Amount::ThisWayBy { .. } => {
+            event_amount.unwrap_or(0)
+        }
         // Resolved in resolve.rs, which has the stack object these read.
         Amount::DevotionToManaColor
         | Amount::TargetPower
@@ -529,12 +554,9 @@ pub(crate) fn amount_with_version(
         | Amount::EventPower
         | Amount::EventManaValue
         | Amount::EventManaSpentToCast
-        | Amount::EventAmount
         | Amount::LastDieRoll
         | Amount::CoinsWonThisResolution
         | Amount::TargetsPutIntoGraveyard
-        | Amount::ThisWay(_)
-        | Amount::ThisWayBy { .. }
         // A payment's sacrifices, read off the stack object
         // (`resolve::amount2`).
         | Amount::SacrificedTotalPower
@@ -648,11 +670,18 @@ pub(crate) fn amount_with_version(
             then,
             otherwise,
         } => {
-            let holds = match source_version {
-                Some(_) => {
-                    super::condition_with_event(state, you, context, **condition, source_version, None)
-                }
-                None => super::condition_holds_with_context(state, you, context, **condition),
+            let holds = if source_version.is_some() || event_amount.is_some() {
+                super::condition_with_event_amount(
+                    state,
+                    you,
+                    context,
+                    **condition,
+                    source_version,
+                    None,
+                    event_amount,
+                )
+            } else {
+                super::condition_holds_with_context(state, you, context, **condition)
             };
             let branch = if holds { then } else { otherwise };
             eval_nested(branch)

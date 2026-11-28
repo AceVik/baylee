@@ -245,14 +245,20 @@ pub(super) fn arm_general(
             .object
             .zip(rem.identity.map(|(v, _)| v))
             .map(|(object, version)| DamageSourceRef { object, version });
-        if !crate::eval::intervening_if_for_incarnation(
+        // CR 603.4 / CR 603.12: check the reflexive ability's intervening-`if`
+        // clause against the creating resolution's captured event count
+        // (`rem.amount`) so `Amount::ThisWay` reads what this resolution did.
+        if !crate::eval::intervening_if_for_event(
             state,
             condition.copied(),
             res.controller,
             res.source,
             source_version,
             attachment_lki,
-            event_ref,
+            crate::eval::TriggerEventContext {
+                object: event_ref,
+                amount: rem.amount,
+            },
         ) {
             continue;
         }

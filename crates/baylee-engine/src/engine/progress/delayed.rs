@@ -520,14 +520,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     .object
                     .zip(identity.map(|(v, _)| v))
                     .map(|(object, version)| baylee_core::ids::DamageSourceRef { object, version });
-                if !crate::eval::intervening_if_for_incarnation(
+                if !crate::eval::intervening_if_for_event(
                     &self.state,
                     spec.condition.copied(),
                     controller,
                     spec.source,
                     Some(spec.source_version),
                     None,
-                    event_ref,
+                    crate::eval::TriggerEventContext {
+                        object: event_ref,
+                        amount: rem.amount,
+                    },
                 ) {
                     return false;
                 }

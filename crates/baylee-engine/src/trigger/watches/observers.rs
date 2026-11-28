@@ -67,14 +67,17 @@ fn general_trigger(
         .object
         .zip(rem.identity.map(|(v, _)| v))
         .map(|(object, version)| baylee_core::ids::DamageSourceRef { object, version });
-    if !crate::eval::intervening_if_for_incarnation(
+    if !crate::eval::intervening_if_for_event(
         state,
         spec.condition.copied(),
         controller,
         spec.source,
         Some(spec.source_version),
         None,
-        event_ref,
+        crate::eval::TriggerEventContext {
+            object: event_ref,
+            amount: rem.amount,
+        },
     ) {
         return None;
     }
