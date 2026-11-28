@@ -529,3 +529,59 @@ async fn a_land_written_before_the_main_phase_waits_for_it() {
     assert_eq!(land.action, PlayerAction::PlayLand { card: id(52) });
     assert_eq!(provider.seen().len(), 1, "the plan played it");
 }
+
+/// A cast the plan names after another waits for the first to resolve:
+/// with only the seat's own spell on the stack the seat passes for it, and
+/// casts the second once the stack is empty, without a call. Before 28 Nov
+/// 2026 the second cast went out in response to the first ("cast #13 ·
+/// cast #42 -> #83": Slickshot Show-Off was still a spell when Burst
+/// Lightning was cast, and missed its trigger in ten ranked games).
+#[tokio::test]
+async fn a_cast_after_a_cast_waits_for_the_first_to_resolve() {
+    let (base, provider) = stand_in().await;
+    provider.script(decides(json!({
+        "ask": "q12", "pick": ["a1"], "plan": ["cast #53", "cast #50 -> P2"]
+    })));
+    let mind = mind(&base, Provider::Anthropic, |_| {});
+    let (mut view, _) = board();
+    let first = mind
+        .decide(ask(&view, offer(&[52], &[], &[(31, 0)], &[]), 12))
+        .await
+        .expect("the first answer");
+    assert_eq!(first.action, PlayerAction::PlayLand { card: id(52) });
+
+    // q13: the land is in; the plan casts Rampant Growth.
+    view.hand.retain(|c| c.id != id(52));
+    view.battlefield.push(card(52, "Mountain"));
+    let growth = mind
+        .decide(ask(&view, offer(&[], &[53, 50], &[(31, 0)], &[]), 13))
+        .await
+        .expect("the first cast");
+    assert_eq!(growth.action, PlayerAction::CastSpell { card: id(53) });
+
+    // q14: Rampant Growth is on the stack, and Lightning Bolt could be
+    // cast in response; the seat passes so that the Growth resolves first.
+    view.hand.retain(|c| c.id != id(53));
+    let mut spell = card(53, "Rampant Growth");
+    spell.stack_item = Some(StackItem::Spell);
+    view.stack = vec![spell];
+    let waited = mind
+        .decide(ask(&view, offer(&[], &[50], &[(31, 0)], &[]), 14))
+        .await
+        .expect("a pass");
+    assert_eq!(
+        waited.action,
+        PlayerAction::PassPriority,
+        "the Bolt waits for the Growth"
+    );
+    assert_eq!(provider.seen().len(), 1, "the model is not asked");
+
+    // q15: the Growth resolved; the Bolt goes out.
+    view.stack.clear();
+    let bolt = mind
+        .decide(ask(&view, offer(&[], &[50], &[(31, 0)], &[]), 15))
+        .await
+        .expect("the second cast");
+    assert_eq!(bolt.action, PlayerAction::CastSpell { card: id(50) });
+    assert_eq!(provider.seen().len(), 1, "the plan cast it");
+}

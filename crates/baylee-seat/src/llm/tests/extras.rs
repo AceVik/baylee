@@ -13,7 +13,8 @@ use prompt::Extras;
 /// edits to the common prompt made since (3 Nov 2026: what a zone change
 /// does to an id; the stops and their default; 4 Nov 2026: a decision for
 /// a player whose turn the seat controls; 12 Nov 2026: `until` passes the
-/// seat's own stops too): every edit of
+/// seat's own stops too; 28 Nov 2026: a plan's cast waits for the seat's
+/// own stack, and "you" in a card's text is its controller): every edit of
 /// [`prompt::SYSTEM`] is made here too, by
 /// hand, so that nothing changes it by accident.
 fn before() -> Value {

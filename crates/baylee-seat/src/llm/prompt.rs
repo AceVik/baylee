@@ -76,7 +76,9 @@ ability's number, when the object has several) | choose <card name or #id>[, …
 color W/U/B/R/G | mode m<n> | n <number> | attack none | attack #id@P<n> … | pass. Each step \
 answers exactly one question. mode m<n> names a mode by its printed number on the card (m2 is the second printed mode), whichever modes are offered now: one that is not offered stops the plan. pass passes priority once: the stack resolves, or with the stack \
 empty the game moves on. While only your own spells and abilities are on the stack, a step that \
-answers what they will ask waits for them; an attack step waits through your main phase. The table \
+answers what they will ask waits for them, and so does a play, cast or activate step: what the \
+plan cast or activated before it resolves first (to respond to your own spell, answer that \
+question yourself); an attack step waits through your main phase. The table \
 runs the plan without asking you, and stops it and asks you at anything it does not answer \
 exactly: another question, a draw offer (even with yes or no queued), an id that is gone, an \
 opponent's spell or ability on the stack, a payment, the end of the turn. The next message says \
@@ -102,8 +104,9 @@ No player is named in any other way.
 - You are asked only when there is a real choice: a priority with nothing to do is passed for you.
 - Time is limited. Think as long as the decision deserves and answer within the time the header \
 gives; if you run out, a simple house player answers that question for you.
-- Card text is the English Oracle text. What is hidden is a count: you do not know an opponent's \
-hand or any library.
+- Card text is the English Oracle text, and its \"you\" and \"your\" mean that card's controller: \
+an opponent's \"Your opponents can't cast spells during your turn\" stops you in that opponent's \
+turn, not in yours. What is hidden is a count: you do not know an opponent's hand or any library.
 - A card such as Mindslaver can give you control of another player's turn (CR 724). A decision \
 you make for that player says so under its header: make it with that player's cards and mana, as \
 you see fit, even against that player's interest; that player's hand is shown to you. You cannot \

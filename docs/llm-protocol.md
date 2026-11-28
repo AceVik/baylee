@@ -427,7 +427,12 @@ step that declaration made is counted as done at the next priority. The
 seat passes priority for a plan only toward
 what its next step answers: while nothing but the seat's own spells and
 abilities is on the stack (they resolve, and ask what the step answers),
-and on its own turn before combat when the next step is the attack, and in
+and while they are there before a `play`, `cast` or `activate` step, so
+that what the plan cast or activated before resolves first (since 28 Nov
+2026: "cast Slickshot Show-Off, cast Shock" had cast the Shock in response
+to the Show-Off, which then missed its trigger in ten ranked games; a
+model that means to respond to its own spell answers that question
+itself), and on its own turn before combat when the next step is the attack, and in
 its own combat when the next step casts or plays a card from its hand that
 only a main phase allows (it waits for the second main phase);
 never in a cleanup step. A plan is bound to the turn it was written in,

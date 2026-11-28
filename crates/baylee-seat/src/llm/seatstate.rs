@@ -15,7 +15,9 @@
 //! ([`narrator::Menu::plan_decision`]). The seat passes priority for a
 //! plan only toward what its next step answers: while nothing but its own
 //! spells and abilities is on the stack (they resolve, and ask what the
-//! step answers), on its own turn before combat when the next step is
+//! step answers, and a cast, an activation or a land waits for them, so
+//! that what the plan cast before resolves first), on its own turn before
+//! combat when the next step is
 //! the attack, and in its own combat when the next step casts a card only
 //! a main phase allows. Anything else stops the plan, and the model is asked, with
 //! the reason in the next message (`docs/llm-protocol.md` §"Plans"): a
@@ -773,7 +775,7 @@ impl Seat {
             }
             if let Pending::Priority { legal, .. } = &request.pending
                 && legal.can_pass
-                && waits_for_main(view, &step)
+                && (waits_for_main(view, &step) || waits_for_own_stack(view, &step))
             {
                 let queue = self.queue.as_mut()?;
                 queue.windows += 1;
@@ -1035,6 +1037,26 @@ fn waits_for_main(view: &PlayerView, step: &Step) -> bool {
                     crate::wake::flash(held.card),
                 )
         })
+}
+
+/// A cast, an activation or a land the plan names while the deciding
+/// player's own spells and abilities are on the stack waits for them to
+/// resolve: a plan's steps are read in order, so what it cast or activated
+/// before resolves before the next one is taken. Casting into one's own
+/// spell (CR 117.3c) was what the plan did before, and it was never what
+/// the models meant: "cast Slickshot Show-Off, cast Shock" cast the Shock
+/// in response, while the Show-Off was still a spell, and the Show-Off
+/// missed its trigger in ten ranked games (gpt-6 Astra, gpt-6.1 Sol, 27.
+/// and 28.11.2026); Devoted Duelist's flurry, Cunning Coyote's pump and
+/// Stadium Headliner's count went the same way. Another player's object on
+/// the stack stops the plan before this is asked ([`stop_before_steps`]),
+/// and the cleanup step never passes for a plan.
+fn waits_for_own_stack(view: &PlayerView, step: &Step) -> bool {
+    matches!(
+        step,
+        Step::Cast { .. } | Step::Activate { .. } | Step::Play(_)
+    ) && !view.stack.is_empty()
+        && view.step != baylee_view::Step::Cleanup
 }
 
 /// Why a plan answers nothing at this question, before its next step is
