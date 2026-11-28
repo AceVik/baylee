@@ -376,6 +376,7 @@ mod thought_courier;
 mod thrull_surgeon;
 mod thunderscape_familiar;
 mod tolarian_entrancer;
+mod tomik_izzet_sparkmage;
 mod tonic_peddler;
 mod trained_pronghorn;
 mod tribal_forcemage;
