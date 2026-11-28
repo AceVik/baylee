@@ -315,6 +315,7 @@ mod narset_s_rebuke;
 mod necrologia;
 mod prophetic_bolt;
 mod rain_of_rust;
+mod ride_s_end;
 mod scars_of_the_veteran;
 mod scatter_the_seeds;
 mod second_thoughts;

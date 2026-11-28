@@ -6,9 +6,9 @@
 use super::*;
 use crate::choice::NumberPrompt;
 use baylee_cards_dsl::{
-    Amount, Condition, CounterKind, DelayedDuration, DelayedStep, DelayedTriggerWhen, Filter,
-    PlayerRel, ReflexiveEvent, ReflexiveWhen, ReplacementRule, TargetSpec, ThisWay, Trigger,
-    TriggerRemember, chapter, chapters,
+    Amount, AmountCmp, Condition, CounterKind, DelayedDuration, DelayedStep, DelayedTriggerWhen,
+    Filter, PlayerRel, ReflexiveEvent, ReflexiveWhen, ReplacementRule, TargetSpec, ThisWay,
+    Trigger, TriggerRemember, chapter, chapters,
 };
 use baylee_core::generated::subtypes::enchantment::SAGA;
 
@@ -421,6 +421,228 @@ fn reflexive_trigger_this_way_once_vs_per_occurrence_and_intervening_if() {
         life(&gated, me()),
         20,
         "CR 603.4 second check removes synthetic reflexive trigger when condition becomes false"
+    );
+}
+
+#[test]
+fn reflexive_trigger_this_way_amount_condition_checked_on_arm_and_resolution() {
+    static MILL_FIVE_REFLEXIVE: &[AbilityDef] = &[
+        // Ability 0: "Mill five cards. When you do [if you milled at least 5], gain 4 life."
+        free(
+            &[
+                Effect::Mill {
+                    amount: Amount::Fixed(5),
+                    target: PlayerRel::You,
+                },
+                Effect::ReflexiveTrigger {
+                    when: ReflexiveWhen::ThisWay(ThisWay::Milled(&Filter::Any)),
+                    once: true,
+                    condition: Some(&Condition::AmountCompare {
+                        left: &Amount::ThisWay(ThisWay::Milled(&Filter::Any)),
+                        op: AmountCmp::AtLeast,
+                        right: &Amount::Fixed(5),
+                    }),
+                    targets: None,
+                    remember: TriggerRemember::None,
+                    effects: &[Effect::gain_life(4)],
+                },
+            ],
+            None,
+        ),
+        // Ability 1: same ThisWay count gate combined with a live creature check
+        // so CR 603.4's resolution recheck must still inspect live state while
+        // reading the arming resolution's milled count (not 0).
+        free(
+            &[
+                Effect::Mill {
+                    amount: Amount::Fixed(5),
+                    target: PlayerRel::You,
+                },
+                Effect::ReflexiveTrigger {
+                    when: ReflexiveWhen::ThisWay(ThisWay::Milled(&Filter::Any)),
+                    once: true,
+                    condition: Some(&Condition::All(&[
+                        Condition::AmountCompare {
+                            left: &Amount::ThisWay(ThisWay::Milled(&Filter::Any)),
+                            op: AmountCmp::AtLeast,
+                            right: &Amount::Fixed(5),
+                        },
+                        Condition::ControlCount(&Filter::CREATURE, 1),
+                    ])),
+                    targets: None,
+                    remember: TriggerRemember::None,
+                    effects: &[Effect::gain_life(6)],
+                },
+            ],
+            None,
+        ),
+    ];
+    static KILL: &[AbilityDef] = &[AbilityDef::Spell {
+        effects: &[Effect::destroy(TargetSpec::Object(&Filter::CREATURE))],
+        targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
+        second_targets: None,
+        third_targets: None,
+        condition: None,
+    }];
+
+    let cards = vec![
+        card(
+            PROBE,
+            face("Mill Gate Probe", "{0}", TypeSet::ENCHANTMENT),
+            KeywordSet::EMPTY,
+            MILL_FIVE_REFLEXIVE,
+        ),
+        card(
+            FODDER_5_2,
+            creature_face("Watcher", "{0}", 2, 2),
+            KeywordSet::EMPTY,
+            &[],
+        ),
+        card(
+            KILL_CREATURE,
+            face("Slay", "{0}", TypeSet::INSTANT),
+            KeywordSet::EMPTY,
+            KILL,
+        ),
+    ];
+
+    // A) Milling 5 cards satisfies the ThisWay >= 5 condition both when armed
+    // (CR 603.12) and when the reflexive trigger resolves (CR 603.4).
+    let mut engine = bench(
+        99_864,
+        cards.clone(),
+        [Seat::with(&[PROBE]), Seat::default()],
+    );
+    to_main(&mut engine, me());
+    let probe = the(&engine, ZoneLocation::Battlefield, PROBE);
+    activate(&mut engine, me(), probe, 0);
+    engine.apply(me(), PlayerAction::PassPriority).unwrap();
+    engine.apply(them(), PlayerAction::PassPriority).unwrap();
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Stack).len(),
+        1,
+        "CR 603.12: milling 5 cards arms and stacks the reflexive trigger"
+    );
+    settle(&mut engine, me());
+    assert_eq!(
+        life(&engine, me()),
+        24,
+        "CR 603.4: reflexive trigger rechecks the arming resolution's mill count (5 >= 5) and resolves"
+    );
+
+    // B) Milling only 3 cards from a 3-card library (CR 701.13b) fails 3 >= 5
+    // at arm time and does not trigger at all.
+    let mut short = bench(
+        99_865,
+        cards.clone(),
+        [Seat::with(&[PROBE]), Seat::default()],
+    );
+    to_main(&mut short, me());
+    let extra: Vec<ObjectId> = short
+        .state()
+        .zones
+        .list(ZoneLocation::Library(me()))
+        .iter()
+        .copied()
+        .rev()
+        .skip(3)
+        .collect();
+    for id in extra {
+        short
+            .state
+            .move_object(
+                id,
+                ZoneLocation::Exile(me()),
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .unwrap();
+    }
+    let probe = the(&short, ZoneLocation::Battlefield, PROBE);
+    let before = short.journal().len();
+    activate(&mut short, me(), probe, 0);
+    settle(&mut short, me());
+    assert_eq!(
+        short.state().zones.list(ZoneLocation::Library(me())).len(),
+        0,
+        "all 3 available cards were milled"
+    );
+    assert_eq!(life(&short, me()), 20, "3 < 5 does not gain life");
+    let synthetic_fires = short.journal().entries()[before..]
+        .iter()
+        .filter(|e| {
+            matches!(
+                e.event,
+                crate::event::GameEvent::AbilityTriggered {
+                    ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
+                    ..
+                }
+            )
+        })
+        .count();
+    assert_eq!(
+        synthetic_fires, 0,
+        "milling 3 cards must not arm a ThisWay >= 5 reflexive trigger"
+    );
+
+    // C) Compound condition (ThisWay >= 5 AND control a creature): holds on
+    // arm, then creature is destroyed in response -> CR 603.4 second check
+    // still re-evaluates the live clause and removes the trigger from the stack.
+    let mut interrupted = bench(
+        99_866,
+        cards.clone(),
+        [
+            Seat::with(&[PROBE, FODDER_5_2]),
+            Seat::default().holding(&[KILL_CREATURE]),
+        ],
+    );
+    to_main(&mut interrupted, me());
+    let probe = the(&interrupted, ZoneLocation::Battlefield, PROBE);
+    let creature = the(&interrupted, ZoneLocation::Battlefield, FODDER_5_2);
+    activate(&mut interrupted, me(), probe, 1);
+    interrupted.apply(me(), PlayerAction::PassPriority).unwrap();
+    interrupted
+        .apply(them(), PlayerAction::PassPriority)
+        .unwrap();
+    assert_eq!(
+        interrupted.state().zones.list(ZoneLocation::Stack).len(),
+        1,
+        "compound reflexive trigger stacked while 5 milled and creature controlled"
+    );
+    interrupted.apply(me(), PlayerAction::PassPriority).unwrap();
+    let _ = cast_from_hand(&mut interrupted, them(), KILL_CREATURE);
+    if matches!(interrupted.pending(), Pending::ChooseTargets { .. }) {
+        interrupted
+            .apply(
+                them(),
+                PlayerAction::ChooseTargets {
+                    objects: vec![creature],
+                    players: vec![],
+                },
+            )
+            .unwrap();
+    }
+    settle(&mut interrupted, me());
+    assert_eq!(
+        life(&interrupted, me()),
+        20,
+        "CR 603.4: destroying the creature in response still aborts resolution"
+    );
+
+    // D) Same compound condition when the creature survives: resolves for +6 life.
+    let mut intact = bench(
+        99_867,
+        cards,
+        [Seat::with(&[PROBE, FODDER_5_2]), Seat::default()],
+    );
+    to_main(&mut intact, me());
+    let probe = the(&intact, ZoneLocation::Battlefield, PROBE);
+    activate(&mut intact, me(), probe, 1);
+    settle(&mut intact, me());
+    assert_eq!(
+        life(&intact, me()),
+        26,
+        "compound condition resolves when both ThisWay >= 5 and creature control still hold"
     );
 }
 

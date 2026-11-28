@@ -939,7 +939,7 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             {
                 return paid.mana_spent;
             }
-            eval::mana_spent_on(state, id)
+            eval::mana_spent_on(state, id, None)
         }
         Amount::EventManaSpentToCast => state
             .object(res.on_stack)
@@ -1006,27 +1006,35 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .and_then(|o| o.paid.as_ref())
             .map(|p| p.mana_spent)
             .filter(|&n| n > 0 || res.on_stack == res.source)
-            .unwrap_or_else(|| eval::mana_spent_on(state, res.source)),
+            .unwrap_or_else(|| eval::mana_spent_on(state, res.source, source_version(state, res))),
         Amount::SnowManaSpentToCast => state
             .object(res.on_stack)
             .map(eval::object_snow_mana_spent)
             .filter(|&n| n > 0)
-            .unwrap_or_else(|| eval::snow_mana_spent_on(state, res.source)),
+            .unwrap_or_else(|| {
+                eval::snow_mana_spent_on(state, res.source, source_version(state, res))
+            }),
         Amount::ManaColorSpentToCast(color) => state
             .object(res.on_stack)
             .map(|o| eval::object_mana_color_spent(o, *color))
             .filter(|&n| n > 0 || res.on_stack == res.source)
-            .unwrap_or_else(|| eval::mana_color_spent_on(state, res.source, *color)),
+            .unwrap_or_else(|| {
+                eval::mana_color_spent_on(state, res.source, source_version(state, res), *color)
+            }),
         Amount::ColorsOfManaSpentToCast => state
             .object(res.on_stack)
             .map(eval::object_colors_of_mana_spent)
             .filter(|&n| n > 0 || res.on_stack == res.source)
-            .unwrap_or_else(|| eval::colors_of_mana_spent_on(state, res.source)),
+            .unwrap_or_else(|| {
+                eval::colors_of_mana_spent_on(state, res.source, source_version(state, res))
+            }),
         Amount::ConvokedCount => state
             .object(res.on_stack)
             .map(eval::object_convoked_count)
             .filter(|&n| n > 0 || res.on_stack == res.source)
-            .unwrap_or_else(|| eval::convoked_count_on(state, res.source)),
+            .unwrap_or_else(|| {
+                eval::convoked_count_on(state, res.source, source_version(state, res))
+            }),
         Amount::EntrySacrifices => state
             .object(res.on_stack)
             .and_then(|o| {

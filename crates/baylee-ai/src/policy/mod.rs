@@ -3968,6 +3968,59 @@ fn mandatory_part_readable(
     }
 }
 
+/// Mandatory additional mana owed when a face's `behold_or_pay` or
+/// `CostPart::Either` has no non-mana branch payable on the current view
+/// (mirroring `baylee_engine::casting::face_additional_mana_floor`, CR 118.8,
+/// 119.4).
+pub(crate) fn mandatory_mana_floor(
+    view: &PlayerView,
+    id: ObjectId,
+    face: &FaceDef,
+) -> baylee_core::mana::ManaCost {
+    let mut extra = baylee_core::mana::ManaCost::ZERO;
+    let agent = HeuristicAgent::new(crate::AIProfile::default());
+    let me = resource_player(view);
+    if let Some(behold) = face.behold_or_pay
+        && !mandatory_part_readable(
+            view,
+            &agent,
+            me,
+            id,
+            &baylee_cards_dsl::CostPart::Behold(behold.filter),
+        )
+    {
+        extra = extra.combine(&behold.cost);
+    }
+    for part in face.mandatory_additional_costs {
+        if let baylee_cards_dsl::CostPart::Either(a, b) = part {
+            let a_ok = a
+                .parts
+                .iter()
+                .all(|p| mandatory_part_readable(view, &agent, me, id, p));
+            let b_ok = b
+                .parts
+                .iter()
+                .all(|p| mandatory_part_readable(view, &agent, me, id, p));
+            match (a_ok, b_ok) {
+                (true, false) => extra = extra.combine(&a.mana),
+                (false, true) => extra = extra.combine(&b.mana),
+                (true, true)
+                    if a.mana != baylee_core::mana::ManaCost::ZERO
+                        && b.mana != baylee_core::mana::ManaCost::ZERO =>
+                {
+                    extra = extra.combine(if a.mana.cmc() <= b.mana.cmc() {
+                        &a.mana
+                    } else {
+                        &b.mana
+                    });
+                }
+                _ => {}
+            }
+        }
+    }
+    extra
+}
+
 /// Costs visible from the card and public commander/graveyard bookkeeping.
 ///
 /// A card cast from a graveyard is priced at what the view says its
@@ -3978,36 +4031,9 @@ fn spell_cost(view: &PlayerView, id: ObjectId, face: &FaceDef) -> baylee_core::m
         .object(id)
         .and_then(|o| o.flashback)
         .unwrap_or(face.mana_cost);
-    if !face.mandatory_additional_costs.is_empty() {
-        let agent = HeuristicAgent::new(crate::AIProfile::default());
-        let me = resource_player(view);
-        for part in face.mandatory_additional_costs {
-            if let baylee_cards_dsl::CostPart::Either(a, b) = part {
-                let a_ok = a
-                    .parts
-                    .iter()
-                    .all(|p| mandatory_part_readable(view, &agent, me, id, p));
-                let b_ok = b
-                    .parts
-                    .iter()
-                    .all(|p| mandatory_part_readable(view, &agent, me, id, p));
-                match (a_ok, b_ok) {
-                    (true, false) => cost = cost.combine(&a.mana),
-                    (false, true) => cost = cost.combine(&b.mana),
-                    (true, true)
-                        if a.mana != baylee_core::mana::ManaCost::ZERO
-                            && b.mana != baylee_core::mana::ManaCost::ZERO =>
-                    {
-                        cost = cost.combine(if a.mana.cmc() <= b.mana.cmc() {
-                            &a.mana
-                        } else {
-                            &b.mana
-                        });
-                    }
-                    _ => {}
-                }
-            }
-        }
+    let floor = mandatory_mana_floor(view, id, face);
+    if floor != baylee_core::mana::ManaCost::ZERO {
+        cost = cost.combine(&floor);
     }
     if view
         .command
@@ -5600,16 +5626,15 @@ fn either_cost_pair(
         CostPart::Either(a, b) => Some((*a, *b)),
         _ => None,
     };
-    if let Some(ab_idx) = context.ability_index {
-        let ab = def
+    if let Some(ab_idx) = context.ability_index
+        && let Some(
+            AbilityDef::Activated { cost, .. }
+            | AbilityDef::ActivatedConditional { cost, .. }
+            | AbilityDef::ModalActivated { cost, .. },
+        ) = def
             .abilities_for_face(face_idx)
-            .get(usize::try_from(ab_idx).ok()?)?;
-        let (AbilityDef::Activated { cost, .. }
-        | AbilityDef::ActivatedConditional { cost, .. }
-        | AbilityDef::ModalActivated { cost, .. }) = ab
-        else {
-            return None;
-        };
+            .get(usize::try_from(ab_idx).ok()?)
+    {
         return cost
             .parts
             .iter()

@@ -1956,24 +1956,32 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     _ => None,
                 })
             });
-        !crate::eval::intervening_if_for_incarnation(
+        let event_object = obj.event_object.and_then(|object| {
+            obj.riders.iter().find_map(|rider| match rider {
+                crate::object::Rider::EventObjectIdentity(version, _) => {
+                    Some(baylee_core::ids::DamageSourceRef {
+                        object,
+                        version: *version,
+                    })
+                }
+                _ => None,
+            })
+        });
+        let event_amount = obj.riders.iter().find_map(|rider| match rider {
+            crate::object::Rider::EventAmount(amount) => Some(*amount),
+            _ => None,
+        });
+        !crate::eval::intervening_if_for_event(
             &self.state,
             condition,
             obj.controller,
             loc.source,
             version,
             crate::resolve::source_attachment_lki(&self.state, on_stack),
-            obj.event_object.and_then(|object| {
-                obj.riders.iter().find_map(|rider| match rider {
-                    crate::object::Rider::EventObjectIdentity(version, _) => {
-                        Some(baylee_core::ids::DamageSourceRef {
-                            object,
-                            version: *version,
-                        })
-                    }
-                    _ => None,
-                })
-            }),
+            crate::eval::TriggerEventContext {
+                object: event_object,
+                amount: event_amount,
+            },
         )
     }
 

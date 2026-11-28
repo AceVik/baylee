@@ -37,10 +37,12 @@ pub(crate) use amounts::{
     permanents_sacrificed_for_seats, snow_mana_spent_on, spells_cast_matching_for_seats,
     tokens_created_this_turn_for_seats, turn_history_seats,
 };
+#[cfg(test)]
+pub(crate) use conditions::intervening_if_for_incarnation;
 pub(crate) use conditions::{
-    attached_for_ability, condition_reads_event, condition_with_event,
-    counters_placed_on_source_this_turn, discarded_for_cost, evolve_holds,
-    intervening_if_for_incarnation, sacrificed_for_cost,
+    TriggerEventContext, attached_for_ability, condition_reads_event, condition_with_event,
+    condition_with_event_amount, counters_placed_on_source_this_turn, discarded_for_cost,
+    evolve_holds, intervening_if_for_event, sacrificed_for_cost,
 };
 pub use conditions::{
     condition_holds, condition_holds_with_context, controlled_matching,
@@ -984,7 +986,7 @@ pub(crate) fn matches_projected_with_choices(
                     .any(|r| matches!(r, crate::object::Rider::WarpedInExile(_)))
         }
         Filter::CmcAtMostSnowManaSpent => {
-            chars.mana_value() <= amounts::snow_mana_spent_on(state, this)
+            chars.mana_value() <= amounts::snow_mana_spent_on(state, this, None)
         }
         Filter::Monstrous => {
             obj.zone == Zone::Battlefield

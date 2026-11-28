@@ -1334,3 +1334,35 @@ fn void_number_choice_picks_best_hostile_mana_value_instead_of_u32_max() {
         "Void chooses the opponent's 4-drop mana value rather than trading down at 2 or falling through to u32::MAX"
     );
 }
+
+#[test]
+fn choose_first_cost_branch_reads_spell_either_cost_even_when_ability_index_is_spell() {
+    let me = PlayerId::new(0);
+    let mut m1 = carded(permanent(obj(1), me, 0), "Mountain", TypeSet::LAND);
+    m1.subtypes
+        .insert(baylee_core::generated::subtypes::land::MOUNTAIN);
+    let mut m2 = carded(permanent(obj(2), me, 0), "Mountain", TypeSet::LAND);
+    m2.subtypes
+        .insert(baylee_core::generated::subtypes::land::MOUNTAIN);
+    let mut v = view(0, &[5, 20], vec![m1, m2]);
+    v.seats[0].mana_pool.red = 1;
+    let redirect = hand_card(20, "Redirect Lightning");
+    let pending = Pending::YesNo {
+        player: me,
+        prompt: baylee_engine::choice::YesNoPrompt::ChooseFirstCostBranch { index: 0 },
+        source: Some(baylee_core::ids::AbilityRef::new(redirect.card.index, 0)),
+    };
+    let ctx = baylee_engine::engine::DecisionContext {
+        actor: Some(me),
+        source: Some(redirect.id),
+        printed: baylee_engine::object::PrintedFace::new(redirect.card.index, 0),
+        ability_index: Some(0),
+        cost: Some(baylee_core::mana!("{R}")),
+        ..Default::default()
+    };
+    assert_eq!(
+        HeuristicAgent::new(AIProfile::EXPERT).act_with_context(&v, &pending, &ctx),
+        PlayerAction::YesNo(false),
+        "at 5 life with {{R}} floating and two untapped Mountains, house AI pays {{2}} instead of dying to PayLife(5)"
+    );
+}

@@ -250,3 +250,113 @@ fn spell_price_applies_dynamic_adjustments_from_legal_actions() {
         "dynamic RaiseCost tax applies before dynamic ReduceCost reduction (CR 601.2f)"
     );
 }
+
+#[test]
+fn ride_s_end_target_reduction_requires_a_matching_legal_target() {
+    use baylee_cards_dsl::KeywordSet;
+
+    let mut view = base_view();
+    let spell = ObjectId::new(90, 0);
+    let card = test_identity("Ride's End");
+    let legal = LegalActions {
+        payable: vec![spell],
+        ..LegalActions::default()
+    };
+
+    // Untapped creature + tapped lands, no Vehicle: Ride's End can only target
+    // creatures or Vehicles (CR 601.2c), so tapped lands must NOT trigger its
+    // {3} target-conditional reduction (CR 601.2f).
+    let bear = test_public_object(1, "Grizzly Bears", 1, None);
+    let mut tapped_land = test_public_object(2, "Plains", 0, None);
+    tapped_land.status = ObjectStatus::TAPPED;
+    let mut opp_tapped_land = test_public_object(3, "Mountain", 1, None);
+    opp_tapped_land.status = ObjectStatus::TAPPED;
+    view.battlefield = vec![bear, tapped_land, opp_tapped_land];
+
+    assert_eq!(
+        crate::spell_price(
+            &view,
+            spell,
+            Some(card),
+            &legal,
+            CastModeKind::Normal,
+            ManaCost::parse("{4}{W}"),
+        ),
+        ManaCost::parse("{4}{W}"),
+        "tapped lands are not legal targets of Ride's End"
+    );
+
+    // Tapping the creature makes the {3} reduction reachable.
+    view.battlefield[0].status = ObjectStatus::TAPPED;
+    assert_eq!(
+        crate::spell_price(
+            &view,
+            spell,
+            Some(card),
+            &legal,
+            CastModeKind::Normal,
+            ManaCost::parse("{4}{W}"),
+        ),
+        ManaCost::parse("{1}{W}"),
+        "a tapped creature is a legal target matching target_filter"
+    );
+
+    // An opponent's tapped creature with hexproof is not a legal target (CR 702.11b).
+    view.battlefield[0].keywords = KeywordSet::HEXPROOF.bits();
+    assert_eq!(
+        crate::spell_price(
+            &view,
+            spell,
+            Some(card),
+            &legal,
+            CastModeKind::Normal,
+            ManaCost::parse("{4}{W}"),
+        ),
+        ManaCost::parse("{4}{W}"),
+        "an opponent's tapped creature with hexproof is not a legal target"
+    );
+
+    // A tapped uncrewed Vehicle is a legal target matching target_filter.
+    view.battlefield[0].status = ObjectStatus::NONE;
+    view.battlefield[0].keywords = 0;
+    let mut copter = test_public_object(4, "Smuggler's Copter", 1, None);
+    copter.status = ObjectStatus::TAPPED;
+    view.battlefield.push(copter);
+    assert_eq!(
+        crate::spell_price(
+            &view,
+            spell,
+            Some(card),
+            &legal,
+            CastModeKind::Normal,
+            ManaCost::parse("{4}{W}"),
+        ),
+        ManaCost::parse("{1}{W}"),
+        "a tapped Vehicle is a legal target matching target_filter"
+    );
+}
+
+#[test]
+fn board_reduce_cost_if_targets_does_not_reduce_untargeted_spells() {
+    let mut view = base_view();
+    let spell = ObjectId::new(91, 0);
+    let divination = test_identity("Divination");
+    let legal = LegalActions {
+        payable: vec![spell],
+        ..LegalActions::default()
+    };
+    view.battlefield = vec![test_public_object(1, "Killian, Ink Duelist", 0, None)];
+
+    assert_eq!(
+        crate::spell_price(
+            &view,
+            spell,
+            Some(divination),
+            &legal,
+            CastModeKind::Normal,
+            ManaCost::parse("{2}{U}"),
+        ),
+        ManaCost::parse("{2}{U}"),
+        "Killian only reduces spells that can target a creature (CR 601.2c, 601.2f)"
+    );
+}

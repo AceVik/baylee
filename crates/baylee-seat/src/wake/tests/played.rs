@@ -878,3 +878,56 @@ fn a_tap_that_counts_its_own_counters_is_a_source() {
     run(&mut session, &plan, PlayerAction::CastSpell { card });
     assert!(session.observe_view(ME).stack.iter().any(|o| o.id == card));
 }
+
+/// Ride's End: "{4}{W} — This spell costs {3} less to cast if it targets a
+/// tapped permanent. Exile target creature or Vehicle."
+///
+/// With every creature untapped and no Vehicle, a tapped land must not cause
+/// the priority menu to offer Ride's End at `{1}{W}` off two Plains (CR 601.2c,
+/// CR 601.2f).
+#[test]
+fn ride_s_end_is_not_offered_at_reduced_cost_when_only_lands_are_tapped() {
+    let (mut session, view, _) = position(
+        &["Plains", "Plains", "Mountain"],
+        &["Ride's End"],
+        &["Grizzly Bears"],
+    );
+    let mountain = view
+        .battlefield
+        .iter()
+        .find(|o| o.controller == ME && o.name == "Mountain")
+        .expect("seat 0's Mountain")
+        .id;
+    // Tap the Mountain in FirstMain, then pass to BeginningOfCombat so its
+    // mana empties (CR 500.4) while the Mountain stays tapped and the two
+    // Plains stay untapped.
+    session
+        .act_slice(
+            ME,
+            PlayerAction::ActivateManaAbility { source: mountain },
+            0,
+        )
+        .unwrap();
+    for _ in 0..20 {
+        let pending = session.pending().clone();
+        let player = pending.asked().expect("table stays playable");
+        if let Pending::Priority { player, .. } = pending
+            && player == ME
+            && session.observe_view(ME).phase == Phase::Combat
+        {
+            break;
+        }
+        session
+            .act_slice(player, PlayerAction::PassPriority, 0)
+            .unwrap();
+    }
+    let (pending, combat_view) = session.view_for(ME).expect("seat 0 holds priority");
+    let Pending::Priority { legal, .. } = pending else {
+        panic!("expected priority in combat, got {pending:?}");
+    };
+    let reach = reachable(&combat_view, &legal);
+    assert!(
+        reach_of(&reach, "Ride's End").is_none(),
+        "tapped Mountain must not make Ride's End reachable at {{1}}{{W}} with two Plains: {reach:?}"
+    );
+}

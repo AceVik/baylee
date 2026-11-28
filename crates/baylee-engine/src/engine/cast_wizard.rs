@@ -2550,7 +2550,20 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let help = u32::try_from(graveyard.saturating_add(taps).saturating_add(harmonize))
             .unwrap_or(u32::MAX);
         let cost = wizard_total_cost(face, &probe).with_less_generic(help);
-        self.wizard_pool_can_pay(&probe, cost)
+        if self.wizard_pool_can_pay(&probe, cost) {
+            return true;
+        }
+        // CR 601.2b, 601.2f, 601.2g: a cast begun off the pool still gets a
+        // payment window in `cast_or_make_miracle_mana` when the chosen branch
+        // exceeds what is floating, so a branch whose total the pool plus
+        // remaining mana sources can reach is payable.
+        let north_star_cost = self.north_star_payment(&probe, cost);
+        self.reaches_cast_mana(
+            probe.player,
+            probe.card,
+            spend_for(&self.state, &probe, face),
+            &north_star_cost,
+        )
     }
 
     /// Pays everything and puts the spell on the stack, or, refused, pays

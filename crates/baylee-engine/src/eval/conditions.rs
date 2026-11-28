@@ -781,7 +781,7 @@ pub fn condition_holds_with_context(
                 })
             }
         },
-        Condition::SnowManaWasSpent => super::amounts::snow_mana_spent_on(state, source) > 0,
+        Condition::SnowManaWasSpent => super::amounts::snow_mana_spent_on(state, source, None) > 0,
         Condition::IsMonstrous => state
             .object(source)
             .is_some_and(|object| object_is_monstrous(state, object)),
@@ -979,10 +979,20 @@ pub fn intervening_if(
     condition.is_none_or(|c| condition_holds(state, you, source, c))
 }
 
+/// Event-side facts captured on a triggered ability for CR 603.4
+/// intervening-`if` checks: the triggering object incarnation and the captured
+/// event amount (including the arming resolution's `ThisWay` count on a
+/// reflexive trigger, CR 603.12).
+#[derive(Clone, Copy, Default)]
+pub(crate) struct TriggerEventContext {
+    pub object: Option<baylee_core::ids::DamageSourceRef>,
+    pub amount: Option<u32>,
+}
+
 /// Resolution's intervening-if check with the source incarnation that
 /// triggered. A graveyard-order clause cannot find a later object that
 /// reuses the same engine handle (CR 400.7).
-#[allow(clippy::too_many_lines)]
+#[cfg(test)]
 pub(crate) fn intervening_if_for_incarnation(
     state: &GameState,
     condition: Option<Condition>,
@@ -992,9 +1002,35 @@ pub(crate) fn intervening_if_for_incarnation(
     attachment: Option<(ObjectId, u32)>,
     event: Option<baylee_core::ids::DamageSourceRef>,
 ) -> bool {
+    intervening_if_for_event(
+        state,
+        condition,
+        you,
+        source,
+        version,
+        attachment,
+        TriggerEventContext {
+            object: event,
+            amount: None,
+        },
+    )
+}
+
+/// Intervening-`if` check (CR 603.4) with both the source incarnation and
+/// captured event context (triggering object incarnation and event amount).
+#[allow(clippy::too_many_lines)]
+pub(crate) fn intervening_if_for_event(
+    state: &GameState,
+    condition: Option<Condition>,
+    you: PlayerId,
+    source: ObjectId,
+    version: Option<u32>,
+    attachment: Option<(ObjectId, u32)>,
+    event: TriggerEventContext,
+) -> bool {
     match condition {
         Some(Condition::All(conditions)) => conditions.iter().all(|condition| {
-            intervening_if_for_incarnation(
+            intervening_if_for_event(
                 state,
                 Some(*condition),
                 you,
@@ -1005,7 +1041,7 @@ pub(crate) fn intervening_if_for_incarnation(
             )
         }),
         Some(Condition::Any(conditions)) => conditions.iter().any(|condition| {
-            intervening_if_for_incarnation(
+            intervening_if_for_event(
                 state,
                 Some(*condition),
                 you,
@@ -1015,7 +1051,7 @@ pub(crate) fn intervening_if_for_incarnation(
                 event,
             )
         }),
-        Some(Condition::Not(condition)) => !intervening_if_for_incarnation(
+        Some(Condition::Not(condition)) => !intervening_if_for_event(
             state,
             Some(*condition),
             you,
@@ -1111,13 +1147,14 @@ pub(crate) fn intervening_if_for_incarnation(
                 && intervening_if(state, condition, you, source)
         }
         Some(Condition::Station(_) | Condition::TriggerOnly(_)) | None => true,
-        Some(condition) => condition_with_event(
+        Some(condition) => condition_with_event_amount(
             state,
             you,
             live_context(state, source),
             condition,
             version,
-            event,
+            event.object,
+            event.amount,
         ),
     }
 }
@@ -1146,7 +1183,6 @@ pub(crate) fn condition_reads_event(condition: Condition) -> bool {
 }
 
 /// Evaluate a condition with the source and event incarnations available.
-#[allow(clippy::too_many_lines)] // One arm per Condition variant inspecting source/event incarnations.
 pub(crate) fn condition_with_event(
     state: &GameState,
     you: PlayerId,
@@ -1154,6 +1190,21 @@ pub(crate) fn condition_with_event(
     condition: Condition,
     source_version: Option<u32>,
     event: Option<baylee_core::ids::DamageSourceRef>,
+) -> bool {
+    condition_with_event_amount(state, you, context, condition, source_version, event, None)
+}
+
+/// Evaluate a condition with the source incarnation, event incarnation, and
+/// optional captured event amount available (CR 603.4 / CR 603.12).
+#[allow(clippy::too_many_lines)] // One arm per Condition variant inspecting source/event incarnations.
+pub(crate) fn condition_with_event_amount(
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+    condition: Condition,
+    source_version: Option<u32>,
+    event: Option<baylee_core::ids::DamageSourceRef>,
+    event_amount: Option<u32>,
 ) -> bool {
     match condition {
         Condition::ClassLevelExactly(level) => state
@@ -1215,17 +1266,45 @@ pub(crate) fn condition_with_event(
             filter,
         } => event_object_matches(state, you, context, filter, event),
         Condition::All(conditions) => conditions.iter().all(|&condition| {
-            condition_with_event(state, you, context, condition, source_version, event)
+            condition_with_event_amount(
+                state,
+                you,
+                context,
+                condition,
+                source_version,
+                event,
+                event_amount,
+            )
         }),
         Condition::Any(conditions) => conditions.iter().any(|&condition| {
-            condition_with_event(state, you, context, condition, source_version, event)
+            condition_with_event_amount(
+                state,
+                you,
+                context,
+                condition,
+                source_version,
+                event,
+                event_amount,
+            )
         }),
-        Condition::Not(condition) => {
-            !condition_with_event(state, you, context, *condition, source_version, event)
-        }
-        Condition::TriggerOnly(condition) => {
-            condition_with_event(state, you, context, *condition, source_version, event)
-        }
+        Condition::Not(condition) => !condition_with_event_amount(
+            state,
+            you,
+            context,
+            *condition,
+            source_version,
+            event,
+            event_amount,
+        ),
+        Condition::TriggerOnly(condition) => condition_with_event_amount(
+            state,
+            you,
+            context,
+            *condition,
+            source_version,
+            event,
+            event_amount,
+        ),
         Condition::SoulbondSelfCanPair => {
             state.is_unpaired_creature_controlled_by(context.source, source_version, you)
                 && state.battlefield_seen().any(|id| {
@@ -1264,17 +1343,46 @@ pub(crate) fn condition_with_event(
             )
         }
         Condition::AmountCompare { left, op, right } => op.holds(
-            super::amounts::amount_with_version(left, state, you, context, None, source_version),
-            super::amounts::amount_with_version(right, state, you, context, None, source_version),
+            super::amounts::amount_with_event_amount(
+                left,
+                state,
+                you,
+                context,
+                None,
+                source_version,
+                event_amount,
+            ),
+            super::amounts::amount_with_event_amount(
+                right,
+                state,
+                you,
+                context,
+                None,
+                source_version,
+                event_amount,
+            ),
         ),
         Condition::AmountAtLeast(amount, minimum) => {
-            super::amounts::amount_with_version(&amount, state, you, context, None, source_version)
-                >= minimum
+            super::amounts::amount_with_event_amount(
+                &amount,
+                state,
+                you,
+                context,
+                None,
+                source_version,
+                event_amount,
+            ) >= minimum
         }
-        Condition::AmountIsEven(amount) => {
-            super::amounts::amount_with_version(&amount, state, you, context, None, source_version)
-                .is_multiple_of(2)
-        }
+        Condition::AmountIsEven(amount) => super::amounts::amount_with_event_amount(
+            &amount,
+            state,
+            you,
+            context,
+            None,
+            source_version,
+            event_amount,
+        )
+        .is_multiple_of(2),
         _ => condition_holds_with_context(state, you, context, condition),
     }
 }

@@ -19,7 +19,7 @@ card!(
     oracle_id = "89e209f3-c474-453f-9659-ccebfc88bc0f",
     scryfall_id = "2f96b33b-c952-45ac-9626-40169b2bd4ef",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ride's End",
         mana_cost = mana!("{4}{W}"),

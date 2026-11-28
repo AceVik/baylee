@@ -54,20 +54,52 @@ pub(crate) fn object_snow_mana_spent(object: &crate::object::GameObject) -> u32 
         .unwrap_or(0)
 }
 
-/// Units of snow mana spent on `source` (using `object_or_departed` for LKI).
+/// Units of snow mana spent on `source` (reading the exact incarnation via
+/// `damage_source` when `source_version` is given so resolution-time
+/// intervening-`if` checks see LKI after departure, `CR 107.4h`, `CR 400.7`,
+/// `CR 603.4`, `CR 608.2h`, `CR 113.7a`).
 #[must_use]
-pub(crate) fn snow_mana_spent_on(state: &GameState, source: ObjectId) -> u32 {
+pub(crate) fn snow_mana_spent_on(
+    state: &GameState,
+    source: ObjectId,
+    source_version: Option<u32>,
+) -> u32 {
     state
-        .object_or_departed(source)
+        .damage_source(source, source_version)
         .map_or(0, object_snow_mana_spent)
 }
 
-/// Total mana spent to cast `source` (`CR 601.2h`, `CR 400.7d`, `CR 608.2h`),
+/// Total mana spent to cast `source` (`CR 601.2h`, `CR 400.7`, `CR 608.2h`),
 /// reading either `source`'s live `PaidRecord` on the stack or, for a permanent
 /// that entered from a cast spell, the stack incarnation immediately preceding
-/// its battlefield arrival. Returns `0` when `source` was not cast.
+/// its battlefield arrival. When `source_version` is provided, reads that exact
+/// incarnation (via LKI after departure) rather than any later object reusing
+/// `source`'s handle. Returns `0` when that incarnation was not cast.
 #[must_use]
-pub(crate) fn mana_spent_on(state: &GameState, source: ObjectId) -> u32 {
+pub(crate) fn mana_spent_on(
+    state: &GameState,
+    source: ObjectId,
+    source_version: Option<u32>,
+) -> u32 {
+    if let Some(version) = source_version {
+        let Some(obj) = state.damage_source(source, Some(version)) else {
+            return 0;
+        };
+        if let Some(paid) = obj.paid.as_ref() {
+            return paid.mana_spent;
+        }
+        if obj.cast_history.caster().is_none() || version == 0 {
+            return 0;
+        }
+        return state
+            .source_object(baylee_core::ids::DamageSourceRef {
+                object: source,
+                version: version - 1,
+            })
+            .filter(|prev| prev.zone == crate::zone::Zone::Stack)
+            .and_then(|prev| prev.paid.as_ref())
+            .map_or(0, |p| p.mana_spent);
+    }
     if let Some(paid) = state.object(source).and_then(|o| o.paid.as_ref()) {
         return paid.mana_spent;
     }
@@ -112,15 +144,18 @@ pub(crate) fn object_mana_color_spent(
         .unwrap_or(0)
 }
 
-/// Units of `color` mana spent to cast `source` (`CR 601.2h`, `CR 400.7d`, `CR 608.2h`).
+/// Units of `color` mana spent to cast `source` (`CR 601.2h`, `CR 400.7`,
+/// `CR 603.4`, `CR 608.2h`, `CR 113.7a`), reading the exact incarnation via
+/// `damage_source` when `source_version` is given.
 #[must_use]
 pub(crate) fn mana_color_spent_on(
     state: &GameState,
     source: ObjectId,
+    source_version: Option<u32>,
     color: baylee_core::mana::ManaColor,
 ) -> u32 {
     state
-        .object_or_departed(source)
+        .damage_source(source, source_version)
         .map_or(0, |o| object_mana_color_spent(o, color))
 }
 
@@ -149,11 +184,17 @@ pub(crate) fn object_colors_of_mana_spent(object: &crate::object::GameObject) ->
         .unwrap_or(0)
 }
 
-/// Distinct colors of mana (`0..=5`) spent to cast `source`.
+/// Distinct colors of mana (`0..=5`) spent to cast `source` (`CR 207.2c`,
+/// `CR 400.7`, `CR 603.4`, `CR 608.2h`, `CR 113.7a`), reading the exact
+/// incarnation via `damage_source` when `source_version` is given.
 #[must_use]
-pub(crate) fn colors_of_mana_spent_on(state: &GameState, source: ObjectId) -> u32 {
+pub(crate) fn colors_of_mana_spent_on(
+    state: &GameState,
+    source: ObjectId,
+    source_version: Option<u32>,
+) -> u32 {
     state
-        .object_or_departed(source)
+        .damage_source(source, source_version)
         .map_or(0, object_colors_of_mana_spent)
 }
 
@@ -170,11 +211,17 @@ pub(crate) fn object_convoked_count(object: &crate::object::GameObject) -> u32 {
         .unwrap_or(0)
 }
 
-/// Number of creatures tapped via convoke to cast `source`.
+/// Number of creatures tapped via convoke to cast `source` (`CR 702.51a`,
+/// `CR 400.7`, `CR 603.4`, `CR 608.2h`, `CR 113.7a`), reading the exact
+/// incarnation via `damage_source` when `source_version` is given.
 #[must_use]
-pub(crate) fn convoked_count_on(state: &GameState, source: ObjectId) -> u32 {
+pub(crate) fn convoked_count_on(
+    state: &GameState,
+    source: ObjectId,
+    source_version: Option<u32>,
+) -> u32 {
     state
-        .object_or_departed(source)
+        .damage_source(source, source_version)
         .map_or(0, object_convoked_count)
 }
 
@@ -331,7 +378,6 @@ pub fn amount_with_context(
 /// incarnation (CR 400.7 / CR 608.2h for intervening-`if` resolution checks
 /// after the source has departed).
 #[must_use]
-#[allow(clippy::too_many_lines)] // One arm per `Amount` variant; splitting it hides the match.
 pub(crate) fn amount_with_version(
     amount: &Amount,
     state: &GameState,
@@ -340,12 +386,30 @@ pub(crate) fn amount_with_version(
     x: Option<u32>,
     source_version: Option<u32>,
 ) -> u32 {
+    amount_with_event_amount(amount, state, you, context, x, source_version, None)
+}
+
+/// Evaluate an amount using captured semantic text, an optional exact source
+/// incarnation (CR 400.7 / CR 608.2h), and an optional captured trigger event
+/// amount (CR 603.4 / CR 603.12).
+#[must_use]
+#[allow(clippy::too_many_lines)] // One arm per `Amount` variant; splitting it hides the match.
+pub(crate) fn amount_with_event_amount(
+    amount: &Amount,
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+    x: Option<u32>,
+    source_version: Option<u32>,
+    event_amount: Option<u32>,
+) -> u32 {
     let Some(_guard) = AmountEvalDepthGuard::enter() else {
         return 0;
     };
     let this = context.source;
-    let eval_nested =
-        |inner: &Amount| amount_with_version(inner, state, you, context, x, source_version);
+    let eval_nested = |inner: &Amount| {
+        amount_with_event_amount(inner, state, you, context, x, source_version, event_amount)
+    };
     match amount {
         Amount::Fixed(n) | Amount::NegXFixed(n) => *n,
         Amount::CreaturesEnteredUnderYourControlThisTurn => state.per_turn.creatures_entered
@@ -518,6 +582,22 @@ pub(crate) fn amount_with_version(
         Amount::DistinctNames { zone, filter } => {
             distinct_names_in_zone(filter, *zone, state, you, context)
         }
+        // Captured trigger event amount (CR 603.4 / CR 603.12): on a reflexive
+        // triggered ability armed from a `ThisWay` event, `event_amount` holds
+        // the creating resolution's count so both the arm-time check and the
+        // resolution-time CR 603.4 recheck read the arming resolution's action,
+        // never 0 and never the reflexive ability's own resolution.
+        //
+        // The captured count is the one the reflexive ability's own `when`
+        // counted (`reflexive::arm_general`), so every `ThisWay` here reads
+        // that one: a condition that named a different "this way" (milled
+        // creature cards under a `when` of any milled card) would read the
+        // wrong number. No card does (Kraven's Last Hunt and The Last Ronin
+        // name their `when`'s own count, 28.11.2026); one that does needs the
+        // resolution's journal kept for its condition instead.
+        Amount::EventAmount | Amount::ThisWay(_) | Amount::ThisWayBy { .. } => {
+            event_amount.unwrap_or(0)
+        }
         // Resolved in resolve.rs, which has the stack object these read.
         Amount::DevotionToManaColor
         | Amount::TargetPower
@@ -529,12 +609,9 @@ pub(crate) fn amount_with_version(
         | Amount::EventPower
         | Amount::EventManaValue
         | Amount::EventManaSpentToCast
-        | Amount::EventAmount
         | Amount::LastDieRoll
         | Amount::CoinsWonThisResolution
         | Amount::TargetsPutIntoGraveyard
-        | Amount::ThisWay(_)
-        | Amount::ThisWayBy { .. }
         // A payment's sacrifices, read off the stack object
         // (`resolve::amount2`).
         | Amount::SacrificedTotalPower
@@ -568,7 +645,7 @@ pub(crate) fn amount_with_version(
         Amount::SacrificedManaValue | Amount::SacrificedPower | Amount::SacrificedToughness => {
             crate::resolve::sacrificed_amount(state.object(this), amount)
         }
-        Amount::ManaSpentToCast => mana_spent_on(state, this),
+        Amount::ManaSpentToCast => mana_spent_on(state, this, source_version),
         Amount::ManaTypeSpentOnX(color) => state
             .object(this)
             .and_then(|o| o.paid.as_ref())
@@ -587,10 +664,12 @@ pub(crate) fn amount_with_version(
         Amount::OpponentsYouAttackedThisCombat => state.combat.opponents_attacked_by(state, you),
         Amount::OpponentsYouAreAttacking => state.combat.opponents_being_attacked_by(state, you),
         Amount::DamageDealtToOpponentsThisTurn => damage_dealt_to_opponents_this_turn(state, you),
-        Amount::SnowManaSpentToCast => snow_mana_spent_on(state, this),
-        Amount::ManaColorSpentToCast(color) => mana_color_spent_on(state, this, *color),
-        Amount::ColorsOfManaSpentToCast => colors_of_mana_spent_on(state, this),
-        Amount::ConvokedCount => convoked_count_on(state, this),
+        Amount::SnowManaSpentToCast => snow_mana_spent_on(state, this, source_version),
+        Amount::ManaColorSpentToCast(color) => {
+            mana_color_spent_on(state, this, source_version, *color)
+        }
+        Amount::ColorsOfManaSpentToCast => colors_of_mana_spent_on(state, this, source_version),
+        Amount::ConvokedCount => convoked_count_on(state, this, source_version),
         Amount::TokensCreatedThisTurn { filter, creator } => {
             super::players_for_source(*creator, state, you, Some(context.source))
                 .map_or(0, |seats| {
@@ -648,11 +727,18 @@ pub(crate) fn amount_with_version(
             then,
             otherwise,
         } => {
-            let holds = match source_version {
-                Some(_) => {
-                    super::condition_with_event(state, you, context, **condition, source_version, None)
-                }
-                None => super::condition_holds_with_context(state, you, context, **condition),
+            let holds = if source_version.is_some() || event_amount.is_some() {
+                super::condition_with_event_amount(
+                    state,
+                    you,
+                    context,
+                    **condition,
+                    source_version,
+                    None,
+                    event_amount,
+                )
+            } else {
+                super::condition_holds_with_context(state, you, context, **condition)
             };
             let branch = if holds { then } else { otherwise };
             eval_nested(branch)

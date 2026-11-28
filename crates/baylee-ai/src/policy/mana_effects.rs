@@ -1,12 +1,15 @@
 //! Battlefield effects that change the mana a tap makes or a spell costs.
 
-use baylee_cards_dsl::{AbilityDef, Effect, Filter, ManaSource};
+use baylee_cards_dsl::{
+    AbilityDef, Effect, Filter, KeywordSet, ManaSource, TargetReq, TargetSpec, ZoneRef,
+};
 use baylee_client_core::decision::resource_player;
 use baylee_client_core::manaplan::Source;
 use baylee_core::ids::ObjectId;
 use baylee_core::mana::{ManaColor, ManaCost};
-use baylee_engine::choice::LegalActions;
-use baylee_view::{CardIdentity, PlayerView};
+use baylee_core::types::TypeSet;
+use baylee_engine::choice::{CastModeKind, LegalActions};
+use baylee_view::{CardIdentity, PlayerView, PublicObject, StackItem};
 
 use super::{card_as_object, effects_self_harm, face, player_rel_hits_you};
 use crate::HeuristicAgent;
@@ -317,27 +320,359 @@ pub(crate) fn spell_mana_increase(
     colored.with_more_generic(rest)
 }
 
-fn any_target_matches_in_view(
+fn push_face_target_clauses(
+    def: &baylee_cards_dsl::CardDef,
+    face_idx: usize,
+    kicked: bool,
+    mode_mask: Option<u32>,
+    out: &mut Vec<TargetReq>,
+) {
+    let Some(face_def) = def.faces.get(face_idx) else {
+        return;
+    };
+    let abilities = def.abilities_for_face(face_idx);
+    if let Some((first, second, third)) = abilities.iter().find_map(|a| match a {
+        AbilityDef::Spell {
+            targets,
+            second_targets,
+            third_targets,
+            ..
+        } => Some((*targets, *second_targets, *third_targets)),
+        _ => None,
+    }) {
+        let eff_first = if kicked {
+            face_def.kicked_targets.or(first)
+        } else {
+            first
+        };
+        out.extend(eff_first);
+        out.extend(second);
+        out.extend(third);
+        return;
+    }
+    if let Some((modes, ..)) = abilities.iter().find_map(AbilityDef::modal_spell) {
+        for (i, m) in modes.iter().enumerate() {
+            if mode_mask.is_some_and(|mask| i >= 32 || (mask & (1_u32 << i)) == 0) {
+                continue;
+            }
+            out.extend(m.targets);
+            out.extend(m.second_targets);
+        }
+        return;
+    }
+    if kicked && let Some(req) = face_def.kicked_targets {
+        out.push(req);
+    }
+}
+
+/// Target clauses a spell cast under `mode` can choose targets for (CR 601.2c).
+fn spell_target_clauses(
+    def: &baylee_cards_dsl::CardDef,
+    face_idx: usize,
+    mode: CastModeKind,
+) -> Vec<TargetReq> {
+    let mut out = Vec::new();
+    match mode {
+        CastModeKind::Disguise => {}
+        CastModeKind::Bestow => {
+            out.push(baylee_engine::casting::BESTOW_TARGET_REQ);
+        }
+        CastModeKind::Mutate => {
+            out.push(baylee_engine::casting::MUTATE_TARGET_REQ);
+        }
+        CastModeKind::Fused => {
+            push_face_target_clauses(def, 0, false, None, &mut out);
+            if def.faces.len() > 1 {
+                push_face_target_clauses(def, 1, false, None, &mut out);
+            }
+        }
+        CastModeKind::Mode(m) => {
+            let mask = (m < 32).then_some(1_u32 << m);
+            push_face_target_clauses(def, face_idx, false, mask, &mut out);
+        }
+        CastModeKind::Modes(bits) => {
+            push_face_target_clauses(def, face_idx, false, Some(u32::from(bits)), &mut out);
+        }
+        CastModeKind::RepeatedModes(packed) => {
+            let mut mask = 0_u32;
+            for i in 0..8_u32 {
+                if ((packed >> (4 * i)) & 0xF) > 0 {
+                    mask |= 1_u32 << i;
+                }
+            }
+            push_face_target_clauses(def, face_idx, false, Some(mask), &mut out);
+        }
+        CastModeKind::EscapeGranted {
+            face,
+            modes,
+            kicked,
+            ..
+        }
+        | CastModeKind::LibraryTopLife {
+            face,
+            modes,
+            kicked,
+            ..
+        } => {
+            let mask = (modes != 0).then_some(u32::from(modes));
+            push_face_target_clauses(def, face, kicked, mask, &mut out);
+        }
+        CastModeKind::Kicked => {
+            push_face_target_clauses(def, face_idx, true, None, &mut out);
+        }
+        CastModeKind::Awaken => {
+            push_face_target_clauses(def, face_idx, false, None, &mut out);
+            out.push(TargetReq::one(TargetSpec::Object(&Filter::YOUR_LAND)));
+        }
+        _ => {
+            push_face_target_clauses(def, face_idx, false, None, &mut out);
+        }
+    }
+    out
+}
+
+/// Target clauses an activated ability can choose targets for (CR 602.2b, 601.2c).
+fn ability_target_clauses(def: &AbilityDef) -> Vec<TargetReq> {
+    let mut out = Vec::new();
+    match def {
+        AbilityDef::Activated {
+            targets,
+            second_targets,
+            third_targets,
+            ..
+        }
+        | AbilityDef::ActivatedConditional {
+            targets,
+            second_targets,
+            third_targets,
+            ..
+        }
+        | AbilityDef::Loyalty {
+            targets,
+            second_targets,
+            third_targets,
+            ..
+        } => {
+            out.extend(*targets);
+            out.extend(*second_targets);
+            out.extend(*third_targets);
+        }
+        AbilityDef::ModalActivated { modes, .. } => {
+            for mode in *modes {
+                out.extend(mode.targets);
+                out.extend(mode.second_targets);
+            }
+        }
+        _ => {}
+    }
+    out
+}
+
+struct TargetMatchCtx<'a> {
+    agent: &'a HeuristicAgent,
+    view: &'a PlayerView,
+    you: baylee_core::ids::PlayerId,
+    caster_source: ObjectId,
+    exclude_self: bool,
+    target_filter: &'a Filter,
+    rule_source: Option<ObjectId>,
+    allow_unknown: bool,
+}
+
+impl TargetMatchCtx<'_> {
+    fn filter_ok(
+        &self,
+        filter: &Filter,
+        obj: &PublicObject,
+        zone: ZoneRef,
+        src: Option<ObjectId>,
+    ) -> bool {
+        match self.agent.filter_matches(filter, self.view, obj, zone, src) {
+            Some(true) => true,
+            None => self.allow_unknown,
+            Some(false) => false,
+        }
+    }
+
+    // CR 702.26b (phased out), CR 115.5 (spell cannot target itself),
+    // CR 702.18a (shroud), CR 702.11b (opponent's hexproof).
+    fn targetable(&self, o: &PublicObject) -> bool {
+        !o.status.is_phased_out()
+            && !self.is_the_spell_itself(o)
+            && (o.keywords & KeywordSet::SHROUD.bits() == 0)
+            && !self.hexproof_against_you(o)
+    }
+
+    /// The spell being priced, which cannot target itself (CR 115.5).
+    fn is_the_spell_itself(&self, o: &PublicObject) -> bool {
+        self.exclude_self && o.id == self.caster_source
+    }
+
+    /// An opponent's object with hexproof (CR 702.11b).
+    fn hexproof_against_you(&self, o: &PublicObject) -> bool {
+        self.agent.hostile(o.controller, self.you) && o.keywords & KeywordSet::HEXPROOF.bits() != 0
+    }
+
+    fn bf_matches(&self, spec_filter: &Filter, extra: impl Fn(&PublicObject) -> bool) -> bool {
+        self.view.battlefield.iter().any(|o| {
+            self.targetable(o)
+                && extra(o)
+                && self.filter_ok(
+                    spec_filter,
+                    o,
+                    ZoneRef::Battlefield,
+                    Some(self.caster_source),
+                )
+                && self.filter_ok(
+                    self.target_filter,
+                    o,
+                    ZoneRef::Battlefield,
+                    self.rule_source,
+                )
+        })
+    }
+
+    fn gy_matches(
+        &self,
+        spec_filter: &Filter,
+        owners: Option<&[baylee_core::ids::PlayerId]>,
+    ) -> bool {
+        self.view.graveyards.iter().flatten().any(|o| {
+            owners.is_none_or(|ps| ps.contains(&o.owner))
+                && self.filter_ok(spec_filter, o, ZoneRef::Graveyard, Some(self.caster_source))
+                && self.filter_ok(self.target_filter, o, ZoneRef::Graveyard, self.rule_source)
+        })
+    }
+
+    fn stack_spell_matches(&self, spec_filter: &Filter) -> bool {
+        self.view.stack.iter().any(|o| {
+            !self.is_the_spell_itself(o)
+                && !matches!(o.stack_item, Some(StackItem::Ability { .. }))
+                && self.filter_ok(spec_filter, o, ZoneRef::Stack, Some(self.caster_source))
+                && self.filter_ok(self.target_filter, o, ZoneRef::Stack, self.rule_source)
+        })
+    }
+
+    fn clause_matches(&self, req: &TargetReq) -> bool {
+        if !req.count_is_x && req.max == 0 {
+            return false;
+        }
+        match req.spec {
+            TargetSpec::Object(f)
+            | TargetSpec::OpponentOrObject(f)
+            | TargetSpec::PlayerOrObject(f)
+            | TargetSpec::ObjectOfFirstTargetsPlayer(f)
+            | TargetSpec::ObjectOfEventPlayer(f) => self.bf_matches(f, |_| true),
+            TargetSpec::ObjectOfEachOpponent(f) => {
+                self.bf_matches(f, |o| self.agent.hostile(o.controller, self.you))
+            }
+            TargetSpec::ObjectControlledBy(f, controller) => {
+                self.bf_matches(f, |o| o.controller == controller)
+            }
+            TargetSpec::AnyTarget => self.view.battlefield.iter().any(|o| {
+                self.targetable(o)
+                    && o.types.intersects(
+                        TypeSet::CREATURE
+                            .union(TypeSet::PLANESWALKER)
+                            .union(TypeSet::BATTLE),
+                    )
+                    && self.filter_ok(
+                        self.target_filter,
+                        o,
+                        ZoneRef::Battlefield,
+                        self.rule_source,
+                    )
+            }),
+            TargetSpec::Spell(f) => self.stack_spell_matches(f),
+            TargetSpec::AbilityOnStack(f) => self.view.stack.iter().any(|o| {
+                matches!(o.stack_item, Some(StackItem::Ability { .. }))
+                    && self.filter_ok(f, o, ZoneRef::Stack, Some(self.caster_source))
+                    && self.filter_ok(self.target_filter, o, ZoneRef::Stack, self.rule_source)
+            }),
+            TargetSpec::SpellOrAbility(f) => self.view.stack.iter().any(|o| {
+                !(self.exclude_self && o.id == self.caster_source)
+                    && self.filter_ok(f, o, ZoneRef::Stack, Some(self.caster_source))
+                    && self.filter_ok(self.target_filter, o, ZoneRef::Stack, self.rule_source)
+            }),
+            TargetSpec::StackOrBattlefield(f) => {
+                self.stack_spell_matches(f) || self.bf_matches(f, |_| true)
+            }
+            TargetSpec::CardInGraveyard(f, rel)
+            | TargetSpec::CardInGraveyardBelowEvent(f, rel)
+            | TargetSpec::CardInGraveyardBelowValue(f, rel, _) => {
+                if let Some(owners) = self.agent.seats(rel, self.view) {
+                    self.gy_matches(f, Some(&owners))
+                } else {
+                    self.allow_unknown && self.gy_matches(f, None)
+                }
+            }
+            TargetSpec::CardInFirstTargetsGraveyard(f) => self.gy_matches(f, None),
+            TargetSpec::CardInPlayersGraveyard(f, owner) => self.gy_matches(f, Some(&[owner])),
+            TargetSpec::ObjectOrCardInAnyGraveyard(f) => {
+                self.bf_matches(f, |_| true) || self.gy_matches(f, None)
+            }
+            TargetSpec::ThisObject => {
+                self.view
+                    .battlefield
+                    .iter()
+                    .find(|o| o.id == self.caster_source && !o.status.is_phased_out())
+                    .is_some_and(|o| {
+                        self.filter_ok(
+                            self.target_filter,
+                            o,
+                            ZoneRef::Battlefield,
+                            self.rule_source,
+                        )
+                    })
+                    || self
+                        .view
+                        .stack
+                        .iter()
+                        .find(|o| o.id == self.caster_source)
+                        .is_some_and(|o| {
+                            self.filter_ok(self.target_filter, o, ZoneRef::Stack, self.rule_source)
+                        })
+            }
+            TargetSpec::EventObject
+            | TargetSpec::Player(_)
+            | TargetSpec::AnyPlayer
+            | TargetSpec::AnyOpponent
+            | TargetSpec::PlayerWhoAttackedThisTurn
+            | TargetSpec::OpponentWithMoreThanActivePlayer(_)
+            | TargetSpec::OpponentWithMoreThanPlayer(..) => false,
+        }
+    }
+}
+
+/// Whether at least one legal target of `clauses` in `view` also satisfies
+/// `target_filter` (CR 601.2c, CR 601.2f).
+///
+/// A `ReduceCostIfTargets` reduction applies only if one of the spell's or
+/// ability's *own* legal targets matches `target_filter`: e.g. Ride's End
+/// ("targets a tapped permanent" / "Exile target creature or Vehicle") must not
+/// count a tapped land as unlocking `{3}` less.
+#[allow(clippy::too_many_arguments)]
+fn any_legal_target_matches_in_view(
     agent: &HeuristicAgent,
     view: &PlayerView,
+    clauses: &[TargetReq],
+    caster_source: ObjectId,
+    exclude_self: bool,
     target_filter: &Filter,
-    source_id: Option<ObjectId>,
+    rule_source: Option<ObjectId>,
     allow_unknown: bool,
 ) -> bool {
-    let matches_in = |obj: &baylee_view::PublicObject, zone: baylee_cards_dsl::ZoneRef| match agent
-        .filter_matches(target_filter, view, obj, zone, source_id)
-    {
-        Some(true) => true,
-        None => allow_unknown,
-        Some(false) => false,
+    let ctx = TargetMatchCtx {
+        agent,
+        view,
+        you: resource_player(view),
+        caster_source,
+        exclude_self,
+        target_filter,
+        rule_source,
+        allow_unknown,
     };
-    view.battlefield
-        .iter()
-        .any(|o| !o.status.is_phased_out() && matches_in(o, baylee_cards_dsl::ZoneRef::Battlefield))
-        || view
-            .stack
-            .iter()
-            .any(|o| matches_in(o, baylee_cards_dsl::ZoneRef::Stack))
+    clauses.iter().any(|req| ctx.clause_matches(req))
 }
 
 /// Evaluates a simple battlefield-observable `Amount` on `perm` (used for
@@ -491,17 +826,25 @@ pub(crate) fn ability_mana_price(
 ) -> ManaCost {
     let increased = base.with_more_generic(legal.activation_increase(source));
     let reduced = effective_activation_mana(view, source, def, increased);
-    let target_reduction = ability_target_mana_reduction(view, source);
+    let target_reduction = ability_target_mana_reduction(view, source, def);
     reduced.with_less_mana(&target_reduction, false)
 }
 
 /// Optimistic colored+generic mana reduction from battlefield
 /// `Modifier::ReduceCostIfTargets { abilities: true, .. }` statics matching
 /// `source` for the seat currently acting in `view`.
-pub(crate) fn ability_target_mana_reduction(view: &PlayerView, source: ObjectId) -> ManaCost {
+pub(crate) fn ability_target_mana_reduction(
+    view: &PlayerView,
+    source: ObjectId,
+    def: &AbilityDef,
+) -> ManaCost {
     let Some(source_obj) = view.object(source) else {
         return ManaCost::ZERO;
     };
+    let clauses = ability_target_clauses(def);
+    if clauses.is_empty() {
+        return ManaCost::ZERO;
+    }
     let you = resource_player(view);
     let agent = HeuristicAgent::new(crate::AIProfile::default());
     let mut total = ManaCost::ZERO;
@@ -544,7 +887,16 @@ pub(crate) fn ability_target_mana_reduction(view: &PlayerView, source: ObjectId)
                 ) == Some(true);
             if outer_ok
                 && inner_ok
-                && any_target_matches_in_view(&agent, view, target_filter, Some(perm.id), true)
+                && any_legal_target_matches_in_view(
+                    &agent,
+                    view,
+                    &clauses,
+                    source,
+                    false,
+                    target_filter,
+                    Some(perm.id),
+                    true,
+                )
             {
                 total = total.combine(reduction);
             }
@@ -560,10 +912,13 @@ struct SpellManaReductions {
     target_only: ManaCost,
 }
 
+#[allow(clippy::too_many_arguments)]
 fn collect_board_spell_reductions(
     agent: &HeuristicAgent,
     view: &PlayerView,
+    spell_id: ObjectId,
     obj: &baylee_view::PublicObject,
+    target_clauses: &[TargetReq],
     allow_unknown_target: bool,
     out: &mut SpellManaReductions,
 ) {
@@ -620,9 +975,12 @@ fn collect_board_spell_reductions(
                         ) == Some(true);
                     if outer_ok
                         && inner_ok
-                        && any_target_matches_in_view(
+                        && any_legal_target_matches_in_view(
                             agent,
                             view,
+                            target_clauses,
+                            spell_id,
+                            true,
                             target_filter,
                             Some(perm.id),
                             allow_unknown_target,
@@ -638,12 +996,14 @@ fn collect_board_spell_reductions(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn collect_self_spell_reductions(
     agent: &HeuristicAgent,
     view: &PlayerView,
     id: ObjectId,
     card: CardIdentity,
     obj: &baylee_view::PublicObject,
+    target_clauses: &[TargetReq],
     allow_unknown_target: bool,
     out: &mut SpellManaReductions,
 ) {
@@ -692,9 +1052,12 @@ fn collect_self_spell_reductions(
                         baylee_cards_dsl::ZoneRef::Stack,
                         Some(id),
                     ) == Some(true))
-                && any_target_matches_in_view(
+                && any_legal_target_matches_in_view(
                     agent,
                     view,
+                    target_clauses,
+                    id,
+                    true,
                     target_filter,
                     Some(id),
                     allow_unknown_target,
@@ -742,15 +1105,27 @@ fn spell_mana_reduction(
         } else if mode == baylee_engine::choice::CastModeKind::Bestow {
             apply_bestow_projection(&mut obj);
         }
+        let target_clauses = baylee_cards::by_index(card.index).map_or_else(Vec::new, |def| {
+            spell_target_clauses(def, usize::from(card.face), mode)
+        });
         let agent = HeuristicAgent::new(crate::AIProfile::default());
         let allow_unknown_target = total > 0 || offered;
-        collect_board_spell_reductions(&agent, view, &obj, allow_unknown_target, &mut reductions);
+        collect_board_spell_reductions(
+            &agent,
+            view,
+            id,
+            &obj,
+            &target_clauses,
+            allow_unknown_target,
+            &mut reductions,
+        );
         collect_self_spell_reductions(
             &agent,
             view,
             id,
             card,
             &obj,
+            &target_clauses,
             allow_unknown_target,
             &mut reductions,
         );

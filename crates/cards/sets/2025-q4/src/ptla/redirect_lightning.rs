@@ -12,7 +12,7 @@ card!(
     oracle_id = "c62b5c22-e058-436f-9575-a01cb2112829",
     scryfall_id = "2b5b14a7-1fdd-4efc-b197-cadfa7f7c860",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Redirect Lightning",
         mana_cost = mana!("{R}"),

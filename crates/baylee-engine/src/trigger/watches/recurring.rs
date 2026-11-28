@@ -299,14 +299,17 @@ pub(crate) fn collect_general(
         } else {
             None
         };
-        if crate::eval::intervening_if_for_incarnation(
+        if crate::eval::intervening_if_for_event(
             state,
             spec.condition.copied(),
             delayed.controller,
             spec.source,
             Some(spec.source_version),
             None,
-            event_ref,
+            crate::eval::TriggerEventContext {
+                object: event_ref,
+                amount: event_amount,
+            },
         ) {
             for _ in 0..count {
                 out.push(PendingTrigger {
