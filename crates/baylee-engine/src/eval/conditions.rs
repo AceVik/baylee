@@ -781,7 +781,7 @@ pub fn condition_holds_with_context(
                 })
             }
         },
-        Condition::SnowManaWasSpent => super::amounts::snow_mana_spent_on(state, source) > 0,
+        Condition::SnowManaWasSpent => super::amounts::snow_mana_spent_on(state, source, None) > 0,
         Condition::IsMonstrous => state
             .object(source)
             .is_some_and(|object| object_is_monstrous(state, object)),

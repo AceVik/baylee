@@ -54,20 +54,52 @@ pub(crate) fn object_snow_mana_spent(object: &crate::object::GameObject) -> u32 
         .unwrap_or(0)
 }
 
-/// Units of snow mana spent on `source` (using `object_or_departed` for LKI).
+/// Units of snow mana spent on `source` (reading the exact incarnation via
+/// `damage_source` when `source_version` is given so resolution-time
+/// intervening-`if` checks see LKI after departure, `CR 107.4h`, `CR 400.7`,
+/// `CR 603.4`, `CR 608.2h`, `CR 113.7a`).
 #[must_use]
-pub(crate) fn snow_mana_spent_on(state: &GameState, source: ObjectId) -> u32 {
+pub(crate) fn snow_mana_spent_on(
+    state: &GameState,
+    source: ObjectId,
+    source_version: Option<u32>,
+) -> u32 {
     state
-        .object_or_departed(source)
+        .damage_source(source, source_version)
         .map_or(0, object_snow_mana_spent)
 }
 
-/// Total mana spent to cast `source` (`CR 601.2h`, `CR 400.7d`, `CR 608.2h`),
+/// Total mana spent to cast `source` (`CR 601.2h`, `CR 400.7`, `CR 608.2h`),
 /// reading either `source`'s live `PaidRecord` on the stack or, for a permanent
 /// that entered from a cast spell, the stack incarnation immediately preceding
-/// its battlefield arrival. Returns `0` when `source` was not cast.
+/// its battlefield arrival. When `source_version` is provided, reads that exact
+/// incarnation (via LKI after departure) rather than any later object reusing
+/// `source`'s handle. Returns `0` when that incarnation was not cast.
 #[must_use]
-pub(crate) fn mana_spent_on(state: &GameState, source: ObjectId) -> u32 {
+pub(crate) fn mana_spent_on(
+    state: &GameState,
+    source: ObjectId,
+    source_version: Option<u32>,
+) -> u32 {
+    if let Some(version) = source_version {
+        let Some(obj) = state.damage_source(source, Some(version)) else {
+            return 0;
+        };
+        if let Some(paid) = obj.paid.as_ref() {
+            return paid.mana_spent;
+        }
+        if obj.cast_history.caster().is_none() || version == 0 {
+            return 0;
+        }
+        return state
+            .source_object(baylee_core::ids::DamageSourceRef {
+                object: source,
+                version: version - 1,
+            })
+            .filter(|prev| prev.zone == crate::zone::Zone::Stack)
+            .and_then(|prev| prev.paid.as_ref())
+            .map_or(0, |p| p.mana_spent);
+    }
     if let Some(paid) = state.object(source).and_then(|o| o.paid.as_ref()) {
         return paid.mana_spent;
     }
@@ -112,15 +144,18 @@ pub(crate) fn object_mana_color_spent(
         .unwrap_or(0)
 }
 
-/// Units of `color` mana spent to cast `source` (`CR 601.2h`, `CR 400.7d`, `CR 608.2h`).
+/// Units of `color` mana spent to cast `source` (`CR 601.2h`, `CR 400.7`,
+/// `CR 603.4`, `CR 608.2h`, `CR 113.7a`), reading the exact incarnation via
+/// `damage_source` when `source_version` is given.
 #[must_use]
 pub(crate) fn mana_color_spent_on(
     state: &GameState,
     source: ObjectId,
+    source_version: Option<u32>,
     color: baylee_core::mana::ManaColor,
 ) -> u32 {
     state
-        .object_or_departed(source)
+        .damage_source(source, source_version)
         .map_or(0, |o| object_mana_color_spent(o, color))
 }
 
@@ -149,11 +184,17 @@ pub(crate) fn object_colors_of_mana_spent(object: &crate::object::GameObject) ->
         .unwrap_or(0)
 }
 
-/// Distinct colors of mana (`0..=5`) spent to cast `source`.
+/// Distinct colors of mana (`0..=5`) spent to cast `source` (`CR 207.2c`,
+/// `CR 400.7`, `CR 603.4`, `CR 608.2h`, `CR 113.7a`), reading the exact
+/// incarnation via `damage_source` when `source_version` is given.
 #[must_use]
-pub(crate) fn colors_of_mana_spent_on(state: &GameState, source: ObjectId) -> u32 {
+pub(crate) fn colors_of_mana_spent_on(
+    state: &GameState,
+    source: ObjectId,
+    source_version: Option<u32>,
+) -> u32 {
     state
-        .object_or_departed(source)
+        .damage_source(source, source_version)
         .map_or(0, object_colors_of_mana_spent)
 }
 
@@ -170,11 +211,17 @@ pub(crate) fn object_convoked_count(object: &crate::object::GameObject) -> u32 {
         .unwrap_or(0)
 }
 
-/// Number of creatures tapped via convoke to cast `source`.
+/// Number of creatures tapped via convoke to cast `source` (`CR 702.51a`,
+/// `CR 400.7`, `CR 603.4`, `CR 608.2h`, `CR 113.7a`), reading the exact
+/// incarnation via `damage_source` when `source_version` is given.
 #[must_use]
-pub(crate) fn convoked_count_on(state: &GameState, source: ObjectId) -> u32 {
+pub(crate) fn convoked_count_on(
+    state: &GameState,
+    source: ObjectId,
+    source_version: Option<u32>,
+) -> u32 {
     state
-        .object_or_departed(source)
+        .damage_source(source, source_version)
         .map_or(0, object_convoked_count)
 }
 
@@ -590,7 +637,7 @@ pub(crate) fn amount_with_event_amount(
         Amount::SacrificedManaValue | Amount::SacrificedPower | Amount::SacrificedToughness => {
             crate::resolve::sacrificed_amount(state.object(this), amount)
         }
-        Amount::ManaSpentToCast => mana_spent_on(state, this),
+        Amount::ManaSpentToCast => mana_spent_on(state, this, source_version),
         Amount::ManaTypeSpentOnX(color) => state
             .object(this)
             .and_then(|o| o.paid.as_ref())
@@ -609,10 +656,12 @@ pub(crate) fn amount_with_event_amount(
         Amount::OpponentsYouAttackedThisCombat => state.combat.opponents_attacked_by(state, you),
         Amount::OpponentsYouAreAttacking => state.combat.opponents_being_attacked_by(state, you),
         Amount::DamageDealtToOpponentsThisTurn => damage_dealt_to_opponents_this_turn(state, you),
-        Amount::SnowManaSpentToCast => snow_mana_spent_on(state, this),
-        Amount::ManaColorSpentToCast(color) => mana_color_spent_on(state, this, *color),
-        Amount::ColorsOfManaSpentToCast => colors_of_mana_spent_on(state, this),
-        Amount::ConvokedCount => convoked_count_on(state, this),
+        Amount::SnowManaSpentToCast => snow_mana_spent_on(state, this, source_version),
+        Amount::ManaColorSpentToCast(color) => {
+            mana_color_spent_on(state, this, source_version, *color)
+        }
+        Amount::ColorsOfManaSpentToCast => colors_of_mana_spent_on(state, this, source_version),
+        Amount::ConvokedCount => convoked_count_on(state, this, source_version),
         Amount::TokensCreatedThisTurn { filter, creator } => {
             super::players_for_source(*creator, state, you, Some(context.source))
                 .map_or(0, |seats| {

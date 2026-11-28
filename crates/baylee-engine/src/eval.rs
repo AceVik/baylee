@@ -986,7 +986,7 @@ pub(crate) fn matches_projected_with_choices(
                     .any(|r| matches!(r, crate::object::Rider::WarpedInExile(_)))
         }
         Filter::CmcAtMostSnowManaSpent => {
-            chars.mana_value() <= amounts::snow_mana_spent_on(state, this)
+            chars.mana_value() <= amounts::snow_mana_spent_on(state, this, None)
         }
         Filter::Monstrous => {
             obj.zone == Zone::Battlefield

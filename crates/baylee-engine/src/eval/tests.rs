@@ -1491,4 +1491,152 @@ fn life_below_starting_reads_each_players_own_starting_total() {
     );
 }
 
+/// CR 603.4, CR 608.2h, CR 113.7a, CR 400.7: an intervening-`if` clause over
+/// mana spent (or convoke count) to cast a creature reads the triggering
+/// incarnation's last known information on resolution even after that permanent
+/// has left the battlefield, and never reads a later incarnation that reuses
+/// the same engine handle.
+#[test]
+fn intervening_if_spent_to_cast_amounts_read_source_incarnation_lki() {
+    use baylee_core::color::{Color, ColorSet};
+    use baylee_core::mana::ManaColor;
+
+    let mut state = empty_state();
+    state.per_turn.track_mana_types_spent.0 = true;
+
+    // Cast spell on the stack with {W}{W} + 2 snow colorless spent (total 4 mana,
+    // 1 color, 2 white, 2 snow) and 2 convoked creatures.
+    let name = state.names.intern("Incarnation");
+    let source = state.create_bare(P0, ObjectKind::Spell, name, ZoneLocation::Stack);
+    {
+        let obj = state.object_mut(source).expect("spell");
+        obj.base_mut().types = TypeSet::CREATURE;
+        obj.cast_history.set_caster(Some(P0));
+        let mut paid = crate::object::PaidRecord::default();
+        paid.mana_spent = 4;
+        paid.mana_types_spent[ManaColor::White.index()] = 2;
+        paid.mana_types_spent[ManaColor::Colorless.index()] = 2;
+        paid.colors_spent = ColorSet::from_slice(&[Color::White]);
+        paid.mana_paid.add_snow(ManaColor::Colorless, 2);
+        obj.paid = Some(Box::new(paid));
+        obj.riders.push(crate::object::Rider::ConvokedCount(2));
+    }
+
+    // Spell resolves onto the battlefield (Stack -> Battlefield preserves
+    // casting riders and cast_history).
+    state
+        .move_object(
+            source,
+            ZoneLocation::Battlefield,
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .unwrap();
+    let bf_version = state.object(source).expect("permanent").version;
+
+    // Move permanent off the battlefield (as when an evoke sacrifice trigger
+    // resolves first): the graveyard card is a new object (CR 400.7) with
+    // nothing spent to cast it.
+    state
+        .move_object(
+            source,
+            ZoneLocation::Graveyard(P0),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .unwrap();
+    let gy_version = state.object(source).expect("graveyard card").version;
+    assert_ne!(bf_version, gy_version);
+
+    let checks = [
+        (
+            "ManaColorSpentToCast",
+            Condition::AmountAtLeast(Amount::ManaColorSpentToCast(ManaColor::White), 2),
+        ),
+        (
+            "ColorsOfManaSpentToCast",
+            Condition::AmountAtLeast(Amount::ColorsOfManaSpentToCast, 1),
+        ),
+        (
+            "SnowManaSpentToCast",
+            Condition::AmountAtLeast(Amount::SnowManaSpentToCast, 2),
+        ),
+        (
+            "ConvokedCount",
+            Condition::AmountAtLeast(Amount::ConvokedCount, 2),
+        ),
+        (
+            "ManaSpentToCast",
+            Condition::AmountAtLeast(Amount::ManaSpentToCast, 4),
+        ),
+    ];
+
+    for (label, cond) in checks {
+        assert!(
+            intervening_if_for_incarnation(
+                &state,
+                Some(cond),
+                P0,
+                source,
+                Some(bf_version),
+                None,
+                None,
+            ),
+            "{label}: departed battlefield incarnation still satisfies intervening-if via LKI"
+        );
+        assert!(
+            !intervening_if_for_incarnation(
+                &state,
+                Some(cond),
+                P0,
+                source,
+                Some(gy_version),
+                None,
+                None,
+            ),
+            "{label}: new graveyard incarnation has nothing spent to cast it"
+        );
+    }
+
+    // Returning the card to the battlefield without casting it (e.g., blinked
+    // or reanimated) creates a fresh uncast battlefield incarnation: the old
+    // trigger must still read LKI of `bf_version`, and the new permanent must
+    // report 0 for every spent-to-cast amount.
+    state
+        .move_object(
+            source,
+            ZoneLocation::Battlefield,
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .unwrap();
+    let returned_version = state.object(source).expect("returned permanent").version;
+    for (label, cond) in checks {
+        assert!(
+            intervening_if_for_incarnation(
+                &state,
+                Some(cond),
+                P0,
+                source,
+                Some(bf_version),
+                None,
+                None,
+            ),
+            "{label}: old trigger still reads original cast incarnation after re-entry"
+        );
+        assert!(
+            !intervening_if_for_incarnation(
+                &state,
+                Some(cond),
+                P0,
+                source,
+                Some(returned_version),
+                None,
+                None,
+            ),
+            "{label}: uncast returning permanent has nothing spent to cast it"
+        );
+    }
+}
+
 mod filters;

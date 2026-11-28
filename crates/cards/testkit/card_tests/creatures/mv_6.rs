@@ -21,6 +21,7 @@ mod callous_giant;
 mod canopy_dragon;
 mod carnage_tyrant;
 mod catacomb_dragon;
+mod catharsis;
 mod champion_lancer;
 mod cho_arrim_bruiser;
 mod commander_greven_il_vec;
