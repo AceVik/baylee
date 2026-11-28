@@ -76,6 +76,129 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         reach.pays(cost)
     }
 
+    /// Whether the mana `player` has floating for `spend` together with the
+    /// mana abilities still on offer could pay `cost` in a CR 601.2g payment
+    /// window.
+    ///
+    /// Uses the same narrowed mana offer as [`Self::can_make_mana_for_cast`]
+    /// and deduplicates `{T}` mana abilities per permanent so a basic land
+    /// listed in both `mana_abilities` and `abilities` is counted once.
+    /// Triggered mana abilities (CR 605.1b, e.g. Wild Growth / High Tide) and
+    /// dynamic or non-tap mana abilities count as open so a legal branch is
+    /// never hidden.
+    pub(super) fn reaches_cast_mana(
+        &self,
+        player: PlayerId,
+        card: ObjectId,
+        spend: crate::casting::SpendFor,
+        cost: &ManaCost,
+    ) -> bool {
+        let mut legal = self.compute_legal_for_mana(player);
+        self.narrow_to_mana(&mut legal);
+        if !legal.has_mana_source() {
+            return false;
+        }
+        if crate::casting::spell_mana_spending(&self.state, player, card) != ManaSpending::EXACT {
+            return true;
+        }
+        let has_triggered_mana = self.state.delayed.iter().any(|d| {
+            matches!(
+                d.when,
+                crate::state::DelayedWhen::TappedForManaThisTurn { .. }
+            )
+        }) || self.state.battlefield_seen().any(|id| {
+            self.state.object(id).is_some_and(|o| {
+                o.abilities(&self.lookup)
+                    .iter()
+                    .any(baylee_cards_dsl::AbilityDef::is_triggered_mana_ability)
+            })
+        });
+        if has_triggered_mana {
+            return true;
+        }
+        let mut reach = Reach::default();
+        let spendable = crate::casting::spendable_pool(&self.state, player, spend);
+        let pool = spendable
+            .as_ref()
+            .unwrap_or(&self.state.players[usize::from(player.get())].mana_pool);
+        for color in ManaColor::ALL {
+            reach.add(&[color], Some(pool.available(color)));
+        }
+        reach.add(
+            &[ManaColor::Colorless],
+            Some(self.state.granted_colorless_capacity(player)),
+        );
+        for offer in &legal.granted_actions {
+            if let crate::choice::GrantedActionKind::AddMana { color, amount } = offer.effect {
+                reach.add(&[color], Some(u32::from(amount)));
+            }
+        }
+        let mut tap_sources: std::collections::BTreeMap<ObjectId, TapReach> =
+            std::collections::BTreeMap::new();
+        for &id in &legal.mana_abilities {
+            let entry = tap_sources.entry(id).or_default();
+            let colors = crate::casting::intrinsic_mana_colors(&self.state, id);
+            if colors.is_empty() {
+                entry.open = true;
+            } else {
+                entry.add_choice(&colors, 1);
+            }
+        }
+        for &(id, at) in &legal.abilities {
+            if !self.is_payment_mana_offer(id, at) {
+                continue;
+            }
+            let Some(
+                baylee_cards_dsl::AbilityDef::Activated {
+                    cost: ab_cost,
+                    effects,
+                    ..
+                }
+                | baylee_cards_dsl::AbilityDef::ActivatedConditional {
+                    cost: ab_cost,
+                    effects,
+                    ..
+                },
+            ) = self.activation_definition(id, at)
+            else {
+                return true;
+            };
+            let is_plain_tap = ab_cost.mana == ManaCost::ZERO
+                && ab_cost.parts.contains(&baylee_cards_dsl::CostPart::TapSelf);
+            if !is_plain_tap {
+                // Non-tap mana abilities (e.g. sacrifice/untap loops) or
+                // mana-paid abilities (filter lands, Nykthos) may produce
+                // more mana than one tap.
+                return true;
+            }
+            let entry = tap_sources.entry(id).or_default();
+            if let Some((made, amount, _)) = baylee_cards_dsl::mana_with_riders(&ab_cost, effects) {
+                let colors = crate::resolve::colors_of(&self.state, player, made, id);
+                if let Some(amount) = amount {
+                    entry.add_choice(&colors, u32::from(amount));
+                } else if !colors.is_empty() {
+                    entry.open = true;
+                }
+            } else if let Some(colors) = baylee_cards_dsl::mana_bundle(&ab_cost, effects) {
+                entry.add_bundle(&colors);
+            } else {
+                entry.open = true;
+            }
+        }
+        for entry in tap_sources.into_values() {
+            if entry.open {
+                reach.anything();
+            } else {
+                for i in 0..6 {
+                    reach.by_color[i] =
+                        reach.by_color[i].saturating_add(u64::from(entry.by_color[i]));
+                }
+                reach.total = reach.total.saturating_add(u64::from(entry.total));
+            }
+        }
+        reach.pays(cost)
+    }
+
     /// What mana ability `index` of `id` adds to `reach`: the colours its
     /// mana may be ([`crate::resolve::colors_of`], the reader the mana is
     /// made by) and how much, or anything where the ability is not one this
@@ -99,6 +222,38 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         } else {
             reach.anything();
         }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+struct TapReach {
+    by_color: [u32; 6],
+    total: u32,
+    open: bool,
+}
+
+impl TapReach {
+    fn add_choice(&mut self, colors: &[ManaColor], amount: u32) {
+        if colors.is_empty() || amount == 0 {
+            return;
+        }
+        for color in colors {
+            let slot = &mut self.by_color[color.index()];
+            *slot = (*slot).max(amount);
+        }
+        self.total = self.total.max(amount);
+    }
+
+    fn add_bundle(&mut self, colors: &[ManaColor]) {
+        let mut counts = [0_u32; 6];
+        for color in colors {
+            counts[color.index()] = counts[color.index()].saturating_add(1);
+        }
+        for (slot, count) in self.by_color.iter_mut().zip(counts) {
+            *slot = (*slot).max(count);
+        }
+        let bundle_total = u32::try_from(colors.len()).unwrap_or(u32::MAX);
+        self.total = self.total.max(bundle_total);
     }
 }
 

@@ -147,6 +147,7 @@ mod reach_through_mists;
 mod reaping_the_rewards;
 mod reclaim;
 mod red_elemental_blast;
+mod redirect_lightning;
 mod reinforcements;
 mod remove_enchantments;
 mod rescue;

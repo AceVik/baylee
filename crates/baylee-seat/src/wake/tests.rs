@@ -985,3 +985,42 @@ fn react_targets_me_hears_a_trigger_of_ours_someone_else_aimed_at_us() {
         Verdict::Wake(Why::OpposingStack)
     );
 }
+
+/// CR 119.4: at 1 life, Redirect Lightning's 5-life branch cannot be paid, so
+/// its floor price is `{2}{R}`: with three untapped Mountains the reach taps
+/// all three (not just one), with `{R}` already floating and two untapped
+/// Mountains it still offers tapping the remaining two (never vanishes), and
+/// with only two untapped Mountains total it is not reachable.
+#[test]
+fn redirect_lightning_at_low_life_plans_two_red_floor() {
+    let (mut view, legal) = table(
+        &["Mountain", "Mountain", "Mountain"],
+        &["Redirect Lightning"],
+    );
+    view.seats[0].life = 1;
+    view.stack.push(token(90, 1, "Shock", 0, 0));
+
+    let reach = reachable(&view, &legal);
+    assert_eq!(reach.len(), 1, "{reach:?}");
+    assert_eq!(reach[0].plan.cost, "{2}{R}".parse::<ManaCost>().unwrap());
+    assert_eq!(reach[0].plan.steps.len(), 3, "must tap all three Mountains");
+
+    // With {R} already floating and two Mountains still untapped: still offered
+    // with the two remaining taps (must not vanish from options).
+    let (mut view, legal) = table(&["Mountain", "Mountain"], &["Redirect Lightning"]);
+    view.seats[0].life = 1;
+    view.seats[0].mana_pool.red = 1;
+    view.stack.push(token(90, 1, "Shock", 0, 0));
+    let reach = reachable(&view, &legal);
+    assert_eq!(reach.len(), 1, "{reach:?}");
+    assert_eq!(reach[0].plan.cost, "{2}{R}".parse::<ManaCost>().unwrap());
+    assert_eq!(
+        reach[0].plan.steps.len(),
+        2,
+        "must tap the two remaining Mountains"
+    );
+
+    // With only two Mountains and empty pool at 1 life: {2}{R} is out of reach.
+    view.seats[0].mana_pool.red = 0;
+    assert!(reachable(&view, &legal).is_empty());
+}

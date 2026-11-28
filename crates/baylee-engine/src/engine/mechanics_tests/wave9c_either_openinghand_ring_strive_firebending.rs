@@ -53,6 +53,7 @@ const RUBY_GOBLIN_REDUCER: u32 = 8914;
 const FIREBENDER_MONK: u32 = 8915;
 const FIREBEND_ASCENSION: u32 = 8916;
 const COMBAT_INSTANT_BOLT: u32 = 8917;
+const LIFE_OR_TWO_SPELL: u32 = 8918;
 
 fn leak(id: u32, face: FaceDef) -> &'static CardDef {
     let keywords = face.keywords;
@@ -114,6 +115,23 @@ fn spark_harvest_like() -> &'static CardDef {
             mandatory_additional_costs: &MANDATORY,
             abilities: &ABILITIES,
             ..face("Spark Harvest Probe", "{B}", TypeSet::SORCERY)
+        },
+    )
+}
+
+fn life_or_two_spell() -> &'static CardDef {
+    static BRANCH_A: Cost = cost!("", PayLife(5));
+    static BRANCH_B: Cost = cost!("{2}");
+    static MANDATORY: [CostPart; 1] = [CostPart::Either(&BRANCH_A, &BRANCH_B)];
+    static ABILITIES: [AbilityDef; 1] = [spell!(&[Effect::DrawCards {
+        amount: Amount::Fixed(1),
+    }])];
+    leak(
+        LIFE_OR_TWO_SPELL,
+        FaceDef {
+            mandatory_additional_costs: &MANDATORY,
+            abilities: &ABILITIES,
+            ..face("Life or Two Probe", "{G}", TypeSet::INSTANT)
         },
     )
 }
@@ -368,6 +386,7 @@ fn wave9c_cards() -> Vec<&'static CardDef> {
         firebender_monk(),
         firebend_ascension(),
         combat_instant_bolt(),
+        life_or_two_spell(),
     ]
 }
 
@@ -485,6 +504,159 @@ fn cost_part_either_prompts_when_both_payable_auto_selects_sole_branch_and_works
     drain_stack(&mut engine);
     assert_eq!(life(&engine, me()), 28);
     assert_eq!(engine.state.object(f2).unwrap().zone, Zone::Graveyard);
+}
+
+/// CR 601.2b, 118.8, 601.2f, 601.2g: casting a `CostPart::Either(PayLife(5), {2})`
+/// spell off the pool (`Paying::FromThePool`) with only the base `{G}` floating
+/// must still prompt `ChooseFirstCostBranch` when untapped mana sources can
+/// produce `{2}` in the CR 601.2g payment window, and must settle silently to
+/// the life branch once no untapped mana sources remain.
+#[test]
+fn either_cost_prompts_when_mana_branch_is_payable_with_untapped_mana_sources() {
+    let mut engine = bench(
+        2,
+        wave9c_cards(),
+        [
+            Seat::with(&[forest(), forest(), forest()])
+                .holding(&[LIFE_OR_TWO_SPELL, LIFE_OR_TWO_SPELL]),
+            Seat::with(&[]),
+        ],
+    );
+    to_main(&mut engine, me());
+
+    let forests = objects(&engine, ZoneLocation::Battlefield, forest());
+    assert_eq!(forests.len(), 3);
+    let spells = objects(&engine, ZoneLocation::Hand(me()), LIFE_OR_TWO_SPELL);
+    let (s1, s2) = (spells[0], spells[1]);
+
+    // Tap one Forest for {G} (pool route), leaving two Forests untapped.
+    engine
+        .apply(
+            me(),
+            PlayerAction::ActivateManaAbility { source: forests[0] },
+        )
+        .expect("tap first Forest");
+    engine
+        .apply(me(), PlayerAction::CastSpell { card: s1 })
+        .expect("start casting off pool with {G} floating");
+
+    // Both branches are payable (5 life or {2} via the two untapped Forests).
+    assert!(
+        matches!(
+            engine.pending(),
+            Pending::YesNo {
+                player,
+                prompt: YesNoPrompt::ChooseFirstCostBranch { index: 0 },
+                ..
+            } if *player == me()
+        ),
+        "expected ChooseFirstCostBranch when mana branch can be paid in CR 601.2g window, got {:?}",
+        engine.pending()
+    );
+
+    // Choose No ({2}) -> payment window opens -> tap the remaining two Forests.
+    engine
+        .apply(me(), PlayerAction::YesNo(false))
+        .expect("choose {2} branch");
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == me()),
+        "expected CR 601.2g payment window for {{2}}, got {:?}",
+        engine.pending()
+    );
+    engine
+        .apply(
+            me(),
+            PlayerAction::ActivateManaAbility { source: forests[1] },
+        )
+        .expect("tap second Forest in window");
+    engine
+        .apply(
+            me(),
+            PlayerAction::ActivateManaAbility { source: forests[2] },
+        )
+        .expect("tap third Forest in window");
+    engine
+        .apply(me(), PlayerAction::PassPriority)
+        .expect("close payment window and finish cast");
+    drain_stack(&mut engine);
+    assert_eq!(life(&engine, me()), 20, "choosing {{2}} paid no life");
+
+    // Now untap only ONE Forest and float {G}: total reach is {G}{G} (< {2}{G}),
+    // so the {2} branch is NOT payable and the second spell settles silently on
+    // PayLife(5) without double-counting the Forest across mana_abilities + abilities.
+    engine
+        .state
+        .object_mut(forests[0])
+        .unwrap()
+        .status
+        .remove(crate::object::Status::TAPPED);
+    add_pool(&mut engine, me(), ManaColor::Green, 1);
+    engine
+        .apply(me(), PlayerAction::CastSpell { card: s2 })
+        .expect("cast second spell with {G} floating and only one untapped Forest");
+    assert!(
+        !matches!(
+            engine.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::ChooseFirstCostBranch { .. },
+                ..
+            }
+        ),
+        "must not offer {{2}} when floating {{G}} plus one untapped Forest cannot pay {{2}}{{G}}, got {:?}",
+        engine.pending()
+    );
+    drain_stack(&mut engine);
+    assert_eq!(life(&engine, me()), 15, "only PayLife(5) was payable");
+}
+
+/// CR 119.4: `face_additional_mana_floor` includes the `{2}` branch of
+/// `CostPart::Either(PayLife(5), {2})` whenever the caster cannot pay 5 life
+/// (below 5 life, or under a cannot-lose-life lock), and returns `{0}` while
+/// 5 life is payable.
+#[test]
+fn face_additional_mana_floor_includes_mana_branch_when_life_branch_unpayable() {
+    let mut engine = bench(
+        2,
+        wave9c_cards(),
+        [
+            Seat::with(&[forest(), forest(), forest()])
+                .holding(&[LIFE_OR_TWO_SPELL])
+                .at(3),
+            Seat::with(&[]),
+        ],
+    );
+    to_main(&mut engine, me());
+
+    let spell = the(&engine, ZoneLocation::Hand(me()), LIFE_OR_TWO_SPELL);
+    let face = &life_or_two_spell().faces[0];
+
+    // At 3 life, PayLife(5) is unpayable (CR 119.4) -> floor is {2}, base is {2}{G}.
+    assert_eq!(
+        crate::casting::face_additional_mana_floor(&engine.state, me(), spell, face),
+        mana!("{2}"),
+        "at 3 life the 5-life branch is unpayable, so the floor must include {{2}}"
+    );
+    assert_eq!(
+        crate::casting::face_base_mana_cost(&engine.state, me(), spell, face),
+        mana!("{2}{G}"),
+        "at 3 life the minimum base mana cost is {{2}}{{G}}"
+    );
+
+    // At 5 life, PayLife(5) is legally payable (CR 119.4) -> floor is {0}.
+    engine.state.players[0].life = 5;
+    assert_eq!(
+        crate::casting::face_additional_mana_floor(&engine.state, me(), spell, face),
+        ManaCost::ZERO,
+        "at 5 life PayLife(5) is payable (CR 119.4), so floor is zero"
+    );
+
+    // At 1 life, PayLife(5) is unpayable -> floor is {2}.
+    engine.state.players[0].life = 1;
+    assert_eq!(
+        crate::casting::face_additional_mana_floor(&engine.state, me(), spell, face),
+        mana!("{2}"),
+        "at 1 life the floor must include {{2}}"
+    );
 }
 
 #[test]

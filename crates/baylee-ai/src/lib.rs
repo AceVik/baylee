@@ -1656,6 +1656,22 @@ pub fn spell_price(
     policy::spell_price(view, id, card, legal, mode, cost)
 }
 
+/// Mandatory additional mana owed when `card`'s `behold_or_pay` or
+/// `CostPart::Either` has no non-mana branch payable on `view` (CR 118.8,
+/// 119.4).
+#[must_use]
+pub fn spell_mandatory_mana_floor(
+    view: &PlayerView,
+    id: ObjectId,
+    card: baylee_view::CardIdentity,
+) -> baylee_core::mana::ManaCost {
+    baylee_cards::by_index(card.index)
+        .and_then(|def| def.faces.get(usize::from(card.face)).or(def.faces.first()))
+        .map_or(baylee_core::mana::ManaCost::ZERO, |face| {
+            policy::mandatory_mana_floor(view, id, face)
+        })
+}
+
 /// `cost` less what the graveyard pays, where `card` has delve (CR 702.66a).
 /// Apart from [`spell_price`] because that price is `LegalActions`', and delve
 /// is read off the card and the view.

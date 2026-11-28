@@ -801,7 +801,7 @@ pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
         .iter()
         .filter(|card| {
             !legal.castable.contains(&card.id)
-                || printed_cost(card.card).is_some_and(|c| {
+                || base_cost(view, card.id, card.card).is_some_and(|c| {
                     let price = baylee_ai::spell_price(
                         view,
                         card.id,
@@ -827,7 +827,7 @@ pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
                 plan: payable(
                     card.id,
                     card.card,
-                    printed_cost(card.card)?,
+                    base_cost(view, card.id, card.card)?,
                     CastModeKind::Normal,
                 )?,
             })
@@ -1086,7 +1086,8 @@ fn commanders(
             {
                 return None;
             }
-            let cost = printed_cost(card)?.with_more_generic(c.casts.saturating_mul(2));
+            let cost =
+                base_cost(view, c.object, card)?.with_more_generic(c.casts.saturating_mul(2));
             Some(Reach {
                 object: c.object,
                 card,
@@ -1122,9 +1123,15 @@ fn graveyard_and_exile(
             continue;
         }
         let (Some(cost), mode) = (if let Some(fb) = object.flashback {
-            (Some(fb), CastModeKind::Flashback)
+            let floor = baylee_ai::spell_mandatory_mana_floor(view, object.id, card);
+            let cost = if floor == ManaCost::ZERO {
+                fb
+            } else {
+                fb.combine(&floor)
+            };
+            (Some(cost), CastModeKind::Flashback)
         } else if object.owner == me && legal.payable.contains(&object.id) {
-            (printed_cost(card), CastModeKind::Normal)
+            (base_cost(view, object.id, card), CastModeKind::Normal)
         } else {
             (None, CastModeKind::Normal)
         }) else {
@@ -1155,7 +1162,7 @@ fn graveyard_and_exile(
         {
             continue;
         }
-        let Some(cost) = printed_cost(card) else {
+        let Some(cost) = base_cost(view, object.id, card) else {
             continue;
         };
         if let Some(plan) = payable(object.id, card, cost, CastModeKind::Normal) {
@@ -1170,6 +1177,19 @@ fn graveyard_and_exile(
         }
     }
     out
+}
+
+/// A card face's printed mana cost plus any mandatory additional mana floor
+/// owed on `view` (CR 118.8, 119.4, e.g. `CostPart::Either` when the non-mana
+/// branch cannot be paid).
+fn base_cost(view: &PlayerView, id: ObjectId, card: baylee_view::CardIdentity) -> Option<ManaCost> {
+    let printed = printed_cost(card)?;
+    let floor = baylee_ai::spell_mandatory_mana_floor(view, id, card);
+    Some(if floor == ManaCost::ZERO {
+        printed
+    } else {
+        printed.combine(&floor)
+    })
 }
 
 /// A card face's printed mana cost.
