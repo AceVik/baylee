@@ -383,7 +383,31 @@ pub const PRICED: &[(Provider, &str, Price)] = &[
             cache_read: 0.01,
         },
     ),
+    // OpenAI's standard rates for a prompt of at most 272K tokens
+    // (developers.openai.com/api/docs/pricing, read 2026-11-28); a longer
+    // one costs more, which a seat's request does not reach. OpenAI's cache
+    // writes itself at no premium, so a write is the input price and a read
+    // the cached-input price.
+    (Provider::OpenAi, "gpt-6.2-astra", openai(8.0, 0.4, 40.0)),
+    (Provider::OpenAi, "gpt-6.2-sol", openai(2.0, 0.1, 10.0)),
+    (Provider::OpenAi, "gpt-6-astra", openai(10.0, 1.0, 50.0)),
+    (Provider::OpenAi, "gpt-6.1-sol", openai(2.0, 0.1, 10.0)),
+    (Provider::OpenAi, "gpt-6.1-terra", openai(1.0, 0.05, 5.0)),
+    (Provider::OpenAi, "gpt-6-sol", openai(2.0, 0.2, 10.0)),
+    (Provider::OpenAi, "gpt-6-luna", openai(0.1, 0.01, 0.5)),
 ];
+
+/// An `OpenAI` price: input, cached input and output per million tokens,
+/// with no premium for writing the cache.
+const fn openai(input: f64, cached: f64, output: f64) -> Price {
+    Price {
+        input,
+        output,
+        cache_write: input,
+        cache_write_hour: input,
+        cache_read: cached,
+    }
+}
 
 /// What a model costs, for the models this build knows ([`PRICED`]);
 /// `None` for any other, which then plays only with a price given

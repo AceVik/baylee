@@ -66,7 +66,8 @@ const fn model(
 }
 
 /// Anthropic's models that the bridge's request suits (adaptive thinking
-/// and an effort; Haiku 4.5 takes neither, so it is not offered). The
+/// and an effort; Haiku 4.5 takes neither, so it is not offered, while
+/// Haiku 5.5 takes both, `low` to `max`, with `medium` its default). The
 /// bridge names `medium` when a profile names no effort
 /// ([`Provider::default_effort`]).
 const ANTHROPIC: &[KnownModel] = &[
@@ -79,6 +80,12 @@ const ANTHROPIC: &[KnownModel] = &[
     model(
         "claude-sonnet-5-5",
         "Claude Sonnet 5.5",
+        CLAUDE_EFFORTS,
+        Some("medium"),
+    ),
+    model(
+        "claude-haiku-5-5",
+        "Claude Haiku 5.5",
         CLAUDE_EFFORTS,
         Some("medium"),
     ),
@@ -134,11 +141,51 @@ const DEEPSEEK: &[KnownModel] = &[
     model("deepseek-v4-pro", "DeepSeek V4 Pro", NONE, None),
 ];
 
+/// The `reasoning_effort` levels `OpenAI`'s GPT-6.1 Terra, GPT-6 Sol and
+/// GPT-6 Luna take: `none` to `max` (their model pages, read 2026-11-28).
+const OPENAI_NONE_EFFORTS: &[&str] = &["none", "low", "medium", "high", "xhigh", "max"];
+
+/// The levels GPT-6 Astra and GPT-6.1 Sol take: `low` to `max`, without
+/// `none`. GPT-6.2 Astra and Sol are held to the same: their pages say only
+/// that the API refuses `none`, and Codex's `ultra` is not an API level.
+const OPENAI_EFFORTS: &[&str] = &["low", "medium", "high", "xhigh", "max"];
+
+/// `OpenAI`'s GPT-6 models at `api.openai.com`, with the `reasoning_effort`
+/// each takes (model pages and price list, read 2026-11-28). On Chat
+/// Completions some of them call functions only at effort `none`, so a
+/// profile there answers `json_schema` (`docs/llm-seat.md` §"Models and
+/// efforts").
+const OPENAI: &[KnownModel] = &[
+    model("gpt-6.2-astra", "GPT-6.2 Astra", OPENAI_EFFORTS, None),
+    model("gpt-6.2-sol", "GPT-6.2 Sol", OPENAI_EFFORTS, None),
+    model("gpt-6-astra", "GPT-6 Astra", OPENAI_EFFORTS, None),
+    model("gpt-6.1-sol", "GPT-6.1 Sol", OPENAI_EFFORTS, Some("medium")),
+    model(
+        "gpt-6.1-terra",
+        "GPT-6.1 Terra",
+        OPENAI_NONE_EFFORTS,
+        Some("medium"),
+    ),
+    model(
+        "gpt-6-sol",
+        "GPT-6 Sol",
+        OPENAI_NONE_EFFORTS,
+        Some("medium"),
+    ),
+    model(
+        "gpt-6-luna",
+        "GPT-6 Luna",
+        OPENAI_NONE_EFFORTS,
+        Some("medium"),
+    ),
+];
+
 /// The hosted APIs this build knows the models of, by host: whichever wire
 /// protocol a profile speaks there (`DeepSeek` answers both, at
 /// `/v1` and at `/anthropic`), the host's models are the ones it serves.
 pub const HOSTED: &[(&str, &[KnownModel])] = &[
     ("api.anthropic.com", ANTHROPIC),
+    ("api.openai.com", OPENAI),
     ("api.deepseek.com", DEEPSEEK),
 ];
 
@@ -622,7 +669,36 @@ mod tests {
         assert_eq!(known(proxy), ANTHROPIC);
         let elsewhere = Endpoint::new(Provider::OpenAi, Some("https://llm.example.org/v1"));
         assert!(known(elsewhere).is_empty());
-        assert!(known(Endpoint::new(Provider::OpenAi, None)).is_empty());
+        // An OpenAI-compatible profile with no address speaks to OpenAI's
+        // own API, whose GPT-6 models this build knows.
+        assert_eq!(known(Endpoint::new(Provider::OpenAi, None)), OPENAI);
+    }
+
+    /// `OpenAI`'s GPT-6 models and Claude Haiku 5.5 take named efforts over
+    /// the API, so a ranked path on them names one rather than playing at
+    /// its Standard; `none` only where `OpenAI` offers it.
+    #[test]
+    fn the_api_models_of_the_ranked_players_take_their_efforts() {
+        let openai = Endpoint::new(Provider::OpenAi, None);
+        for id in [
+            "gpt-6.2-astra",
+            "gpt-6.2-sol",
+            "gpt-6-astra",
+            "gpt-6.1-sol",
+            "gpt-6.1-terra",
+            "gpt-6-sol",
+            "gpt-6-luna",
+        ] {
+            let model = resolve(openai, id, &[]);
+            assert_eq!(model.source, Source::Known, "{id}");
+            assert!(model.takes("low") && model.takes("max"), "{id}");
+            assert!(!model.takes("ultra"), "{id}");
+        }
+        assert!(resolve(openai, "gpt-6-luna", &[]).takes("none"));
+        assert!(!resolve(openai, "gpt-6.2-astra", &[]).takes("none"));
+        let haiku = resolve(anthropic(), "claude-haiku-5-5", &[]);
+        assert_eq!(haiku.efforts, CLAUDE_EFFORTS);
+        assert_eq!(haiku.default_effort, Some("medium"));
     }
 
     /// Only the efforts a model takes are offered: no `xhigh` on the 4.6
@@ -709,16 +785,18 @@ mod tests {
         assert_eq!(typed.label, "claude-next-9");
         assert_eq!(typed.source, Source::Typed);
         assert!(typed.efforts.is_empty());
-        // Haiku 4.5 is not offered to the API path at all.
-        assert!(
-            !offered(anthropic(), &[])
-                .iter()
-                .any(|m| m.id.contains("haiku"))
-        );
+        // Haiku 4.5 is not offered to the API path at all; Haiku 5.5 is.
+        let offered_ids: Vec<String> = offered(anthropic(), &[])
+            .into_iter()
+            .map(|m| m.id)
+            .collect();
+        assert!(!offered_ids.iter().any(|id| id == "claude-haiku-4-5"));
+        assert!(offered_ids.iter().any(|id| id == "claude-haiku-5-5"));
     }
 
     /// A hosted OpenAI-compatible endpoint is never asked (its listing needs
-    /// the key); `DeepSeek`'s is known; a server on this machine is listed.
+    /// the key); `DeepSeek`'s and `OpenAI`'s own are known; a server on this
+    /// machine is listed.
     #[test]
     fn a_listing_is_asked_only_of_a_server_on_this_machine() {
         let deepseek = Endpoint::new(Provider::OpenAi, Some("https://api.deepseek.com/v1"));
@@ -728,7 +806,8 @@ mod tests {
         let openai = Endpoint::new(Provider::OpenAi, None);
         assert_eq!(openai.base, Some("https://api.openai.com/v1"));
         assert_eq!(listing_url(openai), None);
-        assert!(offered(openai, &[]).is_empty());
+        let gpt: Vec<String> = offered(openai, &[]).into_iter().map(|m| m.id).collect();
+        assert_eq!(gpt, OPENAI.iter().map(|m| m.id).collect::<Vec<_>>());
         let lm = Endpoint::new(Provider::OpenAi, Some("http://127.0.0.1:1234/v1/"));
         assert_eq!(
             listing_url(lm).as_deref(),
